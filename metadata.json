@@ -1,0 +1,6 @@
+{
+  "name": "Neon Breach: Xeno-Purge",
+  "description": "Turn-based 2D cyberpunk strategy puzzle roguelite where a cybernetic heroine fights grotesque alien mutants by resolving one of three tile types each turn from a 6-tile tactical board.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
