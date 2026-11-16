@@ -4,8 +4,7 @@ export type MedBayOptionId =
   | 'heal'
   | 'calibrate_max_hp'
   | 'salvage_credits'
-  | 'tile_overclock'
-  | 'extract_bank';
+  | 'tile_overclock';
 
 export const NURSE_SHEET_WIDTH = 2170;
 export const NURSE_SHEET_HEIGHT = 725;
@@ -124,7 +123,6 @@ const NURSE_ACTION_SEQUENCES: Record<MedBayOptionId, readonly number[]> = {
   calibrate_max_hp: [6, 7, 0, 1, 6],
   salvage_credits: [4, 5, 3, 2, 4],
   tile_overclock: [7, 5, 4, 6, 7],
-  extract_bank: [2, 3, 1, 0, 2],
 };
 
 export interface NursePoseKinematics {

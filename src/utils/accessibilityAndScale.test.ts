@@ -39,9 +39,11 @@ test('double-coded corner suit pips assign unique geometric shapes and symbols p
 
   const combatNode = getNodeCornerPip('COMBAT');
   const clinicNode = getNodeCornerPip('CYBER_CLINIC');
+  const dealerNode = getNodeCornerPip('CHIP_DEALER');
   const medNode = getNodeCornerPip('MED_BAY');
   assert.equal(combatNode.symbol, '◆');
   assert.equal(clinicNode.symbol, '⬡');
+  assert.equal(dealerNode.symbol, '◈');
   assert.equal(medNode.symbol, '✚');
 
   const bossPip = getEnemyRolePip('boss');

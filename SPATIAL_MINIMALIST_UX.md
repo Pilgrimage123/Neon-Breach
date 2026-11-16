@@ -55,7 +55,7 @@ Every time a player has to look at a corner stat panel or open a modal to unders
 ### 3.2 Hover Previews (The "What-If" State)
 Before committing to a move (`[1] Attack`, `[2] Defense`, `[3] TECH`, or `⇄ Push / Swap`), hovering or selecting the action previews the exact deterministic outcome directly on the combat board:
 1. **Flashing Health & Armor Chunks:** Unit lifebars and gold armor bars flash the exact segment that will be lost (`-5 HP`, `BREAK`, `PIP CRACK`).
-2. **Knockback / Push Trajectory Arrows:** Hovering `⇄ Push / Swap` (or an Attack action) draws bidirectional **knockback trajectory arcs (`⇄ PUSH 1 TILE · -2 ARM/HP`)** between enemy slots showing exactly where each unit will land and how much collision damage they will take.
+2. **Knockback / Swap Trajectory Arrows:** Hovering `⇄ Push / Swap` (or an Attack action) draws bidirectional **swap trajectory arcs (`⇄ SWAP SLOTS · 0 AP`)** between enemy slots showing exactly where each unit will land.
 3. **Lethal Skull Icon (`☠`):** Any unit (enemy or operative) that will die from the previewed action displays a high-contrast **`☠` Skull Badge** directly over its sprite and lifebar.
 
 ### 3.3 Free Undo for Movement & Turn Experimentation

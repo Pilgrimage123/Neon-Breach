@@ -25,6 +25,7 @@ export interface NodeEncounterIntel {
 export type ReconNodePreview =
   | { kind: 'event'; eventTitle: string; choices: string[] }
   | { kind: 'clinic'; isFlashSale: boolean; openSockets: number }
+  | { kind: 'chip_dealer'; isFlashSale: boolean; freeMemory: number }
   | { kind: 'medbay'; healTotal: number; isFunded: boolean }
   | {
       kind: 'combat';
@@ -141,7 +142,7 @@ export function generateSectorMap(seed: number): MapNode[] {
       ['COMBAT'],
       ['CYBER_CLINIC', 'COMBAT', 'COMBAT'],
       ['ELITE', 'COMBAT', 'MED_BAY'],
-      ['MED_BAY', 'ELITE', 'CYBER_CLINIC'],
+      ['MED_BAY', 'ELITE', 'CHIP_DEALER'],
       ['BOSS'],
     ];
     l1ToL2Edges = [
@@ -159,7 +160,7 @@ export function generateSectorMap(seed: number): MapNode[] {
       ['COMBAT'],
       ['COMBAT', 'CYBER_CLINIC', 'COMBAT'],
       ['ELITE', 'COMBAT', 'MED_BAY'],
-      ['MED_BAY', 'ELITE', 'CYBER_CLINIC'],
+      ['MED_BAY', 'ELITE', 'CHIP_DEALER'],
       ['BOSS'],
     ];
     // Central Clinic (L1[1]) routes to Elite (L2[0]) or Combat (L2[1]), never directly to Med-Bay
@@ -178,7 +179,7 @@ export function generateSectorMap(seed: number): MapNode[] {
       ['COMBAT'],
       ['COMBAT', 'COMBAT', 'CYBER_CLINIC'],
       ['MED_BAY', 'COMBAT', 'ELITE'],
-      ['CYBER_CLINIC', 'ELITE', 'MED_BAY'],
+      ['CHIP_DEALER', 'ELITE', 'MED_BAY'],
       ['BOSS'],
     ];
     l1ToL2Edges = [
@@ -192,10 +193,10 @@ export function generateSectorMap(seed: number): MapNode[] {
       [1, 2],
     ];
   } else if (variant === 3) {
-    // Variant 3: North Gauntlet (Elite + MedBay), Center Event Catwalk, South Mercenary Shop-Elite
+    // Variant 3: North Gauntlet (Elite + MedBay), Center Event Catwalk, South Chip-Dealer + Elite
     laneLayouts = [
       ['COMBAT'],
-      ['COMBAT', 'EVENT', 'CYBER_CLINIC'],
+      ['COMBAT', 'EVENT', 'CHIP_DEALER'],
       ['ELITE', 'COMBAT', 'COMBAT'],
       ['MED_BAY', 'CYBER_CLINIC', 'ELITE'],
       ['BOSS'],
@@ -211,10 +212,10 @@ export function generateSectorMap(seed: number): MapNode[] {
       [1, 2],
     ];
   } else if (variant === 4) {
-    // Variant 4: North Event Catwalk, Center Gauntlet, South Mercenary
+    // Variant 4: North Event Catwalk, Center Gauntlet, South Chip-Dealer + Elite
     laneLayouts = [
       ['COMBAT'],
-      ['EVENT', 'COMBAT', 'CYBER_CLINIC'],
+      ['EVENT', 'COMBAT', 'CHIP_DEALER'],
       ['COMBAT', 'ELITE', 'COMBAT'],
       ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
       ['BOSS'],
@@ -230,12 +231,12 @@ export function generateSectorMap(seed: number): MapNode[] {
       [1, 2],
     ];
   } else {
-    // Variant 5: North Gauntlet (Shop + Elite + MedBay), Center Mercenary, South Event Catwalk
+    // Variant 5: North Gauntlet (Clinic + Elite + MedBay), Center Chip Dealer, South Event Catwalk
     laneLayouts = [
       ['COMBAT'],
       ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
       ['ELITE', 'COMBAT', 'COMBAT'],
-      ['MED_BAY', 'CYBER_CLINIC', 'ELITE'],
+      ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
       ['BOSS'],
     ];
     l1ToL2Edges = [
@@ -291,10 +292,14 @@ export function generateSectorMap(seed: number): MapNode[] {
       eligibleOvercharged[ocIdx].modifier = 'overcharged_hazard';
     }
 
-    const eligibleShops = nodes.filter((n) => n.type === 'CYBER_CLINIC' && !n.modifier);
-    if (eligibleShops.length > 0) {
-      const shopIdx = Math.abs(seed * 17 + 5) % eligibleShops.length;
-      eligibleShops[shopIdx].modifier = 'flash_sale';
+    const eligibleShops = nodes.filter(
+      (n) => (n.type === 'CHIP_DEALER' || n.type === 'CYBER_CLINIC') && !n.modifier,
+    );
+    const chipDealers = eligibleShops.filter((n) => n.type === 'CHIP_DEALER');
+    const flashPool = chipDealers.length > 0 ? chipDealers : eligibleShops;
+    if (flashPool.length > 0) {
+      const shopIdx = Math.abs(seed * 17 + 5) % flashPool.length;
+      flashPool[shopIdx].modifier = 'flash_sale';
     }
 
     const eligibleClinics = nodes.filter((n) => n.type === 'MED_BAY' && !n.modifier);
@@ -393,16 +398,25 @@ export function getNodeEconomyMetrics(
     case 'CYBER_CLINIC':
       tensionHpPct = 0;
       runYieldCredits = 0;
+      runYieldPowerRating = 'HIGH';
+      metaYieldNanites = 0;
+      opportunityCost = isCs
+        ? 'Instalace 1 kyber-implantátu a volitelné odstranění dílku (30 CR).'
+        : 'Draft 1 of 3 Cyber Implants + optional Innate/Dud Tile Purge (30 CR).';
+      break;
+    case 'CHIP_DEALER':
+      tensionHpPct = 0;
+      runYieldCredits = 0;
       runYieldPowerRating = node.modifier === 'flash_sale' ? 'CRITICAL' : 'HIGH';
       metaYieldNanites = 0;
       opportunityCost =
         node.modifier === 'flash_sale'
           ? isCs
-            ? 'Bleskový výprodej (-35% cen): maximální přeměna kreditů na sílu výbavy.'
-            : 'Flash Sale (-35% Price): maximum build power conversion at heavy discount.'
+            ? 'Bleskový výprodej (-35 % cen): maximální přeměna kreditů na AI čipy.'
+            : 'Flash Sale (-35% Price): maximum AI Skill Chip conversion at heavy discount.'
           : isCs
-            ? 'Prázdný uzel bez kreditů (<20 CR); silný nárůst moci při dostatku kreditů.'
-            : 'Dead node if poor (<20 CR); high targeted build power if wealthy.';
+            ? 'Prázdný uzel bez kreditů (<20 CR); silný nárůst moci při nákupu AI čipů.'
+            : 'Low value if poor (<20 CR); high targeted deck power via AI Skill Chips.';
       break;
     case 'MED_BAY':
       tensionHpPct = -35; // negative tension = healing recovery
@@ -681,7 +695,7 @@ export function getNodeEncounterIntel(
     );
   } else if (node.modifier === 'flash_sale') {
     threatTraits.push(
-      isCs ? 'Bleskový výprodej (-35% ceny výbavy)' : 'Flash Sale Clinic (-35% Equipment Prices)',
+      isCs ? 'Bleskový výprodej (-35% ceny AI čipů)' : 'Flash Sale Dealer (-35% AI Chip Prices)',
     );
   } else if (node.modifier === 'funded_clinic') {
     threatTraits.push(
@@ -691,7 +705,12 @@ export function getNodeEncounterIntel(
     );
   }
 
-  if (node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY' || node.type === 'EVENT') {
+  if (
+    node.type === 'CYBER_CLINIC' ||
+    node.type === 'CHIP_DEALER' ||
+    node.type === 'MED_BAY' ||
+    node.type === 'EVENT'
+  ) {
     return {
       sectorCode,
       enemies: [],
@@ -783,6 +802,14 @@ export function getReconPreviewForNode(
     };
   }
 
+  if (node.type === 'CHIP_DEALER') {
+    return {
+      kind: 'chip_dealer',
+      isFlashSale: node.modifier === 'flash_sale',
+      freeMemory: Math.max(0, run.heroine.carryCapacity),
+    };
+  }
+
   if (node.type === 'MED_BAY') {
     const isFunded = node.modifier === 'funded_clinic';
     return {
@@ -847,6 +874,9 @@ export function getTacticalRouteAdvice(run: RunState): TacticalRouteAdvice {
       } else if (cand.type === 'CYBER_CLINIC') {
         score += 75 + (hasDownstreamMedBay ? 35 : 0);
         reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'clinic_socket';
+      } else if (cand.type === 'CHIP_DEALER') {
+        score += 65 + (hasDownstreamMedBay ? 30 : 0);
+        reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'combat_momentum';
       } else if (cand.type === 'EVENT') {
         score += 70 + (hasDownstreamMedBay ? 35 : 0);
         reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'combat_momentum';
@@ -864,9 +894,14 @@ export function getTacticalRouteAdvice(run: RunState): TacticalRouteAdvice {
       } else if (cand.type === 'CYBER_CLINIC') {
         score +=
           (openSockets > 0 ? 95 : 50) +
-          (hasDownstreamElite ? 25 : 0) +
-          (cand.modifier === 'flash_sale' && run.heroine.credits >= 20 ? 35 : 0);
+          (hasDownstreamElite ? 25 : 0);
         reason = openSockets > 0 ? 'clinic_socket' : 'elite_power_spike';
+      } else if (cand.type === 'CHIP_DEALER') {
+        score +=
+          (run.heroine.credits >= 30 ? 90 : 45) +
+          (hasDownstreamElite ? 20 : 0) +
+          (cand.modifier === 'flash_sale' && run.heroine.credits >= 20 ? 35 : 0);
+        reason = hasDownstreamElite ? 'elite_power_spike' : 'combat_momentum';
       } else if (cand.type === 'EVENT') {
         score += 85 + (hasDownstreamElite ? 20 : 0);
         reason = hasDownstreamElite ? 'elite_power_spike' : 'combat_momentum';

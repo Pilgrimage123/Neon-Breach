@@ -954,12 +954,32 @@ export function CombatStageCanvas({
 
           <div className="mt-0.5 flex flex-wrap items-center justify-between gap-1 text-[9px] sm:text-[10px] font-mono-tabular">
             <div className="flex flex-wrap items-center gap-1">
+              {((heroine.armor ?? 0) > 0 ||
+                (kiraThreat.armorAfterEnemies ?? 0) !== (heroine.armor ?? 0)) && (
+                <span
+                  data-testid="heroine-armor-badge"
+                  className="font-bold text-amber-300 whitespace-nowrap"
+                >
+                  🛡 {t.armorShort}{' '}
+                  {(kiraThreat.armorAfterEnemies ?? heroine.armor ?? 0) !== (heroine.armor ?? 0)
+                    ? `${heroine.armor ?? 0}→${kiraThreat.armorAfterEnemies ?? 0}`
+                    : heroine.armor ?? 0}
+                </span>
+              )}
               {(heroine.shield > 0 || kiraThreat.shieldAfterPlayer > 0) && (
                 <span className="font-bold text-[#00F0FF] whitespace-nowrap">
                   {t.shieldLabel}{' '}
                   {kiraThreat.shieldAfterPlayer !== heroine.shield
                     ? `${heroine.shield}→${kiraThreat.shieldAfterPlayer}`
                     : heroine.shield}
+                </span>
+              )}
+              {((heroine.pendingUpcharge ?? 0) > 0 || (activePreview?.upchargeGained ?? 0) > 0) && (
+                <span
+                  data-testid="heroine-upcharge-badge"
+                  className="font-bold text-emerald-300 whitespace-nowrap"
+                >
+                  ⚡+{(heroine.pendingUpcharge ?? 0) + (activePreview?.upchargeGained ?? 0)} {t.upchargeShort}
                 </span>
               )}
               {(heroine.damageBoostPct > 0 ||

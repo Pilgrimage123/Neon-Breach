@@ -11,6 +11,8 @@ export interface TileSpec {
   type: TileType;
   value: number;
   techEffect?: TechEffect;
+  isDud?: boolean;
+  upcharge?: number;
 }
 
 export interface Tile {
@@ -19,6 +21,8 @@ export interface Tile {
   sourceId: string;
   value: number;
   techEffect?: TechEffect;
+  isDud?: boolean;
+  upcharge?: number;
   isHeldFromPrevTurn: boolean;
   isJammed?: boolean;
   isBlight?: boolean;
@@ -115,7 +119,7 @@ export interface CyberImplant {
   rarity: 'common' | 'rare';
 }
 
-export type MapNodeType = 'COMBAT' | 'ELITE' | 'CYBER_CLINIC' | 'MED_BAY' | 'BOSS' | 'EVENT';
+export type MapNodeType = 'COMBAT' | 'ELITE' | 'CYBER_CLINIC' | 'CHIP_DEALER' | 'MED_BAY' | 'BOSS' | 'EVENT';
 
 export type NodeModifier =
   | 'golden_bounty'
@@ -165,14 +169,17 @@ export interface HeroineState {
   characterId?: CharacterId;
   hp: number;
   maxHp: number;
+  armor?: number;
   shield: number;
   overdrive: number;
   corrode: number;
   damageBoostPct: number;
+  pendingUpcharge?: number;
   implants: CyberImplantId[];
   carryCapacity: number;
   ownedEquipment: OwnedEquipment[];
   equippedInstanceIds: string[];
+  purgedInnateIds?: string[];
   credits: number;
   nanites?: number;
   consecutiveCombatWithoutClinic?: number;
@@ -257,6 +264,8 @@ export interface TurnPreview {
   hexedHealBonus?: number;
   hexedArmorBonus?: number;
   blightPurgeCount?: number;
+  upchargeGained?: number;
+  dudCount?: number;
 }
 
 export interface HeroineThreatPreview {
@@ -267,6 +276,9 @@ export interface HeroineThreatPreview {
   healGained: number;
   shieldAfterPlayer: number;
   shieldAfterEnemies: number;
+  armorAfterPlayer?: number;
+  armorAfterEnemies?: number;
+  armorAbsorbed?: number;
   hpBeforeEnemies: number;
   projectedHp: number;
   corrodeGained: number;
@@ -365,7 +377,7 @@ export interface CombatState {
   lastColorPlayed?: TileType | null;
 }
 
-export type ScreenPhase = 'title' | 'map' | 'combat' | 'clinic' | 'medbay' | 'event' | 'victory' | 'gameover';
+export type ScreenPhase = 'title' | 'map' | 'combat' | 'clinic' | 'chip_dealer' | 'medbay' | 'event' | 'victory' | 'gameover';
 
 export interface RunState {
   runId: string;
@@ -378,6 +390,7 @@ export interface RunState {
   combat: CombatState | null;
   clinicChoices: CyberImplantId[];
   clinicShopChoices: string[];
+  clinicPurgeUsed?: boolean;
   enemiesDefeated: number;
   turnsCompleted: number;
   score: number;

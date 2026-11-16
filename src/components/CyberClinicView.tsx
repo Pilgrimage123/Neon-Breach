@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import {
-  CLINIC_RESTOCK_COST,
+  CLINIC_PURGE_COST,
   CYBER_IMPLANTS,
-  EQUIPMENT_BY_ID,
   MAX_IMPLANTS,
   getEquippedEquipmentWeight,
 } from '../engine/data';
@@ -16,8 +15,7 @@ interface CyberClinicViewProps {
   lang: Language;
   isCompactLandscape?: boolean;
   defibTriggeredNotice?: boolean;
-  onBuyEquipment: (defId: string) => void;
-  onRestockShop: () => void;
+  onPurgeInnateTile: (tileId: string) => void;
   onInstall: (implantId: CyberImplantId, replaceId?: CyberImplantId) => void;
   onOpenPool?: () => void;
   onSkip: () => void;
@@ -28,8 +26,7 @@ export function CyberClinicView({
   lang,
   isCompactLandscape = false,
   defibTriggeredNotice = false,
-  onBuyEquipment,
-  onRestockShop,
+  onPurgeInnateTile,
   onInstall,
   onOpenPool,
   onSkip,
@@ -41,6 +38,12 @@ export function CyberClinicView({
   const [pendingImplant, setPendingImplant] = useState<CyberImplantId | null>(null);
   const needsReplace = run.heroine.implants.length >= MAX_IMPLANTS;
   const equippedWeight = getEquippedEquipmentWeight(run.heroine);
+  const innateTiles = run.masterPool.filter((tile) => tile.sourceId === 'innate');
+  const canPurge =
+    !run.clinicPurgeUsed &&
+    run.heroine.credits >= CLINIC_PURGE_COST &&
+    run.masterPool.length > 3 &&
+    innateTiles.length > 0;
 
   const handleChooseModule = (id: CyberImplantId) => {
     if (needsReplace) {
@@ -136,121 +139,50 @@ export function CyberClinicView({
               : 'mt-3 space-y-4 border-t border-white/15 pt-3 sm:mt-4 sm:pt-4'
           }`}
         >
-          {/* Section 1: Equipment Requisition Shop */}
+          {/* Section 1: Neural Tile Purge (1/visit for 30 CR) */}
           <div className="min-w-0">
             <div className="flex items-center justify-between gap-2">
-              <div className="truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#FFC700]">
-                {t.clinicShopTitle}
+              <div className="truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-300">
+                {t.clinicPurgeTitle} · {CLINIC_PURGE_COST} {t.creditsLabel}
               </div>
-              <button
-                type="button"
-                disabled={run.heroine.credits < CLINIC_RESTOCK_COST}
-                onClick={onRestockShop}
-                className="chrome-pill shrink-0 rounded-md border-amber-300/45 px-2 py-0.5 font-mono-tabular text-[10px] sm:text-[11px] font-bold text-amber-200 transition-colors hover:border-[#FFC700] hover:text-white disabled:opacity-40 cursor-pointer"
-              >
-                ↻ {t.restockShop} ({CLINIC_RESTOCK_COST} {t.creditsLabel})
-              </button>
+              {run.clinicPurgeUsed && (
+                <span className="font-mono-tabular text-[10px] font-bold text-emerald-300">
+                  ✓ {t.purgedDoneLabel}
+                </span>
+              )}
             </div>
-            {run.clinicShopChoices.length === 0 ? (
-              <p className="mt-1 text-xs text-slate-300">{t.clinicShopEmpty}</p>
-            ) : (
-              <div
-                className={`mt-1 grid ${
-                  isCompactLandscape
-                    ? 'grid-cols-1 gap-1.5'
-                    : 'grid-cols-1 gap-2 min-[560px]:grid-cols-3 sm:gap-3.5 mt-2'
-                }`}
-              >
-                {run.clinicShopChoices.map((defId) => {
-                  const def = EQUIPMENT_BY_ID[defId];
-                  if (!def) return null;
-                  const meta = t.equipment[def.id];
-                  const price = isFlashSale ? Math.max(10, Math.round(def.price * 0.65)) : def.price;
-                  const canAfford = run.heroine.credits >= price;
-                  const fitsEquip = equippedWeight + def.size <= run.heroine.carryCapacity;
-
-                  return (
-                    <div
-                      key={defId}
-                      className={`chrome-pill flex justify-between gap-2 rounded-xl border-amber-300/40 ${
-                        isCompactLandscape
-                          ? 'flex-row items-center px-2.5 py-1.5'
-                          : 'flex-col p-3 sm:p-3.5'
-                      }`}
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center justify-between gap-x-2 text-[10px] sm:text-[11px] font-mono-tabular">
-                          <div className="flex items-baseline gap-1.5 min-w-0">
-                            <h2 className="font-display text-xs sm:text-sm font-bold text-white truncate">
-                              {meta?.name ?? def.id}
-                            </h2>
-                            <span className={fitsEquip ? 'text-[#00F0FF] shrink-0' : 'text-amber-300 shrink-0'}>
-                              {t.sizeLabel}: {def.size} · {fitsEquip ? '✓' : '⬡'}
-                            </span>
-                          </div>
-                          {!isCompactLandscape && (
-                            <span className="font-bold text-[#FFC700]">
-                              {isFlashSale && (
-                                <span className="line-through text-slate-400 mr-1 text-[10px]">
-                                  {def.price}
-                                </span>
-                              )}
-                              {price} {t.creditsLabel}
-                            </span>
-                          )}
-                        </div>
-                        <p
-                          className={`mt-0.5 text-[10px] sm:text-[11px] leading-tight text-slate-200 ${
-                            isCompactLandscape ? 'line-clamp-1' : 'line-clamp-1 sm:line-clamp-none'
-                          }`}
-                        >
-                          {meta?.desc ?? ''}
-                        </p>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-1 font-mono-tabular text-[10px] sm:text-[11px]">
-                          {def.tiles.map((spec, idx) => (
-                            <span
-                              key={`${defId}_tile_${idx}`}
-                              className={`font-bold ${
-                                spec.type === 'attack'
-                                  ? 'text-rose-200'
-                                  : spec.type === 'defense'
-                                    ? 'text-cyan-200'
-                                    : 'text-amber-200'
-                              }`}
-                            >
-                              {idx > 0 ? '· ' : ''}
-                              {formatTileShortLabel(spec, lang)}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={!canAfford}
-                        onClick={() => onBuyEquipment(defId)}
-                        className={`${
-                          isCompactLandscape ? 'shrink-0 px-2.5 py-1 text-[10px]' : 'mt-2.5 w-full px-3 py-2 text-xs'
-                        } rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] font-bold text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-all hover:brightness-110 disabled:bg-none disabled:bg-slate-800/80 disabled:text-slate-400 disabled:shadow-none cursor-pointer whitespace-nowrap`}
-                      >
-                        {isCompactLandscape ? (
-                          <span>
-                            {isFlashSale && (
-                              <span className="line-through opacity-60 mr-1">{def.price}</span>
-                            )}
-                            {`${price} CR`}
-                          </span>
-                        ) : canAfford ? (
-                          `${t.buyEquipment} (${price} CR)`
-                        ) : (
-                          `${t.notEnoughCredits} (${price} CR)`
-                        )}
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <p className="mt-0.5 text-[10px] sm:text-xs text-slate-300">{t.clinicPurgeDesc}</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {innateTiles.map((tile) => {
+                const isDud = Boolean(tile.isDud);
+                const colorClass = isDud
+                  ? 'border-amber-400/70 bg-amber-950/35 text-amber-200'
+                  : tile.type === 'attack'
+                    ? 'border-rose-400/50 bg-rose-950/30 text-rose-200'
+                    : tile.type === 'defense'
+                      ? 'border-cyan-400/50 bg-cyan-950/30 text-cyan-200'
+                      : 'border-amber-300/50 bg-amber-950/30 text-amber-200';
+                return (
+                  <button
+                    key={tile.id}
+                    type="button"
+                    data-testid={`clinic-purge-tile-${tile.id}`}
+                    disabled={!canPurge}
+                    onClick={() => onPurgeInnateTile(tile.id)}
+                    className={`chrome-pill flex items-center gap-1.5 rounded-lg border px-2.5 py-1 font-mono-tabular text-[11px] font-bold transition hover:brightness-125 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed ${colorClass}`}
+                  >
+                    <span>
+                      {tile.type === 'attack' ? '◆' : tile.type === 'defense' ? '●' : '▲'}
+                    </span>
+                    <span>{formatTileShortLabel(tile, lang)}</span>
+                    <span className="text-slate-400">·</span>
+                    <span className="text-rose-200">
+                      ✕ {t.purgeTileAction} ({CLINIC_PURGE_COST} CR)
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Section 2: Cybernetic Implant Draft */}

@@ -87,8 +87,8 @@ export function canRepositionEnemies(combat: CombatState | null, alreadySwappedT
 }
 
 /**
- * Executes a Spatial Swap between the first two living enemies on the sky-bridge
- * and deals 2 kinetic collision damage to both collided units (without cracking Boss phase gates).
+ * Executes a pure Spatial Swap between the first two living enemies on the sky-bridge
+ * without dealing free collision damage.
  */
 export function repositionFrontEnemies(combat: CombatState): SpatialSwapResult {
   const livingIndices: number[] = [];
@@ -113,18 +113,6 @@ export function repositionFrontEnemies(combat: CombatState): SpatialSwapResult {
   const unitA = { ...nextEnemies[idxA] };
   const unitB = { ...nextEnemies[idxB] };
 
-  // Kinetic collision ram: knocking two enemies into each other shaves 2 Armor (or 2 HP down to min 1 HP)
-  const applyCollisionBump = (unit: EnemyUnit): void => {
-    if (unit.armor > 0) {
-      unit.armor = Math.max(0, unit.armor - 2);
-    } else if (unit.hp > 1) {
-      unit.hp = Math.max(1, unit.hp - 2);
-    }
-  };
-
-  applyCollisionBump(unitA);
-  applyCollisionBump(unitB);
-
   nextEnemies[idxA] = unitB;
   nextEnemies[idxB] = unitA;
 
@@ -135,7 +123,7 @@ export function repositionFrontEnemies(combat: CombatState): SpatialSwapResult {
     enemies: shiftedEnemies,
     frontEnemyNameKey: unitB.archetype,
     pushedEnemyNameKey: unitA.archetype,
-    collisionBonusDmg: 2,
+    collisionBonusDmg: 0,
   };
 }
 
@@ -250,6 +238,7 @@ export function computeOptimalTurnHint(
         preview.healAmount * 3.0 +
         preview.damageBoostAddedPct * 0.45 +
         preview.armorShredAmount * 3.2 +
+        (preview.upchargeGained ?? 0) * 9 +
         (preview.blightPurgeCount ?? 0) * 14;
 
       if (preview.retaliateDamage > 0) {
@@ -331,8 +320,8 @@ export function computeOptimalTurnHint(
               : `★ HINT: Use [R] Push → Pull ${pulledName}`,
           rationale:
             lang === 'cs'
-              ? `Přitáhne ${pulledName} dopředu (+2 DMG srážkou) a odemkne silnější tah.`
-              : `Pulls ${pulledName} to the front (+2 collision DMG) for a stronger follow-up.`,
+              ? `Přitáhne ${pulledName} dopředu a odemkne silnější tah.`
+              : `Pulls ${pulledName} to the front to unlock a stronger follow-up.`,
           score: swappedBest.score,
         };
       }
@@ -352,9 +341,19 @@ export function computeEncounterObjectives(params: {
   heroine: HeroineState;
   startingHp: number;
   undosUsed: number;
+  hintsUsed?: number;
+  failForwardUsed?: boolean;
   lang?: Language;
 }): EncounterObjectivesSummary {
-  const { combat, heroine, startingHp, undosUsed, lang = 'en' } = params;
+  const {
+    combat,
+    heroine,
+    startingHp,
+    undosUsed,
+    hintsUsed = 0,
+    failForwardUsed = false,
+    lang = 'en',
+  } = params;
   const isCleared =
     combat.phase === 'VICTORY' || combat.enemies.every((e) => e.hp <= 0);
   const hpLost = Math.max(0, startingHp - heroine.hp);
@@ -363,12 +362,17 @@ export function computeEncounterObjectives(params: {
   // Tier 1: Casual (The Floor) — Survive and clear the board in any number of turns
   const tier1Done = isCleared && heroine.hp > 0;
 
-  // Tier 2: Intermediate (3-Star System) — Beat in <= 5 turns OR take 0 HP damage
-  const tier2CriteriaMet = combat.turn <= 5 || hpLost === 0;
+  // Tier 2: Intermediate (3-Star System) — Beat in <= 5 turns OR take 0 HP damage (locked out if Fail-Forward was used)
+  const tier2CriteriaMet = !failForwardUsed && (combat.turn <= 5 || hpLost === 0);
   const tier2Done = tier1Done && tier2CriteriaMet;
 
-  // Tier 3: Hardcore (The Ceiling) — Beat in <= 4 turns with 1+ Stack Surge and 0 Undo used
-  const tier3CriteriaMet = combat.turn <= 4 && surgesCount >= 1 && undosUsed === 0;
+  // Tier 3: Hardcore (The Ceiling) — Beat in <= 4 turns with 1+ Stack Surge, 0 Undo, and 0 Hints used
+  const tier3CriteriaMet =
+    !failForwardUsed &&
+    combat.turn <= 4 &&
+    surgesCount >= 1 &&
+    undosUsed === 0 &&
+    hintsUsed === 0;
   const tier3Done = tier1Done && tier2CriteriaMet && tier3CriteriaMet;
 
   const starsEarned: 0 | 1 | 2 | 3 = tier3Done
@@ -379,7 +383,8 @@ export function computeEncounterObjectives(params: {
         ? 1
         : 0;
 
-  const bonusCredits = (tier2Done ? 12 : 0) + (tier3Done ? 20 : 0);
+  // Decoupled from Credit inflation: 2★/3★ award prestige Score & Nanites only
+  const bonusCredits = 0;
   const bonusNanites = (tier2Done ? 1 : 0) + (tier3Done ? 2 : 0);
   const bonusScore = (tier2Done ? 75 : 0) + (tier3Done ? 150 : 0);
 
@@ -404,9 +409,9 @@ export function computeEncounterObjectives(params: {
           : `Blitz Clear (≤5 Turns) OR Zero HP Lost (Now: T${combat.turn}, -${hpLost} HP)`,
       description:
         lang === 'cs'
-          ? 'Vyčisti uzel do 5 tahů nebo neutrp žádné poškození do zdraví.'
-          : 'Beat the encounter in 5 turns or fewer, or take zero hull HP damage.',
-      rewardText: '+12 CR · +1 NC',
+          ? 'Vyčisti uzel do 5 tahů nebo bez ztráty zdraví (bez Nouzového restartu).'
+          : 'Beat the node in ≤5 turns or take zero hull damage (without Fail-Forward).',
+      rewardText: '+1 NC · +75 PTS',
       completed: tier2Done,
     },
     {
@@ -414,13 +419,13 @@ export function computeEncounterObjectives(params: {
       tierLabel: lang === 'cs' ? '★★★ MISTROVSTVÍ (Ceiling)' : '★★★ HARDCORE (Mastery)',
       title:
         lang === 'cs'
-          ? `Bezchybný taktik: ≤4 tahy, 1+ Surge, 0 Undo (Surge: ${surgesCount}, Undo: ${undosUsed})`
-          : `Apex Constraint: ≤4 Turns, 1+ Surge, 0 Undo (Surges: ${surgesCount}, Undo: ${undosUsed})`,
+          ? `Bezchybný taktik: ≤4 tahy, 1+ Surge, 0 Zpět, 0 Tip (Surge: ${surgesCount}, Zpět: ${undosUsed}, Tip: ${hintsUsed})`
+          : `Apex Constraint: ≤4 Turns, 1+ Surge, 0 Undo, 0 Hint (Surges: ${surgesCount}, Undo: ${undosUsed}, Hint: ${hintsUsed})`,
       description:
         lang === 'cs'
-          ? 'Vyhraj do 4 tahů se spuštěním Stack Surge a bez použití vrácení tahu.'
-          : 'Clear within 4 turns, trigger at least 1 Stack Surge, and use 0 Turn Undos.',
-      rewardText: '+20 CR · +2 NC · ★★★ ODZNAK',
+          ? 'Vyhraj do 4 tahů se Stack Surge, bez vrácení tahu a bez nápovědy.'
+          : 'Clear within 4 turns, trigger 1+ Stack Surge, and use 0 Undos and 0 Hints.',
+      rewardText: lang === 'cs' ? '+2 NC · +150 PTS · ★★★ ODZNAK' : '+2 NC · +150 PTS · ★★★ BADGE',
       completed: tier3Done,
     },
   ];
@@ -473,8 +478,8 @@ export function computeContextualMicroPrompt(params: {
   const livingCount = combat.enemies.filter((e) => e.hp > 0).length;
   if (combat.turn <= 2 && livingCount >= 2 && !alreadySwappedThisTurn) {
     return lang === 'cs'
-      ? `⇄ [Posun] prohodí 2 cíle. -2 DMG.`
-      : `⇄ [Push] swaps 2 enemies. -2 DMG.`;
+      ? `⇄ [Posun] prohodí přední 2 cíle.`
+      : `⇄ [Push] swaps front 2 enemies.`;
   }
 
   return null;

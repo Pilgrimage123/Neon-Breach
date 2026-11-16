@@ -2,11 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AURELIA_CARRY_CAPACITY,
+  CLINIC_PURGE_COST,
   CLINIC_RESTOCK_COST,
   DROPPABLE_EQUIPMENT_IDS,
   ENEMY_TEMPLATES,
   EQUIPMENT_BY_ID,
   KIRA_CARRY_CAPACITY,
+  MAX_UPCHARGE_BOARD_CAPACITY,
   ZURI_CARRY_CAPACITY,
   buildEnemiesForNode,
   getEquippedEquipmentWeight,
@@ -29,10 +31,12 @@ import {
   installCyberImplant,
   previewColorResolution,
   previewHeroineThreat,
+  purgeClinicInnateTile,
   resolveCyberEventChoice,
   resolvePlayerColor,
   restockClinicShop,
   scrapEquipmentInstance,
+  skipChipDealer,
   sortTilesByGroup,
   startNodeEncounter,
   unequipEquipmentInstance,
@@ -527,10 +531,10 @@ test('post-combat loot, cyber-clinic equipment shop + implant replacement, and b
   assert.equal(afterLoot.heroine.credits, startingCredits + 35);
   assert.ok(afterLoot.heroine.ownedEquipment.some((eq) => eq.defId === offeredLoot));
 
-  // Open a Cyber Clinic node and buy an item + replace an implant
-  const clinicNode = afterLoot.mapNodes.find((n) => n.type === 'CYBER_CLINIC');
-  assert.ok(clinicNode);
-  let clinicRun = startNodeEncounter(
+  // Open Chip Dealer node to buy an AI Skill Chip, then Cyber-Clinic to replace an implant
+  const dealerNode = afterLoot.mapNodes.find((n) => n.type === 'CHIP_DEALER');
+  assert.ok(dealerNode);
+  let dealerRun = startNodeEncounter(
     {
       ...afterLoot,
       heroine: {
@@ -540,16 +544,23 @@ test('post-combat loot, cyber-clinic equipment shop + implant replacement, and b
         implants: ['monowire_edge', 'plasma_amp', 'nano_weave', 'bio_siphon'],
       },
     },
-    clinicNode.id,
+    dealerNode.id,
   );
-  assert.equal(clinicRun.screen, 'clinic');
-  assert.ok(clinicRun.clinicShopChoices.length > 0);
+  assert.equal(dealerRun.screen, 'chip_dealer');
+  assert.ok(dealerRun.clinicShopChoices.length > 0);
 
-  const buyDefId = clinicRun.clinicShopChoices[0];
-  const ownedBefore = clinicRun.heroine.ownedEquipment.length;
-  clinicRun = buyClinicEquipment(clinicRun, buyDefId);
-  assert.equal(clinicRun.heroine.ownedEquipment.length, ownedBefore + 1);
-  assert.ok(!clinicRun.clinicShopChoices.includes(buyDefId));
+  const buyDefId = dealerRun.clinicShopChoices[0];
+  const ownedBefore = dealerRun.heroine.ownedEquipment.length;
+  dealerRun = buyClinicEquipment(dealerRun, buyDefId);
+  assert.equal(dealerRun.heroine.ownedEquipment.length, ownedBefore + 1);
+  assert.ok(!dealerRun.clinicShopChoices.includes(buyDefId));
+  const afterDealer = skipChipDealer(dealerRun);
+  assert.equal(afterDealer.screen, 'map');
+
+  const clinicNode = afterDealer.mapNodes.find((n) => n.type === 'CYBER_CLINIC');
+  assert.ok(clinicNode);
+  const clinicRun = startNodeEncounter(afterDealer, clinicNode.id);
+  assert.equal(clinicRun.screen, 'clinic');
 
   // Replace implant slot when 4/4 full
   const afterClinic = installCyberImplant(clinicRun, 'surge_resonator', 'nano_weave');
@@ -823,7 +834,12 @@ test('getNodeEncounterIntel matches actual combat enemies spawned by startNodeEn
     for (const node of run.mapNodes) {
       const intel = getNodeEncounterIntel(node, seed);
       const started = startNodeEncounter(run, node.id);
-      if (node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY') {
+      if (
+        node.type === 'CYBER_CLINIC' ||
+        node.type === 'CHIP_DEALER' ||
+        node.type === 'MED_BAY' ||
+        node.type === 'EVENT'
+      ) {
         assert.equal(intel.enemies.length, 0);
         assert.equal(started.combat, null);
       } else {
@@ -934,88 +950,91 @@ test('previewHeroineThreat previews enemy inflicted damage, lethal death, shield
   assert.equal(techThreat.willDie, false);
 });
 
-test('createInitialRun defaults to kira and supports aurelia starter stats, Royal Aegis passive, Sovereign Broadside Overdrive, and 9-tile loadout', () => {
+test('createInitialRun defaults to kira and supports Auraline Slow Juggernaut stats, Armor, 3 Duds, UpCharge, and Overdrive', () => {
   const defaultRun = createInitialRun(42);
   assert.equal(defaultRun.heroine.characterId, 'kira');
   assert.equal(defaultRun.heroine.maxHp, 58);
   assert.equal(defaultRun.masterPool.length, 9);
 
-  const aureliaRun = createInitialRun(42, 'aurelia');
-  assert.ok(aureliaRun.combat);
-  assert.equal(aureliaRun.heroine.characterId, 'aurelia');
-  assert.equal(aureliaRun.heroine.hp, 66);
-  assert.equal(aureliaRun.heroine.maxHp, 66);
-  assert.equal(aureliaRun.heroine.credits, 40);
-  assert.equal(getEquippedEquipmentWeight(aureliaRun.heroine), 4);
-  assert.equal(aureliaRun.heroine.carryCapacity, AURELIA_CARRY_CAPACITY);
-  assert.equal(aureliaRun.masterPool.length, 9);
+  const auralineRun = createInitialRun(42, 'aurelia');
+  assert.ok(auralineRun.combat);
+  assert.equal(auralineRun.heroine.characterId, 'aurelia');
+  assert.equal(auralineRun.heroine.hp, 78);
+  assert.equal(auralineRun.heroine.maxHp, 78);
+  assert.equal(auralineRun.heroine.armor, 18);
+  assert.equal(auralineRun.heroine.credits, 35);
+  assert.equal(getEquippedEquipmentWeight(auralineRun.heroine), 4);
+  assert.equal(auralineRun.heroine.carryCapacity, AURELIA_CARRY_CAPACITY);
+  assert.equal(auralineRun.masterPool.length, 9);
 
-  // Aurelia 9-tile pool: 4 ATK (6,6,4,3), 3 DEF (7,6,6), 2 TECH (Boost 42%, Heal 4)
-  const atk6 = aureliaRun.masterPool.filter((t) => t.type === 'attack' && t.value === 6);
-  const atk4 = aureliaRun.masterPool.filter((t) => t.type === 'attack' && t.value === 4);
-  const atk3 = aureliaRun.masterPool.filter((t) => t.type === 'attack' && t.value === 3);
-  const def6 = aureliaRun.masterPool.filter((t) => t.type === 'defense' && t.value === 6);
-  const def7 = aureliaRun.masterPool.filter((t) => t.type === 'defense' && t.value === 7);
-  const boost42 = aureliaRun.masterPool.filter(
-    (t) => t.type === 'tech' && t.techEffect?.kind === 'damage_boost' && t.techEffect.percent === 42,
-  );
-  const heals4 = aureliaRun.masterPool.filter(
-    (t) => t.type === 'tech' && t.techEffect?.kind === 'heal' && t.techEffect.amount === 4,
-  );
-  assert.equal(atk6.length, 2);
-  assert.equal(atk4.length, 1);
-  assert.equal(atk3.length, 1);
-  assert.equal(def6.length, 2);
-  assert.equal(def7.length, 1);
-  assert.equal(boost42.length, 1);
-  assert.equal(heals4.length, 1);
+  // Auraline 9-tile pool: 4 ATK (6,6,5,Dud), 3 DEF (8,7,Dud), 2 TECH (Boost 42%, Dud) — 1 Dud per color
+  const duds = auralineRun.masterPool.filter((t) => Boolean(t.isDud));
+  assert.equal(duds.length, 3);
+  assert.equal(duds.filter((t) => t.type === 'attack').length, 1);
+  assert.equal(duds.filter((t) => t.type === 'defense').length, 1);
+  assert.equal(duds.filter((t) => t.type === 'tech').length, 1);
+  assert.equal(auralineRun.masterPool.filter((t) => t.type === 'attack').length, 4);
+  assert.equal(auralineRun.masterPool.filter((t) => t.type === 'defense').length, 3);
+  assert.equal(auralineRun.masterPool.filter((t) => t.type === 'tech').length, 2);
 
-  assert.equal(aureliaRun.combat.board.length, 6);
-  assert.equal(aureliaRun.combat.drawPile.length, 3);
+  assert.equal(auralineRun.combat.board.length, 6);
+  assert.equal(auralineRun.combat.drawPile.length, 3);
 
-  // Test Aurelia Royal Aegis passive: Defense tiles deal 2 Riposte DMG per tile + retain up to 5 Shield after enemy round
-  const aureliaDefBoard = {
-    ...aureliaRun,
+  // Test Auraline Juggernaut Armor + Dud UpCharge: Duds give 0 base value, +4% OD, Surge count, +1 UpCharge; Armor persists under Shield
+  const auralineDefBoard = {
+    ...auralineRun,
+    heroine: { ...auralineRun.heroine, armor: 18, overdrive: 0, pendingUpcharge: 0 },
     combat: {
-      ...aureliaRun.combat,
+      ...auralineRun.combat,
       board: [
-        makeTile('ad1', 'defense', 7),
-        makeTile('ad2', 'defense', 6),
-        makeTile('ad3', 'defense', 6),
+        makeTile('ad1', 'defense', 8),
+        { ...makeTile('ad2', 'defense', 0), isDud: true },
         makeTile('aa1', 'attack', 6),
         makeTile('aa2', 'attack', 6),
-        makeTile('at1', 'tech', 0, false, { kind: 'heal', amount: 4 }),
+        makeTile('at1', 'tech', 0, false, { kind: 'damage_boost', percent: 42, decayPerTurn: 10 }),
+        { ...makeTile('at2', 'tech', 0), isDud: true },
+      ],
+      drawPile: [
+        makeTile('dp1', 'attack', 5),
+        makeTile('dp2', 'defense', 7),
+        makeTile('dp3', 'attack', 6),
       ],
       enemies: [
         {
-          ...aureliaRun.combat.enemies[0],
+          ...auralineRun.combat.enemies[0],
           hp: 25,
           armor: 0,
-          intentCycle: [{ kind: 'attack' as const, value: 8 }],
+          intentCycle: [{ kind: 'attack' as const, value: 12 }],
           currentIntentIndex: 0,
         },
       ],
     },
   };
-  const aureliaDefPrev = previewColorResolution(aureliaDefBoard, 'defense');
-  assert.equal(aureliaDefPrev.shieldGained, 19);
-  assert.equal(aureliaDefPrev.reflectOnBlock, 6); // 3 * 2 Riposte DMG even without Surge!
+  const auralineDefPrev = previewColorResolution(auralineDefBoard, 'defense');
+  assert.equal(auralineDefPrev.shieldGained, 8); // 8 + 0 Dud
+  assert.equal(auralineDefPrev.overdriveGained, 8); // 2 * 4% OD (Dud still grants color OD)
+  assert.equal(auralineDefPrev.upchargeGained, 1); // +1 UpCharge from 1 Defense Dud
+  assert.equal(auralineDefPrev.reflectOnBlock, 0);
 
-  const afterAureliaDef = resolvePlayerColor(aureliaDefBoard, 'defense');
-  assert.equal(afterAureliaDef.combat?.enemies[0].hp, 19);
-  const afterAureliaRound = executeEnemyTurn(afterAureliaDef);
-  // 19 shield - 8 incoming = 11 left -> retains 5 shield via Royal Aegis!
-  assert.equal(afterAureliaRound.heroine.shield, 5);
+  const afterAuralineDef = resolvePlayerColor(auralineDefBoard, 'defense');
+  assert.equal(afterAuralineDef.heroine.pendingUpcharge, 1);
+  const afterAuralineRound = executeEnemyTurn(afterAuralineDef);
+  // 12 incoming - 8 Shield = 4 absorbed by 18 Armor -> 14 Armor left, 78 HP intact, and UpCharge drew to 7 tiles!
+  assert.equal(afterAuralineRound.heroine.shield, 0);
+  assert.equal(afterAuralineRound.heroine.armor, 14);
+  assert.equal(afterAuralineRound.heroine.hp, 78);
+  assert.equal(afterAuralineRound.heroine.pendingUpcharge, 0);
+  assert.equal(afterAuralineRound.combat?.board.length, 7);
 
-  // Test Aurelia Sovereign Broadside Overdrive: 24 piercing DMG, +12 Shield, -2 Corrode
-  const aureliaOdState = {
-    ...aureliaRun,
-    heroine: { ...aureliaRun.heroine, overdrive: 100, shield: 3, corrode: 3 },
+  // Test Auraline Overdrive: 20 piercing DMG All, +10 persistent Armor, +2 UpCharge
+  const auralineOdState = {
+    ...auralineRun,
+    heroine: { ...auralineRun.heroine, overdrive: 100, armor: 10, pendingUpcharge: 0 },
     combat: {
-      ...aureliaRun.combat,
+      ...auralineRun.combat,
       enemies: [
         {
-          ...aureliaRun.combat.enemies[0],
+          ...auralineRun.combat.enemies[0],
           hp: 30,
           armor: 10,
           shieldPips: 0,
@@ -1023,20 +1042,20 @@ test('createInitialRun defaults to kira and supports aurelia starter stats, Roya
       ],
     },
   };
-  const afterAureliaOd = executeOverdrive(aureliaOdState);
-  assert.equal(afterAureliaOd.heroine.overdrive, 0);
-  assert.equal(afterAureliaOd.heroine.shield, 15);
-  assert.equal(afterAureliaOd.heroine.corrode, 1);
-  assert.equal(afterAureliaOd.combat?.enemies[0].hp, 6);
+  const afterAuralineOd = executeOverdrive(auralineOdState);
+  assert.equal(afterAuralineOd.heroine.overdrive, 0);
+  assert.equal(afterAuralineOd.heroine.armor, 20); // 10 + 10
+  assert.equal(afterAuralineOd.heroine.pendingUpcharge, 2);
+  assert.equal(afterAuralineOd.combat?.enemies[0].hp, 10); // 30 - 20
 
-  // Unequip Royal Twin-Barrel (3 weight, 3 tiles) on map -> weight 4->1, pool 9->6; re-equip -> 4/14, 9
+  // Unequip Siege Salvo.AI (3 memory, 2 tiles) on map -> weight 4->1, pool 9->7; re-equip -> 4/14, 9
   const mapRun = completeCombatRewardAndOpenMap({
-    ...aureliaRun,
-    combat: { ...aureliaRun.combat, phase: 'VICTORY' },
+    ...auralineRun,
+    combat: { ...auralineRun.combat, phase: 'VICTORY' },
   });
   const afterUnequip = unequipEquipmentInstance(mapRun, 'eq_start_scattergun');
   assert.equal(getEquippedEquipmentWeight(afterUnequip.heroine), 1);
-  assert.equal(afterUnequip.masterPool.length, 6);
+  assert.equal(afterUnequip.masterPool.length, 7);
 
   const afterReequip = equipEquipmentInstance(afterUnequip, 'eq_start_scattergun');
   assert.equal(getEquippedEquipmentWeight(afterReequip.heroine), 4);
@@ -1170,9 +1189,18 @@ test('new TECH effects (armor_shred, overdrive_surge, tactical_shield) and getEf
   assert.equal(surgeTechPrev.overdriveGained, 90);
 });
 
-test('10 droppable equipment catalog, Cargo Stash scrapping, Clinic restock, and Boss tuning', () => {
-  assert.equal(DROPPABLE_EQUIPMENT_IDS.length, 10);
-  for (const id of ['nano_ostri', 'kryo_kondenzator', 'pulzni_kuse', 'energeticky_konvertor', 'reaktivni_pancir']) {
+test('13 droppable AI Skill Chips catalog, Chip Vault scrapping, Chip Dealer restock, and Boss tuning', () => {
+  assert.equal(DROPPABLE_EQUIPMENT_IDS.length, 13);
+  for (const id of [
+    'nano_ostri',
+    'kryo_kondenzator',
+    'pulzni_kuse',
+    'energeticky_konvertor',
+    'reaktivni_pancir',
+    'upcharge_pulse_chip',
+    'tactical_upcharge_chip',
+    'neural_surge_chip',
+  ]) {
     assert.ok(EQUIPMENT_BY_ID[id], `Expected ${id} in EQUIPMENT_BY_ID`);
     assert.equal(EQUIPMENT_BY_ID[id].droppable, true);
   }
@@ -1202,19 +1230,19 @@ test('10 droppable equipment catalog, Cargo Stash scrapping, Clinic restock, and
   const blockedCombatScrap = scrapEquipmentInstance(combatAgain, 'eq_start_medkit');
   assert.equal(blockedCombatScrap.heroine.ownedEquipment.length, 1);
 
-  // Cyber-Clinic shop restock spends CLINIC_RESTOCK_COST and rotates choices
-  const clinicNode = mapRun.mapNodes.find((n) => n.type === 'CYBER_CLINIC')!;
-  const clinicRun = startNodeEncounter(
+  // Chip Dealer shop restock spends CLINIC_RESTOCK_COST and rotates choices
+  const dealerNode = mapRun.mapNodes.find((n) => n.type === 'CHIP_DEALER')!;
+  const dealerRun = startNodeEncounter(
     { ...mapRun, heroine: { ...mapRun.heroine, credits: 80 } },
-    clinicNode.id,
+    dealerNode.id,
   );
-  const initialShop = clinicRun.clinicShopChoices.slice();
-  const restocked = restockClinicShop(clinicRun);
+  const initialShop = dealerRun.clinicShopChoices.slice();
+  const restocked = restockClinicShop(dealerRun);
   assert.equal(restocked.heroine.credits, 80 - CLINIC_RESTOCK_COST);
   assert.equal(restocked.clinicShopChoices.length, 3);
   assert.ok(
     restocked.clinicShopChoices.every((id) => !initialShop.includes(id)),
-    'Restock should rotate to different equipment options when 10 items exist',
+    'Restock should rotate to different chip options when 13 items exist',
   );
 });
 
@@ -1510,7 +1538,7 @@ test('createInitialRun supports zuri starter stats, Swarm Uplink passive, Solar 
   assert.ok(parsedZuri);
   assert.equal(parsedZuri.heroine.characterId, 'zuri');
 
-  // Test Swarm Uplink passive: +1 held tile bonus, +1 DEF Riposte per tile, +25% OD per TECH tile, 3 Shield retain cap
+  // Test Swarm Uplink passive: 0 held bonus, 0 DEF Riposte, +25% OD per TECH tile, 0 Shield retain cap
   const zuriBoard = {
     ...zuriRun,
     combat: {
@@ -1535,22 +1563,22 @@ test('createInitialRun supports zuri starter stats, Swarm Uplink passive, Solar 
   };
 
   const zuriAtkPrev = previewColorResolution(zuriBoard, 'attack');
-  assert.equal(zuriAtkPrev.totalDamage, 7); // 6 + 1 held bonus
+  assert.equal(zuriAtkPrev.totalDamage, 6); // 0 held bonus
 
   const zuriTechPrev = previewColorResolution(zuriBoard, 'tech');
   assert.equal(zuriTechPrev.overdriveGained, 50); // 2 * 25% OD per TECH tile
 
   const zuriDefPrev = previewColorResolution(zuriBoard, 'defense');
-  assert.equal(zuriDefPrev.shieldGained, 15); // (7 + 1 held) + 7 = 15
-  assert.equal(zuriDefPrev.reflectOnBlock, 2); // 2 * 1 Riposte DMG per DEF tile
+  assert.equal(zuriDefPrev.shieldGained, 14); // 7 + 7 = 14 (0 held bonus)
+  assert.equal(zuriDefPrev.reflectOnBlock, 0); // 0 Riposte DMG
 
   const afterZuriDef = resolvePlayerColor(zuriBoard, 'defense');
-  assert.equal(afterZuriDef.combat?.enemies[0].hp, 23); // 25 - 2 drone riposte
+  assert.equal(afterZuriDef.combat?.enemies[0].hp, 25); // no passive riposte
   const afterZuriRound = executeEnemyTurn(afterZuriDef);
-  // 15 shield - 6 incoming = 9 remaining -> retains 3 shield via Swarm Uplink
-  assert.equal(afterZuriRound.heroine.shield, 3);
+  // 14 shield - 6 incoming = 8 remaining -> resets to 0 shield (0 retain cap)
+  assert.equal(afterZuriRound.heroine.shield, 0);
 
-  // Test Zuri Solar Swarm Protocol Overdrive: 22 piercing DMG, +9 Shield, +25% DMG Boost, -2 Corrode
+  // Test Zuri Solar Swarm Protocol Overdrive: 16 piercing DMG, -12 Armor All, +8 Shield, 0% DMG Boost, -2 Corrode
   const zuriOdState = {
     ...zuriRun,
     heroine: {
@@ -1566,7 +1594,7 @@ test('createInitialRun supports zuri starter stats, Swarm Uplink passive, Solar 
         {
           ...zuriRun.combat.enemies[0],
           hp: 30,
-          armor: 10,
+          armor: 15,
           shieldPips: 0,
         },
       ],
@@ -1574,10 +1602,11 @@ test('createInitialRun supports zuri starter stats, Swarm Uplink passive, Solar 
   };
   const afterZuriOd = executeOverdrive(zuriOdState);
   assert.equal(afterZuriOd.heroine.overdrive, 0);
-  assert.equal(afterZuriOd.heroine.shield, 11); // 2 + 9
-  assert.equal(afterZuriOd.heroine.damageBoostPct, 35); // 10 + 25
+  assert.equal(afterZuriOd.heroine.shield, 10); // 2 + 8
+  assert.equal(afterZuriOd.heroine.damageBoostPct, 10); // +0% boost
   assert.equal(afterZuriOd.heroine.corrode, 1); // 3 - 2
-  assert.equal(afterZuriOd.combat?.enemies[0].hp, 8); // 30 - 22 piercing
+  assert.equal(afterZuriOd.combat?.enemies[0].hp, 14); // 30 - 16 piercing
+  assert.equal(afterZuriOd.combat?.enemies[0].armor, 3); // 15 - 12 armor shred
 });
 
 test('Slay the Spire / FTL style Encounter Node Map: EVENT nodes, Boss Telegraph, Multi-hop pathing, Bounty modifiers, and Nanite banking', () => {
@@ -1657,7 +1686,7 @@ test('Slay the Spire / FTL style Encounter Node Map: EVENT nodes, Boss Telegraph
   const startedDoubleCr = startNodeEncounter(bountyRun, combatNode.id);
   assert.equal(startedDoubleCr.combat?.rewardCredits, 70); // 35 * 2
 
-  // 6. Bio-Med Bay Strategic Opportunities: Overclock & Extraction Shuttle
+  // 6. Bio-Med Bay Strategic Opportunities: Capped Neural Overclock
   const medbayNode = bountyRun.mapNodes.find((n) => n.type === 'MED_BAY') ?? {
     id: 'n_3_0',
     layer: 3,
@@ -1669,25 +1698,43 @@ test('Slay the Spire / FTL style Encounter Node Map: EVENT nodes, Boss Telegraph
   const medbayRun = startNodeEncounter(bountyRun, medbayNode.id);
   assert.equal(medbayRun.screen, 'medbay');
 
-  // Test Neural Tile Overclock: +2 value to attack tiles, cleanses corrode, +35% Overdrive
+  // Test Neural Tile Overclock: +1 ATK per stack (max 2) to first 2 attack tiles, cleanses corrode, +20% Overdrive
   const corrodedState = {
     ...medbayRun,
     heroine: { ...medbayRun.heroine, corrode: 4, overdrive: 20 },
   };
+  const baseFirstAtk = corrodedState.masterPool.find((t) => t.type === 'attack')!.value;
   const afterOverclock = applyMedBayAction(corrodedState, 'tile_overclock');
   assert.equal(afterOverclock.screen, 'map');
   assert.equal(afterOverclock.heroine.corrode, 0);
-  assert.equal(afterOverclock.heroine.overdrive, 55); // 20 + 35
+  assert.equal(afterOverclock.heroine.overdrive, 40); // 20 + 20
   assert.equal(afterOverclock.heroine.overclockCount, 1);
   const upgradedAttackTile = afterOverclock.masterPool.find((t) => t.type === 'attack');
-  assert.ok(upgradedAttackTile && upgradedAttackTile.value >= 5);
+  assert.equal(upgradedAttackTile?.value, baseFirstAtk + 1);
+
+  // Second stack reaches MAX_OVERCLOCK_STACKS = 2, third attempt is a no-op
+  const afterSecondOverclock = applyMedBayAction(
+    { ...afterOverclock, currentNodeId: medbayNode.id, screen: 'medbay' },
+    'tile_overclock',
+  );
+  assert.equal(afterSecondOverclock.heroine.overclockCount, 2);
+  assert.equal(
+    afterSecondOverclock.masterPool.find((t) => t.id === upgradedAttackTile?.id)?.value,
+    baseFirstAtk + 2,
+  );
+  const afterThirdOverclock = applyMedBayAction(
+    { ...afterSecondOverclock, currentNodeId: medbayNode.id, screen: 'medbay' },
+    'tile_overclock',
+  );
+  assert.equal(afterThirdOverclock.heroine.overclockCount, 2);
+  assert.equal(afterThirdOverclock.screen, 'medbay');
 
   // Overclock persists across unequip/equip rebuildMasterPool
   const eqId = afterOverclock.heroine.equippedInstanceIds[0];
   const afterUnequipOverclock = unequipEquipmentInstance(afterOverclock, eqId);
   const afterReequipOverclock = equipEquipmentInstance(afterUnequipOverclock, eqId);
-  const atkTileAfterReequip = afterReequipOverclock.masterPool.find((t) => t.id === upgradedAttackTile.id);
-  assert.equal(atkTileAfterReequip?.value, upgradedAttackTile.value);
+  const atkTileAfterReequip = afterReequipOverclock.masterPool.find((t) => t.id === upgradedAttackTile!.id);
+  assert.equal(atkTileAfterReequip?.value, upgradedAttackTile!.value);
 
   // Localized Cyber Event accuracy (ai_siphon matches +8 HP / +10% OD in EN & CS)
   const aiEvent = CYBER_EVENT_TEMPLATES.find((ev) => ev.id === 'rogue_ai_cache');
@@ -1696,15 +1743,6 @@ test('Slay the Spire / FTL style Encounter Node Map: EVENT nodes, Boss Telegraph
   const aiSiphonCs = localizeCyberEvent(aiEvent, 'cs').choices.find((c) => c.id === 'ai_siphon');
   assert.ok(aiSiphonEn && aiSiphonEn.description.includes('+8 HP') && !aiSiphonEn.description.includes('Shield'));
   assert.ok(aiSiphonCs && aiSiphonCs.description.includes('+8 HP'));
-
-  // Test Tactical Extraction Shuttle: concludes with victory screen
-  const extractionState = {
-    ...medbayRun,
-    heroine: { ...medbayRun.heroine, nanites: 8 },
-  };
-  const afterExtract = applyMedBayAction(extractionState, 'extract_bank');
-  assert.equal(afterExtract.screen, 'victory');
-  assert.equal(afterExtract.heroine.nanites, 8);
 
   // 7. Nanite Banking Persistence
   const rec1 = recordRunCompletion(500, true, 8);
@@ -1764,7 +1802,7 @@ test('27. HP as Currency Node Economy, Dynamic Micro-Clusters, Flash Sales, Fund
     id: 's1',
     layer: 2,
     lane: 1,
-    type: 'CYBER_CLINIC',
+    type: 'CHIP_DEALER',
     modifier: 'flash_sale',
     nextIds: [],
     cleared: false,
@@ -1987,11 +2025,16 @@ test('28. Regression audit fixes: single-use Defibrillator, accurate Overcharged
     for (const node of run.mapNodes) {
       const intel = getNodeEncounterIntel(node, seed);
       const started = startNodeEncounter(run, node.id);
-      if (node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY' || node.type === 'EVENT') {
+      if (
+        node.type === 'CYBER_CLINIC' ||
+        node.type === 'CHIP_DEALER' ||
+        node.type === 'MED_BAY' ||
+        node.type === 'EVENT'
+      ) {
         assert.equal(intel.enemies.length, 0);
         if (node.modifier === 'flash_sale') {
           assert.ok(
-            intel.threatTraits?.some((tr) => tr.includes('Flash Sale') && tr.includes('Equipment')),
+            intel.threatTraits?.some((tr) => tr.includes('Flash Sale') && tr.includes('Chip')),
             'Flash sale trait should be populated and accurate',
           );
         }
@@ -2022,7 +2065,8 @@ test('28. Regression audit fixes: single-use Defibrillator, accurate Overcharged
     const byId = new Map(run.mapNodes.map((n) => [n.id, n]));
     for (const node of run.mapNodes) {
       assert.ok(getReachableNodeIds(run.mapNodes, node.id).has('n_4_0'));
-      const isSupport = node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY';
+      const isSupport =
+        node.type === 'CYBER_CLINIC' || node.type === 'CHIP_DEALER' || node.type === 'MED_BAY';
       for (const nextId of node.nextIds) {
         const nextNode = byId.get(nextId)!;
         if (isSupport) {
@@ -2094,6 +2138,95 @@ test('28. Regression audit fixes: single-use Defibrillator, accurate Overcharged
   assert.equal(afterFundedCalibrate.heroine.maxHp, 68);
   assert.equal(afterFundedCalibrate.heroine.hp, 68); // 46 + 10 calibrate + 12 funded = 68 (would have been 66 if capped at 58 first)
 });
+
+test('29. Duds + Implant salvage, UpCharge Chips capped at 9 board tiles, Hero Armor blocks Acid Jam, and Cyber-Clinic 30 CR Tile Purge', () => {
+  const auraline = createInitialRun(505, 'aurelia');
+  assert.ok(auraline.combat);
+
+  // 1. Flat Implant (plasma_amp +2 ATK, synapse_overclock +3 SHD) can salvage 0-value Duds
+  const dudSalvageRun: RunState = {
+    ...auraline,
+    heroine: {
+      ...auraline.heroine,
+      implants: ['plasma_amp', 'synapse_overclock'],
+      armor: 18,
+      pendingUpcharge: 0,
+    },
+    combat: {
+      ...auraline.combat,
+      board: [
+        { ...makeTile('d_atk', 'attack', 0), isDud: true, upcharge: 1 },
+        { ...makeTile('d_tech', 'tech', 0), isDud: true },
+        { ...makeTile('a_uc', 'attack', 5), upcharge: 2 },
+        makeTile('a_reg', 'attack', 6),
+      ],
+      drawPile: Array.from({ length: 8 }, (_, idx) => makeTile(`extra_${idx}`, 'defense', 7)),
+      enemies: [
+        {
+          ...auraline.combat.enemies[0],
+          archetype: 'spitter',
+          passive: 'acid_jam',
+          hp: 30,
+          maxHp: 30,
+          armor: 0,
+          intentCycle: [{ kind: 'acid', value: 8, secondaryValue: 2 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+
+  // Attack preview: Dud (0 + 2 plasma_amp = 2) + a_uc (5 + 2 = 7) + a_reg (6 + 2 = 8) = 17 DMG; UpCharge = 1 + 2 + 1 (Auraline dud) = 4
+  const atkPrev = previewColorResolution(dudSalvageRun, 'attack');
+  assert.equal(atkPrev.totalDamage, 17);
+  assert.equal(atkPrev.upchargeGained, 4);
+
+  // Tech Dud salvaged by synapse_overclock (+3 SHD), +15% OD, +1 UpCharge
+  const techPrev = previewColorResolution(dudSalvageRun, 'tech');
+  assert.equal(techPrev.shieldGained, 3);
+  assert.equal(techPrev.overdriveGained, 15);
+  assert.equal(techPrev.upchargeGained, 1);
+
+  // Resolve Attack (+4 UpCharge -> capped at MAX_UPCHARGE_BOARD_CAPACITY = 9 tiles on next turn)
+  // Spitter Acid 8 hits 18 Armor -> 10 Armor left, 0 HP lost -> Acid Jam & Caustic Slag are blocked!
+  const afterAtk = resolvePlayerColor(dudSalvageRun, 'attack');
+  assert.equal(afterAtk.heroine.pendingUpcharge, 4);
+  const afterSpitterTurn = executeEnemyTurn(afterAtk);
+  assert.equal(afterSpitterTurn.heroine.armor, 10);
+  assert.equal(afterSpitterTurn.heroine.hp, 78);
+  assert.equal(afterSpitterTurn.heroine.pendingUpcharge, 0);
+  assert.equal(afterSpitterTurn.combat?.board.length, MAX_UPCHARGE_BOARD_CAPACITY);
+  assert.ok(!afterSpitterTurn.combat?.board.some((t) => t.isJammed));
+
+  // 2. Cyber-Clinic Paid Innate/Dud Tile Purge (30 CR, max 1 per visit)
+  const clinicNode = auraline.mapNodes.find((n) => n.type === 'CYBER_CLINIC');
+  assert.ok(clinicNode);
+  const clinicRun = startNodeEncounter(
+    {
+      ...auraline,
+      screen: 'map',
+      combat: null,
+      heroine: { ...auraline.heroine, credits: 70 },
+    },
+    clinicNode.id,
+  );
+  assert.equal(clinicRun.screen, 'clinic');
+  const dudInnate = clinicRun.masterPool.find((t) => t.sourceId === 'innate' && t.isDud);
+  assert.ok(dudInnate);
+
+  const afterPurge = purgeClinicInnateTile(clinicRun, dudInnate.id);
+  assert.equal(afterPurge.heroine.credits, 70 - CLINIC_PURGE_COST);
+  assert.equal(afterPurge.masterPool.length, 8);
+  assert.ok(!afterPurge.masterPool.some((t) => t.id === dudInnate.id));
+  assert.equal(afterPurge.clinicPurgeUsed, true);
+
+  // Second purge in the same clinic visit is blocked
+  const secondInnate = afterPurge.masterPool.find((t) => t.sourceId === 'innate')!;
+  const afterSecondPurge = purgeClinicInnateTile(afterPurge, secondInnate.id);
+  assert.equal(afterSecondPurge.masterPool.length, 8);
+  assert.equal(afterSecondPurge.heroine.credits, 70 - CLINIC_PURGE_COST);
+});
+
 
 
 

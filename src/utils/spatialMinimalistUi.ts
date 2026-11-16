@@ -68,8 +68,8 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
     icon: '⇄',
     labelEn: 'Push',
     labelCs: 'Odstrčení',
-    ruleEn: 'Swap 2 units. Deal 2 collision DMG.',
-    ruleCs: 'Prohodí 2 cíle. Udělí 2 DMG srážkou.',
+    ruleEn: 'Swap front 2 units. Costs 0 AP.',
+    ruleCs: 'Prohodí přední 2 cíle. Zdarma (0 AP).',
     accentHex: '#00F0FF',
   },
   shield: {
@@ -541,8 +541,8 @@ export interface KnockbackSwapPreview {
 }
 
 /**
- * Section 3.2: Hover Previews (The "What-If" Knockback / Push State).
- * Computes exact landing slots and collision HP/Armor chunks when hovering Push/Swap.
+ * Section 3.2: Hover Previews (The "What-If" Spatial Swap State).
+ * Computes exact landing slots when hovering Push/Swap (pure 0-AP positioning).
  */
 export function computeKnockbackSwapPreview(
   combat: CombatState | null,
@@ -561,29 +561,19 @@ export function computeKnockbackSwapPreview(
   const unitA = combat.enemies[idxA];
   const unitB = combat.enemies[idxB];
 
-  const calcPostCollision = (u: EnemyUnit) => {
-    if (u.armor > 0) {
-      return { hp: u.hp, armor: Math.max(0, u.armor - 2) };
-    }
-    return { hp: Math.max(1, u.hp - 2), armor: 0 };
-  };
-
-  const postA = calcPostCollision(unitA);
-  const postB = calcPostCollision(unitB);
-
   return {
     active: true,
     fromSlotIndex: idxA,
     toSlotIndex: idxB,
-    collisionDamage: 2,
-    frontUnitSurvivingHp: postA.hp,
-    frontUnitSurvivingArmor: postA.armor,
-    secondUnitSurvivingHp: postB.hp,
-    secondUnitSurvivingArmor: postB.armor,
+    collisionDamage: 0,
+    frontUnitSurvivingHp: unitA.hp,
+    frontUnitSurvivingArmor: unitA.armor,
+    secondUnitSurvivingHp: unitB.hp,
+    secondUnitSurvivingArmor: unitB.armor,
     bannerText:
       lang === 'cs'
-        ? '⇄ ODSTRČ 1 POLE · -2 BRN/HP'
-        : '⇄ PUSH 1 TILE · -2 ARM/HP',
+        ? '⇄ PROHODIT POZICE · 0 AP'
+        : '⇄ SWAP SLOTS · 0 AP',
   };
 }
 
@@ -606,15 +596,15 @@ export function formatStreamlinedOnboardingPrompt(
       : `▲ **Held tiles** gain **+1 power** this turn.`;
   }
   return lang === 'cs'
-    ? `⇄ **Odstrč 1 pole.** Uděl 2 DMG.`
-    : `⇄ **Push 1 tile.** Deal 2 DMG.`;
+    ? `⇄ **Prohoď 2 cíle.** Zdarma (0 AP).`
+    : `⇄ **Swap 2 targets.** Free (0 AP).`;
 }
 
 export function resolveActivePreviewKeywords(
   preview: TurnPreview | null,
   hoveringSwap = false,
 ): CoreMechanicKeywordId[] {
-  if (hoveringSwap) return ['push', 'armor'];
+  if (hoveringSwap) return ['push'];
   if (!preview || preview.tileCount === 0) return [];
   const list: CoreMechanicKeywordId[] = [];
   if (preview.surgeTriggered) list.push('surge');

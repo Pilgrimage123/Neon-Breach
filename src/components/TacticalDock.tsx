@@ -307,6 +307,11 @@ export function TacticalDock({
                   +{activePreview.overdriveGained}% {t.previewOverdrive}
                 </span>
               )}
+              {(activePreview.upchargeGained ?? 0) > 0 && (
+                <span className="font-bold text-emerald-300">
+                  · ⚡ +{activePreview.upchargeGained} {t.upchargeLabel}
+                </span>
+              )}
               <span className="text-slate-300">
                 · {activePreview.stayCount} {t.previewStayCount}
               </span>
@@ -428,8 +433,8 @@ export function TacticalDock({
             }}
             title={
               lang === 'cs'
-                ? 'Posun 1 pole. Uděl 2 poškození. [R]'
-                : 'Push 1 tile. Deal 2 damage. [R]'
+                ? 'Prohodí přední 2 nepřátele (0 AP). [R]'
+                : 'Swap front 2 enemies (0 AP). [R]'
             }
             className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
               canSwapEnemies && canPlay
@@ -627,13 +632,19 @@ export function TacticalDock({
             +{run.heroine.damageBoostPct}% DMG
           </span>
         )}
+        {(run.heroine.pendingUpcharge ?? 0) > 0 && (
+          <span className="font-bold text-emerald-300 whitespace-nowrap px-1">
+            ⚡+{run.heroine.pendingUpcharge} {t.upchargeShort}
+          </span>
+        )}
         <span className="text-slate-300 whitespace-nowrap shrink-0">
-          {combat?.board.length ?? 0}/6 · {t.poolTotalLabel}: {run.masterPool.length}
+          {combat?.board.length ?? 0}/{Math.min(9, 6 + (run.heroine.pendingUpcharge ?? 0))} · {t.poolTotalLabel}: {run.masterPool.length}
         </span>
       </div>
 
       <div
-        className="grid grid-cols-6 gap-1 sm:gap-1.5"
+        className="grid gap-1 sm:gap-1.5"
+        style={{ gridTemplateColumns: `repeat(${Math.max(6, groupedBoard.length)}, minmax(0, 1fr))` }}
         onMouseLeave={() => {
           onHoverColor(null);
           setInspectedTileId(null);
@@ -642,6 +653,8 @@ export function TacticalDock({
         {groupedBoard.map((tile) => {
           const isJammed = Boolean(tile.isJammed);
           const isBlight = Boolean(tile.isBlight);
+          const isDud = Boolean(tile.isDud);
+          const hasUpcharge = (tile.upcharge ?? 0) > 0;
           const isHexed = Boolean(
             tile.hexedByEnemyId &&
               combat?.enemies.some((e) => e.id === tile.hexedByEnemyId && e.hp > 0),
@@ -653,15 +666,17 @@ export function TacticalDock({
           const effective = getEffectiveTileValue(tile, run.heroine);
           const shortValue = isBlight
             ? '0'
-            : lod.level === 'overview'
-              ? tile.type === 'attack' || tile.type === 'defense'
-                ? `${effective.value}`
-                : formatTileShortLabel(tile, lang)
-              : tile.type === 'attack'
-                ? `${t.atkShort} ${effective.value}`
-                : tile.type === 'defense'
-                  ? `${t.defShort} ${effective.value}`
-                  : formatTileShortLabel(tile, lang);
+            : isDud && effective.value === 0
+              ? 'DUD'
+              : lod.level === 'overview'
+                ? tile.type === 'attack' || tile.type === 'defense'
+                  ? `${effective.value}`
+                  : formatTileShortLabel(tile, lang)
+                : tile.type === 'attack'
+                  ? `${t.atkShort} ${effective.value}`
+                  : tile.type === 'defense'
+                    ? `${t.defShort} ${effective.value}`
+                    : formatTileShortLabel(tile, lang);
           const detailText = formatTileDetailText(tile, lang);
           const sourceLabel =
             tile.sourceId === 'innate'
@@ -834,6 +849,14 @@ export function TacticalDock({
               ) : isHexed ? (
                 <span className="w-full truncate text-center text-[8px] font-extrabold leading-none text-purple-200">
                   {t.hexTag}
+                </span>
+              ) : isDud || hasUpcharge ? (
+                <span className="w-full truncate text-center font-mono-tabular text-[8px] font-extrabold leading-none text-emerald-300">
+                  {isDud && run.heroine.characterId === 'aurelia'
+                    ? `+1 ${t.upchargeShort}`
+                    : hasUpcharge
+                      ? `⚡+${tile.upcharge} ${t.upchargeShort}`
+                      : t.dudTag}
                 </span>
               ) : (
                 <span className="h-0.5" aria-hidden="true" />

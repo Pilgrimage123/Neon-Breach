@@ -11,7 +11,7 @@ Depth comes from how rules interact on the sky-bridge, not how many obscure modi
 | Principle | Implementation in NEON BREACH | Casual Benefit (Low Floor) | Veteran Benefit (High Ceiling) |
 | --- | --- | --- | --- |
 | **Keep Numbers Small (`Discrete Pip Math`)** | Toggleable **Pip Math Mode (`1 Pip = 5 HP/DMG`)** converts raw values into discrete integer pips (`1–5 Pips`) alongside exact integers. Enemy Shield Pips (`1–2 Pips`) and Held Tile bonuses (`+1` / `+2`) use tiny discrete integers. | Instant mental arithmetic (`2 DMG Pips` vs `2 HP Pips = KO`) without calculating percentages in your head. | Veterans can combine Held Tile `+1` bonuses, Stack Surge thresholds (`4+`), and Phase Gate caps for multi-turn lethal setups. |
-| **Spatial Positioning over Stat Checks (`⇄ Reposition / Swap`)** | Free once-per-turn **Spatial Swap (`[R]` / `⇄ Swap`)** pulls the #2 enemy to the #1 frontline slot (or pushes the frontline enemy back). | Viscerally intuitive: pull a fragile support unit into the front to blast it, or position a volatile **Spore Mite** next to an armored brute so its death explosion (`Volatile Burst`) chains into the squad. | Enables multi-step spatial combos: pull an **Aegis Skitter** to the front to stop its shield bolstering, or line up cleave + death-burst cascades. |
+| **Spatial Positioning over Stat Checks (`⇄ Reposition / Swap`)** | Free once-per-turn **Spatial Swap (`[R]` / `⇄ Push`)** pulls the #2 enemy to the #1 frontline slot (or pushes the frontline enemy back) for `0 AP` with no free collision damage. | Viscerally intuitive: pull a fragile support unit into the front to blast it, or position a volatile **Spore Mite** next to an armored brute so its death explosion (`Volatile Burst`) chains into the squad. | Enables multi-step spatial combos: pull an **Aegis Skitter** to the front to stop its shield bolstering, or line up cleave + death-burst cascades. |
 | **Limited Action Economy (`3 Core Actions`)** | Every turn boils down to choosing **1 of 3 color groups (`[1] Attack`, `[2] Defense`, `[3] TECH`)** plus optional free maneuvers (`Overdrive`, `⇄ Swap`). | Choosing the best move out of 3 clear options eliminates analysis paralysis on both desktop and mobile. | Unplayed tiles remain on the board (`HELD`) and gain `+1` power next turn, turning a 3-choice action into a deep multi-turn resource management puzzle. |
 
 ---
@@ -43,8 +43,8 @@ Every combat encounter evaluates three opt-in tiers simultaneously so players se
 | Player Tier | Objective Structure | In-Game Criteria | Reward Type |
 | --- | --- | --- | --- |
 | **★ Casual (The Floor)** | **Primary Objective: Survive & Clear** | Defeat all enemies in any number of turns. | Unlocks the next Sector node, base Credits, and Equipment choice. |
-| **★★ Intermediate** | **Secondary Objective (2-Star Blitz / Flawless)** | Clear the node in **≤ 5 turns** OR take **0 hull HP damage**. | Grants **+12 Bonus Credits** & **+1 Meta Nanite** for sidegrade gear. |
-| **★★★ Hardcore (The Ceiling)** | **Mastery Constraint Challenge (3-Star)** | Clear in **≤ 4 turns with 0 Undo/Reset used** AND trigger at least **1 Stack Surge (4+)**. | Grants **★★★ Mastery Badge**, **+20 Credits**, **+2 Meta Nanites**, and **+150 Score**. |
+| **★★ Intermediate** | **Secondary Objective (2-Star Blitz / Flawless)** | Clear the node in **≤ 5 turns** OR take **0 hull HP damage** *(locked out if Fail-Forward Retry is used)*. | Grants **+1 Meta Nanite** & **+75 Score** (`0` bonus Credits to preserve shop scarcity). |
+| **★★★ Hardcore (The Ceiling)** | **Mastery Constraint Challenge (3-Star)** | Clear in **≤ 4 turns with 0 Undo/Reset and 0 Hints used** AND trigger at least **1 Stack Surge (4+)**. | Grants **★★★ Mastery Badge**, **+2 Meta Nanites**, and **+150 Score** (`totalNanites` prestige). |
 
 ---
 

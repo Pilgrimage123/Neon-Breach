@@ -93,6 +93,15 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
     if (typeof parsed.heroine.overclockCount !== 'number') {
       parsed.heroine.overclockCount = 0;
     }
+    if (typeof parsed.heroine.armor !== 'number') {
+      parsed.heroine.armor = 0;
+    }
+    if (typeof parsed.heroine.pendingUpcharge !== 'number') {
+      parsed.heroine.pendingUpcharge = 0;
+    }
+    if (!Array.isArray(parsed.heroine.purgedInnateIds)) {
+      parsed.heroine.purgedInnateIds = [];
+    }
     if (parsed.activeEvent === undefined) {
       parsed.activeEvent = null;
     }

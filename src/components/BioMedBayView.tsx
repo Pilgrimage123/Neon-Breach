@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getPreloadedNurseFrames, loadNurseFrames } from '../assets/assetPreloader';
+import { MAX_OVERCLOCK_STACKS } from '../engine/data';
 import type { RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import {
@@ -22,7 +23,7 @@ interface BioMedBayViewProps {
   lang: Language;
   isCompactLandscape?: boolean;
   onAction: (
-    action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock' | 'extract_bank',
+    action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock',
   ) => void;
 }
 
@@ -42,6 +43,8 @@ export function BioMedBayView({
   const healedHp = Math.min(run.heroine.maxHp, run.heroine.hp + 22 + (isFundedClinic ? 12 : 0));
   const calibratedMaxHp = run.heroine.maxHp + 10;
   const nanites = run.heroine.nanites ?? 0;
+  const overclockStacks = Math.min(MAX_OVERCLOCK_STACKS, Math.max(0, run.heroine.overclockCount ?? 0));
+  const overclockMaxed = overclockStacks >= MAX_OVERCLOCK_STACKS;
 
   const [focusedOption, setFocusedOption] = useState<MedBayOptionId | null>(null);
   const [pulseCount, setPulseCount] = useState(0);
@@ -114,11 +117,9 @@ export function BioMedBayView({
                   ? '255, 199, 0'
                   : activeOpt === 'tile_overclock'
                     ? '217, 70, 239'
-                    : activeOpt === 'extract_bank'
-                      ? '245, 158, 11'
-                      : hpRatioRef.current <= 0.45
-                        ? '255, 46, 126'
-                        : '16, 245, 160';
+                    : hpRatioRef.current <= 0.45
+                      ? '255, 46, 126'
+                      : '16, 245, 160';
 
           // High-tech holographic floor emitter pad under her boots
           const centerX = w * 0.5;
@@ -339,14 +340,12 @@ export function BioMedBayView({
           ? t.medbayNurseHoverSalvage
           : focusedOption === 'tile_overclock'
             ? t.medbayNurseHoverOverclock
-            : focusedOption === 'extract_bank'
-              ? t.medbayNurseHoverExtract
-              : isCriticalHp
-                ? t.medbayNurseIdleCritical
-                : t.medbayNurseIdleNominal;
+            : isCriticalHp
+              ? t.medbayNurseIdleCritical
+              : t.medbayNurseIdleNominal;
 
   const triggerAction = (
-    action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock' | 'extract_bank',
+    action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock',
   ) => {
     setPulseCount((c) => c + 1);
     onAction(action);
@@ -478,9 +477,9 @@ export function BioMedBayView({
             ) : null}
           </div>
 
-            {/* 5 Procedure Cards */}
+            {/* 4 Procedure Cards */}
             <div
-              className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 ${
+              className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 ${
                 isCompactLandscape ? 'gap-2' : 'gap-2.5 sm:gap-3'
               }`}
             >
@@ -607,18 +606,23 @@ export function BioMedBayView({
                 }`}
               >
                 <div>
-                  <h2
-                    className={`font-display font-bold text-fuchsia-300 ${
-                      isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
-                    }`}
-                  >
-                    {t.medbayOverclockTitle}
-                  </h2>
+                  <div className="flex items-center justify-between gap-1.5">
+                    <h2
+                      className={`font-display font-bold text-fuchsia-300 ${
+                        isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
+                      }`}
+                    >
+                      {t.medbayOverclockTitle}
+                    </h2>
+                    <span className="font-mono-tabular text-[10px] font-bold text-fuchsia-200 border border-fuchsia-400/40 rounded px-1.5 py-0.5">
+                      {overclockStacks}/{MAX_OVERCLOCK_STACKS}
+                    </span>
+                  </div>
                   <p className="mt-1 text-[11px] leading-snug text-slate-200">
                     {t.medbayOverclockDesc}
                   </p>
                   <div className="mt-1.5 font-mono-tabular text-xs font-bold text-fuchsia-200">
-                    {lang === 'cs' ? '+2 ATK / +35% OD / Čištění' : '+2 ATK / +35% OD / Cleanse'}
+                    {lang === 'cs' ? '+1 ATK (×2) / +20% OD / Čištění' : '+1 ATK (×2) / +20% OD / Cleanse'}
                     {isFundedClinic && (
                       <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
                     )}
@@ -626,53 +630,15 @@ export function BioMedBayView({
                 </div>
                 <button
                   type="button"
+                  disabled={overclockMaxed}
                   onFocus={() => setFocusedOption('tile_overclock')}
                   onBlur={() => setFocusedOption(null)}
                   onClick={() => triggerAction('tile_overclock')}
-                  className={`mt-2.5 w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all hover:brightness-110 cursor-pointer ${
+                  className={`mt-2.5 w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all hover:brightness-110 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
                     isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
                   }`}
                 >
-                  {t.applyOverclock}
-                </button>
-              </div>
-
-              {/* Option 5: Tactical Extraction Shuttle */}
-              <div
-                onMouseEnter={() => setFocusedOption('extract_bank')}
-                onMouseLeave={() => setFocusedOption(null)}
-                className={`chrome-pill flex flex-col justify-between rounded-xl border-amber-400/50 bg-amber-950/20 transition-transform duration-150 hover:-translate-y-0.5 ${
-                  isCompactLandscape ? 'p-2' : 'p-3'
-                }`}
-              >
-                <div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
-                    <h2
-                      className={`font-display font-bold text-amber-300 ${
-                        isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
-                      }`}
-                    >
-                      {t.medbayExtractTitle}
-                    </h2>
-                  </div>
-                  <p className="mt-1 text-[11px] leading-snug text-slate-200">
-                    {t.medbayExtractDesc}
-                  </p>
-                  <div className="mt-1.5 font-mono-tabular text-xs font-bold text-amber-200">
-                    {lang === 'cs' ? 'Uložit' : 'Bank'} {nanites} {t.nanitesShort} & {run.heroine.credits} {t.creditsLabel}
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onFocus={() => setFocusedOption('extract_bank')}
-                  onBlur={() => setFocusedOption(null)}
-                  onClick={() => triggerAction('extract_bank')}
-                  className={`mt-2.5 w-full rounded-lg bg-gradient-to-r from-amber-500 via-orange-500 to-yellow-500 font-bold text-slate-950 shadow-[0_0_20px_rgba(245,158,11,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
-                    isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
-                  }`}
-                >
-                  {t.applyExtract}
+                  {overclockMaxed ? (lang === 'cs' ? 'Max (2/2)' : 'Maxed (2/2)') : t.applyOverclock}
                 </button>
               </div>
             </div>

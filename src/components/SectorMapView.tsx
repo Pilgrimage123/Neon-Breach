@@ -56,6 +56,12 @@ const NODE_STYLE: Record<
     bg: 'bg-gradient-to-b from-[#0E2D4C]/90 to-[#081A2E]/92',
     hex: '#00F0FF',
   },
+  CHIP_DEALER: {
+    border: 'border-amber-400/70',
+    accent: 'text-amber-200',
+    bg: 'bg-gradient-to-b from-[#3A220B]/90 to-[#1F1105]/92',
+    hex: '#F59E0B',
+  },
   MED_BAY: {
     border: 'border-[#10F5A0]/65',
     accent: 'text-emerald-200',
@@ -98,6 +104,14 @@ function NodeEmblem({ type }: { type: MapNodeType }) {
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00F0FF" strokeWidth="2.2" aria-hidden="true">
         <rect x="4" y="4" width="16" height="16" rx="3" />
         <path d="M12 8V16M8 12H16" strokeLinecap="round" />
+      </svg>
+    );
+  }
+  if (type === 'CHIP_DEALER') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2.2" aria-hidden="true">
+        <rect x="6" y="6" width="12" height="12" rx="2" />
+        <path d="M9 2V6M15 2V6M9 18V22M15 18V22M2 9H6M2 15H6M18 9H22M18 15H22" strokeLinecap="round" />
       </svg>
     );
   }
@@ -294,6 +308,8 @@ export function SectorMapView({
     switch (type) {
       case 'CYBER_CLINIC':
         return t.mapRewardImplant;
+      case 'CHIP_DEALER':
+        return t.clinicShopTitle;
       case 'ELITE':
         return t.mapRewardElite;
       case 'MED_BAY':
@@ -357,7 +373,9 @@ export function SectorMapView({
         ? `${intel.enemies.length}x · ${intel.totalEnemyHp} HP`
         : node.type === 'CYBER_CLINIC'
           ? `${t.implantSlotsLabel} ${run.heroine.implants.length}/${MAX_IMPLANTS}`
-          : node.type === 'EVENT'
+          : node.type === 'CHIP_DEALER'
+            ? `${t.capacityLabel} ${getEquippedEquipmentWeight(run.heroine)}/${run.heroine.carryCapacity}`
+            : node.type === 'EVENT'
             ? reconPreview?.kind === 'event'
               ? t.reconPreviewPrefix
               : t.mapAnomalyLabel
@@ -596,7 +614,7 @@ export function SectorMapView({
                     </span>
                   )}
                   {/* Smart Shop Badges */}
-                  {node.type === 'CYBER_CLINIC' && (
+                  {(node.type === 'CHIP_DEALER' || node.type === 'CYBER_CLINIC') && (
                     <span
                       className={`shrink-0 whitespace-nowrap px-1 py-0.2 rounded text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight border ${
                         run.heroine.credits >= minShopCredits
@@ -1000,8 +1018,10 @@ export function SectorMapView({
             reconPreview?.kind === 'event'
               ? `${reconPreview.eventTitle}: ${reconPreview.choices.join(' / ')}`
               : reconPreview?.kind === 'clinic'
-                ? `${reconPreview.isFlashSale ? t.bountyFlashSaleBadge : t.clinicShopTitle} · ${t.implantSlotsLabel}: ${MAX_IMPLANTS - reconPreview.openSockets}/${MAX_IMPLANTS}`
-                : reconPreview?.kind === 'medbay'
+                ? `${t.implantsTitle} · ${t.implantSlotsLabel}: ${MAX_IMPLANTS - reconPreview.openSockets}/${MAX_IMPLANTS}`
+                : reconPreview?.kind === 'chip_dealer'
+                  ? `${reconPreview.isFlashSale ? t.bountyFlashSaleBadge : t.clinicShopTitle} · ${t.capacityLabel}: ${reconPreview.freeMemory}`
+                  : reconPreview?.kind === 'medbay'
                   ? `+${reconPreview.healTotal} ${t.hpLabel}${reconPreview.isFunded ? ` (${t.bountyFundedClinicBadge})` : ''}`
                   : reconPreview?.kind === 'combat'
                     ? reconPreview.enemies

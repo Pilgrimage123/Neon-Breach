@@ -26,7 +26,7 @@ test('formatDiscretePipMath converts raw integers into small discrete pips (1 Pi
   assert.equal(medium.compactLabel, '4P (18)');
 });
 
-test('repositionFrontEnemies swaps first two living enemies and deals 2 collision damage', () => {
+test('repositionFrontEnemies swaps first two living enemies purely for 0 AP without free damage', () => {
   const run = createInitialRun(104729, 'kira');
   assert.ok(run.combat);
   assert.equal(canRepositionEnemies(run.combat, false), true);
@@ -37,12 +37,11 @@ test('repositionFrontEnemies swaps first two living enemies and deals 2 collisio
   const res = repositionFrontEnemies(run.combat);
 
   assert.equal(res.swapped, true);
+  assert.equal(res.collisionBonusDmg, 0);
   assert.equal(res.enemies[0].id, secondBefore.id);
   assert.equal(res.enemies[1].id, firstBefore.id);
-  // First enemy had 9 HP 0 Armor -> 7 HP after collision bump
-  assert.equal(res.enemies[1].hp, Math.max(1, firstBefore.hp - 2));
-  // Second enemy had 4 Armor -> 2 Armor after collision bump
-  assert.equal(res.enemies[0].armor, Math.max(0, secondBefore.armor - 2));
+  assert.equal(res.enemies[1].hp, firstBefore.hp);
+  assert.equal(res.enemies[0].armor, secondBefore.armor);
 });
 
 test('computeOptimalTurnHint recommends Overdrive when at 100% and evaluates best color action otherwise', () => {
@@ -83,27 +82,44 @@ test('computeEncounterObjectives evaluates Casual 1-Star, Intermediate 2-Star, a
       : undefined,
   };
 
-  // 3-Star Mastery: <=4 turns, 1+ surge, 0 undos
+  // 3-Star Mastery: <=4 turns, 1+ surge, 0 undos, 0 hints, no fail-forward (0 CR bonus)
   const threeStar = computeEncounterObjectives({
     combat: clearedCombat,
     heroine: run.heroine,
     startingHp: run.heroine.hp,
     undosUsed: 0,
+    hintsUsed: 0,
+    failForwardUsed: false,
     lang: 'en',
   });
   assert.equal(threeStar.starsEarned, 3);
-  assert.equal(threeStar.bonusCredits, 32);
+  assert.equal(threeStar.bonusCredits, 0);
   assert.equal(threeStar.bonusNanites, 3);
+  assert.equal(threeStar.bonusScore, 225);
 
-  // 2-Star Intermediate: used 1 undo so Tier 3 is locked, but <=5 turns is met
-  const twoStar = computeEncounterObjectives({
+  // 2-Star Intermediate: used 1 hint (or 1 undo) so Tier 3 is locked, but <=5 turns is met
+  const twoStarHint = computeEncounterObjectives({
+    combat: clearedCombat,
+    heroine: run.heroine,
+    startingHp: run.heroine.hp,
+    undosUsed: 0,
+    hintsUsed: 1,
+    lang: 'en',
+  });
+  assert.equal(twoStarHint.starsEarned, 2);
+
+  // Fail-Forward Retry caps node at 1-Star regardless of turn count
+  const failForwardCapped = computeEncounterObjectives({
     combat: clearedCombat,
     heroine: run.heroine,
     startingHp: run.heroine.hp,
     undosUsed: 1,
+    failForwardUsed: true,
     lang: 'en',
   });
-  assert.equal(twoStar.starsEarned, 2);
+  assert.equal(failForwardCapped.starsEarned, 1);
+  assert.equal(failForwardCapped.bonusCredits, 0);
+  assert.equal(failForwardCapped.bonusNanites, 0);
 
   // 1-Star Casual: took 8 turns and lost HP
   const oneStar = computeEncounterObjectives({

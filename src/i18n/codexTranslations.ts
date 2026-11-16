@@ -162,51 +162,45 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
           'Turn 1: Resolve TECH (+42% DMG Boost & +20% OD/tile) while holding Attack tiles to power them up (+1 each). Turn 2: Trigger Plasma Blitz (+30% DMG Boost), then unleash the boosted Attack Stack Surge!',
       },
       aurelia: {
-        roleTag: 'Armored Bastion · Counter-Strike',
+        roleTag: 'Slow Juggernaut · Armored Anchor',
         playstyleLead:
-          'Frontline royal cyber-musketeer with the highest Max HP and Carry Capacity. Turns Defense stacks into lethal offense via Riposte while carrying unused Shield between rounds.',
+          'Frontline heavy juggernaut with 78 Max HP, 18 persistent starting Armor every combat, and 14 Chip Memory. Starts with 1 Dud in each color—and converts every Dud played into +1 UpCharge.',
         passivePowers: [
           {
-            name: 'Royal Aegis Retention',
-            badge: 'Keep 5 Shield/Turn',
+            name: 'Juggernaut Plating',
+            badge: '+18 Armor / Combat',
             description:
-              'Retains up to 5 unused Shield at the end of every round instead of losing it all. Stacks directly with Aegis Capacitor (50% retention + 5).',
+              'Starts every encounter with 18 persistent Armor underneath Shield (DMG -> Shield -> Armor -> HP), absorbing hits across rounds without decaying or suffering Corrode.',
           },
           {
-            name: 'Shield Riposte Salvo',
-            badge: '+2 DMG per DEF Tile',
+            name: 'Dud Overclock (UpCharge)',
+            badge: '+1 UpCharge per Dud',
             description:
-              'Resolving Defense tiles automatically fires 2 Riposte DMG per Defense tile at the front living enemy. Combines with Defense Stack Surge (+8 DMG) for heavy counter-damage while guarding.',
+              'Starts with 3 Dud tiles (1 Attack, 1 Defense, 1 TECH). Resolving any Dud grants +1 UpCharge (+1 extra tile drawn next turn), letting her cycle faster without needing to swamp Duds.',
           },
           {
-            name: 'Heavy Chassis Capacity',
-            badge: '66 HP · 14 Load',
+            name: 'High-Memory Neural Rig',
+            badge: '78 HP · 14 Memory',
             description:
-              'Starts with 66 Max HP and 14 Carry Load—enough to equip heavyweight gear like Breacher Shotgun (Size 5) + Reactive Exo-Plate (Size 4) simultaneously.',
-          },
-          {
-            name: 'Measured Capacitor',
-            badge: '0 Held · +15% OD/TECH',
-            description:
-              'Does not gain +1 on Held tiles and gains +15% Overdrive per TECH tile, relying on superior base tile values and Riposte pressure.',
+              'Starts with 78 Max HP and 14 Chip Memory—enough to run heavyweight AI Skill Chips like Breacher Heavy.AI (Mem 5) + Reactive Exo.AI (Mem 4) simultaneously.',
           },
         ],
         overdriveRule:
-          'Available at 100% Overdrive [Space]. Sovereign Broadside is a Free Action that does not end your turn—ideal right before resolving an Attack or Defense stack.',
+          'Available at 100% Overdrive [Space]. Sovereign Broadside is a Free Action that reinforces Armor and floods the next draw with +2 UpCharge.',
         overdriveBreakdown: [
-          'Deals 24 Pierce DMG to ALL living enemies (highest single-burst AoE Overdrive).',
-          'Grants +12 Shield (up to 5 carries into the next turn if unspent).',
-          'Cleanses -2 Corrode stacks so your Defense tiles stay at full blocking power.',
+          'Deals 20 Pierce DMG to ALL living enemies (ignores Armor).',
+          'Grants +10 persistent Armor to sustain deep frontline trades.',
+          'Grants +2 UpCharge so your next turn draws +2 extra tiles.',
         ],
         synergies:
-          'Kinetic Reflector (+3 DMG on every block), Aegis Capacitor (retain 50% + 5 Shield), Nano-Weave Plating (+2 DEF/tile), and Reactive Exo-Plate.',
+          'Plasma Amplifier & Nano-Weave Plating (turns 0-value Duds into +2 ATK / +2 DEF tiles), Synapse Overclock (+3 SHD on TECH Duds), Surge Resonator (3-tile Surges using Duds), and Pulse Capacitor.AI.',
         tacticalLoop:
-          'Build a thick Shield wall that chips enemies with 2 Riposte DMG/tile (and +8 on Defense Surge), carry up to 5 Shield forward, and crush armored waves with 4-ATK surges or Sovereign Broadside.',
+          'Let your 18 starting Armor absorb early hits while cycling 1-Dud-per-color into +1 UpCharge draws, stack Surge thresholds with Duds, and drop Sovereign Broadside (+10 Armor, +2 UpCharge) to overpower Boss phases.',
       },
       zuri: {
-        roleTag: 'Drone Tactician · Balanced Hybrid',
+        roleTag: 'Armor-Shred Tactician · TECH Specialist',
         playstyleLead:
-          'Airborne swarm commander balancing Held tile growth, partial Shield retention, Riposte, built-in Armor Shred, and the fastest Overdrive generation in the game.',
+          'Airborne swarm commander specializing in AoE Armor Shred, hybrid Tactical Shielding, and the fastest Overdrive generation in the roster—trading away Held bonuses, Riposte, and native Turn-1 Surges.',
         passivePowers: [
           {
             name: 'Solar Capacitor Uplink',
@@ -215,29 +209,29 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
               'Resolving TECH tiles generates +25% Overdrive per tile—the highest in the roster—allowing frequent Solar Swarm Protocol activations.',
           },
           {
-            name: 'Tactical Wing Versatility',
-            badge: '+1 Held · 3 Retain · 1 Riposte',
+            name: 'Innate Armor Shred Core',
+            badge: '-8 ARM All · 3 Pierce',
             description:
-              'Combines +1 bonus on Held Attack/Defense tiles, 3 Shield retained per round, and 1 Riposte DMG per Defense tile resolved.',
+              'Zuri carries an innate TECH Armor Shred tile that strips 8 Armor from ALL enemies while dealing 3 direct Pierce DMG to the frontline target.',
           },
           {
-            name: 'Innate Armor Shred & Hybrid Shield',
-            badge: '-8 ARM All · +4 SHD/+24% DMG',
+            name: 'Hybrid Tactical Shield',
+            badge: '+4 SHD · +24% DMG',
             description:
-              'Zuri starts with two unique TECH core tiles: one strips 8 Armor from ALL enemies + deals 3 Pierce DMG; the other grants +4 Shield and +24% DMG Boost simultaneously.',
+              'Zuri’s second core TECH tile grants +4 Shield and +24% DMG Boost simultaneously, bridging defense and offense while charging +25% Overdrive.',
           },
         ],
         overdriveRule:
-          'Available at 100% Overdrive [Space]. Solar Swarm Protocol fires as a Free Action without ending your turn, priming enemies and boosting your follow-up Attack stack.',
+          'Available at 100% Overdrive [Space]. Solar Swarm Protocol fires as a Free Action without ending your turn, shattering enemy armor before your follow-up Attack stack.',
         overdriveBreakdown: [
-          'Deals 22 Pierce DMG to ALL living enemies (ignores Armor).',
-          'Grants +9 Shield and +25% DMG Boost for immediate follow-up burst.',
+          'Strips -12 Armor and deals 16 Pierce DMG to ALL living enemies.',
+          'Grants +8 Shield to brace against incoming counter-fire.',
           'Cleanses -2 Corrode stacks from your chassis.',
         ],
         synergies:
-          'Synapse Overclock (+3 Shield per TECH tile), Surge Resonator (easier 3-tile Surges on a 3/3/3 balanced pool), Flux Injector (+35% OD per TECH tile!), and ARC Rail-Carbine.',
+          'Synapse Overclock (+3 Shield per TECH tile), Surge Resonator (unlocks 3-tile Surges on her 3/3/3 balanced pool), Flux Injector (+35% OD per TECH tile!), and ARC Rail-Carbine.',
         tacticalLoop:
-          'Use Zuri’s innate TECH tiles to shred enemy Armor and gain Shield/DMG Boost while charging +25% OD per tile, hold Attack tiles for +1 bonus, then chain Solar Swarm Protocol into a Surge.',
+          'Respect your 3/3/3 Blind Spot (no Turn-1 Surge without gear or Resonator): weave innate TECH tiles to strip Armor, gain +4 Shield/+24% DMG, charge +25% OD per tile, then unleash Solar Swarm Protocol (-12 Armor All + 16 Pierce) into an Attack stack.',
       },
     },
     glossary: {
@@ -256,7 +250,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Operative Barrier',
         summary: 'Cyan energy barrier protecting your HP from enemy strikes, Acid Spit, and Thorny Carapace.',
         mechanics:
-          'Absorbs incoming damage 1-for-1 before HP is reduced. Blocking an Acid Spit completely (0 HP lost) prevents Bile Spitter/Boss from jamming a board tile. At round end, unused Shield clears down to your retention cap (Kira 0, Aurelia 5, Zuri 3; +50% with Aegis Capacitor).',
+          'Absorbs incoming damage 1-for-1 before Armor and HP are reduced. Blocking an Acid Spit completely (0 HP lost) prevents Bile Spitter/Boss from jamming a board tile. At round end, unused Shield clears down to your retention cap (Kira 0, Auraline 0, Zuri 0; +50% with Aegis Capacitor).',
         tacticalTip:
           'Keep just enough Shield to block incoming damage—if Acid Spit deals even 1 HP damage, it jams a tile!',
         keywords: ['shield', 'shd', 'def', 'defense', 'block', 'retain'],
@@ -529,51 +523,45 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
           '1. tah: Aktivuj TECH (+42 % Boost DMG a +20 % OD/dlaždici) a podrž dlaždice Útoku pro bonus +1. 2. tah: Spusť Plazmový Blitz (+30 % Boost DMG) a doraž vlnu posíleným Přetížením Útoku!',
       },
       aurelia: {
-        roleTag: 'Obrněná bašta · Protiúdery',
+        roleTag: 'Pomalý kolos · Obrněná kotva',
         playstyleLead:
-          'Královská kyber-mušketýrka s nejvyšším maximálním Zdravím a Nosností. Mění obranné sady v přímé poškození přes Odvetu a přenáší nevyužitý Štít mezi koly.',
+          'Těžká předvojová bojovnice se 78 Max HP, 18 stálého Brnění na začátku každého boje a pamětí 14. Začíná s 1 Dud dílkem v každé barvě a každý zahraný Dud jí dá +1 UpCharge.',
         passivePowers: [
           {
-            name: 'Královská záštita',
-            badge: 'Udrží 5 Štítu/tah',
+            name: 'Pancíř kolosu',
+            badge: '+18 Brnění / boj',
             description:
-              'Na konci každého kola si ponechá až 5 nespotřebovaného Štítu místo úplného vynulování. Sčítá se s Kondenzátorem Aegis (50 % + 5).',
+              'Každý boj začíná s 18 stálého Brnění pod Štítem (DMG -> Štít -> Brnění -> HP), které nemizí na konci kola a nepodléhá Korozi.',
           },
           {
-            name: 'Štítová odveta',
-            badge: '+2 DMG za DEF dlaždici',
+            name: 'Přetížení zmetků (UpCharge)',
+            badge: '+1 UpCharge za Dud',
             description:
-              'Každá aktivovaná dlaždice Obrany okamžitě udělí 2 DMG Odvety přednímu živému nepříteli. Kombinuje se s Přetížením Obrany (+8 DMG) pro drtivé protiúdery.',
+              'Začíná se 3 Dud dílky (1 Útok, 1 Obrana, 1 TECH). Každý zahraný Dud udělí +1 UpCharge (+1 dílek příští tah), takže nemusí své Dudy za každou cenu přemazávat.',
           },
           {
-            name: 'Těžká výzbroj a nosnost',
-            badge: '66 HP · Nosnost 14',
+            name: 'Vysoká paměť čipů',
+            badge: '78 HP · Paměť 14',
             description:
-              'Začíná se 66 Max HP a nosností 14 — unese i nejtěžší kombinace jako Průlomová brokovnice (velikost 5) + Reaktivní exo-plát (velikost 4).',
-          },
-          {
-            name: 'Vyvážený kondenzátor',
-            badge: '0 Držené · +15 % OD/TECH',
-            description:
-              'Nezískává bonus +1 na držené dlaždice a nabíjí +15 % OD za TECH dlaždici; spoléhá na vysoké základní hodnoty a tlak přes Odvetu.',
+              'Začíná se 78 Max HP a pamětí 14 — unese i těžké AI čipy jako Breacher Heavy.AI (Paměť 5) + Reactive Exo.AI (Paměť 4) najednou.',
           },
         ],
         overdriveRule:
-          'Dostupné při 100 % Overdrive [Mezerník]. Královská salva je volná akce a neukončí tvůj tah — ideální těsně před zahraným Útokem nebo Obranou.',
+          'Dostupné při 100 % Overdrive [Mezerník]. Královská salva je volná akce, která doplní Brnění a nabije +2 UpCharge pro další tah.',
         overdriveBreakdown: [
-          'Udělí 24 průrazného DMG VŠEM živým nepřátelům (nejvyšší plošný zásah ze všech operativních postav).',
-          'Přidá +12 Štítu (až 5 nevyužitého Štítu se přenese do dalšího kola).',
-          'Očistí -2 Koroze, aby tvoje dlaždice Obrany neklesaly na hodnotě.',
+          'Udělí 20 průrazného DMG VŠEM živým nepřátelům (ignoruje brnění).',
+          'Přidá +10 stálého Brnění pro hlubokou výdrž v boji.',
+          'Přidá +2 UpCharge (+2 dílky do příštího tahu).',
         ],
         synergies:
-          'Kinetický reflektor (+3 DMG při každém bloku), Kondenzátor Aegis (přenos 50 % + 5 Štítu), Nanovláknová zbroj (+2 DEF/dlaždici) a Reaktivní exo-plát.',
+          'Plazmový zesilovač a Nanovláknová zbroj (promění 0-hodnotové Dudy na +2 ATK/+2 DEF), Synaptické přetaktování (+3 Štít na TECH Dud), Rezonátor přetížení a Pulse Capacitor.AI.',
         tacticalLoop:
-          'Stavěj silné Štíty, které současně zraňují předního nepřítele za 2 DMG/dlaždici (+8 při Přetížení), přenášej si 5 Štítu a drť obrněné soupeře 4dílnými útočnými salvami.',
+          'Nech 18 Brnění pohltit úvodní údery, toč Dudy do +1 UpCharge tahů, spouštěj Přetížení s pomocí Dudů a aktivuj Královskou salvu (+10 Brnění, +2 UpCharge) před klíčovými koly.',
       },
       zuri: {
-        roleTag: 'Velitelka dronů · Taktický hybrid',
+        roleTag: 'Specialistka na stržení brnění · TECH',
         playstyleLead:
-          'Létající velitelka solárního roje kombinující růst držených dlaždic, částečný přenos Štítu, Odvetu, vestavěný průraz brněním a nejrychlejší nabíjení Overdrive ve hře.',
+          'Létající velitelka solárního roje zaměřená na plošné strhávání Brnění, hybridní Taktický štít a nejrychlejší nabíjení Overdrive — bez bonusu za držení, bez Odvety a bez Přetížení v 1. tahu.',
         passivePowers: [
           {
             name: 'Solární uplink kondenzátoru',
@@ -582,29 +570,29 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
               'Aktivace dlaždic TECH dodá +25 % Overdrive za každou dlaždici — nejrychlejší nabíjení Overdrive ze všech operativních postav.',
           },
           {
-            name: 'Všestranné řízení roje',
-            badge: '+1 Držené · 3 Štít · 1 Odveta',
+            name: 'Vrozené jádro stržení brnění',
+            badge: '-8 BRN všem · 3 Průraz',
             description:
-              'Spojuje bonus +1 pro držené dlaždice Útoku/Obrany, přenos až 3 Štítu mezi koly a 1 DMG Odvety za každou dlaždici Obrany.',
+              'Zuri má v jádru unikátní TECH dlaždici, která strhne 8 Brnění VŠEM nepřátelům a přednímu cíli udělí 3 přímého průrazného DMG.',
           },
           {
-            name: 'Vrozený průraz brněním a štítový konvertor',
-            badge: '-8 BRN všem · +4 Štít/+24 % DMG',
+            name: 'Hybridní taktický štít',
+            badge: '+4 Štít · +24 % DMG',
             description:
-              'Zuri má v jádru dvě unikátní TECH dlaždice: jedna strhne 8 Brnění VŠEM nepřátelům + udělí 3 průrazné DMG, druhá přidá +4 Štítu i +24 % Boost DMG najednou.',
+              'Druhá jádrová TECH dlaždice přidá +4 Štítu i +24 % Boost DMG najednou, čímž propojuje obranu s přípravou útoku a nabíjí +25 % OD.',
           },
         ],
         overdriveRule:
-          'Dostupné při 100 % Overdrive [Mezerník]. Protokol Solární roj se aktivuje jako volná akce bez ukončení tahu, takže ihned zesílíš následnou sadu dlaždic.',
+          'Dostupné při 100 % Overdrive [Mezerník]. Protokol Solární roj se aktivuje jako volná akce bez ukončení tahu a strhne nepřátelům brnění před následným útokem.',
         overdriveBreakdown: [
-          'Udělí 22 průrazného DMG VŠEM živým nepřátelům (ignoruje brnění).',
-          'Přidá +9 Štítu a +25 % Boost DMG pro okamžitý následný útok.',
+          'Strhne -12 Brnění a udělí 16 průrazného DMG VŠEM živým nepřátelům.',
+          'Přidá +8 Štítu na vykrytí následného protiútoku.',
           'Očistí -2 Koroze z tvé schránky.',
         ],
         synergies:
-          'Synaptické přetaktování (+3 Štít za TECH dlaždici), Rezonátor přetížení (snadnější 3dílná Přetížení), Fluxový injektor (+35 % OD za TECH!) a Oblouková karabina.',
+          'Synaptické přetaktování (+3 Štít za TECH dlaždici), Rezonátor přetížení (odemkne 3dílná Přetížení na rozložení 3/3/3), Fluxový injektor (+35 % OD za TECH!) a Oblouková karabina.',
         tacticalLoop:
-          'Vrozenými TECH dlaždicemi strhni nepřátelům Brnění, získej Štít i Boost DMG a nabij +25 % OD za dlaždici; drž Útoky pro +1 a řetěz Protokol Solární roj do Přetížení.',
+          'Respektuj slabinu 3/3/3 (žádné Přetížení v 1. tahu bez výbavy): toč vrozené TECH dlaždice pro stržení Brnění a +4 Štít/+24 % DMG, nabíjej +25 % OD a spusť Protokol Solární roj (-12 BRN + 16 Průraz) před Útokem.',
       },
     },
     glossary: {
@@ -623,7 +611,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Ochranná bariéra',
         summary: 'Azurová bariéra, která chrání tvoje Zdraví před útoky nepřátel, kyselinou i trnovou odplatou.',
         mechanics:
-          'Pohlcuje příchozí poškození 1:1 před ztrátou Zdraví. Úplné vykrytí Žíravého plivance (0 ztráty Zdraví) zabrání zablokování dlaždice. Na konci kola zbylý Štít klesne na tvůj limit přenosu (Kira 0, Aurelia 5, Zuri 3; +50 % s Kondenzátorem Aegis).',
+          'Pohlcuje příchozí poškození 1:1 před Brněním a Zdravím. Úplné vykrytí Žíravého plivance (0 ztráty Zdraví) zabrání zablokování dlaždice. Na konci kola zbylý Štít klesne na tvůj limit přenosu (Kira 0, Auraline 0, Zuri 0; +50 % s Kondenzátorem Aegis).',
         tacticalTip:
           'Proti kyselině drž dostatečný Štít — i 1 bod poškození do Zdraví způsobí zablokování dlaždice!',
         keywords: ['štít', 'obrana', 'shield', 'def', 'blok', 'přenos'],

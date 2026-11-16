@@ -173,6 +173,15 @@ export function getNodeCornerPip(type: MapNodeType): CornerPipSpec {
         labelCs: 'Kyber-klinika (⬡)',
         accentHex: '#00F0FF',
       };
+    case 'CHIP_DEALER':
+      return {
+        symbol: '◈',
+        shapeId: 'diamond',
+        shortCode: 'CHP',
+        labelEn: 'Chip Dealer (◈)',
+        labelCs: 'Prodejce čipů (◈)',
+        accentHex: '#F59E0B',
+      };
     case 'MED_BAY':
       return {
         symbol: '✚',

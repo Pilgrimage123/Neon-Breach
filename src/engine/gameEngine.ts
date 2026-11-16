@@ -1,10 +1,13 @@
 import {
   BOARD_CAPACITY,
+  CLINIC_PURGE_COST,
   CLINIC_RESTOCK_COST,
   CYBER_IMPLANT_IDS,
   DROPPABLE_EQUIPMENT_IDS,
   EQUIPMENT_BY_ID,
   MAX_IMPLANTS,
+  MAX_OVERCLOCK_STACKS,
+  MAX_UPCHARGE_BOARD_CAPACITY,
   buildEnemiesForNode,
   createBlightTile,
   createStartingEquipment,
@@ -133,18 +136,48 @@ export function canModifyEquipment(run: RunState): boolean {
   return run.screen !== 'combat';
 }
 
+function absorbHeroDamage(
+  shield: number,
+  armor: number,
+  incoming: number,
+): {
+  nextShield: number;
+  nextArmor: number;
+  blockedByShield: number;
+  blockedByArmor: number;
+  hpDamage: number;
+} {
+  const safeIncoming = Math.max(0, incoming);
+  const blockedByShield = Math.min(Math.max(0, shield), safeIncoming);
+  const afterShield = safeIncoming - blockedByShield;
+  const blockedByArmor = Math.min(Math.max(0, armor), afterShield);
+  const hpDamage = afterShield - blockedByArmor;
+  return {
+    nextShield: Math.max(0, shield - blockedByShield),
+    nextArmor: Math.max(0, armor - blockedByArmor),
+    blockedByShield,
+    blockedByArmor,
+    hpDamage,
+  };
+}
+
 export function drawToSix(
   board: Tile[],
   drawPile: Tile[],
   discardPile: Tile[],
   seed: number,
   turn: number,
+  targetCapacity = BOARD_CAPACITY,
 ): { board: Tile[]; drawPile: Tile[]; discardPile: Tile[] } {
   const nextBoard = board.map((tile) => ({ ...tile }));
   let nextDraw = drawPile.map((tile) => ({ ...tile }));
   let nextDiscard = discardPile.map((tile) => ({ ...tile }));
 
-  const needed = Math.max(0, BOARD_CAPACITY - nextBoard.length);
+  const clampedTarget = Math.min(
+    MAX_UPCHARGE_BOARD_CAPACITY,
+    Math.max(BOARD_CAPACITY, targetCapacity),
+  );
+  const needed = Math.max(0, clampedTarget - nextBoard.length);
   for (let i = 0; i < needed; i++) {
     if (nextDraw.length === 0) {
       if (nextDiscard.length === 0) break;
@@ -240,6 +273,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     techPierceDamage: 0,
     cleanseCorrodeAmount: 0,
     retaliateDamage: 0,
+    upchargeGained: 0,
+    dudCount: 0,
   };
 
   if (!combat) {
@@ -251,6 +286,10 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
   const blightPurgeCount = color === 'tech' ? matching.filter((t) => t.isBlight).length : 0;
   const stayCount = combat.board.length - matching.length;
   const surgeTriggered = cleanMatching.length >= surgeThreshold;
+  const dudCount = cleanMatching.filter((t) => Boolean(t.isDud)).length;
+  const upchargeGained =
+    cleanMatching.reduce((sum, t) => sum + (t.upcharge ?? 0), 0) +
+    dudCount * heroSpec.dudUpchargePerTile;
 
   const activeHexCasterIds = new Set<string>();
   for (const tile of matching) {
@@ -320,6 +359,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       cleanseCorrodeAmount: 0,
       retaliateDamage,
       blightPurgeCount,
+      upchargeGained,
+      dudCount,
     });
   }
 
@@ -352,6 +393,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       cleanseCorrodeAmount: 0,
       retaliateDamage: 0,
       blightPurgeCount,
+      upchargeGained,
+      dudCount,
     });
   }
 
@@ -415,6 +458,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     cleanseCorrodeAmount,
     retaliateDamage: 0,
     blightPurgeCount,
+    upchargeGained,
+    dudCount,
   });
 }
 
@@ -811,6 +856,9 @@ export function previewHeroineThreat(
       healGained: 0,
       shieldAfterPlayer: heroine.shield,
       shieldAfterEnemies: heroine.shield,
+      armorAfterPlayer: heroine.armor ?? 0,
+      armorAfterEnemies: heroine.armor ?? 0,
+      armorAbsorbed: 0,
       hpBeforeEnemies: heroine.hp,
       projectedHp: heroine.hp,
       corrodeGained: 0,
@@ -870,8 +918,11 @@ export function previewHeroineThreat(
   }
 
   let simShield = shieldAfterPlayer;
+  const armorAfterPlayer = heroine.armor ?? 0;
+  let simArmor = armorAfterPlayer;
   let rawIncomingDamage = 0;
   let blockedDamage = 0;
+  let armorAbsorbed = 0;
   let hpDamageTaken = 0;
   let corrodeGained = 0;
   let attackersCount = 0;
@@ -880,10 +931,12 @@ export function previewHeroineThreat(
 
   if (retaliateDamage > 0) {
     rawIncomingDamage += retaliateDamage;
-    const blockedRet = Math.min(simShield, retaliateDamage);
-    simShield -= blockedRet;
-    blockedDamage += blockedRet;
-    hpDamageTaken += retaliateDamage - blockedRet;
+    const absRet = absorbHeroDamage(simShield, simArmor, retaliateDamage);
+    simShield = absRet.nextShield;
+    simArmor = absRet.nextArmor;
+    blockedDamage += absRet.blockedByShield + absRet.blockedByArmor;
+    armorAbsorbed += absRet.blockedByArmor;
+    hpDamageTaken += absRet.hpDamage;
   }
 
   const colorPlayed = activePreview && activePreview.tileCount > 0 ? activePreview.color : null;
@@ -901,10 +954,12 @@ export function previewHeroineThreat(
       conditionalBonusDamage += intent.conditionBonus ?? 0;
     }
     rawIncomingDamage += incoming;
-    const blocked = Math.min(simShield, incoming);
-    simShield -= blocked;
-    blockedDamage += blocked;
-    const hpDmg = incoming - blocked;
+    const abs = absorbHeroDamage(simShield, simArmor, incoming);
+    simShield = abs.nextShield;
+    simArmor = abs.nextArmor;
+    blockedDamage += abs.blockedByShield + abs.blockedByArmor;
+    armorAbsorbed += abs.blockedByArmor;
+    const hpDmg = abs.hpDamage;
     hpDamageTaken += hpDmg;
     if (intent.kind === 'acid') {
       corrodeGained += intent.secondaryValue ?? 2;
@@ -921,10 +976,12 @@ export function previewHeroineThreat(
   const blightChipDamage = unpurgedBlightCount * BLIGHT_HOLD_CHIP_DAMAGE;
   if (blightChipDamage > 0) {
     rawIncomingDamage += blightChipDamage;
-    const blockedBlight = Math.min(simShield, blightChipDamage);
-    simShield -= blockedBlight;
-    blockedDamage += blockedBlight;
-    hpDamageTaken += blightChipDamage - blockedBlight;
+    const absBlight = absorbHeroDamage(simShield, simArmor, blightChipDamage);
+    simShield = absBlight.nextShield;
+    simArmor = absBlight.nextArmor;
+    blockedDamage += absBlight.blockedByShield + absBlight.blockedByArmor;
+    armorAbsorbed += absBlight.blockedByArmor;
+    hpDamageTaken += absBlight.hpDamage;
   }
 
   const projectedHp = Math.max(0, hpBeforeEnemies - hpDamageTaken);
@@ -943,6 +1000,9 @@ export function previewHeroineThreat(
     healGained,
     shieldAfterPlayer,
     shieldAfterEnemies: simShield,
+    armorAfterPlayer,
+    armorAfterEnemies: simArmor,
+    armorAbsorbed,
     hpBeforeEnemies,
     projectedHp,
     corrodeGained,
@@ -983,6 +1043,9 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   ];
 
   let nextHeroine = { ...run.heroine };
+  if ((preview.upchargeGained ?? 0) > 0) {
+    nextHeroine.pendingUpcharge = (nextHeroine.pendingUpcharge ?? 0) + (preview.upchargeGained ?? 0);
+  }
   const cues: AnimationCue[] = [];
 
   if (color === 'defense') {
@@ -1015,9 +1078,15 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
 
   if (enemySim.retaliateDamage > 0) {
     const frontEnemy = nextEnemies.find((e) => e.hp > 0);
-    const retBlocked = Math.min(nextHeroine.shield, enemySim.retaliateDamage);
-    nextHeroine.shield -= retBlocked;
-    const retHpDmg = enemySim.retaliateDamage - retBlocked;
+    const absRet = absorbHeroDamage(
+      nextHeroine.shield,
+      nextHeroine.armor ?? 0,
+      enemySim.retaliateDamage,
+    );
+    nextHeroine.shield = absRet.nextShield;
+    nextHeroine.armor = absRet.nextArmor;
+    const retBlocked = absRet.blockedByShield + absRet.blockedByArmor;
+    const retHpDmg = absRet.hpDamage;
     nextHeroine.hp = Math.max(0, nextHeroine.hp - retHpDmg);
     if (frontEnemy) {
       cues.push({
@@ -1183,6 +1252,8 @@ export function executeOverdrive(run: RunState): RunState {
     ...run.heroine,
     overdrive: 0,
     shield: run.heroine.shield + odSpec.shield,
+    armor: (run.heroine.armor ?? 0) + (odSpec.armor ?? 0),
+    pendingUpcharge: (run.heroine.pendingUpcharge ?? 0) + (odSpec.upcharge ?? 0),
     damageBoostPct: run.heroine.damageBoostPct + odSpec.damageBoostPct,
     corrode: Math.max(0, run.heroine.corrode - odSpec.cleanseCorrode),
   };
@@ -1193,9 +1264,12 @@ export function executeOverdrive(run: RunState): RunState {
     { id: `cue_${combat.turn}_od`, kind: 'hero_overdrive', value: odSpec.damage, surge: true },
   ];
 
+  const armorShred = odSpec.armorShred ?? 0;
   let nextEnemies = combat.enemies.map((enemy) => {
     if (enemy.hp <= 0) return { ...enemy };
-    const res = applyDamageToEnemy(enemy, odSpec.damage, 1.0, false);
+    const preppedEnemy =
+      armorShred > 0 ? { ...enemy, armor: Math.max(0, enemy.armor - armorShred) } : enemy;
+    const res = applyDamageToEnemy(preppedEnemy, odSpec.damage, 1.0, false);
     totalDamageDealt += res.effectiveDamageDealt;
     if (res.phaseGateHit) {
       cues.push({
@@ -1358,9 +1432,11 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       shieldAfterPlayer: nextHeroine.shield,
       colorPlayed: combat.lastColorPlayed ?? null,
     });
-    const blocked = Math.min(nextHeroine.shield, incoming);
-    nextHeroine.shield -= blocked;
-    const hpDamage = incoming - blocked;
+    const abs = absorbHeroDamage(nextHeroine.shield, nextHeroine.armor ?? 0, incoming);
+    nextHeroine.shield = abs.nextShield;
+    nextHeroine.armor = abs.nextArmor;
+    const blocked = abs.blockedByShield + abs.blockedByArmor;
+    const hpDamage = abs.hpDamage;
     nextHeroine.hp = Math.max(0, nextHeroine.hp - hpDamage);
 
     if (blocked > 0 && hasImplant(implants, 'kinetic_reflector')) {
@@ -1564,9 +1640,11 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
   const lingeringBlightCount = combat.board.filter((t) => t.isBlight).length;
   if (lingeringBlightCount > 0) {
     const blightDmg = lingeringBlightCount * BLIGHT_HOLD_CHIP_DAMAGE;
-    const blockedBlight = Math.min(nextHeroine.shield, blightDmg);
-    nextHeroine.shield -= blockedBlight;
-    const hpBlight = blightDmg - blockedBlight;
+    const absBlight = absorbHeroDamage(nextHeroine.shield, nextHeroine.armor ?? 0, blightDmg);
+    nextHeroine.shield = absBlight.nextShield;
+    nextHeroine.armor = absBlight.nextArmor;
+    const blockedBlight = absBlight.blockedByShield + absBlight.blockedByArmor;
+    const hpBlight = absBlight.hpDamage;
     nextHeroine.hp = Math.max(0, nextHeroine.hp - hpBlight);
     roundEndCues.push({
       id: `cue_${combat.turn}_blight_chip`,
@@ -1603,7 +1681,16 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
 
   const nextTurn = combat.turn + 1;
   const heldBoard = combat.board.map((t) => ({ ...t, isHeldFromPrevTurn: true }));
-  const drawn = drawToSix(heldBoard, combat.drawPile, combat.discardPile, run.seed, nextTurn);
+  const drawTarget = BOARD_CAPACITY + Math.max(0, nextHeroine.pendingUpcharge ?? 0);
+  const drawn = drawToSix(
+    heldBoard,
+    combat.drawPile,
+    combat.discardPile,
+    run.seed,
+    nextTurn,
+    drawTarget,
+  );
+  nextHeroine.pendingUpcharge = 0;
 
   const currentNode = run.mapNodes.find((n) => n.id === combat.nodeId);
   const layer = currentNode?.layer ?? 0;
@@ -1853,7 +1940,21 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
       currentNodeId: node.id,
       screen: 'clinic',
       clinicChoices: pickClinicChoices(run.heroine.implants, run.seed + node.layer * 17),
+      clinicShopChoices: [],
+      clinicPurgeUsed: false,
+      combat: null,
+      activeEvent: null,
+    };
+  }
+
+  if (node.type === 'CHIP_DEALER') {
+    return {
+      ...run,
+      currentNodeId: node.id,
+      screen: 'chip_dealer',
+      clinicChoices: [],
       clinicShopChoices: pickEquipmentChoices(run.seed + node.layer * 31 + 5, 3, ownedDefIds),
+      clinicPurgeUsed: false,
       combat: null,
       activeEvent: null,
     };
@@ -1926,16 +2027,20 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     director: createCombatDirector(node.type, node.layer, run.heroine),
   };
 
+  const heroSpec = getHeroSpec(run.heroine.characterId);
   return {
     ...run,
     currentNodeId: node.id,
     screen: 'combat',
     activeEvent: null,
+    clinicPurgeUsed: false,
     heroine: {
       ...run.heroine,
+      armor: heroSpec.startingArmor,
       shield: 0,
       corrode: 0,
       damageBoostPct: 0,
+      pendingUpcharge: 0,
     },
     combat,
   };
@@ -1948,7 +2053,7 @@ function pickClinicChoices(owned: CyberImplantId[], seed: number): CyberImplantI
 }
 
 export function buyClinicEquipment(run: RunState, defId: string): RunState {
-  if (run.screen !== 'clinic') return run;
+  if (run.screen !== 'chip_dealer' && run.screen !== 'clinic') return run;
   if (!run.clinicShopChoices.includes(defId)) return run;
   const def = EQUIPMENT_BY_ID[defId];
   if (!def) return run;
@@ -1972,7 +2077,7 @@ export function buyClinicEquipment(run: RunState, defId: string): RunState {
 }
 
 export function restockClinicShop(run: RunState): RunState {
-  if (run.screen !== 'clinic') return run;
+  if (run.screen !== 'chip_dealer' && run.screen !== 'clinic') return run;
   if (run.heroine.credits < CLINIC_RESTOCK_COST) return run;
 
   const ownedDefIds = run.heroine.ownedEquipment.map((eq) => eq.defId);
@@ -1990,6 +2095,41 @@ export function restockClinicShop(run: RunState): RunState {
       credits: run.heroine.credits - CLINIC_RESTOCK_COST,
     },
     clinicShopChoices: nextChoices,
+  };
+}
+
+export function skipChipDealer(run: RunState): RunState {
+  return {
+    ...run,
+    screen: 'map',
+    mapNodes: markNodeCleared(run.mapNodes, run.currentNodeId),
+    combat: null,
+  };
+}
+
+export function purgeClinicInnateTile(run: RunState, tileId: string): RunState {
+  if (run.screen !== 'clinic' || run.clinicPurgeUsed) return run;
+  if (run.heroine.credits < CLINIC_PURGE_COST) return run;
+  if (run.masterPool.length <= 3) return run;
+
+  const targetTile = run.masterPool.find((t) => t.id === tileId && t.sourceId === 'innate');
+  if (!targetTile) return run;
+
+  const prevPurged = run.heroine.purgedInnateIds ?? [];
+  if (prevPurged.includes(tileId)) return run;
+
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    credits: run.heroine.credits - CLINIC_PURGE_COST,
+    purgedInnateIds: [...prevPurged, tileId],
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    clinicPurgeUsed: true,
+    score: run.score + 20,
   };
 }
 
@@ -2038,8 +2178,11 @@ export function skipCyberClinic(run: RunState): RunState {
 
 export function applyMedBayAction(
   run: RunState,
-  action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock' | 'extract_bank',
+  action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock',
 ): RunState {
+  if (action === 'tile_overclock' && (run.heroine.overclockCount ?? 0) >= MAX_OVERCLOCK_STACKS) {
+    return run;
+  }
   const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
   const isFundedClinic = currentNode?.modifier === 'funded_clinic';
 
@@ -2048,7 +2191,7 @@ export function applyMedBayAction(
     consecutiveCombatWithoutClinic: 0, // Reset combat streak at clinic
   };
   let nextMasterPool = run.masterPool;
-  let nextScreen: ScreenPhase = 'map';
+  const nextScreen: ScreenPhase = 'map';
   let scoreBonus = 30;
 
   if (action === 'heal') {
@@ -2071,15 +2214,12 @@ export function applyMedBayAction(
   } else if (action === 'tile_overclock') {
     nextHeroine = {
       ...nextHeroine,
-      overdrive: Math.min(100, nextHeroine.overdrive + 35),
+      overdrive: Math.min(100, nextHeroine.overdrive + 20),
       corrode: 0,
-      overclockCount: (nextHeroine.overclockCount ?? 0) + 1,
+      overclockCount: Math.min(MAX_OVERCLOCK_STACKS, (nextHeroine.overclockCount ?? 0) + 1),
     };
     nextMasterPool = rebuildMasterPool(nextHeroine);
     scoreBonus = 35;
-  } else if (action === 'extract_bank') {
-    nextScreen = 'victory';
-    scoreBonus = 100;
   }
 
   if (isFundedClinic) {
@@ -2173,9 +2313,6 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
   const nextMapNodes = markNodeCleared(nextRun.mapNodes, combat.nodeId);
 
   if (combat.nodeType === 'ELITE') {
-    const currentLayer =
-      nextRun.mapNodes.find((n) => n.id === combat.nodeId)?.layer ?? 2;
-    const ownedDefIds = nextRun.heroine.ownedEquipment.map((eq) => eq.defId);
     return {
       ...nextRun,
       screen: 'clinic',
@@ -2184,11 +2321,8 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
         nextRun.heroine.implants,
         nextRun.seed + combat.turn + 13,
       ),
-      clinicShopChoices: pickEquipmentChoices(
-        nextRun.seed + currentLayer * 37 + combat.turn,
-        3,
-        ownedDefIds,
-      ),
+      clinicShopChoices: [],
+      clinicPurgeUsed: false,
       combat: null,
     };
   }
@@ -2213,14 +2347,17 @@ export function createInitialRun(seed = 104729, characterId: CharacterId = 'kira
     characterId,
     hp: heroSpec.maxHp,
     maxHp: heroSpec.maxHp,
+    armor: heroSpec.startingArmor,
     shield: 0,
     overdrive: 0,
     corrode: 0,
     damageBoostPct: 0,
+    pendingUpcharge: 0,
     implants: [],
     carryCapacity: heroSpec.carryCapacity,
     ownedEquipment: startingEq.ownedEquipment,
     equippedInstanceIds: startingEq.equippedInstanceIds,
+    purgedInnateIds: [],
     credits: heroSpec.startingCredits,
     nanites: 0,
     consecutiveCombatWithoutClinic: 0,
@@ -2239,6 +2376,7 @@ export function createInitialRun(seed = 104729, characterId: CharacterId = 'kira
     combat: null,
     clinicChoices: [],
     clinicShopChoices: [],
+    clinicPurgeUsed: false,
     activeEvent: null,
     enemiesDefeated: 0,
     turnsCompleted: 0,

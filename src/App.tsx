@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureCombatAssetsReady } from './assets/assetPreloader';
 import { soundEngine } from './audio/soundEngine';
 import { BioMedBayView } from './components/BioMedBayView';
+import { ChipDealerView } from './components/ChipDealerView';
 import { CodexModal, type CodexTab } from './components/CodexModal';
 import { CombatStageCanvas } from './components/CombatStageCanvas';
 import { CyberClinicView } from './components/CyberClinicView';
@@ -24,10 +25,12 @@ import {
   getSurgeThreshold,
   installCyberImplant,
   previewColorResolution,
+  purgeClinicInnateTile,
   resolveCyberEventChoice,
   resolvePlayerColor,
   restockClinicShop,
   scrapEquipmentInstance,
+  skipChipDealer,
   skipCyberClinic,
   startNodeEncounter,
   unequipEquipmentInstance,
@@ -74,6 +77,8 @@ function applyBossObjectivesIfVictory(
   state: RunState,
   startingHp: number,
   undosUsed: number,
+  hintsUsed: number,
+  failForwardUsed: boolean,
   lang: Language,
 ): RunState {
   if (state.screen !== 'victory' || !state.combat || state.combat.nodeType !== 'BOSS') {
@@ -84,6 +89,8 @@ function applyBossObjectivesIfVictory(
     heroine: state.heroine,
     startingHp,
     undosUsed,
+    hintsUsed,
+    failForwardUsed,
     lang,
   });
   return {
@@ -194,6 +201,8 @@ export default function App() {
     initialState.encounterSnapshot,
   );
   const [undosUsedInNode, setUndosUsedInNode] = useState<number>(0);
+  const [hintsUsedInNode, setHintsUsedInNode] = useState<number>(0);
+  const [failForwardUsedInNode, setFailForwardUsedInNode] = useState<boolean>(false);
   const [swappedThisTurn, setSwappedThisTurn] = useState<boolean>(false);
   const [hasUsedSwapEver, setHasUsedSwapEver] = useState<boolean>(false);
   const [hintVisible, setHintVisible] = useState<boolean>(false);
@@ -295,6 +304,8 @@ export default function App() {
           rawNextState,
           encounterStartSnapshot?.heroine.hp ?? run.heroine.maxHp,
           undosUsedInNode,
+          hintsUsedInNode,
+          failForwardUsedInNode,
           lang,
         );
         const cues = nextState.combat?.lastCues ?? [];
@@ -326,7 +337,7 @@ export default function App() {
     return () => {
       window.clearTimeout(tid);
     };
-  }, [combat, codexTarget, encounterStartSnapshot?.heroine.hp, lang, paused, poolModalOpen, run, showTitle, undosUsedInNode]);
+  }, [combat, codexTarget, encounterStartSnapshot?.heroine.hp, failForwardUsedInNode, hintsUsedInNode, lang, paused, poolModalOpen, run, showTitle, undosUsedInNode]);
 
   // Sync document.body.dataset.state cleanly without triggering storage writes
   useEffect(() => {
@@ -426,6 +437,8 @@ export default function App() {
       setEncounterStartSnapshot(nextSnapshot);
       saveEncounterSnapshot(nextSnapshot);
       setUndosUsedInNode(0);
+      setHintsUsedInNode(0);
+      setFailForwardUsedInNode(false);
       setSwappedThisTurn(false);
       setHintVisible(false);
       setReadyOutcomeKey(null);
@@ -461,6 +474,8 @@ export default function App() {
       setEncounterStartSnapshot(nextSnapshot);
       setTurnHistory([]);
       setUndosUsedInNode(0);
+      setHintsUsedInNode(0);
+      setFailForwardUsedInNode(false);
       setSwappedThisTurn(false);
       setHintVisible(false);
     }
@@ -586,6 +601,8 @@ export default function App() {
         rawNextState,
         encounterStartSnapshot?.heroine.hp ?? currentRun.heroine.maxHp,
         undosUsedInNode,
+        hintsUsedInNode,
+        failForwardUsedInNode,
         lang,
       );
       const cues = nextState.combat?.lastCues ?? [];
@@ -599,6 +616,8 @@ export default function App() {
     [
       codexTarget,
       encounterStartSnapshot?.heroine.hp,
+      failForwardUsedInNode,
+      hintsUsedInNode,
       lang,
       paused,
       poolModalOpen,
@@ -625,6 +644,8 @@ export default function App() {
       rawNextState,
       encounterStartSnapshot?.heroine.hp ?? currentRun.heroine.maxHp,
       undosUsedInNode,
+      hintsUsedInNode,
+      failForwardUsedInNode,
       lang,
     );
     const cues = nextState.combat?.lastCues ?? [];
@@ -634,6 +655,8 @@ export default function App() {
   }, [
     codexTarget,
     encounterStartSnapshot?.heroine.hp,
+    failForwardUsedInNode,
+    hintsUsedInNode,
     lang,
     paused,
     poolModalOpen,
@@ -710,6 +733,7 @@ export default function App() {
     const buffed = applyFailForwardBuff(encounterStartSnapshot);
     setTurnHistory([]);
     setUndosUsedInNode((u) => u + 1);
+    setFailForwardUsedInNode(true);
     setSwappedThisTurn(false);
     setHintVisible(false);
     setHoveredColor(null);
@@ -720,7 +744,13 @@ export default function App() {
 
   const handleToggleHint = useCallback(() => {
     soundEngine.playClick();
-    setHintVisible((prev) => !prev);
+    setHintVisible((prev) => {
+      const next = !prev;
+      if (next) {
+        setHintsUsedInNode((h) => h + 1);
+      }
+      return next;
+    });
   }, []);
 
   const handleTogglePipMath = useCallback(() => {
@@ -736,9 +766,19 @@ export default function App() {
       heroine: run.heroine,
       startingHp,
       undosUsed: undosUsedInNode,
+      hintsUsed: hintsUsedInNode,
+      failForwardUsed: failForwardUsedInNode,
       lang,
     });
-  }, [combat, encounterStartSnapshot?.heroine.hp, lang, run.heroine, undosUsedInNode]);
+  }, [
+    combat,
+    encounterStartSnapshot?.heroine.hp,
+    failForwardUsedInNode,
+    hintsUsedInNode,
+    lang,
+    run.heroine,
+    undosUsedInNode,
+  ]);
 
   const activeHint = useMemo(() => {
     if (!hintVisible || run.screen !== 'combat' || combat?.phase !== 'PLAYER_IDLE') {
@@ -780,12 +820,20 @@ export default function App() {
     setDefibNoticeVisible(false);
     setTurnHistory([]);
     setUndosUsedInNode(0);
+    setHintsUsedInNode(0);
+    setFailForwardUsedInNode(false);
     setSwappedThisTurn(false);
     setHintVisible(false);
     setReadyOutcomeKey(null);
     const current = runRef.current;
     const targetNode = current.mapNodes.find((n) => n.id === nodeId);
-    if (targetNode && targetNode.type !== 'CYBER_CLINIC' && targetNode.type !== 'MED_BAY') {
+    if (
+      targetNode &&
+      targetNode.type !== 'CYBER_CLINIC' &&
+      targetNode.type !== 'CHIP_DEALER' &&
+      targetNode.type !== 'MED_BAY' &&
+      targetNode.type !== 'EVENT'
+    ) {
       const intel = getNodeEncounterIntel(targetNode, current.seed);
       void ensureCombatAssetsReady(
         current.heroine.characterId ?? 'kira',
@@ -822,8 +870,18 @@ export default function App() {
     setRun((prev) => skipCyberClinic(prev));
   }, []);
 
+  const handleSkipChipDealer = useCallback(() => {
+    soundEngine.playClick();
+    setRun((prev) => skipChipDealer(prev));
+  }, []);
+
+  const handlePurgeInnateTile = useCallback((tileId: string) => {
+    soundEngine.playUpgrade(false);
+    setRun((prev) => purgeClinicInnateTile(prev, tileId));
+  }, []);
+
   const handleMedBayAction = useCallback(
-    (action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock' | 'extract_bank') => {
+    (action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock') => {
       soundEngine.playUpgrade(false);
       setRun((prev) => applyMedBayAction(prev, action));
     },
@@ -1206,11 +1264,22 @@ export default function App() {
           lang={lang}
           isCompactLandscape={viewport.isCompactLandscape}
           defibTriggeredNotice={defibNoticeVisible}
-          onBuyEquipment={handleBuyEquipment}
-          onRestockShop={handleRestockShop}
+          onPurgeInnateTile={handlePurgeInnateTile}
           onInstall={handleInstallImplant}
           onOpenPool={handleOpenPool}
           onSkip={handleSkipClinic}
+        />
+      )}
+
+      {run.screen === 'chip_dealer' && (
+        <ChipDealerView
+          run={run}
+          lang={lang}
+          isCompactLandscape={viewport.isCompactLandscape}
+          onBuyChip={handleBuyEquipment}
+          onRestockShop={handleRestockShop}
+          onOpenPool={handleOpenPool}
+          onLeave={handleSkipChipDealer}
         />
       )}
 

@@ -188,9 +188,9 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
     const swapPreview = computeKnockbackSwapPreview(combat, true, 'en');
     assert.ok(swapPreview);
     assert.equal(swapPreview.active, true);
-    assert.equal(swapPreview.collisionDamage, 2);
-    assert.equal(swapPreview.frontUnitSurvivingHp, 10);
-    assert.equal(swapPreview.secondUnitSurvivingArmor, 1);
+    assert.equal(swapPreview.collisionDamage, 0);
+    assert.equal(swapPreview.frontUnitSurvivingHp, 12);
+    assert.equal(swapPreview.secondUnitSurvivingArmor, 3);
   });
 
   it('keeps onboarding micro-prompts <= 8 words and resolves active preview keywords', () => {
@@ -203,7 +203,6 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
 
     const swapKeywords = resolveActivePreviewKeywords(null, true);
     assert.ok(swapKeywords.includes('push'));
-    assert.ok(swapKeywords.includes('armor'));
 
     const attackKeywords = resolveActivePreviewKeywords(
       {

@@ -1577,7 +1577,7 @@ export function renderCombatStage(
     }
   }
 
-  // 4.20 Hover Preview for Knockback / Push Swap ("What-If" State: Knockback arrows show where units will land + -2 collision damage)
+  // 4.20 Hover Preview for Spatial Swap ("What-If" State: Swap arcs show landing slots)
   if (hoveringSwap) {
     const livingIndices: number[] = [];
     for (let i = 0; i < enemies.length; i++) {
@@ -1617,8 +1617,8 @@ export function renderCombatStage(
       ctx.closePath();
       ctx.fill();
 
-      // Big High-Contrast Knockback Pill ("⇄ PUSH 1 TILE · -2")
-      const swapTag = '⇄ PUSH · -2';
+      // Big High-Contrast Swap Pill ("⇄ SWAP · 0 AP")
+      const swapTag = '⇄ SWAP · 0 AP';
       ctx.font = '900 13px "JetBrains Mono", monospace';
       const sw = ctx.measureText(swapTag).width + 14;
       const sh = 22;

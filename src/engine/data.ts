@@ -17,14 +17,20 @@ import type {
 } from './types';
 
 export const BOARD_CAPACITY = 6;
+export const MAX_UPCHARGE_BOARD_CAPACITY = 9;
 export const MAX_IMPLANTS = 4;
 export const KIRA_CARRY_CAPACITY = 12;
 export const AURELIA_CARRY_CAPACITY = 14;
 export const ZURI_CARRY_CAPACITY = 13;
 export const CLINIC_RESTOCK_COST = 12;
+export const CLINIC_PURGE_COST = 30;
+export const MAX_OVERCLOCK_STACKS = 2;
 
 export interface HeroOverdriveSpec {
   damage: number;
+  armor?: number;
+  upcharge?: number;
+  armorShred?: number;
   shield: number;
   damageBoostPct: number;
   cleanseCorrode: number;
@@ -33,6 +39,8 @@ export interface HeroOverdriveSpec {
 export interface HeroSpec {
   id: CharacterId;
   maxHp: number;
+  startingArmor: number;
+  dudUpchargePerTile: number;
   startingCredits: number;
   carryCapacity: number;
   heldTileBonus: number;
@@ -46,6 +54,8 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
   kira: {
     id: 'kira',
     maxHp: 58,
+    startingArmor: 0,
+    dudUpchargePerTile: 0,
     startingCredits: 45,
     carryCapacity: KIRA_CARRY_CAPACITY,
     heldTileBonus: 1,
@@ -61,33 +71,40 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
   },
   aurelia: {
     id: 'aurelia',
-    maxHp: 66,
-    startingCredits: 40,
+    maxHp: 78,
+    startingArmor: 18,
+    dudUpchargePerTile: 1,
+    startingCredits: 35,
     carryCapacity: AURELIA_CARRY_CAPACITY,
     heldTileBonus: 0,
     techOverdrivePerTile: 15,
-    shieldRetainCap: 5,
-    defenseRipostePerTile: 2,
+    shieldRetainCap: 0,
+    defenseRipostePerTile: 0,
     overdrive: {
-      damage: 24,
-      shield: 12,
+      damage: 20,
+      armor: 10,
+      upcharge: 2,
+      shield: 0,
       damageBoostPct: 0,
-      cleanseCorrode: 2,
+      cleanseCorrode: 0,
     },
   },
   zuri: {
     id: 'zuri',
     maxHp: 62,
+    startingArmor: 0,
+    dudUpchargePerTile: 0,
     startingCredits: 50,
     carryCapacity: ZURI_CARRY_CAPACITY,
-    heldTileBonus: 1,
+    heldTileBonus: 0,
     techOverdrivePerTile: 25,
-    shieldRetainCap: 3,
-    defenseRipostePerTile: 1,
+    shieldRetainCap: 0,
+    defenseRipostePerTile: 0,
     overdrive: {
-      damage: 22,
-      shield: 9,
-      damageBoostPct: 25,
+      damage: 16,
+      armorShred: 12,
+      shield: 8,
+      damageBoostPct: 0,
       cleanseCorrode: 2,
     },
   },
@@ -118,15 +135,16 @@ const KIRA_INNATE_TILES: readonly TileSpec[] = [
 ];
 
 const AURELIA_INNATE_TILES: readonly TileSpec[] = [
-  { type: 'attack', value: 4 },
-  { type: 'attack', value: 3 },
-  { type: 'defense', value: 7 },
-  { type: 'defense', value: 6 },
+  { type: 'attack', value: 5 },
+  { type: 'attack', value: 0, isDud: true },
+  { type: 'defense', value: 8 },
+  { type: 'defense', value: 0, isDud: true },
   {
     type: 'tech',
     value: 0,
     techEffect: { kind: 'damage_boost', percent: 42, decayPerTurn: 10 },
   },
+  { type: 'tech', value: 0, isDud: true },
 ];
 
 const ZURI_INNATE_TILES: readonly TileSpec[] = [
@@ -190,22 +208,17 @@ const EQUIPMENT_CATALOG: EquipmentDefinition[] = [
     tiles: [
       { type: 'attack', value: 6 },
       { type: 'attack', value: 6 },
-      { type: 'defense', value: 6 },
     ],
   },
   {
     id: 'kralovsky_diadem',
-    category: 'tech',
+    category: 'armor',
     size: 1,
     price: 24,
     rarity: 'starter',
     droppable: false,
     tiles: [
-      {
-        type: 'tech',
-        value: 0,
-        techEffect: { kind: 'heal', amount: 4 },
-      },
+      { type: 'defense', value: 7 },
     ],
   },
   {
@@ -376,6 +389,47 @@ const EQUIPMENT_CATALOG: EquipmentDefinition[] = [
       { type: 'attack', value: 6 },
     ],
   },
+  {
+    id: 'upcharge_pulse_chip',
+    category: 'tech',
+    size: 2,
+    price: 34,
+    rarity: 'common',
+    droppable: true,
+    tiles: [
+      { type: 'attack', value: 5, upcharge: 1 },
+      { type: 'defense', value: 6 },
+    ],
+  },
+  {
+    id: 'tactical_upcharge_chip',
+    category: 'tech',
+    size: 2,
+    price: 38,
+    rarity: 'common',
+    droppable: true,
+    tiles: [
+      { type: 'tech', value: 0, techEffect: { kind: 'heal', amount: 3 }, upcharge: 1 },
+      { type: 'attack', value: 6 },
+    ],
+  },
+  {
+    id: 'neural_surge_chip',
+    category: 'tech',
+    size: 3,
+    price: 48,
+    rarity: 'rare',
+    droppable: true,
+    tiles: [
+      {
+        type: 'tech',
+        value: 0,
+        techEffect: { kind: 'overdrive_surge', bonusOverdrive: 10, cleanseCorrode: 1 },
+        upcharge: 2,
+      },
+      { type: 'defense', value: 8, upcharge: 1 },
+    ],
+  },
 ];
 
 export const EQUIPMENT_BY_ID: Record<string, EquipmentDefinition> = Object.fromEntries(
@@ -426,18 +480,26 @@ export function getEquippedEquipmentWeight(heroine: Pick<HeroineState, 'ownedEqu
 export function rebuildMasterPool(
   heroine: Pick<
     HeroineState,
-    'characterId' | 'ownedEquipment' | 'equippedInstanceIds' | 'overclockCount'
+    'characterId' | 'ownedEquipment' | 'equippedInstanceIds' | 'overclockCount' | 'purgedInnateIds'
   >,
 ): Tile[] {
+  const purgedSet = new Set(heroine.purgedInnateIds ?? []);
   const innateSpecs = getInnateTilesForCharacter(heroine.characterId ?? 'kira');
-  const pool: Tile[] = innateSpecs.map((spec, idx) => ({
-    id: `tile_innate_${idx + 1}`,
-    type: spec.type,
-    sourceId: 'innate',
-    value: spec.value,
-    techEffect: spec.techEffect ? { ...spec.techEffect } : undefined,
-    isHeldFromPrevTurn: false,
-  }));
+  const pool: Tile[] = [];
+  innateSpecs.forEach((spec, idx) => {
+    const id = `tile_innate_${idx + 1}`;
+    if (purgedSet.has(id)) return;
+    pool.push({
+      id,
+      type: spec.type,
+      sourceId: 'innate',
+      value: spec.value,
+      techEffect: spec.techEffect ? { ...spec.techEffect } : undefined,
+      isDud: spec.isDud,
+      upcharge: spec.upcharge,
+      isHeldFromPrevTurn: false,
+    });
+  });
 
   const ownedById = new Map(heroine.ownedEquipment.map((item) => [item.instanceId, item]));
   for (const instanceId of heroine.equippedInstanceIds) {
@@ -452,17 +514,19 @@ export function rebuildMasterPool(
         sourceId: def.id,
         value: spec.value,
         techEffect: spec.techEffect ? { ...spec.techEffect } : undefined,
+        isDud: spec.isDud,
+        upcharge: spec.upcharge,
         isHeldFromPrevTurn: false,
       });
     });
   }
 
-  const overclockCount = Math.max(0, heroine.overclockCount ?? 0);
+  const overclockCount = Math.min(MAX_OVERCLOCK_STACKS, Math.max(0, heroine.overclockCount ?? 0));
   if (overclockCount > 0) {
-    const atkBonus = overclockCount * 2;
+    const atkBonus = overclockCount;
     let upgraded = 0;
     for (let i = 0; i < pool.length && upgraded < 2; i++) {
-      if (pool[i].type === 'attack') {
+      if (pool[i].type === 'attack' && !pool[i].isDud) {
         pool[i] = { ...pool[i], value: pool[i].value + atkBonus };
         upgraded++;
       }
