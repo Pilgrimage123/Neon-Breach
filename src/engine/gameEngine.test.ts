@@ -37,6 +37,7 @@ import {
   restockClinicShop,
   scrapEquipmentInstance,
   skipChipDealer,
+  skipCombatEncounter,
   sortTilesByGroup,
   startNodeEncounter,
   unequipEquipmentInstance,
@@ -54,8 +55,9 @@ import {
   getReconPreviewForNode,
   getTacticalRouteAdvice,
 } from './mapGenerator';
+import { getDifficultyProfile } from './difficulty';
 import { parseAndValidateRun, recordRunCompletion, loadBestRecord } from './persistence';
-import type { MapNode, RunState, Tile } from './types';
+import type { DifficultyTier, MapNode, RunState, Tile } from './types';
 
 function makeTile(
   id: string,
@@ -2226,6 +2228,123 @@ test('29. Duds + Implant salvage, UpCharge Chips capped at 9 board tiles, Hero A
   assert.equal(afterSecondPurge.masterPool.length, 8);
   assert.equal(afterSecondPurge.heroine.credits, 70 - CLINIC_PURGE_COST);
 });
+
+test('30. 5-Tier Difficulty Matrix: sacred enemy HP/DMG math, par clocks, attrition recovery, Tier 1 skip, breather node, and persistence', () => {
+  const tiers: DifficultyTier[] = [1, 2, 3, 4, 5];
+  const runsByTier = tiers.map((tier) => createInitialRun(777, 'kira', tier));
+
+  // 1. Verify Tier profiles and default run state
+  assert.equal(runsByTier[0].difficultyTier, 1);
+  assert.equal(runsByTier[2].difficultyTier, 3);
+  assert.equal(runsByTier[4].difficultyTier, 5);
+  assert.equal(getDifficultyProfile(1).maxCommittedUndosPerBattle, null);
+  assert.equal(getDifficultyProfile(3).maxCommittedUndosPerBattle, 1);
+  assert.equal(getDifficultyProfile(4).maxRunResets, 1);
+  assert.equal(getDifficultyProfile(5).allowSwapUndoBeforeCommit, false);
+  assert.equal(getDifficultyProfile(5).revealDropSlot, false);
+  assert.equal(getDifficultyProfile(5).revealEnemyFutureCycle, false);
+
+  // 2. Keep Unit Math Sacred: enemy HP & intent DMG per archetype stay identical across all 5 difficulty tiers
+  const tier3Layer0 = runsByTier[2].combat!.enemies;
+  for (const run of runsByTier) {
+    assert.ok(run.combat);
+    run.combat.enemies.forEach((enemy, idx) => {
+      assert.equal(
+        enemy.maxHp,
+        tier3Layer0[idx].maxHp,
+        `${enemy.archetype} Layer 0 maxHp must match Tier 3 baseline on tier ${run.difficultyTier}`,
+      );
+      assert.equal(
+        enemy.intentCycle[0].value,
+        ENEMY_TEMPLATES[enemy.archetype].intentCycle[0].value,
+        `${enemy.archetype} intent DMG must stay sacred on tier ${run.difficultyTier}`,
+      );
+    });
+    const l1Enemies = buildEnemiesForNode('COMBAT', 1, 777, 0, undefined, run.difficultyTier, false);
+    for (const enemy of l1Enemies) {
+      assert.equal(
+        enemy.maxHp,
+        ENEMY_TEMPLATES[enemy.archetype].maxHp,
+        `${enemy.archetype} Layer 1 maxHp must equal ENEMY_TEMPLATES on tier ${run.difficultyTier}`,
+      );
+      assert.equal(
+        enemy.intentCycle[0].value,
+        ENEMY_TEMPLATES[enemy.archetype].intentCycle[0].value,
+      );
+    }
+  }
+
+  // 3. Par Turn Clocks & Sawtooth Breather scale spatial count without inflating unit stats
+  const enemiesT1 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 1, false);
+  const enemiesT3 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 3, false);
+  const enemiesT5 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 5, false);
+  const breatherT5 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 5, true);
+  assert.ok(enemiesT1.length <= 2);
+  assert.ok(enemiesT5.length >= enemiesT3.length);
+  assert.equal(breatherT5.length, 2);
+  const t3Layer2ByArch = new Map(enemiesT3.map((e) => [e.archetype, e.maxHp]));
+  for (const e of [...enemiesT1, ...enemiesT3, ...enemiesT5]) {
+    if (t3Layer2ByArch.has(e.archetype)) {
+      assert.equal(e.maxHp, t3Layer2ByArch.get(e.archetype));
+    }
+    assert.equal(e.intentCycle[0].value, ENEMY_TEMPLATES[e.archetype].intentCycle[0].value);
+  }
+
+  const parT1 = runsByTier[0].combat!.director!.parCaches[0].maxTurn;
+  const parT2 = runsByTier[1].combat!.director!.parCaches[0].maxTurn;
+  const parT3 = runsByTier[2].combat!.director!.parCaches[0].maxTurn;
+  const parT4 = runsByTier[3].combat!.director!.parCaches[0].maxTurn;
+  const parT5 = runsByTier[4].combat!.director!.parCaches[0].maxTurn;
+  assert.equal(parT1, parT3 + 3);
+  assert.equal(parT2, parT3 + 2);
+  assert.equal(parT4, Math.max(2, parT3 - 1));
+  assert.equal(parT5, Math.max(2, parT3 - 1));
+
+  // 4. Strategic Attrition recovery after combat victory: Tier 1 = 100%, Tier 2 = 25%, Tiers 3-5 = 0%
+  const prepVictory = (run: RunState, hpStart: number): RunState => ({
+    ...run,
+    heroine: { ...run.heroine, hp: hpStart, maxHp: 60 },
+    combat: {
+      ...run.combat!,
+      phase: 'VICTORY',
+      rewardEquipmentChoices: [],
+      rewardCredits: 20,
+    },
+  });
+  const afterClaimT1 = claimCombatEquipmentReward(prepVictory(runsByTier[0], 20), null);
+  const afterClaimT2 = claimCombatEquipmentReward(prepVictory(runsByTier[1], 20), null);
+  const afterClaimT3 = claimCombatEquipmentReward(prepVictory(runsByTier[2], 20), null);
+  assert.equal(afterClaimT1.heroine.hp, 60);
+  assert.equal(afterClaimT2.heroine.hp, 35); // 20 + floor(60 * 0.25)
+  assert.equal(afterClaimT3.heroine.hp, 20);
+
+  // 5. Tier 1 Story Skip Encounter works on non-boss combat & refuses boss nodes
+  const defeatNonBoss: RunState = {
+    ...runsByTier[0],
+    screen: 'gameover',
+    combat: { ...runsByTier[0].combat!, nodeType: 'COMBAT' },
+  };
+  const skipped = skipCombatEncounter(defeatNonBoss);
+  assert.equal(skipped.screen, 'map');
+  assert.equal(skipped.combat, null);
+  assert.equal(skipped.heroine.hp, skipped.heroine.maxHp);
+
+  const defeatBoss: RunState = {
+    ...runsByTier[0],
+    screen: 'gameover',
+    combat: { ...runsByTier[0].combat!, nodeType: 'BOSS' },
+  };
+  assert.equal(skipCombatEncounter(defeatBoss).screen, 'gameover');
+
+  // 6. Sawtooth breather node present on generated Sector Map Layer 2 & persistence roundtrip
+  assert.ok(runsByTier[2].mapNodes.some((n) => n.layer === 2 && n.isBreatherNode));
+  const withReset: RunState = { ...runsByTier[3], runResetsUsed: 1 };
+  const parsed = parseAndValidateRun(JSON.stringify(withReset));
+  assert.ok(parsed);
+  assert.equal(parsed.difficultyTier, 4);
+  assert.equal(parsed.runResetsUsed, 1);
+});
+
 
 
 

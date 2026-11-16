@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { CYBER_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
-import type { CyberImplantId, RunState } from '../engine/types';
+import { getDifficultyProfile } from '../engine/difficulty';
+import type { CyberImplantId, DifficultyTier, RunState } from '../engine/types';
 import { CODEX_TRANSLATIONS } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { EncounterObjectivesSummary } from '../utils/tacticalSandboxAndHints';
@@ -12,6 +13,7 @@ interface TopHudProps {
   objectivesSummary?: EncounterObjectivesSummary | null;
   canUndoTurn?: boolean;
   canResetEncounter?: boolean;
+  undoResetHint?: string;
   onUndoTurn?: () => void;
   onResetEncounter?: () => void;
   isCompactLandscape?: boolean;
@@ -26,6 +28,7 @@ export function TopHud({
   objectivesSummary = null,
   canUndoTurn = false,
   canResetEncounter = false,
+  undoResetHint,
   onUndoTurn,
   onResetEncounter,
   isCompactLandscape = false,
@@ -174,13 +177,35 @@ export function TopHud({
 
         {/* Zone 2: Core Play Controls (Undo · Reset · Loadout · Codex · Pause/Settings) */}
         <div className="flex items-center gap-1.5 shrink-0">
+          {isCombat && (
+            <span
+              data-testid="tophud-tier-badge"
+              title={
+                undoResetHint ??
+                (lang === 'cs'
+                  ? getDifficultyProfile(run.difficultyTier as DifficultyTier).summaryCs
+                  : getDifficultyProfile(run.difficultyTier as DifficultyTier).summaryEn)
+              }
+              className="hidden md:inline-flex items-center rounded-md border border-white/15 bg-slate-900/90 px-1.5 py-1 font-mono-tabular text-[10px] font-bold text-slate-200 whitespace-nowrap"
+            >
+              T{run.difficultyTier ?? 3}
+              {undoResetHint ? ` · ${undoResetHint}` : ''}
+            </span>
+          )}
+
           {isCombat && onUndoTurn && (
             <button
               type="button"
               data-testid="tophud-undo-btn"
               onClick={onUndoTurn}
               disabled={!canUndoTurn}
-              title={lang === 'cs' ? 'Vrátit tah zpět (U)' : 'Undo turn (U)'}
+              title={
+                undoResetHint
+                  ? `${lang === 'cs' ? 'Vrátit tah zpět (U)' : 'Undo turn (U)'} · ${undoResetHint}`
+                  : lang === 'cs'
+                    ? 'Vrátit tah zpět (U)'
+                    : 'Undo turn (U)'
+              }
               className="flex items-center gap-1 rounded-lg border border-cyan-300/50 bg-cyan-950/55 px-2.5 py-1 font-mono-tabular text-xs font-extrabold text-[#F4F4F6] transition hover:border-cyan-200 hover:bg-cyan-900/70 disabled:opacity-30 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer"
             >
               <span className="text-cyan-300">↶</span>

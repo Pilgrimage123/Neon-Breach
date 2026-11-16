@@ -45,6 +45,7 @@ interface EnemyIntelPanelProps {
   livingEnemies: readonly EnemyUnit[];
   armorPreview: EnemyArmorPreview;
   conditionActive?: boolean;
+  revealEnemyFutureCycle?: boolean;
   lang: Language;
   isCompactLandscape?: boolean;
   onSelectEnemy: (enemyId: string) => void;
@@ -173,6 +174,7 @@ export function EnemyIntelPanel({
   livingEnemies,
   armorPreview,
   conditionActive = false,
+  revealEnemyFutureCycle = true,
   lang,
   isCompactLandscape = false,
   onSelectEnemy,
@@ -470,6 +472,7 @@ export function EnemyIntelPanel({
                 <div className="flex flex-wrap items-center gap-1 pt-1">
                   {enemy.intentCycle.map((step, stepIdx) => {
                     const isCurrent = stepIdx === enemy.currentIntentIndex;
+                    const masked = !revealEnemyFutureCycle && !isCurrent;
                     return (
                       <div
                         key={`${enemy.id}_cycle_${stepIdx}`}
@@ -479,14 +482,16 @@ export function EnemyIntelPanel({
                             : 'border border-white/10 bg-slate-900/80 text-slate-300'
                         }`}
                       >
-                        <IntentIcon kind={step.kind} size={12} />
+                        {!masked && <IntentIcon kind={step.kind} size={12} />}
                         <span>
-                          {formatEnemyIntentCompact(
-                            step,
-                            lang,
-                            enemy.enrageAtkBonus ?? 0,
-                            isCurrent ? { staggered: enemy.staggered, conditionActive } : undefined,
-                          )}
+                          {masked
+                            ? '???'
+                            : formatEnemyIntentCompact(
+                                step,
+                                lang,
+                                enemy.enrageAtkBonus ?? 0,
+                                isCurrent ? { staggered: enemy.staggered, conditionActive } : undefined,
+                              )}
                         </span>
                       </div>
                     );

@@ -15,6 +15,7 @@ import {
   getHeroSpec,
   rebuildMasterPool,
 } from './data';
+import { getDifficultyProfile } from './difficulty';
 import { generateSectorMap } from './mapGenerator';
 import { getCyberEventForNode } from './cyberEvents';
 import {
@@ -30,6 +31,7 @@ import type {
   CharacterId,
   CombatState,
   CyberImplantId,
+  DifficultyTier,
   EnemyUnit,
   HeroineState,
   HeroineThreatPreview,
@@ -1710,6 +1712,7 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
       layer,
       currentTurn: combat.turn,
       seed: run.seed,
+      difficultyTier: run.difficultyTier ?? 3,
     });
     nextDirector = dirRes.director;
     nextEnemies = dirRes.enemies;
@@ -1991,6 +1994,9 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   );
   const drawn = drawToSix([], initialPile, [], run.seed, 1);
 
+  const difficultyTier = run.difficultyTier ?? 3;
+  const diff = getDifficultyProfile(difficultyTier);
+
   let rewardCredits =
     node.type === 'ELITE' ? 60 : node.type === 'BOSS' ? 100 : 35;
   if (node.modifier === 'golden_bounty') {
@@ -1998,6 +2004,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   } else if (node.modifier === 'double_credits') {
     rewardCredits = rewardCredits * 2;
   }
+  rewardCredits = Math.max(10, Math.round(rewardCredits * diff.creditYieldMultiplier));
 
   const rewardEquipmentChoices =
     node.type === 'BOSS'
@@ -2008,7 +2015,15 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
           ownedDefIds,
         );
 
-  const enemies = buildEnemiesForNode(node.type, node.layer, run.seed, node.lane, node.modifier);
+  const enemies = buildEnemiesForNode(
+    node.type,
+    node.layer,
+    run.seed,
+    node.lane,
+    node.modifier,
+    difficultyTier,
+    Boolean(node.isBreatherNode),
+  );
 
   const combat: CombatState = {
     nodeId: node.id,
@@ -2024,7 +2039,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     totalTilesResolved: 0,
     rewardCredits,
     rewardEquipmentChoices,
-    director: createCombatDirector(node.type, node.layer, run.heroine),
+    director: createCombatDirector(node.type, node.layer, run.heroine, difficultyTier),
   };
 
   const heroSpec = getHeroSpec(run.heroine.characterId);
@@ -2279,6 +2294,8 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
   const salvageBonus = chosenDefId === null ? 15 : 0;
   const naniteReward = computeCombatNaniteReward(combat, run.mapNodes);
 
+  const diff = getDifficultyProfile(run.difficultyTier ?? 3);
+
   // Investment / Interest: +10% bonus credits per battle without clinic
   const streak = (run.heroine.consecutiveCombatWithoutClinic ?? 0) + 1;
   const streakBonusCredits = Math.min(25, Math.round(combat.rewardCredits * 0.10 * (streak - 1)));
@@ -2299,6 +2316,12 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
     const defibHeal = Math.max(6, Math.round(nextHeroine.maxHp * 0.15));
     nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + defibHeal);
     nextHeroine.emergencyDefibUsed = true;
+  }
+
+  // Strategic Attrition Lever: Tier 1 restores full HP, Tier 2 restores +25% Max HP between puzzles
+  if (diff.postCombatHealPct > 0 && nextHeroine.hp > 0) {
+    const recovery = Math.ceil(nextHeroine.maxHp * diff.postCombatHealPct);
+    nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + recovery);
   }
 
   let nextRun: RunState = {
@@ -2339,7 +2362,42 @@ export function completeCombatRewardAndOpenMap(run: RunState): RunState {
   return claimCombatEquipmentReward(run, null);
 }
 
-export function createInitialRun(seed = 104729, characterId: CharacterId = 'kira'): RunState {
+/**
+ * Tier 1 (Story / Sandbox) fail-safe: allows skipping a combat encounter after failed attempts
+ * without advancing a Boss node into an un-cleared victory.
+ */
+export function skipCombatEncounter(run: RunState): RunState {
+  const diff = getDifficultyProfile(run.difficultyTier ?? 3);
+  if (diff.skipEncounterAfterFails === null || !run.combat) return run;
+  if (run.combat.nodeType === 'BOSS') return run;
+
+  const recovery = Math.ceil(run.heroine.maxHp * diff.postCombatHealPct);
+  const nextHp =
+    diff.postCombatHealPct > 0
+      ? Math.min(run.heroine.maxHp, Math.max(1, run.heroine.hp) + recovery)
+      : Math.max(1, run.heroine.hp);
+
+  return {
+    ...run,
+    screen: 'map',
+    heroine: {
+      ...run.heroine,
+      hp: nextHp,
+      shield: 0,
+      corrode: 0,
+      damageBoostPct: 0,
+      pendingUpcharge: 0,
+    },
+    mapNodes: markNodeCleared(run.mapNodes, run.combat.nodeId),
+    combat: null,
+  };
+}
+
+export function createInitialRun(
+  seed = 104729,
+  characterId: CharacterId = 'kira',
+  difficultyTier: DifficultyTier = 3,
+): RunState {
   const mapNodes = generateSectorMap(seed);
   const startingEq = createStartingEquipment(characterId);
   const heroSpec = getHeroSpec(characterId);
@@ -2368,6 +2426,8 @@ export function createInitialRun(seed = 104729, characterId: CharacterId = 'kira
   const baseRun: RunState = {
     runId: `run_${seed}_${Date.now()}`,
     seed,
+    difficultyTier,
+    runResetsUsed: 0,
     screen: 'combat',
     heroine: baseHeroine,
     masterPool: rebuildMasterPool(baseHeroine),

@@ -153,6 +153,8 @@ export interface LaneClusterProfile {
   totalMetaYieldNanites: number;
 }
 
+export type DifficultyTier = 1 | 2 | 3 | 4 | 5;
+
 export interface MapNode {
   id: string;
   layer: number;
@@ -161,6 +163,7 @@ export interface MapNode {
   nextIds: string[];
   cleared: boolean;
   modifier?: NodeModifier;
+  isBreatherNode?: boolean;
 }
 
 export type CharacterId = 'kira' | 'aurelia' | 'zuri';
@@ -382,6 +385,8 @@ export type ScreenPhase = 'title' | 'map' | 'combat' | 'clinic' | 'chip_dealer' 
 export interface RunState {
   runId: string;
   seed: number;
+  difficultyTier?: DifficultyTier;
+  runResetsUsed?: number;
   screen: ScreenPhase;
   heroine: HeroineState;
   masterPool: Tile[];

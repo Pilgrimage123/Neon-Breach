@@ -9,11 +9,13 @@ import {
   getPreloadedZuriDroneFrames,
   subscribePreloadUpdates,
 } from '../assets/assetPreloader';
+import { getDifficultyProfile } from '../engine/difficulty';
 import { previewHeroineThreat } from '../engine/gameEngine';
 import { isIntentConditionMet } from '../engine/reinforcementDirector';
 import type {
   CharacterId,
   CombatState,
+  DifficultyTier,
   EnemyArchetype,
   HeroineState,
   PendingReinforcement,
@@ -78,6 +80,7 @@ interface CombatStageCanvasProps {
   highContrastBorders?: boolean;
   pipMathMode?: boolean;
   hoveringSwap?: boolean;
+  difficultyTier?: DifficultyTier;
   onUndoTurn?: () => void;
   onOpenCodex?: (tab: CodexTab, hero?: CharacterId, termId?: GlossaryTermId | null) => void;
 }
@@ -111,9 +114,11 @@ export function CombatStageCanvas({
   highContrastBorders = false,
   pipMathMode = false,
   hoveringSwap = false,
+  difficultyTier = 3,
   onUndoTurn,
   onOpenCodex,
 }: CombatStageCanvasProps) {
+  const diff = getDifficultyProfile(difficultyTier);
   const t = TRANSLATIONS[lang];
   const codexT = CODEX_TRANSLATIONS[lang];
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -152,6 +157,10 @@ export function CombatStageCanvas({
   const tacticalViewRef = useRef<boolean>(tacticalView);
   const autoFocusCameraRef = useRef<boolean>(autoFocusCamera);
   const hoveringSwapRef = useRef<boolean>(hoveringSwap);
+  const dropIntelHorizonRef = useRef({
+    revealArchetype: diff.revealDropArchetype,
+    revealSlot: diff.revealDropSlot,
+  });
   const hitboxLayerRef = useRef<HTMLDivElement | null>(null);
   const kiraThreat = useMemo(
     () => previewHeroineThreat(combat, heroine, activePreview),
@@ -169,6 +178,10 @@ export function CombatStageCanvas({
   tacticalViewRef.current = tacticalView;
   autoFocusCameraRef.current = autoFocusCamera;
   hoveringSwapRef.current = hoveringSwap;
+  dropIntelHorizonRef.current = {
+    revealArchetype: diff.revealDropArchetype,
+    revealSlot: diff.revealDropSlot,
+  };
   kiraThreatRef.current = kiraThreat;
 
   const simRef = useRef<CombatStageSim | null>(null);
@@ -236,6 +249,7 @@ export function CombatStageCanvas({
     tacticalView,
     autoFocusCamera,
     hoveringSwap,
+    difficultyTier,
   ]);
 
   // Mount Canvas & Asset Loading once
@@ -488,6 +502,7 @@ export function CombatStageCanvas({
         autoFocusCameraRef.current,
         hoveringSwapRef.current,
         kiraThreatRef.current,
+        dropIntelHorizonRef.current,
       );
       const camZoom = activeSim.cameraZoom || 1;
       const camPanX = activeSim.cameraPanX || 0;
@@ -1425,6 +1440,7 @@ export function CombatStageCanvas({
           {/* Telegraphed Inbound Reinforcement Drop-Pod Mini-Pods */}
           {pendingDrops.map((drop) => {
             const dropMeta = t.enemies[drop.archetype];
+            const dropName = diff.revealDropArchetype ? dropMeta.name : '???';
             const isUrgent = drop.turnsUntilDrop <= 1;
             const dropInspectKey = `drop:${drop.id}`;
             return (
@@ -1436,7 +1452,7 @@ export function CombatStageCanvas({
                   setInspectedTarget((prev) => (prev === dropInspectKey ? null : dropInspectKey))
                 }
                 aria-expanded={inspectedTarget === dropInspectKey}
-                aria-label={`${t.inboundDropLabel}: ${dropMeta.name} T-${drop.turnsUntilDrop} (${t.dropZeroDmgRule})`}
+                aria-label={`${t.inboundDropLabel}: ${dropName} T-${drop.turnsUntilDrop} (${t.dropZeroDmgRule})`}
                 className={`pointer-events-auto text-left rounded-lg border border-dashed transition-all duration-200 cursor-pointer bg-[#071127]/90 ${
                   isCompactLandscape
                     ? 'w-[110px] sm:w-[134px] px-1.5 py-1'
@@ -1449,7 +1465,7 @@ export function CombatStageCanvas({
               >
                 <div className="flex items-center justify-between gap-1 text-[9px] sm:text-[10px]">
                   <span className="font-display font-bold text-cyan-100 truncate">
-                    {dropMeta.name}
+                    {dropName}
                   </span>
                   <span
                     className={`shrink-0 rounded px-1 py-0.5 font-mono-tabular text-[9px] font-extrabold ${
@@ -1578,14 +1594,18 @@ export function CombatStageCanvas({
                   T-{inspectedDrop.turnsUntilDrop}
                 </span>
                 <span className="font-display text-sm font-bold text-white">
-                  {t.enemies[inspectedDrop.archetype].name}
+                  {diff.revealDropArchetype ? t.enemies[inspectedDrop.archetype].name : '???'}
                 </span>
                 <span className="font-mono-tabular text-[10px] font-bold uppercase text-cyan-300">
                   {formatDropReasonLabel(inspectedDrop.reason, t)}
                 </span>
               </div>
               <p className="text-[11px] text-slate-200">
-                {t.enemies[inspectedDrop.archetype].bioNote}
+                {diff.revealDropArchetype
+                  ? t.enemies[inspectedDrop.archetype].bioNote
+                  : lang === 'cs'
+                    ? 'Archetyp výsadku je na této obtížnosti utajen do dopadu.'
+                    : 'Drop archetype is encrypted on this difficulty tier until touchdown.'}
               </p>
               <div className="flex flex-wrap items-center gap-2 font-mono-tabular text-[10px]">
                 <span className="rounded border border-cyan-300/40 bg-cyan-950/60 px-1.5 py-0.5 font-bold text-cyan-200">
@@ -1620,6 +1640,7 @@ export function CombatStageCanvas({
           conditionActive={inspectedConditionActive}
           lang={lang}
           isCompactLandscape={isCompactLandscape}
+          revealEnemyFutureCycle={diff.revealEnemyFutureCycle}
           onSelectEnemy={(enemyId) => setInspectedTarget(enemyId)}
           onOpenGlossaryTerm={
             onOpenCodex

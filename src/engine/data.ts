@@ -1,7 +1,9 @@
+import { getDifficultyProfile } from './difficulty';
 import type {
   CharacterId,
   CyberImplant,
   CyberImplantId,
+  DifficultyTier,
   EnemyArchetype,
   EnemyIntent,
   EnemyPassiveKind,
@@ -706,16 +708,50 @@ export function buildEncounterSpec(
   layer: number,
   seed: number,
   lane = 0,
+  difficultyTier: DifficultyTier = 3,
+  isBreather = false,
 ): EncounterUnitSpec[] {
+  const diff = getDifficultyProfile(difficultyTier);
+  const mode = diff.boardComplexity;
+
   if (nodeType === 'BOSS') {
+    if (mode === 'grandmaster') {
+      return [
+        { archetype: 'boss', idSuffix: 'boss_1', hpBonus: 0 },
+        { archetype: 'skitter', idSuffix: 'boss_escort_1', hpBonus: 0, initialIntentIndex: 0 },
+      ];
+    }
     return [{ archetype: 'boss', idSuffix: 'boss_1', hpBonus: 0 }];
   }
   if (nodeType === 'ELITE') {
     if (layer >= 3) {
+      if (mode === 'minimum') {
+        return [
+          { archetype: 'brute', idSuffix: 'elite_2', hpBonus: layer * 2, initialIntentIndex: 0 },
+          { archetype: 'stinger', idSuffix: 'elite_3', hpBonus: layer, initialIntentIndex: 0 },
+        ];
+      }
       return [
-        { archetype: 'larva', idSuffix: 'elite_1', hpBonus: 0, initialIntentIndex: 0 },
+        {
+          archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
+          idSuffix: 'elite_1',
+          hpBonus: 0,
+          initialIntentIndex: 0,
+        },
         { archetype: 'brute', idSuffix: 'elite_2', hpBonus: layer * 2, initialIntentIndex: 0 },
         { archetype: 'stinger', idSuffix: 'elite_3', hpBonus: layer, initialIntentIndex: 0 },
+      ];
+    }
+    if (mode === 'hard' || mode === 'grandmaster') {
+      return [
+        { archetype: 'brute', idSuffix: 'elite_1', hpBonus: layer * 2, initialIntentIndex: 0 },
+        { archetype: 'spitter', idSuffix: 'elite_2', hpBonus: layer, initialIntentIndex: 0 },
+        {
+          archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
+          idSuffix: 'elite_3',
+          hpBonus: 0,
+          initialIntentIndex: 0,
+        },
       ];
     }
     return [
@@ -723,7 +759,12 @@ export function buildEncounterSpec(
       { archetype: 'spitter', idSuffix: 'elite_2', hpBonus: layer, initialIntentIndex: 0 },
     ];
   }
-  if (nodeType === 'CYBER_CLINIC' || nodeType === 'MED_BAY' || nodeType === 'EVENT') {
+  if (
+    nodeType === 'CYBER_CLINIC' ||
+    nodeType === 'CHIP_DEALER' ||
+    nodeType === 'MED_BAY' ||
+    nodeType === 'EVENT'
+  ) {
     return [];
   }
   // Layer 0: Turn-1 Breathing Room (3 DMG from front Spore Mite; Stalker opens on Armor +4)
@@ -734,12 +775,44 @@ export function buildEncounterSpec(
     ];
   }
   const roll = Math.abs(seed + lane) % 2;
+
+  // Sawtooth Complexity Curve: pre-boss breather skirmish lets players test new Chips cleanly
+  if (isBreather && layer >= 2) {
+    return [
+      { archetype: 'larva', idSuffix: `l${layer}_${lane}_b1`, hpBonus: 0, initialIntentIndex: 0 },
+      {
+        archetype: roll === 0 ? 'stinger' : 'skitter',
+        idSuffix: `l${layer}_${lane}_b2`,
+        hpBonus: 0,
+        initialIntentIndex: 0,
+      },
+    ];
+  }
+
   // Layer 1: Rule of Three + Threat Cap (max 1 active attacker on Turn 1; 3-5 DMG incoming)
   if (layer === 1) {
     if (roll === 0) {
+      if (mode === 'minimum' || mode === 'relaxed') {
+        return [
+          { archetype: 'larva', idSuffix: `l1_${lane}_1`, hpBonus: 0, initialIntentIndex: 0 },
+          { archetype: 'stinger', idSuffix: `l1_${lane}_3`, hpBonus: 0, initialIntentIndex: 0 },
+        ];
+      }
       return [
-        { archetype: 'larva', idSuffix: `l1_${lane}_1`, hpBonus: 0, initialIntentIndex: 0 },
+        {
+          archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
+          idSuffix: `l1_${lane}_1`,
+          hpBonus: 0,
+          initialIntentIndex: 0,
+        },
         { archetype: 'skitter', idSuffix: `l1_${lane}_2`, hpBonus: 0, initialIntentIndex: 0 },
+        { archetype: 'stinger', idSuffix: `l1_${lane}_3`, hpBonus: 0, initialIntentIndex: 0 },
+      ];
+    }
+    if (mode === 'hard' || mode === 'grandmaster') {
+      return [
+        { archetype: 'skitter', idSuffix: `l1_${lane}_1`, hpBonus: 0, initialIntentIndex: 0 },
+        { archetype: 'spitter', idSuffix: `l1_${lane}_2`, hpBonus: 0, initialIntentIndex: 0 },
         { archetype: 'stinger', idSuffix: `l1_${lane}_3`, hpBonus: 0, initialIntentIndex: 0 },
       ];
     }
@@ -751,10 +824,27 @@ export function buildEncounterSpec(
   const lateBonus = Math.max(0, (layer - 1) * 2);
   // Layer 2+: Max 3 archetypes, capped Turn-1 threat while Time-Bomb / Anchor / Punisher prime
   if (roll === 0) {
+    if (mode === 'minimum') {
+      return [
+        { archetype: 'larva', idSuffix: `l${layer}_${lane}_1`, hpBonus: Math.min(3, lateBonus), initialIntentIndex: 0 },
+        { archetype: 'stinger', idSuffix: `l${layer}_${lane}_3`, hpBonus: lateBonus, initialIntentIndex: 0 },
+      ];
+    }
     return [
-      { archetype: 'larva', idSuffix: `l${layer}_${lane}_1`, hpBonus: Math.min(3, lateBonus), initialIntentIndex: 0 },
+      {
+        archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
+        idSuffix: `l${layer}_${lane}_1`,
+        hpBonus: Math.min(3, lateBonus),
+        initialIntentIndex: 0,
+      },
       { archetype: 'stalker', idSuffix: `l${layer}_${lane}_2`, hpBonus: lateBonus, initialIntentIndex: 2 },
       { archetype: 'stinger', idSuffix: `l${layer}_${lane}_3`, hpBonus: lateBonus, initialIntentIndex: 0 },
+    ];
+  }
+  if (mode === 'minimum') {
+    return [
+      { archetype: 'skitter', idSuffix: `l${layer}_${lane}_1`, hpBonus: lateBonus, initialIntentIndex: 0 },
+      { archetype: 'spitter', idSuffix: `l${layer}_${lane}_2`, hpBonus: lateBonus, initialIntentIndex: 0 },
     ];
   }
   return [
@@ -770,8 +860,10 @@ export function buildEnemiesForNode(
   seed: number,
   lane = 0,
   modifier?: NodeModifier,
+  difficultyTier: DifficultyTier = 3,
+  isBreather = false,
 ): EnemyUnit[] {
-  return buildEncounterSpec(nodeType, layer, seed, lane).map((spec) => {
+  return buildEncounterSpec(nodeType, layer, seed, lane, difficultyTier, isBreather).map((spec) => {
     const isOvercharged = modifier === 'overcharged_hazard';
     const tpl = ENEMY_TEMPLATES[spec.archetype];
     const baseUnit = createEnemyFromArchetype(

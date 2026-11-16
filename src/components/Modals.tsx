@@ -550,8 +550,11 @@ interface EndRunModalProps {
   turns: number;
   enemiesDefeated: number;
   canRetryEncounter?: boolean;
+  failForwardAllowed?: boolean;
+  canSkipEncounter?: boolean;
   onRetryClean?: () => void;
   onFailForwardRetry?: () => void;
+  onSkipEncounter?: () => void;
   onPlayAgain: () => void;
   onTitle: () => void;
 }
@@ -565,8 +568,11 @@ export function EndRunModal({
   turns,
   enemiesDefeated,
   canRetryEncounter = false,
+  failForwardAllowed = true,
+  canSkipEncounter = false,
   onRetryClean,
   onFailForwardRetry,
+  onSkipEncounter,
   onPlayAgain,
   onTitle,
 }: EndRunModalProps) {
@@ -627,14 +633,16 @@ export function EndRunModal({
           {t.bestScoreLabel}: {Math.max(score, bestScore)}
         </div>
 
-        {!isVictory && canRetryEncounter && (onFailForwardRetry || onRetryClean) && (
+        {!isVictory &&
+          ((canRetryEncounter && (onFailForwardRetry || onRetryClean)) ||
+            (canSkipEncounter && onSkipEncounter)) && (
           <div className="mt-3.5 flex flex-col gap-2 rounded-xl border border-cyan-300/35 bg-slate-900/75 p-2.5 text-left">
             <div className="text-center font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-[#00F0FF]">
               {lang === 'cs'
-                ? 'Druhá šance v tomto uzlu (Fail-Forward)'
-                : 'Node Recovery & Fail-Forward Options'}
+                ? 'Druhá šance v tomto uzlu'
+                : 'Node Recovery Options'}
             </div>
-            {onFailForwardRetry && (
+            {failForwardAllowed && canRetryEncounter && onFailForwardRetry && (
               <button
                 type="button"
                 data-testid="fail-forward-retry-btn"
@@ -646,7 +654,7 @@ export function EndRunModal({
                   : '⚡ Fail-Forward Retry (+15 HP, +10 Shield, +40% OD)'}
               </button>
             )}
-            {onRetryClean && (
+            {canRetryEncounter && onRetryClean && (
               <button
                 type="button"
                 data-testid="retry-node-clean-btn"
@@ -656,6 +664,18 @@ export function EndRunModal({
                 {lang === 'cs'
                   ? '⟲ Restartovat tento boj čistě (Tah 1)'
                   : '⟲ Retry Encounter Cleanly (Turn 1)'}
+              </button>
+            )}
+            {canSkipEncounter && onSkipEncounter && (
+              <button
+                type="button"
+                data-testid="skip-encounter-btn"
+                onClick={onSkipEncounter}
+                className="chrome-pill w-full rounded-lg border-emerald-300/50 bg-emerald-950/55 px-3 py-2 text-xs font-bold text-emerald-100 transition-colors hover:border-emerald-200 hover:text-white cursor-pointer text-center"
+              >
+                {lang === 'cs'
+                  ? '⏭ Přeskočit uzel (Story Mode · pokračovat na mapu)'
+                  : '⏭ Skip Puzzle Encounter (Story Mode · advance map)'}
               </button>
             )}
           </div>

@@ -2,6 +2,7 @@ import type { Language } from '../i18n/translations';
 import { getCyberEventForNode } from './cyberEvents';
 import { ENEMY_TEMPLATES, MAX_IMPLANTS, buildEnemiesForNode } from './data';
 import type {
+  DifficultyTier,
   EnemyArchetype,
   EnemyIntent,
   EnemyPassiveKind,
@@ -306,6 +307,20 @@ export function generateSectorMap(seed: number): MapNode[] {
     if (eligibleClinics.length > 0) {
       const clinicIdx = Math.abs(seed * 23 + 3) % eligibleClinics.length;
       eligibleClinics[clinicIdx].modifier = 'funded_clinic';
+    }
+
+    // Sawtooth Complexity Curve: tag 1 Layer-2 COMBAT node (without combat hazards) as a tactical breather
+    const breatherCandidate =
+      nodes.find((n) => n.layer === 2 && n.type === 'COMBAT' && !n.modifier) ??
+      nodes.find(
+        (n) =>
+          n.layer === 2 &&
+          n.type === 'COMBAT' &&
+          n.modifier !== 'overcharged_hazard' &&
+          n.modifier !== 'high_threat',
+      );
+    if (breatherCandidate) {
+      breatherCandidate.isBreatherNode = true;
     }
   }
 
@@ -659,6 +674,7 @@ export function getNodeEncounterIntel(
   node: MapNode,
   seed: number,
   lang: Language = 'en',
+  difficultyTier: DifficultyTier = 3,
 ): NodeEncounterIntel {
   const isCs = lang === 'cs';
   const laneSuffix =
@@ -726,6 +742,8 @@ export function getNodeEncounterIntel(
     seed,
     node.lane,
     node.modifier,
+    difficultyTier,
+    Boolean(node.isBreatherNode),
   );
   const passivesSet = new Set<EnemyPassiveKind>();
 
@@ -819,7 +837,15 @@ export function getReconPreviewForNode(
     };
   }
 
-  const spawned = buildEnemiesForNode(node.type, node.layer, run.seed, node.lane, node.modifier);
+  const spawned = buildEnemiesForNode(
+    node.type,
+    node.layer,
+    run.seed,
+    node.lane,
+    node.modifier,
+    run.difficultyTier ?? 3,
+    Boolean(node.isBreatherNode),
+  );
   return {
     kind: 'combat',
     enemies: spawned.map((e) => ({

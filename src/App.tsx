@@ -13,6 +13,7 @@ import { TacticalDock } from './components/TacticalDock';
 import { TitleScreen } from './components/TitleScreen';
 import { TopHud } from './components/TopHud';
 import { EQUIPMENT_BY_ID, getEquippedEquipmentWeight } from './engine/data';
+import { DEFAULT_DIFFICULTY_TIER, getDifficultyProfile } from './engine/difficulty';
 import {
   advanceRoundAfterEnemies,
   applyMedBayAction,
@@ -31,6 +32,7 @@ import {
   restockClinicShop,
   scrapEquipmentInstance,
   skipChipDealer,
+  skipCombatEncounter,
   skipCyberClinic,
   startNodeEncounter,
   unequipEquipmentInstance,
@@ -45,7 +47,14 @@ import {
   saveActiveRun,
   saveEncounterSnapshot,
 } from './engine/persistence';
-import type { BestRunRecord, CharacterId, CyberImplantId, RunState, TileType } from './engine/types';
+import type {
+  BestRunRecord,
+  CharacterId,
+  CyberImplantId,
+  DifficultyTier,
+  RunState,
+  TileType,
+} from './engine/types';
 import type { GlossaryTermId } from './i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from './i18n/translations';
 import {
@@ -190,23 +199,30 @@ export default function App() {
   const [selectedCharacter, setSelectedCharacter] = useState<CharacterId>(
     () => initialState.saved?.heroine.characterId ?? 'kira',
   );
+  const [selectedDifficultyTier, setSelectedDifficultyTier] = useState<DifficultyTier>(
+    () => initialState.saved?.difficultyTier ?? DEFAULT_DIFFICULTY_TIER,
+  );
   const [readyOutcomeKey, setReadyOutcomeKey] = useState<string | null>(null);
   const [defibNoticeVisible, setDefibNoticeVisible] = useState<boolean>(false);
 
-  // Low-Floor / High-Ceiling Tactical Sandbox & Onboarding State
+  // Low-Floor / High-Ceiling Tactical Sandbox & Difficulty Policy State
   const [turnHistory, setTurnHistory] = useState<
-    Array<{ run: RunState; swappedThisTurn: boolean }>
+    Array<{ run: RunState; swappedThisTurn: boolean; isSwapOnly?: boolean }>
   >([]);
   const [encounterStartSnapshot, setEncounterStartSnapshot] = useState<RunState | null>(
     initialState.encounterSnapshot,
   );
   const [undosUsedInNode, setUndosUsedInNode] = useState<number>(0);
+  const [committedUndosUsedInNode, setCommittedUndosUsedInNode] = useState<number>(0);
+  const [battleResetsUsedInNode, setBattleResetsUsedInNode] = useState<number>(0);
+  const [failedAttemptsInNode, setFailedAttemptsInNode] = useState<number>(0);
   const [hintsUsedInNode, setHintsUsedInNode] = useState<number>(0);
   const [failForwardUsedInNode, setFailForwardUsedInNode] = useState<boolean>(false);
   const [swappedThisTurn, setSwappedThisTurn] = useState<boolean>(false);
   const [hasUsedSwapEver, setHasUsedSwapEver] = useState<boolean>(false);
   const [hintVisible, setHintVisible] = useState<boolean>(false);
   const [pipMathMode, setPipMathMode] = useState<boolean>(false);
+  const gameoverCountedRef = useRef<boolean>(false);
 
   const runRef = useRef(run);
   runRef.current = run;
@@ -368,6 +384,18 @@ export default function App() {
     screenProfile.physicalScaleFactor,
   ]);
 
+  // Track defeat attempts in the current node (for Tier 1 Story encounter skip after 2 fails)
+  useEffect(() => {
+    if (run.screen === 'gameover') {
+      if (!gameoverCountedRef.current) {
+        gameoverCountedRef.current = true;
+        setFailedAttemptsInNode((f) => f + 1);
+      }
+    } else {
+      gameoverCountedRef.current = false;
+    }
+  }, [run.screen]);
+
   // Persist active run only when run actually changes outside title screen
   useEffect(() => {
     if (showTitle) return;
@@ -419,7 +447,11 @@ export default function App() {
       blurActiveElement();
       soundEngine.playClick();
       clearActiveRun();
-      const fresh = createInitialRun(Math.floor(Date.now() % 900000) + 10000, charId);
+      const fresh = createInitialRun(
+        Math.floor(Date.now() % 900000) + 10000,
+        charId,
+        selectedDifficultyTier,
+      );
       if (fresh.screen === 'combat' && fresh.combat) {
         void ensureCombatAssetsReady(
           charId,
@@ -437,6 +469,9 @@ export default function App() {
       setEncounterStartSnapshot(nextSnapshot);
       saveEncounterSnapshot(nextSnapshot);
       setUndosUsedInNode(0);
+      setCommittedUndosUsedInNode(0);
+      setBattleResetsUsedInNode(0);
+      setFailedAttemptsInNode(0);
       setHintsUsedInNode(0);
       setFailForwardUsedInNode(false);
       setSwappedThisTurn(false);
@@ -447,7 +482,7 @@ export default function App() {
       setShowTitle(false);
       document.body.dataset.state = 'playing';
     },
-    [selectedCharacter],
+    [selectedCharacter, selectedDifficultyTier],
   );
 
   const handleContinueRun = useCallback(() => {
@@ -460,6 +495,7 @@ export default function App() {
           savedRunSnapshot.combat.enemies.map((e) => e.archetype),
         );
       }
+      setSelectedDifficultyTier(savedRunSnapshot.difficultyTier ?? DEFAULT_DIFFICULTY_TIER);
       setRun(savedRunSnapshot);
       const savedSnap =
         savedRunSnapshot.screen === 'combat' ? loadEncounterSnapshot() : null;
@@ -474,6 +510,9 @@ export default function App() {
       setEncounterStartSnapshot(nextSnapshot);
       setTurnHistory([]);
       setUndosUsedInNode(0);
+      setCommittedUndosUsedInNode(0);
+      setBattleResetsUsedInNode(0);
+      setFailedAttemptsInNode(0);
       setHintsUsedInNode(0);
       setFailForwardUsedInNode(false);
       setSwappedThisTurn(false);
@@ -592,7 +631,10 @@ export default function App() {
       else if (color === 'defense') soundEngine.playShield(preview.surgeTriggered);
       else soundEngine.playUpgrade(preview.surgeTriggered);
 
-      setTurnHistory((prev) => [...prev.slice(-12), { run: currentRun, swappedThisTurn }]);
+      setTurnHistory((prev) => [
+        ...prev.slice(-12),
+        { run: currentRun, swappedThisTurn, isSwapOnly: false },
+      ]);
       setSwappedThisTurn(false);
       setHintVisible(false);
       enemyActedSetRef.current.clear();
@@ -635,7 +677,10 @@ export default function App() {
     }
     if (currentRun.heroine.overdrive < 100) return;
     soundEngine.playOverdrive();
-    setTurnHistory((prev) => [...prev.slice(-12), { run: currentRun, swappedThisTurn }]);
+    setTurnHistory((prev) => [
+      ...prev.slice(-12),
+      { run: currentRun, swappedThisTurn, isSwapOnly: false },
+    ]);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
@@ -678,7 +723,13 @@ export default function App() {
     const swapped = repositionFrontEnemies(currentRun.combat);
     if (!swapped.swapped) return;
     soundEngine.playEnemyArmor();
-    setTurnHistory((prev) => [...prev.slice(-12), { run: currentRun, swappedThisTurn }]);
+    const diffProfile = getDifficultyProfile(currentRun.difficultyTier);
+    if (diffProfile.allowSwapUndoBeforeCommit) {
+      setTurnHistory((prev) => [
+        ...prev.slice(-12),
+        { run: currentRun, swappedThisTurn, isSwapOnly: true },
+      ]);
+    }
     setSwappedThisTurn(true);
     setHasUsedSwapEver(true);
     setRun({
@@ -690,9 +741,61 @@ export default function App() {
     });
   }, [codexTarget, paused, poolModalOpen, showTitle, swappedThisTurn]);
 
+  const diffProfile = useMemo(
+    () => getDifficultyProfile(run.difficultyTier),
+    [run.difficultyTier],
+  );
+
+  const canUndoTurn = useMemo(() => {
+    if (turnHistory.length === 0) return false;
+    const lastEntry = turnHistory[turnHistory.length - 1];
+    if (lastEntry.isSwapOnly) {
+      return diffProfile.allowSwapUndoBeforeCommit;
+    }
+    return (
+      diffProfile.maxCommittedUndosPerBattle === null ||
+      committedUndosUsedInNode < diffProfile.maxCommittedUndosPerBattle
+    );
+  }, [committedUndosUsedInNode, diffProfile, turnHistory]);
+
+  const runResetsUsed = run.runResetsUsed ?? 0;
+  const hasResetBudget =
+    (diffProfile.maxBattleResets === null ||
+      battleResetsUsedInNode < diffProfile.maxBattleResets) &&
+    (diffProfile.maxRunResets === null || runResetsUsed < diffProfile.maxRunResets);
+
+  const canResetEncounter = Boolean(
+    encounterStartSnapshot &&
+      hasResetBudget &&
+      ((combat?.turn ?? 1) > 1 || turnHistory.length > 0 || run.screen === 'gameover'),
+  );
+
+  const canSkipEncounter = Boolean(
+    diffProfile.skipEncounterAfterFails !== null &&
+      failedAttemptsInNode >= diffProfile.skipEncounterAfterFails &&
+      combat &&
+      combat.nodeType !== 'BOSS',
+  );
+
+  const undoResetHint = useMemo(() => {
+    const isCs = lang === 'cs';
+    if (diffProfile.tier === 1) return isCs ? 'Zpět: ∞' : 'Undo: ∞';
+    if (diffProfile.tier === 2) return isCs ? 'Reset: ∞' : 'Reset: ∞';
+    if (diffProfile.tier === 3) {
+      const remU = Math.max(0, 1 - committedUndosUsedInNode);
+      const remR = Math.max(0, 1 - battleResetsUsedInNode);
+      return isCs ? `Zpět ${remU} · Reset ${remR}` : `Undo ${remU} · Rst ${remR}`;
+    }
+    if (diffProfile.tier === 4) {
+      const remR = Math.max(0, 1 - runResetsUsed);
+      return isCs ? `Posun Zpět · Reset ${remR}/Běh` : `Swap Undo · Rst ${remR}/Run`;
+    }
+    return 'IRONMAN';
+  }, [battleResetsUsedInNode, committedUndosUsedInNode, diffProfile.tier, lang, runResetsUsed]);
+
   const handleUndoTurn = useCallback(() => {
     if (showTitle || paused || poolModalOpen || Boolean(codexTarget)) return;
-    if (turnHistory.length === 0) {
+    if (turnHistory.length === 0 || !canUndoTurn) {
       soundEngine.playInvalidBuzz();
       return;
     }
@@ -701,33 +804,47 @@ export default function App() {
     const prevEntry = turnHistory[turnHistory.length - 1];
     setTurnHistory((prev) => prev.slice(0, -1));
     setUndosUsedInNode((u) => u + 1);
+    if (!prevEntry.isSwapOnly) {
+      setCommittedUndosUsedInNode((u) => u + 1);
+    }
     setSwappedThisTurn(prevEntry.swappedThisTurn);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
     setReadyOutcomeKey(null);
     setRun(prevEntry.run);
-  }, [codexTarget, paused, poolModalOpen, showTitle, turnHistory]);
+  }, [canUndoTurn, codexTarget, paused, poolModalOpen, showTitle, turnHistory]);
 
   const handleResetEncounter = useCallback(() => {
-    if (!encounterStartSnapshot) {
+    if (!encounterStartSnapshot || !hasResetBudget) {
       soundEngine.playInvalidBuzz();
       return;
     }
     soundEngine.playClick();
     enemyActedSetRef.current.clear();
+    const nextRunResetsUsed = (runRef.current.runResetsUsed ?? 0) + 1;
+    const restored: RunState = {
+      ...encounterStartSnapshot,
+      runResetsUsed: nextRunResetsUsed,
+    };
+    setEncounterStartSnapshot(restored);
+    saveEncounterSnapshot(restored);
     setTurnHistory([]);
     setUndosUsedInNode((u) => u + 1);
+    setBattleResetsUsedInNode((r) => r + 1);
     setSwappedThisTurn(false);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
     setReadyOutcomeKey(null);
-    setRun(encounterStartSnapshot);
-  }, [encounterStartSnapshot]);
+    setRun(restored);
+  }, [encounterStartSnapshot, hasResetBudget]);
 
   const handleFailForwardRetry = useCallback(() => {
-    if (!encounterStartSnapshot) return;
+    if (!encounterStartSnapshot || !diffProfile.failForwardAllowed) {
+      soundEngine.playInvalidBuzz();
+      return;
+    }
     soundEngine.playUpgrade(true);
     enemyActedSetRef.current.clear();
     const buffed = applyFailForwardBuff(encounterStartSnapshot);
@@ -740,9 +857,34 @@ export default function App() {
     setSelectedColor(null);
     setReadyOutcomeKey(null);
     setRun(buffed);
-  }, [encounterStartSnapshot]);
+  }, [diffProfile.failForwardAllowed, encounterStartSnapshot]);
+
+  const handleSkipEncounter = useCallback(() => {
+    if (!canSkipEncounter) {
+      soundEngine.playInvalidBuzz();
+      return;
+    }
+    soundEngine.playClick();
+    enemyActedSetRef.current.clear();
+    const skipped = skipCombatEncounter(runRef.current);
+    setTurnHistory([]);
+    setEncounterStartSnapshot(null);
+    saveEncounterSnapshot(null);
+    setSwappedThisTurn(false);
+    setHintVisible(false);
+    setHoveredColor(null);
+    setSelectedColor(null);
+    setReadyOutcomeKey(null);
+    setFailedAttemptsInNode(0);
+    setRun(skipped);
+  }, [canSkipEncounter]);
 
   const handleToggleHint = useCallback(() => {
+    if (!diffProfile.hintsAllowed) {
+      soundEngine.playInvalidBuzz();
+      setHintVisible(false);
+      return;
+    }
     soundEngine.playClick();
     setHintVisible((prev) => {
       const next = !prev;
@@ -751,7 +893,7 @@ export default function App() {
       }
       return next;
     });
-  }, []);
+  }, [diffProfile.hintsAllowed]);
 
   const handleTogglePipMath = useCallback(() => {
     soundEngine.playClick();
@@ -820,6 +962,9 @@ export default function App() {
     setDefibNoticeVisible(false);
     setTurnHistory([]);
     setUndosUsedInNode(0);
+    setCommittedUndosUsedInNode(0);
+    setBattleResetsUsedInNode(0);
+    setFailedAttemptsInNode(0);
     setHintsUsedInNode(0);
     setFailForwardUsedInNode(false);
     setSwappedThisTurn(false);
@@ -834,7 +979,12 @@ export default function App() {
       targetNode.type !== 'MED_BAY' &&
       targetNode.type !== 'EVENT'
     ) {
-      const intel = getNodeEncounterIntel(targetNode, current.seed);
+      const intel = getNodeEncounterIntel(
+        targetNode,
+        current.seed,
+        lang,
+        current.difficultyTier ?? 3,
+      );
       void ensureCombatAssetsReady(
         current.heroine.characterId ?? 'kira',
         intel.enemies.map((e) => e.archetype),
@@ -845,7 +995,7 @@ export default function App() {
     setEncounterStartSnapshot(nextSnapshot);
     saveEncounterSnapshot(nextSnapshot);
     setRun(nextRun);
-  }, []);
+  }, [lang]);
 
   const handleBuyEquipment = useCallback((defId: string) => {
     soundEngine.playUpgrade(false);
@@ -1196,6 +1346,8 @@ export default function App() {
           sectorsCleared={bestRecord.sectorsCleared}
           selectedCharacter={selectedCharacter}
           onSelectCharacter={setSelectedCharacter}
+          selectedDifficultyTier={selectedDifficultyTier}
+          onSelectDifficultyTier={setSelectedDifficultyTier}
           onStartNewRun={() => handleStartNewRun(selectedCharacter)}
           onContinueRun={handleContinueRun}
           isCompactLandscape={viewport.isCompactLandscape}
@@ -1227,10 +1379,9 @@ export default function App() {
         run={run}
         lang={lang}
         objectivesSummary={objectivesSummary}
-        canUndoTurn={turnHistory.length > 0}
-        canResetEncounter={Boolean(
-          encounterStartSnapshot && ((combat?.turn ?? 1) > 1 || turnHistory.length > 0),
-        )}
+        canUndoTurn={canUndoTurn}
+        canResetEncounter={canResetEncounter}
+        undoResetHint={undoResetHint}
         onUndoTurn={handleUndoTurn}
         onResetEncounter={handleResetEncounter}
         isCompactLandscape={viewport.isCompactLandscape}
@@ -1318,6 +1469,7 @@ export default function App() {
                 highContrastBorders={a11yPrefs.highContrastBorders}
                 pipMathMode={pipMathMode}
                 hoveringSwap={hoveringSwap}
+                difficultyTier={diffProfile.tier}
                 onUndoTurn={handleUndoTurn}
                 onOpenCodex={handleOpenCodex}
               />
@@ -1528,6 +1680,7 @@ export default function App() {
               pipMathMode={pipMathMode}
               canSwapEnemies={canRepositionEnemies(combat, swappedThisTurn)}
               activeHint={activeHint}
+              hintsAllowed={diffProfile.hintsAllowed}
               onboardingPrompt={onboardingPrompt}
               isCompactLandscape={viewport.isCompactLandscape}
               isNarrowPortrait={viewport.isNarrowPortrait}
@@ -1614,9 +1767,14 @@ export default function App() {
           bestScore={bestRecord.bestScore}
           turns={run.turnsCompleted}
           enemiesDefeated={run.enemiesDefeated}
-          canRetryEncounter={Boolean(encounterStartSnapshot)}
-          onRetryClean={handleResetEncounter}
+          canRetryEncounter={Boolean(
+            encounterStartSnapshot && (diffProfile.failForwardAllowed || hasResetBudget),
+          )}
+          failForwardAllowed={diffProfile.failForwardAllowed}
+          canSkipEncounter={canSkipEncounter}
+          onRetryClean={hasResetBudget ? handleResetEncounter : undefined}
           onFailForwardRetry={handleFailForwardRetry}
+          onSkipEncounter={handleSkipEncounter}
           onPlayAgain={() => handleStartNewRun(run.heroine.characterId ?? 'kira')}
           onTitle={handleReturnToTitle}
         />

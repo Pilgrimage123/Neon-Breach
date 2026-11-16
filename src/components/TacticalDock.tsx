@@ -75,6 +75,7 @@ interface TacticalDockProps {
   pipMathMode?: boolean;
   canSwapEnemies?: boolean;
   activeHint?: OptimalMoveHint | null;
+  hintsAllowed?: boolean;
   onboardingPrompt?: string | null;
   isCompactLandscape?: boolean;
   isNarrowPortrait?: boolean;
@@ -105,6 +106,7 @@ export function TacticalDock({
   pipMathMode = false,
   canSwapEnemies = false,
   activeHint = null,
+  hintsAllowed = true,
   onboardingPrompt = null,
   isCompactLandscape = false,
   isNarrowPortrait = false,
@@ -450,13 +452,17 @@ export function TacticalDock({
           <button
             type="button"
             data-testid="dock-show-hint-btn"
-            disabled={!canPlay}
+            disabled={!canPlay || !hintsAllowed}
             onClick={onToggleHint}
             aria-pressed={Boolean(activeHint)}
             title={
-              lang === 'cs'
-                ? 'Zobrazit optimální tah [?]'
-                : 'Show Optimal Turn Hint [?]'
+              !hintsAllowed
+                ? lang === 'cs'
+                  ? 'Nápověda je na této obtížnosti vypnuta'
+                  : 'Hints disabled on this difficulty tier'
+                : lang === 'cs'
+                  ? 'Zobrazit optimální tah [?]'
+                  : 'Show Optimal Turn Hint [?]'
             }
             className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
               activeHint

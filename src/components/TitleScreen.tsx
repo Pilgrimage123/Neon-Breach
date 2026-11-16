@@ -8,7 +8,8 @@ import {
 } from '../assets/assetPreloader';
 import { GAME_ASSETS } from '../assets/gameAssets';
 import { HERO_SPECS } from '../engine/data';
-import type { CharacterId } from '../engine/types';
+import { DIFFICULTY_TIERS } from '../engine/difficulty';
+import type { CharacterId, DifficultyTier } from '../engine/types';
 import { CODEX_TRANSLATIONS } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import { AURELIA_SHEET_FRAMES } from '../utils/aureliaSpriteSheet';
@@ -24,6 +25,8 @@ interface TitleScreenProps {
   sectorsCleared: number;
   selectedCharacter: CharacterId;
   onSelectCharacter: (id: CharacterId) => void;
+  selectedDifficultyTier: DifficultyTier;
+  onSelectDifficultyTier: (tier: DifficultyTier) => void;
   onStartNewRun: () => void;
   onContinueRun: () => void;
   isCompactLandscape?: boolean;
@@ -131,6 +134,8 @@ export function TitleScreen({
   sectorsCleared,
   selectedCharacter,
   onSelectCharacter,
+  selectedDifficultyTier,
+  onSelectDifficultyTier,
   onStartNewRun,
   onContinueRun,
   isCompactLandscape = false,
@@ -236,6 +241,55 @@ export function TitleScreen({
           </button>
         );
       })}
+    </div>
+  );
+
+  const activeDifficulty = DIFFICULTY_TIERS[selectedDifficultyTier] ?? DIFFICULTY_TIERS[3];
+
+  const renderDifficultySelector = (compact: boolean) => (
+    <div className={compact ? 'mt-2' : 'mt-3'}>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-200/90">
+          {lang === 'cs' ? 'Taktická obtížnost (1–5)' : 'Puzzle Difficulty Tier (1–5)'}
+        </span>
+        <span className="font-mono-tabular text-[10px] font-semibold text-cyan-200 truncate">
+          {lang === 'cs' ? activeDifficulty.labelCs : activeDifficulty.labelEn}
+        </span>
+      </div>
+      <div
+        role="radiogroup"
+        aria-label={lang === 'cs' ? 'Obtížnost' : 'Puzzle Difficulty Tier'}
+        className="grid grid-cols-5 gap-1"
+      >
+        {([1, 2, 3, 4, 5] as const).map((tier) => {
+          const prof = DIFFICULTY_TIERS[tier];
+          const active = selectedDifficultyTier === tier;
+          return (
+            <button
+              key={`diff_tier_${tier}`}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              data-testid={`select-difficulty-${tier}`}
+              onClick={() => onSelectDifficultyTier(tier)}
+              className={`chrome-pill rounded-lg px-1.5 py-1 text-center font-mono-tabular text-[10px] font-bold transition-all cursor-pointer ${
+                active
+                  ? tier === 5
+                    ? 'border-[#FF2E7E] bg-rose-950/60 text-white ring-1 ring-[#FF2E7E]'
+                    : tier >= 4
+                      ? 'border-[#FFC700] bg-amber-950/50 text-white ring-1 ring-[#FFC700]'
+                      : 'border-[#00F0FF] bg-cyan-950/50 text-white ring-1 ring-[#00F0FF]'
+                  : 'border-white/15 text-slate-300 opacity-80 hover:opacity-100'
+              }`}
+            >
+              {lang === 'cs' ? prof.labelCs : prof.labelEn}
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-1 text-[10px] leading-snug text-slate-200/90">
+        {lang === 'cs' ? activeDifficulty.summaryCs : activeDifficulty.summaryEn}
+      </p>
     </div>
   );
 
@@ -476,6 +530,7 @@ export function TitleScreen({
                 )}
               </div>
               {renderOperativeCards(true)}
+              {renderDifficultySelector(true)}
             </div>
           </div>
         ) : (
@@ -569,6 +624,8 @@ export function TitleScreen({
               </div>
               {renderOperativeCards(false)}
             </div>
+
+            {renderDifficultySelector(false)}
 
             {bestScore > 0 && (
               <div className="mt-2.5 flex items-center gap-2.5 text-xs font-mono-tabular font-semibold text-[#FFC700]">

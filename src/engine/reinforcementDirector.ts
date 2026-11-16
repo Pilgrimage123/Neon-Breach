@@ -1,7 +1,9 @@
 import { ENEMY_TEMPLATES, EQUIPMENT_BY_ID, getEquippedEquipmentWeight } from './data';
+import { getDifficultyProfile } from './difficulty';
 import type {
   AnimationCue,
   CombatDirectorState,
+  DifficultyTier,
   EnemyArchetype,
   EnemyIntent,
   EnemyUnit,
@@ -117,7 +119,9 @@ export function createCombatDirector(
   nodeType: MapNodeType,
   layer: number,
   heroine: HeroineState,
+  difficultyTier: DifficultyTier = 3,
 ): CombatDirectorState {
+  const diff = getDifficultyProfile(difficultyTier);
   const playerMetaPower = computePlayerMetaPower(heroine);
 
   let parTurns: [number, number, number] = [4, 6, 8];
@@ -158,16 +162,35 @@ export function createCombatDirector(
     maxReinforcementsSpawned = 2;
   }
 
+  const adjustedParTurns: [number, number, number] = [
+    Math.max(2, parTurns[0] + diff.parTurnDelta),
+    Math.max(4, parTurns[1] + diff.parTurnDelta),
+    Math.max(6, parTurns[2] + diff.parTurnDelta),
+  ];
+  overtimeTurnThreshold = Math.max(
+    mediumTurnThreshold + 2,
+    overtimeTurnThreshold + diff.overtimeTurnDelta,
+  );
+  maxReinforcementsSpawned = Math.max(
+    layer === 0 && diff.tier === 1 ? 0 : 1,
+    maxReinforcementsSpawned + diff.maxReinforcementsDelta,
+  );
+
   const parCaches: ParCacheState[] = [
-    { tier: 1, maxTurn: parTurns[0], creditReward: cacheCredits[0], intact: true },
-    { tier: 2, maxTurn: parTurns[1], creditReward: cacheCredits[1], intact: true },
-    { tier: 3, maxTurn: parTurns[2], creditReward: cacheCredits[2], intact: true },
+    { tier: 1, maxTurn: adjustedParTurns[0], creditReward: cacheCredits[0], intact: true },
+    { tier: 2, maxTurn: adjustedParTurns[1], creditReward: cacheCredits[1], intact: true },
+    { tier: 3, maxTurn: adjustedParTurns[2], creditReward: cacheCredits[2], intact: true },
   ];
 
   // Threat points grow gently with layer + player's meta-upgrades, capped so waves never overwhelm
-  const threatRatePerTurn = Math.min(
-    6,
-    (layer === 0 ? 1 : 2 + Math.floor(layer * 0.7)) + Math.floor(playerMetaPower / 4),
+  const threatRatePerTurn = Math.max(
+    1,
+    Math.min(
+      7,
+      (layer === 0 ? 1 : 2 + Math.floor(layer * 0.7)) +
+        Math.floor(playerMetaPower / 4) +
+        diff.threatRateDelta,
+    ),
   );
   const startingThreat =
     nodeType === 'ELITE' || nodeType === 'BOSS'
@@ -404,13 +427,15 @@ export function advanceDirectorAtRoundEnd(params: {
   layer: number;
   currentTurn: number;
   seed: number;
+  difficultyTier?: DifficultyTier;
 }): {
   director: CombatDirectorState;
   enemies: EnemyUnit[];
   board: Tile[];
   cues: AnimationCue[];
 } {
-  const { director, heroine, nodeType, layer, currentTurn, seed } = params;
+  const { director, heroine, nodeType, layer, currentTurn, seed, difficultyTier = 3 } = params;
+  const diff = getDifficultyProfile(difficultyTier);
   const nextTurn = currentTurn + 1;
   let nextEnemies = params.enemies.map((e) => ({ ...e }));
   let nextBoard = params.board.map((t) => ({ ...t }));
@@ -499,7 +524,7 @@ export function advanceDirectorAtRoundEnd(params: {
 
   // 3. Overtime Desperation Enrage & Board Friction
   let overtimeHazardApplied = false;
-  if (heatStage === 'overtime') {
+  if (heatStage === 'overtime' && diff.overtimeEnrageEnabled) {
     let appliedEnrage = false;
     nextEnemies = nextEnemies.map((enemy) => {
       if (enemy.hp <= 0) return enemy;
@@ -618,7 +643,8 @@ export function advanceDirectorAtRoundEnd(params: {
       const cost = ARCHETYPE_THREAT_COST[pick.archetype];
       if (nextThreatPool >= cost) {
         nextThreatPool = Math.max(0, nextThreatPool - cost);
-        const turnsUntilDrop = isReactive || nodeType === 'BOSS' ? 1 : 2;
+        const baseLead = isReactive || nodeType === 'BOSS' ? 1 : 2;
+        const turnsUntilDrop = Math.max(1, baseLead + diff.dropTelegraphLeadDelta);
         const reason: ReinforcementReason =
           pick.reason === 'adaptive' ? 'adaptive' : isReactive ? 'reactive' : 'threat_pool';
         const dropId = `drop_wave_${nextTurn}_${seq + 1}`;

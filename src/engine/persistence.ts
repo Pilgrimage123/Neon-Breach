@@ -81,6 +81,19 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
     ) {
       return null;
     }
+    if (
+      parsed.difficultyTier !== undefined &&
+      parsed.difficultyTier !== 1 &&
+      parsed.difficultyTier !== 2 &&
+      parsed.difficultyTier !== 3 &&
+      parsed.difficultyTier !== 4 &&
+      parsed.difficultyTier !== 5
+    ) {
+      parsed.difficultyTier = 3;
+    }
+    if (typeof parsed.runResetsUsed !== 'number') {
+      parsed.runResetsUsed = 0;
+    }
     if (typeof parsed.heroine.nanites !== 'number') {
       parsed.heroine.nanites = 0;
     }

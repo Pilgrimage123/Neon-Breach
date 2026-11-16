@@ -100,6 +100,10 @@ export function renderCombatStage(
   autoFocusCamera = false,
   hoveringSwap = false,
   precomputedThreat?: HeroineThreatPreview,
+  dropIntelHorizon: { revealArchetype: boolean; revealSlot: boolean } = {
+    revealArchetype: true,
+    revealSlot: true,
+  },
 ): void {
   const { w, h } = sim.size;
   const dpr = sim.dpr;
@@ -1638,18 +1642,41 @@ export function renderCombatStage(
     }
   }
 
-  // 4.25 Telegraphed Orbital Drop-Pod Holograms ("Into the Breach" rule: always telegraphed 1-2T ahead)
+  // 4.25 Telegraphed Orbital Drop-Pod Holograms (Information Horizon scales by Difficulty Tier)
   for (let dIdx = 0; dIdx < pendingDrops.length; dIdx++) {
     const drop = pendingDrops[dIdx];
-    const dx = enemyBaseX + drop.slotIndex * enemyStepX;
-    const dy = groundY - (drop.slotIndex % 2 === 1 ? 6 : 0);
-    const pulse = 0.55 + 0.45 * Math.sin(elapsed * 5.2 + dIdx * 1.4);
     const isUrgent = drop.turnsUntilDrop <= 1;
     const beamColor = drop.isZeroReward
       ? '255, 46, 126'
       : isUrgent
         ? '251, 146, 60'
         : '250, 204, 21';
+
+    if (!dropIntelHorizon.revealSlot) {
+      const warnX = enemyBaseX + enemyStepX * 0.5;
+      const warnY = 26 + dIdx * 18;
+      ctx.save();
+      ctx.font = '800 10px "JetBrains Mono", monospace';
+      const label = `⚠ ORBITAL DROP · T-${drop.turnsUntilDrop}`;
+      const lw = ctx.measureText(label).width + 14;
+      ctx.fillStyle = 'rgba(7, 14, 34, 0.88)';
+      ctx.strokeStyle = `rgba(${beamColor}, 0.9)`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.roundRect(warnX - lw * 0.5, warnY - 9, lw, 18, 5);
+      ctx.fill();
+      ctx.stroke();
+      ctx.fillStyle = '#FEF08A';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, warnX, warnY);
+      ctx.restore();
+      continue;
+    }
+
+    const dx = enemyBaseX + drop.slotIndex * enemyStepX;
+    const dy = groundY - (drop.slotIndex % 2 === 1 ? 6 : 0);
+    const pulse = 0.55 + 0.45 * Math.sin(elapsed * 5.2 + dIdx * 1.4);
 
     ctx.save();
     // Vertical orbital drop beam
@@ -1692,7 +1719,7 @@ export function renderCombatStage(
     ctx.font = '700 9px "JetBrains Mono", monospace';
     ctx.strokeStyle = 'rgba(2, 6, 23, 0.95)';
     ctx.lineWidth = 3;
-    const archTag = drop.archetype.toUpperCase();
+    const archTag = dropIntelHorizon.revealArchetype ? drop.archetype.toUpperCase() : '???';
     ctx.strokeText(archTag, dx, dy + 14);
     ctx.fillStyle = drop.isZeroReward ? '#FDA4AF' : '#FDBA74';
     ctx.fillText(archTag, dx, dy + 14);
