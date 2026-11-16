@@ -16,13 +16,29 @@ import {
   enforceEightWordRule,
   formatEnemyStreamlinedRule,
 } from '../../utils/spatialMinimalistUi';
-import { renderBoldMarkdownTokens } from '../TacticalLoupeOverlay';
 import { ArmorCrestIcon, IntentIcon, ShieldPipIcon } from './CombatIcons';
 import {
   type EnemyArmorPreview,
   formatEnemyIntentCompact,
   formatEnemyIntentSummary,
 } from './combatEnemyUi';
+
+function renderBoldMarkdownTokens(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return (
+        <strong
+          key={idx}
+          className="font-black text-cyan-200 underline decoration-cyan-400/60 underline-offset-2"
+        >
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return <span key={idx}>{part}</span>;
+  });
+}
 
 interface EnemyIntelPanelProps {
   enemy: EnemyUnit;

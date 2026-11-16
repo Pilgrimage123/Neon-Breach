@@ -50,22 +50,51 @@ function applyBioSiphonHeal(heroine: HeroineState, defeatedNow: number): void {
   }
 }
 
+function computeCombatNaniteReward(
+  combat: Pick<CombatState, 'nodeId' | 'nodeType'>,
+  mapNodes: readonly MapNode[],
+): number {
+  const node = mapNodes.find((n) => n.id === combat.nodeId);
+  let naniteReward = 0;
+  if (combat.nodeType === 'ELITE') {
+    naniteReward += 2;
+  } else if (combat.nodeType === 'BOSS') {
+    naniteReward += 5;
+  }
+  if (node?.modifier === 'nanite_cache') {
+    naniteReward += 2;
+  }
+  if (node?.modifier === 'overcharged_hazard') {
+    naniteReward += 1;
+  }
+  return naniteReward;
+}
+
 function resolveCombatVictoryTransition(
   run: RunState,
   combat: CombatState,
+  heroine: HeroineState,
 ): {
   screen: ScreenPhase;
   mapNodes: MapNode[];
+  heroine: HeroineState;
 } {
   if (combat.nodeType === 'BOSS') {
+    const bossNanites = computeCombatNaniteReward(combat, run.mapNodes);
     return {
       screen: 'victory',
       mapNodes: markNodeCleared(run.mapNodes, combat.nodeId),
+      heroine: {
+        ...heroine,
+        credits: heroine.credits + combat.rewardCredits,
+        nanites: (heroine.nanites ?? 0) + bossNanites,
+      },
     };
   }
   return {
     screen: run.screen,
     mapNodes: run.mapNodes,
+    heroine,
   };
 }
 
@@ -229,8 +258,6 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     const caster = combat.enemies.find((e) => e.id === tile.hexedByEnemyId && e.hp > 0);
     if (caster) activeHexCasterIds.add(caster.id);
   }
-  const hexedHealBonus = activeHexCasterIds.size * HEX_HEAL_AMOUNT;
-  const hexedArmorBonus = activeHexCasterIds.size * HEX_ARMOR_AMOUNT;
 
   if (matching.length === 0) {
     return {
@@ -238,6 +265,24 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       stayCount,
     };
   }
+
+  const withSurvivingHexBonuses = (preview: TurnPreview): TurnPreview => {
+    if (activeHexCasterIds.size === 0) {
+      return { ...preview, hexedHealBonus: 0, hexedArmorBonus: 0 };
+    }
+    const sim = simulatePlayerActionOnEnemies(combat.enemies, combat.turn, preview);
+    let survivingCasters = 0;
+    for (const casterId of activeHexCasterIds) {
+      if (sim.enemies.some((e) => e.id === casterId && e.hp > 0)) {
+        survivingCasters++;
+      }
+    }
+    return {
+      ...preview,
+      hexedHealBonus: survivingCasters * HEX_HEAL_AMOUNT,
+      hexedArmorBonus: survivingCasters * HEX_ARMOR_AMOUNT,
+    };
+  };
 
   if (color === 'attack') {
     let baseDamage = 0;
@@ -254,7 +299,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.3 : 0, false);
       return simHit.defeated ? 0 : 3;
     })();
-    return {
+    return withSurvivingHexBonuses({
       color,
       tileCount: matching.length,
       stayCount,
@@ -274,10 +319,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       techPierceDamage: 0,
       cleanseCorrodeAmount: 0,
       retaliateDamage,
-      hexedHealBonus,
-      hexedArmorBonus,
       blightPurgeCount,
-    };
+    });
   }
 
   if (color === 'defense') {
@@ -288,7 +331,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     const shieldGained = Math.max(0, rawShield - run.heroine.corrode);
     const riposteDamage = cleanMatching.length * heroSpec.defenseRipostePerTile;
     const surgeReflect = surgeTriggered ? 8 : 0;
-    return {
+    return withSurvivingHexBonuses({
       color,
       tileCount: matching.length,
       stayCount,
@@ -308,10 +351,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       techPierceDamage: 0,
       cleanseCorrodeAmount: 0,
       retaliateDamage: 0,
-      hexedHealBonus,
-      hexedArmorBonus,
       blightPurgeCount,
-    };
+    });
   }
 
   // TECH
@@ -353,7 +394,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
   const synapseShield = hasImplant(implants, 'synapse_overclock') ? cleanMatching.length * 3 : 0;
   const surgeShield = surgeTriggered ? 6 : 0;
 
-  return {
+  return withSurvivingHexBonuses({
     color,
     tileCount: matching.length,
     stayCount,
@@ -373,10 +414,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     techPierceDamage,
     cleanseCorrodeAmount,
     retaliateDamage: 0,
-    hexedHealBonus,
-    hexedArmorBonus,
     blightPurgeCount,
-  };
+  });
 }
 
 export const VOLATILE_BURST_DAMAGE = 6;
@@ -386,6 +425,7 @@ export const BLIGHT_HOLD_CHIP_DAMAGE = 2;
 export const HEX_HEAL_AMOUNT = 4;
 export const HEX_ARMOR_AMOUNT = 3;
 export const MAX_ACTIVE_BLIGHT_TILES = 2;
+export const PHASE_GATE_ARMOR_BONUS = 10;
 
 function isDamagingIntent(intent: EnemyUnit['intentCycle'][number] | undefined): boolean {
   if (!intent) return false;
@@ -495,6 +535,7 @@ export function applyDamageToEnemy(
 ): {
   enemy: EnemyUnit;
   hpDamageDealt: number;
+  effectiveDamageDealt: number;
   defeated: boolean;
   pipCracked: boolean;
   phaseGateHit: boolean;
@@ -503,6 +544,7 @@ export function applyDamageToEnemy(
     return {
       enemy: { ...enemy },
       hpDamageDealt: 0,
+      effectiveDamageDealt: 0,
       defeated: false,
       pipCracked: false,
       phaseGateHit: false,
@@ -517,12 +559,14 @@ export function applyDamageToEnemy(
         shieldPips: enemy.shieldPips - 1,
       },
       hpDamageDealt: 0,
+      effectiveDamageDealt: 0,
       defeated: false,
       pipCracked: true,
       phaseGateHit: false,
     };
   }
 
+  const armorBefore = enemy.armor;
   let nextArmor = breakArmorFirst ? 0 : enemy.armor;
   let nextHp = enemy.hp;
 
@@ -544,12 +588,15 @@ export function applyDamageToEnemy(
     if (enemy.hp > thresholdHp && nextHp < thresholdHp) {
       totalHpLoss = enemy.hp - thresholdHp;
       nextHp = thresholdHp;
-      nextArmor += 10;
+      nextArmor += PHASE_GATE_ARMOR_BONUS;
       nextShieldPips = Math.max(nextShieldPips, 1);
       nextPhaseGateTriggered = true;
       phaseGateHit = true;
     }
   }
+
+  const armorRemoved = breakArmorFirst ? armorBefore : absorbed;
+  const effectiveDamageDealt = armorRemoved + totalHpLoss;
 
   return {
     enemy: {
@@ -560,6 +607,7 @@ export function applyDamageToEnemy(
       phaseGateTriggered: nextPhaseGateTriggered,
     },
     hpDamageDealt: totalHpLoss,
+    effectiveDamageDealt,
     defeated: nextHp <= 0,
     pipCracked: false,
     phaseGateHit,
@@ -590,7 +638,7 @@ function triggerVolatileBursts(
       if (nextEnemies[i].id === sourceId || nextEnemies[i].hp <= 0) continue;
       const burstRes = applyDamageToEnemy(nextEnemies[i], VOLATILE_BURST_DAMAGE, 1.0, false);
       nextEnemies[i] = burstRes.enemy;
-      extraDamageDealt += VOLATILE_BURST_DAMAGE;
+      extraDamageDealt += burstRes.effectiveDamageDealt;
       if (cues) {
         cues.push({
           id: `cue_${turn}_burst_${sourceId}_${nextEnemies[i].id}`,
@@ -604,7 +652,7 @@ function triggerVolatileBursts(
             id: `cue_${turn}_phase_${nextEnemies[i].id}`,
             kind: 'enemy_phase_gate',
             targetId: nextEnemies[i].id,
-            value: nextEnemies[i].hp,
+            value: PHASE_GATE_ARMOR_BONUS,
           });
         }
       }
@@ -623,6 +671,130 @@ function triggerVolatileBursts(
   }
 
   return { enemies: nextEnemies, extraDefeated, extraDamageDealt };
+}
+
+interface SimulatedPlayerEnemiesResult {
+  enemies: EnemyUnit[];
+  defeatedNow: number;
+  newlyDefeatedIds: string[];
+  damageDealt: number;
+  retaliateDamage: number;
+}
+
+function simulatePlayerActionOnEnemies(
+  enemies: readonly EnemyUnit[],
+  turn: number,
+  preview: TurnPreview,
+  cues?: AnimationCue[],
+): SimulatedPlayerEnemiesResult {
+  let nextEnemies = enemies.map((e) => ({ ...e }));
+  let defeatedNow = 0;
+  const newlyDefeatedIds: string[] = [];
+  let damageDealt = 0;
+  let retaliateDamage = 0;
+
+  const applyHit = (
+    targetIdx: number,
+    dmg: number,
+    pierceRatio: number,
+    breakArmorFirst: boolean,
+    cueId: string,
+    surgeFlag: boolean,
+  ) => {
+    const res = applyDamageToEnemy(nextEnemies[targetIdx], dmg, pierceRatio, breakArmorFirst);
+    nextEnemies[targetIdx] = res.enemy;
+    damageDealt += res.effectiveDamageDealt;
+    cues?.push({
+      id: cueId,
+      kind: 'hero_slash',
+      targetId: res.enemy.id,
+      value: dmg,
+      textLabel: res.pipCracked ? 'PIP CRACKED' : undefined,
+      surge: surgeFlag,
+    });
+    if (res.phaseGateHit) {
+      cues?.push({
+        id: `cue_${turn}_phase_${res.enemy.id}`,
+        kind: 'enemy_phase_gate',
+        targetId: res.enemy.id,
+        value: PHASE_GATE_ARMOR_BONUS,
+      });
+    }
+    if (res.defeated) {
+      defeatedNow++;
+      newlyDefeatedIds.push(res.enemy.id);
+      cues?.push({
+        id: `cue_${turn}_ko_${res.enemy.id}`,
+        kind: 'enemy_ko',
+        targetId: res.enemy.id,
+      });
+    }
+    return res;
+  };
+
+  const frontIdx = nextEnemies.findIndex((e) => e.hp > 0);
+  if (preview.color === 'attack' && frontIdx !== -1) {
+    const pierce = preview.armorPiercing ? 0.3 : 0;
+    const frontResult = applyHit(
+      frontIdx,
+      preview.totalDamage,
+      pierce,
+      preview.surgeTriggered,
+      `cue_${turn}_atk_front`,
+      preview.surgeTriggered,
+    );
+    if (
+      !frontResult.defeated &&
+      !preview.surgeTriggered &&
+      frontResult.enemy.passive === 'spike_retaliate'
+    ) {
+      retaliateDamage = SPIKE_RETALIATE_DAMAGE;
+    }
+
+    if (preview.cleaveDamage > 0) {
+      for (let i = 0; i < nextEnemies.length; i++) {
+        if (i === frontIdx || nextEnemies[i].hp <= 0) continue;
+        applyHit(i, preview.cleaveDamage, pierce, false, `cue_${turn}_cleave_${i}`, true);
+      }
+    }
+  } else if (preview.color === 'defense' && preview.reflectOnBlock > 0 && frontIdx !== -1) {
+    applyHit(frontIdx, preview.reflectOnBlock, 0, false, `cue_${turn}_def_pulse`, true);
+  } else if (preview.color === 'tech') {
+    if (preview.armorShredAmount > 0) {
+      nextEnemies = nextEnemies.map((enemy) =>
+        enemy.hp > 0
+          ? { ...enemy, armor: Math.max(0, enemy.armor - preview.armorShredAmount) }
+          : enemy,
+      );
+    }
+    if (preview.techPierceDamage > 0 && frontIdx !== -1) {
+      applyHit(
+        frontIdx,
+        preview.techPierceDamage,
+        1.0,
+        false,
+        `cue_${turn}_tech_pierce`,
+        preview.surgeTriggered,
+      );
+    }
+  }
+
+  if (newlyDefeatedIds.length > 0) {
+    const burstRes = triggerVolatileBursts(nextEnemies, newlyDefeatedIds, turn, cues);
+    nextEnemies = burstRes.enemies;
+    defeatedNow += burstRes.extraDefeated;
+    damageDealt += burstRes.extraDamageDealt;
+  }
+
+  nextEnemies = evaluateReactiveEnemyShifts(enemies, nextEnemies, turn, cues);
+
+  return {
+    enemies: nextEnemies,
+    defeatedNow,
+    newlyDefeatedIds,
+    damageDealt,
+    retaliateDamage,
+  };
 }
 
 export function previewHeroineThreat(
@@ -662,95 +834,13 @@ export function previewHeroineThreat(
 
   let simEnemies = combat.enemies.map((e) => ({ ...e }));
   let defeatedNow = 0;
-  const newlyDefeatedIds: string[] = [];
   let retaliateDamage = 0;
 
   if (activePreview && activePreview.tileCount > 0) {
-    const frontIdx = simEnemies.findIndex((e) => e.hp > 0);
-    if (activePreview.color === 'attack' && frontIdx !== -1) {
-      const pierce = activePreview.armorPiercing ? 0.3 : 0;
-      const frontRes = applyDamageToEnemy(
-        simEnemies[frontIdx],
-        activePreview.totalDamage,
-        pierce,
-        activePreview.surgeTriggered,
-      );
-      simEnemies[frontIdx] = frontRes.enemy;
-      if (frontRes.defeated) {
-        defeatedNow++;
-        newlyDefeatedIds.push(frontRes.enemy.id);
-      } else if (
-        !activePreview.surgeTriggered &&
-        frontRes.enemy.passive === 'spike_retaliate'
-      ) {
-        retaliateDamage = SPIKE_RETALIATE_DAMAGE;
-      }
-
-      if (activePreview.cleaveDamage > 0) {
-        for (let i = 0; i < simEnemies.length; i++) {
-          if (i === frontIdx || simEnemies[i].hp <= 0) continue;
-          const cleaveRes = applyDamageToEnemy(
-            simEnemies[i],
-            activePreview.cleaveDamage,
-            pierce,
-            false,
-          );
-          simEnemies[i] = cleaveRes.enemy;
-          if (cleaveRes.defeated) {
-            defeatedNow++;
-            newlyDefeatedIds.push(cleaveRes.enemy.id);
-          }
-        }
-      }
-    } else if (
-      activePreview.color === 'defense' &&
-      activePreview.reflectOnBlock > 0 &&
-      frontIdx !== -1
-    ) {
-      const res = applyDamageToEnemy(
-        simEnemies[frontIdx],
-        activePreview.reflectOnBlock,
-        0,
-        false,
-      );
-      simEnemies[frontIdx] = res.enemy;
-      if (res.defeated) {
-        defeatedNow++;
-        newlyDefeatedIds.push(res.enemy.id);
-      }
-    } else if (activePreview.color === 'tech') {
-      if (activePreview.armorShredAmount > 0) {
-        for (let i = 0; i < simEnemies.length; i++) {
-          if (simEnemies[i].hp > 0) {
-            simEnemies[i] = {
-              ...simEnemies[i],
-              armor: Math.max(0, simEnemies[i].armor - activePreview.armorShredAmount),
-            };
-          }
-        }
-      }
-      if (activePreview.techPierceDamage > 0 && frontIdx !== -1) {
-        const res = applyDamageToEnemy(
-          simEnemies[frontIdx],
-          activePreview.techPierceDamage,
-          1.0,
-          false,
-        );
-        simEnemies[frontIdx] = res.enemy;
-        if (res.defeated) {
-          defeatedNow++;
-          newlyDefeatedIds.push(res.enemy.id);
-        }
-      }
-    }
-
-    if (newlyDefeatedIds.length > 0) {
-      const burstSim = triggerVolatileBursts(simEnemies, newlyDefeatedIds, combat.turn);
-      simEnemies = burstSim.enemies;
-      defeatedNow += burstSim.extraDefeated;
-    }
-
-    simEnemies = evaluateReactiveEnemyShifts(combat.enemies, simEnemies, combat.turn);
+    const simResult = simulatePlayerActionOnEnemies(combat.enemies, combat.turn, activePreview);
+    simEnemies = simResult.enemies;
+    defeatedNow = simResult.defeatedNow;
+    retaliateDamage = simResult.retaliateDamage;
   }
 
   const bioSiphonHeal =
@@ -892,102 +982,10 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
       })),
   ];
 
-  let nextEnemies = combat.enemies.map((e) => ({ ...e }));
-  const nextHeroine = { ...run.heroine };
+  let nextHeroine = { ...run.heroine };
   const cues: AnimationCue[] = [];
-  let totalDamageDealt = combat.totalDamageDealt;
-  let defeatedNow = 0;
-  const newlyDefeatedIds: string[] = [];
 
-  if (color === 'attack') {
-    const frontIdx = nextEnemies.findIndex((e) => e.hp > 0);
-    if (frontIdx !== -1) {
-      const pierce = preview.armorPiercing ? 0.3 : 0;
-      const frontResult = applyDamageToEnemy(
-        nextEnemies[frontIdx],
-        preview.totalDamage,
-        pierce,
-        preview.surgeTriggered,
-      );
-      nextEnemies[frontIdx] = frontResult.enemy;
-      totalDamageDealt += preview.totalDamage;
-      cues.push({
-        id: `cue_${combat.turn}_atk_front`,
-        kind: 'hero_slash',
-        targetId: frontResult.enemy.id,
-        value: preview.totalDamage,
-        textLabel: frontResult.pipCracked ? 'PIP CRACKED' : undefined,
-        surge: preview.surgeTriggered,
-      });
-      if (frontResult.phaseGateHit) {
-        cues.push({
-          id: `cue_${combat.turn}_phase_${frontResult.enemy.id}`,
-          kind: 'enemy_phase_gate',
-          targetId: frontResult.enemy.id,
-          value: frontResult.enemy.hp,
-        });
-      }
-      if (frontResult.defeated) {
-        defeatedNow++;
-        newlyDefeatedIds.push(frontResult.enemy.id);
-        cues.push({
-          id: `cue_${combat.turn}_ko_${frontResult.enemy.id}`,
-          kind: 'enemy_ko',
-          targetId: frontResult.enemy.id,
-        });
-      } else if (
-        !preview.surgeTriggered &&
-        frontResult.enemy.passive === 'spike_retaliate'
-      ) {
-        const retBlocked = Math.min(nextHeroine.shield, SPIKE_RETALIATE_DAMAGE);
-        nextHeroine.shield -= retBlocked;
-        const retHpDmg = SPIKE_RETALIATE_DAMAGE - retBlocked;
-        nextHeroine.hp = Math.max(0, nextHeroine.hp - retHpDmg);
-        cues.push({
-          id: `cue_${combat.turn}_retaliate_${frontResult.enemy.id}`,
-          kind: 'enemy_retaliate',
-          targetId: frontResult.enemy.id,
-          value: SPIKE_RETALIATE_DAMAGE,
-          blocked: retBlocked,
-          hpDamage: retHpDmg,
-        });
-      }
-
-      if (preview.cleaveDamage > 0) {
-        for (let i = 0; i < nextEnemies.length; i++) {
-          if (i === frontIdx || nextEnemies[i].hp <= 0) continue;
-          const cleaveRes = applyDamageToEnemy(nextEnemies[i], preview.cleaveDamage, pierce, false);
-          nextEnemies[i] = cleaveRes.enemy;
-          totalDamageDealt += preview.cleaveDamage;
-          cues.push({
-            id: `cue_${combat.turn}_cleave_${i}`,
-            kind: 'hero_slash',
-            targetId: cleaveRes.enemy.id,
-            value: preview.cleaveDamage,
-            textLabel: cleaveRes.pipCracked ? 'PIP CRACKED' : undefined,
-            surge: true,
-          });
-          if (cleaveRes.phaseGateHit) {
-            cues.push({
-              id: `cue_${combat.turn}_phase_${cleaveRes.enemy.id}`,
-              kind: 'enemy_phase_gate',
-              targetId: cleaveRes.enemy.id,
-              value: cleaveRes.enemy.hp,
-            });
-          }
-          if (cleaveRes.defeated) {
-            defeatedNow++;
-            newlyDefeatedIds.push(cleaveRes.enemy.id);
-            cues.push({
-              id: `cue_${combat.turn}_ko_${cleaveRes.enemy.id}`,
-              kind: 'enemy_ko',
-              targetId: cleaveRes.enemy.id,
-            });
-          }
-        }
-      }
-    }
-  } else if (color === 'defense') {
+  if (color === 'defense') {
     nextHeroine.shield += preview.shieldGained;
     cues.push({
       id: `cue_${combat.turn}_def`,
@@ -995,39 +993,6 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
       value: preview.shieldGained,
       surge: preview.surgeTriggered,
     });
-    if (preview.reflectOnBlock > 0) {
-      const frontIdx = nextEnemies.findIndex((e) => e.hp > 0);
-      if (frontIdx !== -1) {
-        const res = applyDamageToEnemy(nextEnemies[frontIdx], preview.reflectOnBlock, 0, false);
-        nextEnemies[frontIdx] = res.enemy;
-        totalDamageDealt += preview.reflectOnBlock;
-        cues.push({
-          id: `cue_${combat.turn}_def_pulse`,
-          kind: 'hero_slash',
-          targetId: res.enemy.id,
-          value: preview.reflectOnBlock,
-          textLabel: res.pipCracked ? 'PIP CRACKED' : undefined,
-          surge: true,
-        });
-        if (res.phaseGateHit) {
-          cues.push({
-            id: `cue_${combat.turn}_phase_${res.enemy.id}`,
-            kind: 'enemy_phase_gate',
-            targetId: res.enemy.id,
-            value: res.enemy.hp,
-          });
-        }
-        if (res.defeated) {
-          defeatedNow++;
-          newlyDefeatedIds.push(res.enemy.id);
-          cues.push({
-            id: `cue_${combat.turn}_ko_${res.enemy.id}`,
-            kind: 'enemy_ko',
-            targetId: res.enemy.id,
-          });
-        }
-      }
-    }
   } else if (color === 'tech') {
     if (preview.damageBoostAddedPct > 0) {
       nextHeroine.damageBoostPct += preview.damageBoostAddedPct;
@@ -1041,52 +1006,32 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     if (preview.cleanseCorrodeAmount > 0) {
       nextHeroine.corrode = Math.max(0, nextHeroine.corrode - preview.cleanseCorrodeAmount);
     }
-    if (preview.armorShredAmount > 0) {
-      nextEnemies = nextEnemies.map((enemy) =>
-        enemy.hp > 0
-          ? { ...enemy, armor: Math.max(0, enemy.armor - preview.armorShredAmount) }
-          : enemy,
-      );
-    }
-    if (preview.techPierceDamage > 0) {
-      const frontIdx = nextEnemies.findIndex((e) => e.hp > 0);
-      if (frontIdx !== -1) {
-        const pierceRes = applyDamageToEnemy(
-          nextEnemies[frontIdx],
-          preview.techPierceDamage,
-          1.0,
-          false,
-        );
-        nextEnemies[frontIdx] = pierceRes.enemy;
-        totalDamageDealt += preview.techPierceDamage;
-        cues.push({
-          id: `cue_${combat.turn}_tech_pierce`,
-          kind: 'hero_slash',
-          targetId: pierceRes.enemy.id,
-          value: preview.techPierceDamage,
-          textLabel: pierceRes.pipCracked ? 'PIP CRACKED' : undefined,
-          surge: preview.surgeTriggered,
-        });
-        if (pierceRes.phaseGateHit) {
-          cues.push({
-            id: `cue_${combat.turn}_phase_${pierceRes.enemy.id}`,
-            kind: 'enemy_phase_gate',
-            targetId: pierceRes.enemy.id,
-            value: pierceRes.enemy.hp,
-          });
-        }
-        if (pierceRes.defeated) {
-          defeatedNow++;
-          newlyDefeatedIds.push(pierceRes.enemy.id);
-          cues.push({
-            id: `cue_${combat.turn}_ko_${pierceRes.enemy.id}`,
-            kind: 'enemy_ko',
-            targetId: pierceRes.enemy.id,
-          });
-        }
-      }
-    }
+  }
 
+  const enemySim = simulatePlayerActionOnEnemies(combat.enemies, combat.turn, preview, cues);
+  let nextEnemies = enemySim.enemies;
+  const defeatedNow = enemySim.defeatedNow;
+  const totalDamageDealt = combat.totalDamageDealt + enemySim.damageDealt;
+
+  if (enemySim.retaliateDamage > 0) {
+    const frontEnemy = nextEnemies.find((e) => e.hp > 0);
+    const retBlocked = Math.min(nextHeroine.shield, enemySim.retaliateDamage);
+    nextHeroine.shield -= retBlocked;
+    const retHpDmg = enemySim.retaliateDamage - retBlocked;
+    nextHeroine.hp = Math.max(0, nextHeroine.hp - retHpDmg);
+    if (frontEnemy) {
+      cues.push({
+        id: `cue_${combat.turn}_retaliate_${frontEnemy.id}`,
+        kind: 'enemy_retaliate',
+        targetId: frontEnemy.id,
+        value: enemySim.retaliateDamage,
+        blocked: retBlocked,
+        hpDamage: retHpDmg,
+      });
+    }
+  }
+
+  if (color === 'tech') {
     const parts: string[] = [];
     if (preview.damageBoostAddedPct > 0) parts.push(`+${preview.damageBoostAddedPct}% DMG`);
     if (preview.healAmount > 0) parts.push(`+${preview.healAmount} HP`);
@@ -1104,15 +1049,6 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     });
   }
 
-  if (newlyDefeatedIds.length > 0) {
-    const burstRes = triggerVolatileBursts(nextEnemies, newlyDefeatedIds, combat.turn, cues);
-    nextEnemies = burstRes.enemies;
-    defeatedNow += burstRes.extraDefeated;
-    totalDamageDealt += burstRes.extraDamageDealt;
-  }
-
-  // Evaluate Broken Stance (Stagger) & Enrage on Alone reactive triggers
-  nextEnemies = evaluateReactiveEnemyShifts(combat.enemies, nextEnemies, combat.turn, cues);
   keptTiles = clearDeadCasterHexes(keptTiles, nextEnemies);
 
   // Trigger Targeted Tile Hex heal/armor if a resolved tile's caster survived
@@ -1216,8 +1152,8 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   }
 
   const transition = !anyLivingEnemy
-    ? resolveCombatVictoryTransition(run, combat)
-    : { screen: run.screen, mapNodes: run.mapNodes };
+    ? resolveCombatVictoryTransition(run, updatedCombat, nextHeroine)
+    : { screen: run.screen, mapNodes: run.mapNodes, heroine: nextHeroine };
 
   const damageAdded = totalDamageDealt - combat.totalDamageDealt;
   const rewardedKills = nextEnemies.filter(
@@ -1228,7 +1164,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   return {
     ...run,
     screen: transition.screen,
-    heroine: nextHeroine,
+    heroine: transition.heroine,
     mapNodes: transition.mapNodes,
     combat: updatedCombat,
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
@@ -1260,13 +1196,13 @@ export function executeOverdrive(run: RunState): RunState {
   let nextEnemies = combat.enemies.map((enemy) => {
     if (enemy.hp <= 0) return { ...enemy };
     const res = applyDamageToEnemy(enemy, odSpec.damage, 1.0, false);
-    totalDamageDealt += odSpec.damage;
+    totalDamageDealt += res.effectiveDamageDealt;
     if (res.phaseGateHit) {
       cues.push({
         id: `cue_${combat.turn}_od_phase_${enemy.id}`,
         kind: 'enemy_phase_gate',
         targetId: enemy.id,
-        value: res.enemy.hp,
+        value: PHASE_GATE_ARMOR_BONUS,
       });
     }
     if (res.defeated) {
@@ -1334,13 +1270,13 @@ export function executeOverdrive(run: RunState): RunState {
   }
 
   const transition = !anyLiving
-    ? resolveCombatVictoryTransition(run, combat)
-    : { screen: run.screen, mapNodes: run.mapNodes };
+    ? resolveCombatVictoryTransition(run, updatedOdCombat, nextHeroine)
+    : { screen: run.screen, mapNodes: run.mapNodes, heroine: nextHeroine };
 
   return {
     ...run,
     screen: transition.screen,
-    heroine: nextHeroine,
+    heroine: transition.heroine,
     mapNodes: transition.mapNodes,
     combat: updatedOdCombat,
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
@@ -1429,7 +1365,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
 
     if (blocked > 0 && hasImplant(implants, 'kinetic_reflector')) {
       const refRes = applyDamageToEnemy(updatedEnemy, 3, 0, false);
-      reflectedDamage = 3;
+      reflectedDamage = refRes.effectiveDamageDealt;
       updatedEnemy.hp = refRes.enemy.hp;
       updatedEnemy.armor = refRes.enemy.armor;
       updatedEnemy.shieldPips = refRes.enemy.shieldPips;
@@ -1439,7 +1375,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
           id: `cue_e_${combat.turn}_${enemy.id}_refphase`,
           kind: 'enemy_phase_gate',
           targetId: enemy.id,
-          value: updatedEnemy.hp,
+          value: PHASE_GATE_ARMOR_BONUS,
         });
       }
       if (refRes.defeated) {
@@ -1581,11 +1517,11 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       rewardBreakdown: victoryRewards.breakdown,
       director: victoryRewards.director,
     };
-    const transition = resolveCombatVictoryTransition(run, combat);
+    const transition = resolveCombatVictoryTransition(run, victoryCombat, nextHeroine);
     return {
       ...run,
       screen: transition.screen,
-      heroine: nextHeroine,
+      heroine: transition.heroine,
       mapNodes: transition.mapNodes,
       combat: victoryCombat,
       enemiesDefeated: run.enemiesDefeated + defeatedNow,
@@ -2107,10 +2043,13 @@ export function applyMedBayAction(
   const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
   const isFundedClinic = currentNode?.modifier === 'funded_clinic';
 
-  let nextHeroine = {
+  let nextHeroine: HeroineState = {
     ...run.heroine,
     consecutiveCombatWithoutClinic: 0, // Reset combat streak at clinic
   };
+  let nextMasterPool = run.masterPool;
+  let nextScreen: ScreenPhase = 'map';
+  let scoreBonus = 30;
 
   if (action === 'heal') {
     nextHeroine = {
@@ -2134,37 +2073,13 @@ export function applyMedBayAction(
       ...nextHeroine,
       overdrive: Math.min(100, nextHeroine.overdrive + 35),
       corrode: 0,
+      overclockCount: (nextHeroine.overclockCount ?? 0) + 1,
     };
-    if (isFundedClinic) {
-      nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + 12);
-    }
-    const nextMaster = run.masterPool.map((tile, idx) => {
-      if (tile.type === 'attack' && idx < 3) {
-        return { ...tile, value: tile.value + 2 };
-      }
-      return tile;
-    });
-    return {
-      ...run,
-      screen: 'map',
-      heroine: nextHeroine,
-      masterPool: nextMaster,
-      mapNodes: markNodeCleared(run.mapNodes, run.currentNodeId),
-      combat: null,
-      score: run.score + 35,
-    };
+    nextMasterPool = rebuildMasterPool(nextHeroine);
+    scoreBonus = 35;
   } else if (action === 'extract_bank') {
-    if (isFundedClinic) {
-      nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + 12);
-    }
-    return {
-      ...run,
-      screen: 'victory',
-      heroine: nextHeroine,
-      mapNodes: markNodeCleared(run.mapNodes, run.currentNodeId),
-      combat: null,
-      score: run.score + 100,
-    };
+    nextScreen = 'victory';
+    scoreBonus = 100;
   }
 
   if (isFundedClinic) {
@@ -2174,11 +2089,12 @@ export function applyMedBayAction(
 
   return {
     ...run,
-    screen: 'map',
+    screen: nextScreen,
     heroine: nextHeroine,
+    masterPool: nextMasterPool,
     mapNodes: markNodeCleared(run.mapNodes, run.currentNodeId),
     combat: null,
-    score: run.score + 30,
+    score: run.score + scoreBonus,
   };
 }
 
@@ -2221,20 +2137,7 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
   if (!run.combat || run.combat.phase !== 'VICTORY') return run;
   const combat = run.combat;
   const salvageBonus = chosenDefId === null ? 15 : 0;
-  const node = run.mapNodes.find((n) => n.id === combat.nodeId);
-
-  let naniteReward = 0;
-  if (combat.nodeType === 'ELITE') {
-    naniteReward += 2;
-  } else if (combat.nodeType === 'BOSS') {
-    naniteReward += 5;
-  }
-  if (node?.modifier === 'nanite_cache') {
-    naniteReward += 2;
-  }
-  if (node?.modifier === 'overcharged_hazard') {
-    naniteReward += 1;
-  }
+  const naniteReward = computeCombatNaniteReward(combat, run.mapNodes);
 
   // Investment / Interest: +10% bonus credits per battle without clinic
   const streak = (run.heroine.consecutiveCombatWithoutClinic ?? 0) + 1;
@@ -2322,6 +2225,7 @@ export function createInitialRun(seed = 104729, characterId: CharacterId = 'kira
     nanites: 0,
     consecutiveCombatWithoutClinic: 0,
     emergencyDefibUsed: false,
+    overclockCount: 0,
   };
 
   const baseRun: RunState = {

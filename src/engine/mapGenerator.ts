@@ -1,3 +1,4 @@
+import type { Language } from '../i18n/translations';
 import { getCyberEventForNode } from './cyberEvents';
 import { ENEMY_TEMPLATES, MAX_IMPLANTS, buildEnemiesForNode } from './data';
 import type {
@@ -89,6 +90,40 @@ export const SECTOR_BOSS_TELEGRAPH: BossTelegraphIntel = {
   recommendedPrep:
     'Stockpile TECH Pierce, Armor Shred & Aegis Shielding at Cyber-Clinics and Events before Sector 05!',
 };
+
+export function getBossTelegraphIntel(lang: Language = 'en'): BossTelegraphIntel {
+  if (lang !== 'cs') return SECTOR_BOSS_TELEGRAPH;
+  const thresholdHp = Math.round(
+    ENEMY_TEMPLATES.boss.maxHp * ((ENEMY_TEMPLATES.boss.phaseGatePct ?? 50) / 100),
+  );
+  return {
+    name: 'Xenomorfní Matriarcha',
+    classification: 'Vrcholná vládkyně roje · Finále Sektoru 05',
+    hp: ENEMY_TEMPLATES.boss.maxHp,
+    gimmicks: [
+      {
+        id: 'phase_lock',
+        title: '50% Fázová bariéra',
+        description: `Při ${thresholdHp} HP pohltí veškeré přebytečné poškození. Aktivuje nouzový chitinový štít s +${ENEMY_TEMPLATES.boss.startingArmor} Brněním a 1 Aegis bodem.`,
+        badge: 'FÁZOVÝ ZÁMEK',
+      },
+      {
+        id: 'acid_jam',
+        title: 'Korozivní zablokování dílků',
+        description: 'Kyselinové plivance udělují vysoké poškození a zablokují taktické dílky, pokud je plně nevykryje Štít.',
+        badge: 'ZABLOKOVÁNÍ',
+      },
+      {
+        id: 'swarm_call',
+        title: 'Posily roje',
+        description: 'Přivolává výsadkové kapsle s Výtrusníky a Stopaři během souboje.',
+        badge: 'VOLÁNÍ ROJE',
+      },
+    ],
+    recommendedPrep:
+      'Před Sektorem 05 si v Kyber-klinikách a Událostech zajisti TECH průraz, průlom Brnění a Aegis štíty!',
+  };
+}
 
 export function generateSectorMap(seed: number): MapNode[] {
   const nodes: MapNode[] = [];
@@ -313,13 +348,18 @@ export function generateSectorMap(seed: number): MapNode[] {
   return nodes;
 }
 
-export function getNodeEconomyMetrics(node: MapNode, heroine?: HeroineState): NodeEconomyMetrics {
+export function getNodeEconomyMetrics(
+  node: MapNode,
+  heroine?: HeroineState,
+  lang: Language = 'en',
+): NodeEconomyMetrics {
   const maxHp = heroine?.maxHp ?? 58;
   let tensionHpPct = 0;
   let runYieldCredits = 0;
   let runYieldPowerRating: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'LOW';
   let metaYieldNanites = 0;
   let opportunityCost = '';
+  const isCs = lang === 'cs';
 
   switch (node.type) {
     case 'COMBAT':
@@ -332,8 +372,12 @@ export function getNodeEconomyMetrics(node: MapNode, heroine?: HeroineState): No
         node.modifier === 'overcharged_hazard' ? 1 : node.modifier === 'nanite_cache' ? 2 : 0;
       opportunityCost =
         node.modifier === 'overcharged_hazard'
-          ? 'Mini-Elite Hazard: Higher tension in exchange for guaranteed +1 Meta Nanite.'
-          : 'Low tension credit builder; preserves Med-Bay for offensive Tile Overclocking.';
+          ? isCs
+            ? 'Přetížené riziko: Vyšší zátěž výměnou za zaručený +1 meta nanit.'
+            : 'Mini-Elite Hazard: Higher tension in exchange for guaranteed +1 Meta Nanite.'
+          : isCs
+            ? 'Nízké riziko pro zisk kreditů; šetří Med-Bay na přetaktování dílků.'
+            : 'Low tension credit builder; preserves Med-Bay for offensive Tile Overclocking.';
       break;
     case 'ELITE':
       tensionHpPct = 38;
@@ -342,8 +386,9 @@ export function getNodeEconomyMetrics(node: MapNode, heroine?: HeroineState): No
       if (node.modifier === 'double_credits') runYieldCredits *= 2;
       runYieldPowerRating = 'HIGH';
       metaYieldNanites = 2 + (node.modifier === 'nanite_cache' ? 2 : 0);
-      opportunityCost =
-        'High tension cost: surviving with <15% HP forces future clinic into healing over upgrading.';
+      opportunityCost = isCs
+        ? 'Vysoké riziko: přežití pod 15% HP vynutí léčení místo vylepšení na další klinice.'
+        : 'High tension cost: surviving with <15% HP forces future clinic into healing over upgrading.';
       break;
     case 'CYBER_CLINIC':
       tensionHpPct = 0;
@@ -352,8 +397,12 @@ export function getNodeEconomyMetrics(node: MapNode, heroine?: HeroineState): No
       metaYieldNanites = 0;
       opportunityCost =
         node.modifier === 'flash_sale'
-          ? 'Flash Sale (-35% Price): maximum build power conversion at heavy discount.'
-          : 'Dead node if poor (<20 CR); high targeted build power if wealthy.';
+          ? isCs
+            ? 'Bleskový výprodej (-35% cen): maximální přeměna kreditů na sílu výbavy.'
+            : 'Flash Sale (-35% Price): maximum build power conversion at heavy discount.'
+          : isCs
+            ? 'Prázdný uzel bez kreditů (<20 CR); silný nárůst moci při dostatku kreditů.'
+            : 'Dead node if poor (<20 CR); high targeted build power if wealthy.';
       break;
     case 'MED_BAY':
       tensionHpPct = -35; // negative tension = healing recovery
@@ -362,23 +411,30 @@ export function getNodeEconomyMetrics(node: MapNode, heroine?: HeroineState): No
       metaYieldNanites = 0;
       opportunityCost =
         node.modifier === 'funded_clinic'
-          ? 'Funded Clinic: includes +12 HP bonus repair on any action.'
-          : 'Zero combat bounties; entering at full HP enables offensive Neural Tile Overclocking.';
+          ? isCs
+            ? 'Dotovaná klinika: přidává +12 HP bonusové opravy ke každé akci.'
+            : 'Funded Clinic: includes +12 HP bonus repair on any action.'
+          : isCs
+            ? 'Žádné bojové odměny; vstup s plným HP odemkne útočné přetaktování dílků.'
+            : 'Zero combat bounties; entering at full HP enables offensive Neural Tile Overclocking.';
       break;
     case 'EVENT':
       tensionHpPct = 0; // high variance
       runYieldCredits = 20;
       runYieldPowerRating = 'MODERATE';
       metaYieldNanites = 1;
-      opportunityCost =
-        'High variance: unpredictable trades and curses; ideal when low on HP or needing build pivots.';
+      opportunityCost = isCs
+        ? 'Vysoká variabilita: nepředvídatelné obchody a rizika; ideální pro změnu strategie.'
+        : 'High variance: unpredictable trades and curses; ideal when low on HP or needing build pivots.';
       break;
     case 'BOSS':
       tensionHpPct = 65;
       runYieldCredits = 100;
       runYieldPowerRating = 'CRITICAL';
       metaYieldNanites = 5;
-      opportunityCost = 'Act Finale: apex test of all combat and deck systems.';
+      opportunityCost = isCs
+        ? 'Finále aktu: vrcholná zkouška všech bojových i balíčkových systémů.'
+        : 'Act Finale: apex test of all combat and deck systems.';
       break;
   }
 
@@ -397,9 +453,11 @@ export function getNodeEconomyMetrics(node: MapNode, heroine?: HeroineState): No
 export function getLaneClusterProfiles(
   nodes: MapNode[],
   heroine?: HeroineState,
+  lang: Language = 'en',
 ): LaneClusterProfile[] {
   const maxHp = Math.max(1, heroine?.maxHp ?? 58);
   const lanes: LaneClusterProfile[] = [];
+  const isCs = lang === 'cs';
 
   for (let lane = 0; lane < 3; lane++) {
     const laneNodes = nodes
@@ -415,7 +473,7 @@ export function getLaneClusterProfiles(
     let eventCount = 0;
 
     for (const node of laneNodes) {
-      const econ = getNodeEconomyMetrics(node, heroine);
+      const econ = getNodeEconomyMetrics(node, heroine, lang);
       if (econ.tensionHpPct > 0) {
         totalTensionHpEst += econ.tensionHpEst;
       }
@@ -444,18 +502,18 @@ export function getLaneClusterProfiles(
 
     if (eventCount > 0 || (!hasElite && combatCount <= 1 && hasMedBay)) {
       archetype = 'gambler';
-      name = "GAMBLER'S CATWALK";
-      tagline = 'Anomalies & Trades · Low Combat Fatigue';
+      name = isCs ? 'LÁVKA HAZARDÉRA' : "GAMBLER'S CATWALK";
+      tagline = isCs ? 'Anomálie a obchody · Nízká únava' : 'Anomalies & Trades · Low Combat Fatigue';
       yieldRating = eventCount > 0 ? 'HIGH_VARIANCE' : 'BALANCED';
     } else if (hasElite && hasMedBay) {
       archetype = 'gauntlet';
-      name = 'THE GAUNTLET';
-      tagline = 'High Tension · Elite Bounty · Rest Safety Net';
+      name = isCs ? 'CESTA ZKOUŠKY' : 'THE GAUNTLET';
+      tagline = isCs ? 'Vysoké riziko · Elitní kořist · Záchranný Med-Bay' : 'High Tension · Elite Bounty · Rest Safety Net';
       yieldRating = 'HIGH_META';
     } else {
       archetype = 'mercenary';
-      name = 'MERCENARY PATH';
-      tagline = 'Steady Combat · Maximize Credits · Shop Build';
+      name = isCs ? 'ŽOLDÁCKÁ TRASA' : 'MERCENARY PATH';
+      tagline = isCs ? 'Stálý boj · Maximum kreditů · Nákupní sestava' : 'Steady Combat · Maximize Credits · Shop Build';
       yieldRating = 'HIGH_WEALTH';
     }
 
@@ -499,7 +557,8 @@ export function getConnectingPathNodeIds(
   const fQueue = [...startNodeIds];
   startNodeIds.forEach((id) => forwardReachable.add(id));
   while (fQueue.length > 0) {
-    const curId = fQueue.shift()!;
+    const curId = fQueue.shift();
+    if (!curId) continue;
     const cur = byId.get(curId);
     if (!cur) continue;
     for (const nextId of cur.nextIds) {
@@ -518,8 +577,9 @@ export function getConnectingPathNodeIds(
   const reverseAdj = new Map<string, string[]>();
   for (const n of nodes) {
     for (const nextId of n.nextIds) {
-      if (!reverseAdj.has(nextId)) reverseAdj.set(nextId, []);
-      reverseAdj.get(nextId)!.push(n.id);
+      const list = reverseAdj.get(nextId) ?? [];
+      list.push(n.id);
+      reverseAdj.set(nextId, list);
     }
   }
 
@@ -527,7 +587,8 @@ export function getConnectingPathNodeIds(
   const bQueue = [targetNodeId];
   backwardReachable.add(targetNodeId);
   while (bQueue.length > 0) {
-    const curId = bQueue.shift()!;
+    const curId = bQueue.shift();
+    if (!curId) continue;
     const prevList = reverseAdj.get(curId) ?? [];
     for (const prevId of prevList) {
       if (forwardReachable.has(prevId) && !backwardReachable.has(prevId)) {
@@ -580,7 +641,12 @@ export function getReachableNodeIds(nodes: MapNode[], fromNodeId: string | null)
   return reachable;
 }
 
-export function getNodeEncounterIntel(node: MapNode, seed: number): NodeEncounterIntel {
+export function getNodeEncounterIntel(
+  node: MapNode,
+  seed: number,
+  lang: Language = 'en',
+): NodeEncounterIntel {
+  const isCs = lang === 'cs';
   const laneSuffix =
     node.layer === 0
       ? 'GATE'
@@ -596,17 +662,33 @@ export function getNodeEncounterIntel(node: MapNode, seed: number): NodeEncounte
   const threatTraits: string[] = [];
 
   if (node.modifier === 'golden_bounty') {
-    threatTraits.push('High-Value Target (+50% Bounty Credits)');
+    threatTraits.push(
+      isCs ? 'Zlatý cíl (+50% odměna kreditů)' : 'High-Value Target (+50% Bounty Credits)',
+    );
   } else if (node.modifier === 'double_credits') {
-    threatTraits.push('Corporate Pay-Order (2× Combat Credits)');
+    threatTraits.push(
+      isCs ? 'Korporátní kontrakt (2× bojové kredity)' : 'Corporate Pay-Order (2× Combat Credits)',
+    );
   } else if (node.modifier === 'nanite_cache') {
-    threatTraits.push('Stolen Nanite Cache (+2 Meta Nanites)');
+    threatTraits.push(
+      isCs ? 'Ukradená skrýš nanitů (+2 meta nanity)' : 'Stolen Nanite Cache (+2 Meta Nanites)',
+    );
   } else if (node.modifier === 'overcharged_hazard') {
-    threatTraits.push('Overcharged Hazard (+25% Enemy Stats, Drops +1 Meta Nanite)');
+    threatTraits.push(
+      isCs
+        ? 'Přetížené riziko (+25% síla nepřátel, +1 meta nanit)'
+        : 'Overcharged Hazard (+25% Enemy Stats, Drops +1 Meta Nanite)',
+    );
   } else if (node.modifier === 'flash_sale') {
-    threatTraits.push('Flash Sale Clinic (-35% Equipment Prices)');
+    threatTraits.push(
+      isCs ? 'Bleskový výprodej (-35% ceny výbavy)' : 'Flash Sale Clinic (-35% Equipment Prices)',
+    );
   } else if (node.modifier === 'funded_clinic') {
-    threatTraits.push('Funded Clinic (+12 HP Bonus Repair on Any Action)');
+    threatTraits.push(
+      isCs
+        ? 'Dotovaná klinika (+12 HP bonusové opravy na libovolnou akci)'
+        : 'Funded Clinic (+12 HP Bonus Repair on Any Action)',
+    );
   }
 
   if (node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY' || node.type === 'EVENT') {
@@ -634,14 +716,14 @@ export function getNodeEncounterIntel(node: MapNode, seed: number): NodeEncounte
       passivesSet.add(tpl.passive);
     }
     if (unit.archetype === 'boss') {
-      threatTraits.push('50% Phase Barrier Lock');
-      threatTraits.push('Brood Swarm Reinforcements');
+      threatTraits.push(isCs ? '50% Fázová bariéra' : '50% Phase Barrier Lock');
+      threatTraits.push(isCs ? 'Posily roje' : 'Brood Swarm Reinforcements');
     } else if (unit.archetype === 'spitter') {
-      threatTraits.push('Corrosive Acid Spits');
+      threatTraits.push(isCs ? 'Korozivní kyselina' : 'Corrosive Acid Spits');
     } else if (unit.archetype === 'stalker') {
-      threatTraits.push('Cloaked Ambush Strikes');
+      threatTraits.push(isCs ? 'Maskované výpady' : 'Cloaked Ambush Strikes');
     } else if (unit.archetype === 'brute') {
-      threatTraits.push('Enraged Cleave & Chitin Armor');
+      threatTraits.push(isCs ? 'Těžký drtič & chitinové brnění' : 'Enraged Cleave & Chitin Armor');
     }
     return {
       archetype: unit.archetype,
@@ -651,7 +733,11 @@ export function getNodeEncounterIntel(node: MapNode, seed: number): NodeEncounte
   });
 
   if (node.type === 'ELITE') {
-    threatTraits.unshift('Elite Cyber-Mutant (+20% ATK, Drops +2 Nanites)');
+    threatTraits.unshift(
+      isCs
+        ? 'Elitní kyber-mutant (Kořist +2 nanity)'
+        : 'Elite Cyber-Mutant (Drops +2 Nanites)',
+    );
   }
 
   const totalEnemyHp = enemies.reduce((acc, e) => acc + e.hp + e.armor, 0);
@@ -665,7 +751,11 @@ export function getNodeEncounterIntel(node: MapNode, seed: number): NodeEncounte
   };
 }
 
-export function getReconPreviewForNode(node: MapNode, run: RunState): ReconNodePreview | null {
+export function getReconPreviewForNode(
+  node: MapNode,
+  run: RunState,
+  lang: Language = 'en',
+): ReconNodePreview | null {
   const hasRecon =
     run.heroine.implants.includes('synapse_overclock') ||
     run.heroine.implants.includes('surge_resonator');
@@ -676,6 +766,7 @@ export function getReconPreviewForNode(node: MapNode, run: RunState): ReconNodeP
       node,
       run.seed + node.layer * 23 + node.lane * 7,
       run.heroine,
+      lang,
     );
     return {
       kind: 'event',

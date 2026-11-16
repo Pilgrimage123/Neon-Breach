@@ -37,6 +37,7 @@ import {
   startNodeEncounter,
   unequipEquipmentInstance,
 } from './gameEngine';
+import { CYBER_EVENT_TEMPLATES, localizeCyberEvent } from './cyberEvents';
 import {
   SECTOR_BOSS_TELEGRAPH,
   generateSectorMap,
@@ -604,6 +605,10 @@ test('boss victory transitions to victory screen, elite opens clinic after loot,
   const victoryRun = resolvePlayerColor(almostWonBoss, 'attack');
   assert.equal(victoryRun.screen, 'victory');
   assert.equal(victoryRun.combat?.phase, 'VICTORY');
+  assert.ok(
+    (victoryRun.heroine.nanites ?? 0) >= 5,
+    'Boss victory must automatically grant +5 Boss Nanites',
+  );
 
   // Elite combat victory transitions to clinic when claiming loot
   const eliteNode = base.mapNodes.find((n) => n.type === 'ELITE');
@@ -1271,7 +1276,9 @@ test('Moving Lock enemy rules: Aegis Shield Pips, Boss 50% Phase Gate, Spore Mit
   assert.equal(gatedBoss.phaseGateTriggered, true);
   assert.equal(gatedBoss.armor, 10, 'Phase Gate must grant +10 Phase-2 Carapace Armor');
   assert.equal(gatedBoss.shieldPips, 1, 'Phase Gate must restore 1 Aegis Shield Pip');
-  assert.ok(afterBossGate.combat!.lastCues.some((c) => c.kind === 'enemy_phase_gate'));
+  const phaseGateCue = afterBossGate.combat!.lastCues.find((c) => c.kind === 'enemy_phase_gate');
+  assert.ok(phaseGateCue);
+  assert.equal(phaseGateCue.value, 10, 'Phase Gate cue value must match +10 Armor gained');
 
   // 3. Spore Mite (larva) Volatile Bio-Rupture deals 6 Pierce DMG to surviving allies on death
   const burstRun = {
@@ -1671,8 +1678,24 @@ test('Slay the Spire / FTL style Encounter Node Map: EVENT nodes, Boss Telegraph
   assert.equal(afterOverclock.screen, 'map');
   assert.equal(afterOverclock.heroine.corrode, 0);
   assert.equal(afterOverclock.heroine.overdrive, 55); // 20 + 35
+  assert.equal(afterOverclock.heroine.overclockCount, 1);
   const upgradedAttackTile = afterOverclock.masterPool.find((t) => t.type === 'attack');
-  assert.ok(upgradedAttackTile && upgradedAttackTile.value >= 3);
+  assert.ok(upgradedAttackTile && upgradedAttackTile.value >= 5);
+
+  // Overclock persists across unequip/equip rebuildMasterPool
+  const eqId = afterOverclock.heroine.equippedInstanceIds[0];
+  const afterUnequipOverclock = unequipEquipmentInstance(afterOverclock, eqId);
+  const afterReequipOverclock = equipEquipmentInstance(afterUnequipOverclock, eqId);
+  const atkTileAfterReequip = afterReequipOverclock.masterPool.find((t) => t.id === upgradedAttackTile.id);
+  assert.equal(atkTileAfterReequip?.value, upgradedAttackTile.value);
+
+  // Localized Cyber Event accuracy (ai_siphon matches +8 HP / +10% OD in EN & CS)
+  const aiEvent = CYBER_EVENT_TEMPLATES.find((ev) => ev.id === 'rogue_ai_cache');
+  assert.ok(aiEvent);
+  const aiSiphonEn = localizeCyberEvent(aiEvent, 'en').choices.find((c) => c.id === 'ai_siphon');
+  const aiSiphonCs = localizeCyberEvent(aiEvent, 'cs').choices.find((c) => c.id === 'ai_siphon');
+  assert.ok(aiSiphonEn && aiSiphonEn.description.includes('+8 HP') && !aiSiphonEn.description.includes('Shield'));
+  assert.ok(aiSiphonCs && aiSiphonCs.description.includes('+8 HP'));
 
   // Test Tactical Extraction Shuttle: concludes with victory screen
   const extractionState = {

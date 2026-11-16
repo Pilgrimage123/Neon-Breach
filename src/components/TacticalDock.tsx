@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { soundEngine } from '../audio/soundEngine';
 import {
   getEffectiveTileValue,
@@ -6,7 +6,7 @@ import {
   previewHeroineThreat,
   sortTilesByGroup,
 } from '../engine/gameEngine';
-import type { CharacterId, RunState, Tile, TileType, TurnPreview } from '../engine/types';
+import type { CharacterId, RunState, TileType, TurnPreview } from '../engine/types';
 import { CODEX_TRANSLATIONS, type GlossaryTermId } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import {
@@ -18,11 +18,9 @@ import {
   formatDiscretePipMath,
   type OptimalMoveHint,
 } from '../utils/tacticalSandboxAndHints';
-import { formatTileStreamlinedDescription } from '../utils/spatialMinimalistUi';
 import { formatTileDetailText, formatTileShortLabel } from '../utils/tileDisplay';
 import type { CodexTab } from './CodexModal';
 import { computeEnemyArmorPreview } from './combat/combatEnemyUi';
-import type { LoupeInspectPayload } from './TacticalLoupeOverlay';
 import { TileGlyph } from './TileGlyph';
 
 const TILE_THEME: Record<
@@ -75,8 +73,6 @@ interface TacticalDockProps {
   twoStepConfirm?: boolean;
   highContrastBorders?: boolean;
   pipMathMode?: boolean;
-  canUndoTurn?: boolean;
-  canResetEncounter?: boolean;
   canSwapEnemies?: boolean;
   activeHint?: OptimalMoveHint | null;
   onboardingPrompt?: string | null;
@@ -91,13 +87,9 @@ interface TacticalDockProps {
   onSelectColor: (color: TileType | null) => void;
   onCommitColor: (color: TileType) => void;
   onOverdrive: () => void;
-  onTogglePipMath?: () => void;
-  onUndoTurn?: () => void;
-  onResetEncounter?: () => void;
   onSwapEnemies?: () => void;
   onHoverSwap?: (hovering: boolean) => void;
   onToggleHint?: () => void;
-  onInspectLoupe?: (payload: LoupeInspectPayload | null) => void;
   onOpenCodex?: (tab: CodexTab, hero?: CharacterId, termId?: GlossaryTermId | null) => void;
 }
 
@@ -125,11 +117,9 @@ export function TacticalDock({
   onSelectColor,
   onCommitColor,
   onOverdrive,
-  onTogglePipMath,
   onSwapEnemies,
   onHoverSwap,
   onToggleHint,
-  onInspectLoupe,
   onOpenCodex,
 }: TacticalDockProps) {
   const t = TRANSLATIONS[lang];
@@ -149,56 +139,21 @@ export function TacticalDock({
   const groupedBoard = useMemo(() => (board ? sortTilesByGroup(board) : []), [board]);
 
   const [inspectedTileId, setInspectedTileId] = useState<string | null>(null);
-  const [infoDrawerOpen, setInfoDrawerOpen] = useState(false);
+  const [drawPopoverOpen, setDrawPopoverOpen] = useState(false);
 
   const lastPointerTypeRef = useRef<string>('mouse');
-  const holdTimerRef = useRef<number | null>(null);
-  const isLoupeDraggingRef = useRef<boolean>(false);
+  const dockRef = useRef<HTMLElement | null>(null);
 
-  const clearHoldTimer = () => {
-    if (holdTimerRef.current !== null) {
-      window.clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-  };
-
-  const emitTileLoupe = (tile: Tile, clientX: number, clientY: number) => {
-    if (!onInspectLoupe) return;
-    const pip = getTileCornerPip(tile.type);
-    const effective = getEffectiveTileValue(tile, run.heroine);
-    const detailText = formatTileDetailText(tile, lang);
-    const sourceLabel =
-      tile.sourceId === 'innate'
-        ? t.innateLabel
-        : t.equipment[tile.sourceId]?.name ?? tile.sourceId;
-    const groupCount = countByColor[tile.type];
-    const streamlined = formatTileStreamlinedDescription(tile, effective.value, lang);
-
-    onInspectLoupe({
-      id: tile.id,
-      pip,
-      kicker: `${pip.shortCode} · ${sourceLabel}`,
-      title: detailText,
-      primaryStat: streamlined.mathFormula,
-      subtitle: `${groupCount}/${surgeThreshold} ${t.surgeLabel}`,
-      detailLine: streamlined.shortRule,
-      ruleBadge: tile.isJammed
-        ? t.jammedTag
-        : tile.isBlight
-          ? t.blightTag
-          : tile.hexedByEnemyId
-            ? t.hexTag
-            : groupCount >= surgeThreshold
-              ? `⚡ ${t.previewSurgeTriggered}`
-              : `${groupCount}/${surgeThreshold} SURGE`,
-      pointerX: clientX,
-      pointerY: clientY,
-      viewportW: window.innerWidth,
-      viewportH: window.innerHeight,
-      keywords: streamlined.keywords,
-      lang,
-    });
-  };
+  useEffect(() => {
+    if (!drawPopoverOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (dockRef.current && !dockRef.current.contains(e.target as Node)) {
+        setDrawPopoverOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [drawPopoverOpen]);
 
   const inspectedTile = useMemo(
     () => (inspectedTileId && board ? board.find((tile) => tile.id === inspectedTileId) ?? null : null),
@@ -214,13 +169,16 @@ export function TacticalDock({
         ? computeEnemyArmorPreview(frontEnemy, frontIdx, frontIdx, activePreview, combat.enemies)
         : null;
     const threat = previewHeroineThreat(combat, run.heroine, activePreview);
-    const triggersBioBurst = Boolean(
-      frontEnemy &&
-        frontPreview &&
-        frontPreview.willDie &&
-        frontEnemy.passive === 'volatile_burst' &&
-        combat.enemies.some((e, idx) => idx !== frontIdx && e.hp > 0),
-    );
+    const livingAfterCount = combat.enemies.filter((e, idx) => {
+      if (e.hp <= 0) return false;
+      const p = computeEnemyArmorPreview(e, idx, frontIdx, activePreview, combat.enemies);
+      return !p.willDie;
+    }).length;
+    const triggersBioBurst = combat.enemies.some((e, idx) => {
+      if (e.hp <= 0 || e.passive !== 'volatile_burst') return false;
+      const p = computeEnemyArmorPreview(e, idx, frontIdx, activePreview, combat.enemies);
+      return p.willDie && livingAfterCount > 0;
+    });
     return {
       willCrackPip: Boolean(frontPreview?.willCrackShieldPip),
       willTriggerPhaseGate: Boolean(frontPreview?.willTriggerPhaseGate),
@@ -248,7 +206,6 @@ export function TacticalDock({
   };
 
   const overdriveReady = run.heroine.overdrive >= 100;
-  const showSideNextDraw = effectiveWidth >= 960 && !hudMinimized && !isNarrowPortrait;
   const showHorizontalDock = !isNarrowPortrait && effectiveWidth >= 560;
 
   const activeSurgeText =
@@ -474,13 +431,13 @@ export function TacticalDock({
                 ? 'Posun 1 pole. Uděl 2 poškození. [R]'
                 : 'Push 1 tile. Deal 2 damage. [R]'
             }
-            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
+            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
               canSwapEnemies && canPlay
                 ? 'border-cyan-300/60 text-[#00F0FF] hover:border-white'
                 : 'text-slate-400'
             }`}
           >
-            ⇄ {lang === 'cs' ? 'Posun' : 'Push'}
+            ⇄ <span className="hidden sm:inline">{lang === 'cs' ? 'Posun' : 'Push'}</span>
           </button>
         )}
 
@@ -493,52 +450,33 @@ export function TacticalDock({
             aria-pressed={Boolean(activeHint)}
             title={
               lang === 'cs'
-                ? 'Zobrazit optimální tah a taktické zdůvodnění [?]'
-                : 'Show Optimal Turn Hint & Rationale [?]'
+                ? 'Zobrazit optimální tah [?]'
+                : 'Show Optimal Turn Hint [?]'
             }
-            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
+            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
               activeHint
                 ? 'border-[#FFC700] bg-amber-950/80 text-[#FFC700]'
                 : 'text-amber-200 hover:border-amber-300'
             }`}
           >
-            ? {lang === 'cs' ? 'Tip' : 'Hint'}
+            ? <span className="hidden sm:inline">{lang === 'cs' ? 'Tip' : 'Hint'}</span>
           </button>
         )}
 
-        {onTogglePipMath && (
-          <button
-            type="button"
-            data-testid="dock-pip-math-toggle"
-            onClick={onTogglePipMath}
-            aria-pressed={pipMathMode}
-            title={
-              lang === 'cs'
-                ? 'Přepnout malé diskrétní počty (1 Pip = 5 HP/DMG)'
-                : 'Toggle Small-Number Discrete Pip Math (1 Pip = 5 HP/DMG)'
-            }
-            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[9px] sm:text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
-              pipMathMode
-                ? 'border-emerald-300 bg-emerald-950/80 text-emerald-200'
-                : 'text-slate-300 hover:border-emerald-300/60'
-            }`}
-          >
-            1P=5
-          </button>
-        )}
-
-        {!showSideNextDraw && (
-          <button
-            type="button"
-            onClick={() => setInfoDrawerOpen((prev) => !prev)}
-            aria-expanded={infoDrawerOpen}
-            className={`chrome-pill rounded px-2 py-0.5 text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
-              infoDrawerOpen ? 'border-[#00F0FF] text-[#00F0FF]' : 'text-cyan-100 hover:border-cyan-300'
-            }`}
-          >
-            {t.tacticalInfoButton} · {combat?.drawPile.length ?? 0}
-          </button>
-        )}
+        <button
+          type="button"
+          data-testid="dock-draw-pile-btn"
+          onClick={() => setDrawPopoverOpen((prev) => !prev)}
+          aria-expanded={drawPopoverOpen}
+          title={`${t.nextDrawLabel} (${combat?.drawPile.length ?? 0})`}
+          className={`chrome-pill rounded px-2 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+            drawPopoverOpen
+              ? 'border-[#00F0FF] bg-cyan-950/80 text-[#00F0FF]'
+              : 'text-cyan-100 hover:border-cyan-300'
+          }`}
+        >
+          ▤ {t.nextDrawLabel} ({combat?.drawPile.length ?? 0})
+        </button>
       </div>
     </div>
   );
@@ -569,13 +507,10 @@ export function TacticalDock({
             <button
               key={color}
               type="button"
-              disabled={!canPlay || count === 0}
+              aria-disabled={!canPlay || count === 0}
               data-testid={`action-trigger-${color}`}
               onPointerDown={(e) => {
                 lastPointerTypeRef.current = e.pointerType || 'mouse';
-                if (count === 0) {
-                  soundEngine.playInvalidBuzz();
-                }
               }}
               onMouseEnter={() => {
                 setInspectedTileId(null);
@@ -585,7 +520,9 @@ export function TacticalDock({
               onBlur={() => onHoverColor(null)}
               onClick={() => handleGroupActivate(color)}
               aria-pressed={selectedColor === color}
-              className={`relative flex flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150 disabled:opacity-35 cursor-pointer ${hcBorderClass} ${
+              className={`relative flex flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150 ${
+                !canPlay || count === 0 ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer'
+              } ${hcBorderClass} ${
                 isCompactLandscape ? 'py-1 min-h-[38px]' : 'py-1.5 min-h-[44px]'
               } ${
                 isGroupActive && count > 0
@@ -701,26 +638,6 @@ export function TacticalDock({
           onHoverColor(null);
           setInspectedTileId(null);
         }}
-        onPointerMove={(e) => {
-          if (!isLoupeDraggingRef.current || !board) return;
-          const el = document.elementFromPoint(e.clientX, e.clientY);
-          const tileBtn = el?.closest('[data-loupe-tile-id]') as HTMLElement | null;
-          const tid = tileBtn?.dataset.loupeTileId;
-          if (tid) {
-            const found = board.find((b) => b.id === tid);
-            if (found) {
-              emitTileLoupe(found, e.clientX, e.clientY);
-            }
-          }
-        }}
-        onPointerUp={() => {
-          clearHoldTimer();
-          isLoupeDraggingRef.current = false;
-        }}
-        onPointerCancel={() => {
-          clearHoldTimer();
-          isLoupeDraggingRef.current = false;
-        }}
       >
         {groupedBoard.map((tile) => {
           const isJammed = Boolean(tile.isJammed);
@@ -773,7 +690,7 @@ export function TacticalDock({
             <button
               key={tile.id}
               type="button"
-              disabled={!canPlay || isJammed}
+              aria-disabled={!canPlay || isJammed}
               data-testid={
                 isJammed
                   ? `jammed-tile-${tile.id}`
@@ -783,30 +700,13 @@ export function TacticalDock({
                       ? `hexed-tile-${tile.id}`
                       : `board-tile-${tile.id}`
               }
-              data-loupe-tile-id={tile.id}
               data-tile-suit-pip={pip.symbol}
               title={`${pip.symbol} ${detailText} (${sourceLabel})${isJammed ? ` · ${t.jammedTag}` : ''}${
                 isHexed ? ` · ${t.hexTag}` : ''
               }`}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                emitTileLoupe(tile, e.clientX, e.clientY);
-              }}
               onPointerDown={(e) => {
                 lastPointerTypeRef.current = e.pointerType || 'mouse';
-                if (isJammed) {
-                  soundEngine.playInvalidBuzz();
-                }
-                clearHoldTimer();
-                const cx = e.clientX;
-                const cy = e.clientY;
-                holdTimerRef.current = window.setTimeout(() => {
-                  isLoupeDraggingRef.current = true;
-                  emitTileLoupe(tile, cx, cy);
-                }, 300);
               }}
-              onPointerUp={clearHoldTimer}
-              onPointerCancel={clearHoldTimer}
               onMouseEnter={() => {
                 setInspectedTileId(tile.id);
                 if (!isJammed) onHoverColor(tile.type);
@@ -820,11 +720,11 @@ export function TacticalDock({
                 onHoverColor(null);
               }}
               onClick={() => {
-                if (isLoupeDraggingRef.current) {
-                  isLoupeDraggingRef.current = false;
+                if (isJammed || !canPlay) {
+                  soundEngine.playInvalidBuzz();
                   return;
                 }
-                if (!isJammed) handleGroupActivate(tile.type, tile.id);
+                handleGroupActivate(tile.type, tile.id);
               }}
               aria-pressed={selectedColor === tile.type && !isJammed}
               aria-label={`${pip.symbol} ${detailText} · ${sourceLabel} · ${
@@ -836,7 +736,9 @@ export function TacticalDock({
                       ? t.heldTag
                       : t.newTag
               }${isHexed ? ` · ${t.hexTag}` : ''}`}
-              className={`relative flex flex-col items-center justify-between rounded-lg border p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-150 cursor-pointer ${hcBorderClass} ${
+              className={`relative flex flex-col items-center justify-between rounded-lg border p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-150 ${
+                !canPlay || isJammed ? 'cursor-not-allowed' : 'cursor-pointer'
+              } ${hcBorderClass} ${
                 lod.level === 'closeup'
                   ? 'h-[72px] sm:h-[84px]'
                   : isCompactLandscape || isNarrowPortrait
@@ -856,7 +758,7 @@ export function TacticalDock({
                       : `${theme.border} ${theme.bg}`
               } ${isHexed ? 'ring-2 ring-[#C084FC]/90 shadow-[0_0_14px_rgba(192,132,252,0.45)]' : ''} ${
                 isDimmed ? 'opacity-45' : 'opacity-100'
-              } disabled:cursor-not-allowed`}
+              }`}
             >
               {/* Top Row: Double-Coding Corner Suit Pip + Special State Badge (HELD / JAM / SLAG / HEX) */}
               <div className="flex w-full items-center justify-between px-0.5 leading-none">
@@ -971,15 +873,11 @@ export function TacticalDock({
             <div
               key={`${tile.id}_${idx}`}
               title={`${pip.symbol} ${formatTileDetailText(tile, lang)}`}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                emitTileLoupe(tile, e.clientX, e.clientY);
-              }}
               className={`relative flex flex-col items-center justify-center overflow-hidden rounded border ${
                 tile.isBlight
                   ? 'border-dashed border-[#84CC16]/80 bg-[#1B240E]/90'
                   : `${TILE_THEME[tile.type].border} bg-slate-950/80`
-              } px-0.5 ${hcBorderClass} ${isCompactLandscape ? 'h-9' : 'h-10 sm:h-11'}`}
+              } px-0.5 ${hcBorderClass} ${isCompactLandscape ? 'h-10' : 'h-11 sm:h-12'}`}
             >
               <span
                 aria-hidden="true"
@@ -1005,59 +903,42 @@ export function TacticalDock({
 
   return (
     <section
+      ref={dockRef}
       aria-label="Tactical Command Dock"
       className={`chrome-glass relative z-20 shrink-0 border-x-0 border-b-0 border-t border-cyan-300/40 ${
         isCompactLandscape ? 'px-2 py-1.5' : 'px-2.5 py-2 sm:px-4 sm:py-2.5'
       }`}
     >
-      {/* Expandable Tactical Info & Upcoming Draws Panel on Compact Screens */}
-      {!showSideNextDraw && infoDrawerOpen && (
-        <div className="chrome-panel-bright absolute inset-x-2 bottom-full mb-1.5 z-40 mx-auto max-w-2xl rounded-xl p-2.5 text-xs shadow-2xl">
-          <div className="flex items-center justify-between gap-2 border-b border-white/15 pb-1.5">
+      {/* Floating Upcoming Draws & Operative Reference Popover */}
+      {drawPopoverOpen && (
+        <div
+          data-testid="dock-draw-popover"
+          className="chrome-panel-bright absolute right-2 sm:right-4 bottom-full mb-1.5 z-40 w-[calc(100vw-1rem)] max-w-md rounded-xl p-2.5 text-xs shadow-2xl"
+        >
+          <div className="mb-2 flex items-center justify-between gap-2 border-b border-white/15 pb-1.5">
             <span className="font-display font-bold text-[#00F0FF]">
-              {charMeta.code} · {t.tacticalInfoButton}
+              {t.nextDrawLabel} · {charMeta.code}
             </span>
-            <div className="flex items-center gap-1.5">
-              {onOpenCodex && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setInfoDrawerOpen(false);
-                    onOpenCodex('heroes', run.heroine.characterId ?? 'kira', null);
-                  }}
-                  className="chrome-pill rounded border-cyan-300/50 px-2 py-0.5 text-[10px] font-bold text-[#00F0FF] cursor-pointer"
-                >
-                  {codexT.inspectHeroDossierBtn}
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => setInfoDrawerOpen(false)}
-                className="chrome-pill rounded px-2 py-0.5 text-[10px] font-bold text-white cursor-pointer"
-              >
-                {t.closeLabel}
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => setDrawPopoverOpen(false)}
+              className="chrome-pill rounded px-2 py-0.5 text-[10px] font-bold text-white cursor-pointer"
+            >
+              ✕
+            </button>
           </div>
-          <div className="mt-1.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <div className="space-y-1 text-[11px]">
-              <div>
-                <span className="font-bold text-cyan-200">{t.passiveLabel}:</span> {charMeta.passive}
-              </div>
-              <div>
-                <span className="font-bold text-amber-200">{charMeta.overdriveName}:</span>{' '}
-                {charMeta.overdriveDesc}
-              </div>
-              <div className="text-[10px] text-slate-200">
-                <span className="font-bold text-rose-200">{t.attackName} ({surgeThreshold}+):</span>{' '}
-                {t.surgeAttackEffect} ·{' '}
-                <span className="font-bold text-cyan-200">{t.defenseName}:</span>{' '}
-                {t.surgeDefenseEffect} ·{' '}
-                <span className="font-bold text-amber-200">{t.techName}:</span>{' '}
-                {t.surgeTechEffect}
-              </div>
-            </div>
-            <div>{renderNextDrawPanel()}</div>
+          {renderNextDrawPanel()}
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-300">
+            <span className="font-bold text-rose-200">
+              {t.attackName} ({surgeThreshold}+):
+            </span>{' '}
+            <span>{t.surgeAttackEffect}</span>
+            <span>·</span>
+            <span className="font-bold text-cyan-200">{t.defenseName}:</span>{' '}
+            <span>{t.surgeDefenseEffect}</span>
+            <span>·</span>
+            <span className="font-bold text-amber-200">{t.techName}:</span>{' '}
+            <span>{t.surgeTechEffect}</span>
           </div>
         </div>
       )}
@@ -1066,38 +947,14 @@ export function TacticalDock({
         {renderTacticalIntelStrip()}
 
         {showHorizontalDock ? (
-          <div className="grid grid-cols-12 items-center gap-2">
-            <div
-              className={
-                showSideNextDraw
-                  ? 'col-span-3'
-                  : hudMinimized
-                    ? 'col-span-4'
-                    : 'col-span-4'
-              }
-            >
-              {renderActionTriggers()}
-            </div>
-
-            <div
-              className={
-                showSideNextDraw
-                  ? 'col-span-6'
-                  : hudMinimized
-                    ? 'col-span-8'
-                    : 'col-span-8'
-              }
-            >
-              {renderTileBoard()}
-            </div>
-
-            {showSideNextDraw && <div className="col-span-3">{renderNextDrawPanel()}</div>}
+          <div className="grid grid-cols-12 items-center gap-2 sm:gap-3">
+            <div className="col-span-4 lg:col-span-3">{renderActionTriggers()}</div>
+            <div className="col-span-8 lg:col-span-9">{renderTileBoard()}</div>
           </div>
         ) : (
           <div className="flex flex-col gap-1.5">
             {renderTileBoard()}
             {renderActionTriggers()}
-            {!hudMinimized && renderNextDrawPanel()}
           </div>
         )}
       </div>

@@ -177,6 +177,7 @@ export interface HeroineState {
   nanites?: number;
   consecutiveCombatWithoutClinic?: number;
   emergencyDefibUsed?: boolean;
+  overclockCount?: number;
 }
 
 export interface CyberEventChoice {

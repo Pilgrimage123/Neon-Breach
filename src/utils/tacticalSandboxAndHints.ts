@@ -1,11 +1,13 @@
+import { getHeroSpec } from '../engine/data';
 import {
+  applyDamageToEnemy,
   evaluateReactiveEnemyShifts,
   getSurgeThreshold,
   previewColorResolution,
   previewHeroineThreat,
 } from '../engine/gameEngine';
-import type { CombatState, EnemyUnit, HeroineState, RunState, TileType } from '../engine/types';
-import type { Language } from '../i18n/translations';
+import type { CombatState, EnemyArchetype, EnemyUnit, HeroineState, RunState, TileType } from '../engine/types';
+import { TRANSLATIONS, type Language } from '../i18n/translations';
 
 export interface DiscretePipDisplay {
   raw: number;
@@ -142,9 +144,15 @@ export function repositionFrontEnemies(combat: CombatState): SpatialSwapResult {
  * Evaluates all available actions in PLAYER_IDLE and returns the #1 optimal tactical play
  * with a clear, human-readable 1-sentence explanation.
  */
-export function computeOptimalTurnHint(run: RunState, lang: Language = 'en'): OptimalMoveHint | null {
+export function computeOptimalTurnHint(
+  run: RunState,
+  lang: Language = 'en',
+  alreadySwappedThisTurn = false,
+): OptimalMoveHint | null {
   const combat = run.combat;
   if (!combat || combat.phase !== 'PLAYER_IDLE') return null;
+  const enemyNames = TRANSLATIONS[lang].enemies;
+  const heldBonus = getHeroSpec(run.heroine.characterId).heldTileBonus;
 
   // 1. If Overdrive is at 100%, it is a free action that deals AoE pierce + shield + boost
   if (run.heroine.overdrive >= 100) {
@@ -183,16 +191,22 @@ export function computeOptimalTurnHint(run: RunState, lang: Language = 'en'): Op
         score -= 500;
       }
 
-      const killsFront =
-        color === 'attack' &&
-        frontEnemy !== null &&
-        frontEnemy.shieldPips === 0 &&
-        preview.totalDamage >= frontEnemy.hp + frontEnemy.armor;
+      const frontHit =
+        color === 'attack' && frontEnemy !== null
+          ? applyDamageToEnemy(
+              frontEnemy,
+              preview.totalDamage,
+              preview.armorPiercing ? 0.3 : 0,
+              preview.surgeTriggered,
+            )
+          : null;
+      const killsFront = Boolean(frontHit?.defeated);
+      const frontName = frontEnemy ? enemyNames[frontEnemy.archetype].name : '';
 
       if (killsFront && frontEnemy) {
         score += 95;
-        reasonsEn.push(`eliminates frontline ${frontEnemy.archetype.toUpperCase()} before it acts`);
-        reasonsCs.push(`zneškodní předního nepřítele (${frontEnemy.archetype.toUpperCase()}) dříve, než zaútočí`);
+        reasonsEn.push(`eliminates frontline ${frontName} before it acts`);
+        reasonsCs.push(`zneškodní předního nepřítele (${frontName}) dříve, než zaútočí`);
       }
 
       // Bonus for staggering Charge/Heavy threats
@@ -210,8 +224,8 @@ export function computeOptimalTurnHint(run: RunState, lang: Language = 'en'): Op
           (frontEnemy.turnDamageTaken ?? 0) + preview.totalDamage >= 16
         ) {
           score += 55;
-          reasonsEn.push(`staggers ${frontEnemy.archetype.toUpperCase()} to 0 DMG`);
-          reasonsCs.push(`omráčí ${frontEnemy.archetype.toUpperCase()} na 0 DMG`);
+          reasonsEn.push(`staggers ${frontName} to 0 DMG`);
+          reasonsCs.push(`omráčí ${frontName} na 0 DMG`);
         }
       }
 
@@ -245,10 +259,10 @@ export function computeOptimalTurnHint(run: RunState, lang: Language = 'en'): Op
         score -= (threat.hexHealTriggered ?? 0) * 4;
       }
 
-      if (preview.stayCount >= 3 && !preview.surgeTriggered) {
+      if (preview.stayCount >= 3 && !preview.surgeTriggered && heldBonus > 0) {
         score += preview.stayCount * 3;
-        reasonsEn.push(`holds ${preview.stayCount} tiles for +1 HELD momentum next turn`);
-        reasonsCs.push(`podrží ${preview.stayCount} dílků pro bonus +1 v příštím tahu`);
+        reasonsEn.push(`holds ${preview.stayCount} tiles for +${heldBonus} HELD momentum next turn`);
+        reasonsCs.push(`podrží ${preview.stayCount} dílků pro bonus +${heldBonus} v příštím tahu`);
       }
 
       const colorLabelEn = color === 'attack' ? 'Attack' : color === 'defense' ? 'Defense' : 'TECH';
@@ -295,7 +309,7 @@ export function computeOptimalTurnHint(run: RunState, lang: Language = 'en'): Op
   const bestHint = evaluateBestColorForRun(run);
 
   // Also check if free Spatial Push [R] unlocks a substantially stronger line (pulling Stinger/Spitter or cracking front lock)
-  if (canRepositionEnemies(combat, false) && bestHint) {
+  if (canRepositionEnemies(combat, alreadySwappedThisTurn) && bestHint) {
     const swapped = repositionFrontEnemies(combat);
     if (swapped.swapped) {
       const swappedRun: RunState = {
@@ -307,7 +321,7 @@ export function computeOptimalTurnHint(run: RunState, lang: Language = 'en'): Op
       };
       const swappedBest = evaluateBestColorForRun(swappedRun);
       if (swappedBest && swappedBest.score >= bestHint.score + 28) {
-        const pulledName = swapped.frontEnemyNameKey.toUpperCase();
+        const pulledName = enemyNames[swapped.frontEnemyNameKey as EnemyArchetype].name;
         return {
           recommendedAction: 'swap',
           targetColor: swappedBest.targetColor,
@@ -446,12 +460,13 @@ export function computeContextualMicroPrompt(params: {
       : `★ Match ${maxGroup}× tiles. Trigger STACK SURGE!`;
   }
 
-  // Step 2: Introduce Held Tile Momentum on Turn 2 when held tiles are on the board
+  // Step 2: Introduce Held Tile Momentum on Turn 2 when held tiles are on the board (for operatives with held bonus)
   const heldCount = combat.board.filter((t) => t.isHeldFromPrevTurn).length;
-  if (combat.turn === 2 && heldCount > 0) {
+  const heldTileBonus = getHeroSpec(run.heroine.characterId).heldTileBonus;
+  if (combat.turn === 2 && heldCount > 0 && heldTileBonus > 0) {
     return lang === 'cs'
-      ? `▲ Držené dílky získají +1 sílu.`
-      : `▲ HELD tiles gain +1 power.`;
+      ? `▲ Držené dílky získají +${heldTileBonus} sílu.`
+      : `▲ HELD tiles gain +${heldTileBonus} power.`;
   }
 
   // Step 3: Introduce Spatial Swap when 2+ enemies are alive on Turn 1-2

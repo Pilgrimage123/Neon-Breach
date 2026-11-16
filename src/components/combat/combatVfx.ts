@@ -30,8 +30,6 @@ const FLOOR_PUDDLE_PALETTE = [
   { color: '#84CC16', core: '#3F6212', highlight: '#D9F99D' },
 ] as const;
 
-const enemyWoundOrigins = new Map<string, { x: number; y: number; groundY: number }>();
-
 export function spawnBurst(
   sim: CombatStageSim,
   cx: number,
@@ -304,7 +302,7 @@ function triggerEnemyHitStagger(
   ea.staggerTimer = dur;
   ea.staggerIntensity = Math.max(0.85, Math.min(2.1, intensity));
   ea.bleedSpurtTimer = 0.04;
-  enemyWoundOrigins.set(enemyId, pos);
+  sim.enemyWoundOrigins.set(enemyId, pos);
   spawnGreenBloodSpray(sim, pos.x, pos.y, pos.groundY, intensity, isKo);
 }
 
@@ -914,7 +912,7 @@ export function stepCombatSimulation(sim: CombatStageSim, dt: number): number {
       ea.bleedSpurtTimer -= simDt;
       if (ea.bleedSpurtTimer <= 0) {
         ea.bleedSpurtTimer = 0.045 + Math.random() * 0.035;
-        const origin = enemyWoundOrigins.get(enemyId);
+        const origin = sim.enemyWoundOrigins.get(enemyId);
         if (origin) {
           emitBloodDroplets(
             sim,

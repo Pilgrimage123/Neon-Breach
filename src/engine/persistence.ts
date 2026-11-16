@@ -2,6 +2,7 @@ import { CYBER_IMPLANT_IDS, ENEMY_TEMPLATES, EQUIPMENT_BY_ID } from './data';
 import type { BestRunRecord, CyberImplantId, RunState } from './types';
 
 const ACTIVE_RUN_KEY = 'neon_breach_active_run_v2';
+const ENCOUNTER_SNAPSHOT_KEY = 'neon_breach_encounter_start_v1';
 const BEST_RECORD_KEY = 'neon_breach_best_record_v1';
 const VALID_IMPLANT_SET = new Set<string>(CYBER_IMPLANT_IDS);
 
@@ -89,6 +90,9 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
     if (typeof parsed.heroine.emergencyDefibUsed !== 'boolean') {
       parsed.heroine.emergencyDefibUsed = false;
     }
+    if (typeof parsed.heroine.overclockCount !== 'number') {
+      parsed.heroine.overclockCount = 0;
+    }
     if (parsed.activeEvent === undefined) {
       parsed.activeEvent = null;
     }
@@ -157,6 +161,23 @@ export function loadActiveRun(): RunState | null {
 
 export function clearActiveRun(): void {
   removeStorageItem(ACTIVE_RUN_KEY);
+  removeStorageItem(ENCOUNTER_SNAPSHOT_KEY);
+}
+
+export function saveEncounterSnapshot(run: RunState | null): void {
+  if (!run) {
+    removeStorageItem(ENCOUNTER_SNAPSHOT_KEY);
+    return;
+  }
+  setStorageItem(ENCOUNTER_SNAPSHOT_KEY, JSON.stringify(run));
+}
+
+export function loadEncounterSnapshot(): RunState | null {
+  try {
+    return parseAndValidateRun(getStorageItem(ENCOUNTER_SNAPSHOT_KEY));
+  } catch {
+    return null;
+  }
 }
 
 export function loadBestRecord(): BestRunRecord {

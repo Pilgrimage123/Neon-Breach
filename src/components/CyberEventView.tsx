@@ -1,3 +1,4 @@
+import { localizeCyberEvent } from '../engine/cyberEvents';
 import type { CyberEventChoice, RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 
@@ -15,7 +16,7 @@ export function CyberEventView({
   onChoice,
 }: CyberEventViewProps) {
   const t = TRANSLATIONS[lang];
-  const event = run.activeEvent;
+  const event = run.activeEvent ? localizeCyberEvent(run.activeEvent, lang) : null;
   if (!event) return null;
 
   const heroine = run.heroine;

@@ -9,10 +9,9 @@ import { CyberEventView } from './components/CyberEventView';
 import { EndRunModal, PauseModal, PoolModal } from './components/Modals';
 import { SectorMapView } from './components/SectorMapView';
 import { TacticalDock } from './components/TacticalDock';
-import { TacticalLoupeOverlay, type LoupeInspectPayload } from './components/TacticalLoupeOverlay';
 import { TitleScreen } from './components/TitleScreen';
 import { TopHud } from './components/TopHud';
-import { EQUIPMENT_BY_ID } from './engine/data';
+import { EQUIPMENT_BY_ID, getEquippedEquipmentWeight } from './engine/data';
 import {
   advanceRoundAfterEnemies,
   applyMedBayAction,
@@ -38,8 +37,10 @@ import {
   clearActiveRun,
   loadActiveRun,
   loadBestRecord,
+  loadEncounterSnapshot,
   recordRunCompletion,
   saveActiveRun,
+  saveEncounterSnapshot,
 } from './engine/persistence';
 import type { BestRunRecord, CharacterId, CyberImplantId, RunState, TileType } from './engine/types';
 import type { GlossaryTermId } from './i18n/codexTranslations';
@@ -66,7 +67,34 @@ import { useViewportMetrics } from './utils/useViewportMetrics';
 function isAutostartEnabled(): boolean {
   if (typeof window === 'undefined') return false;
   const params = new URLSearchParams(window.location.search);
-  return params.get('autostart') === '1' || Boolean(params.get('screen'));
+  return params.get('autostart') === '1';
+}
+
+function applyBossObjectivesIfVictory(
+  state: RunState,
+  startingHp: number,
+  undosUsed: number,
+  lang: Language,
+): RunState {
+  if (state.screen !== 'victory' || !state.combat || state.combat.nodeType !== 'BOSS') {
+    return state;
+  }
+  const obj = computeEncounterObjectives({
+    combat: state.combat,
+    heroine: state.heroine,
+    startingHp,
+    undosUsed,
+    lang,
+  });
+  return {
+    ...state,
+    score: state.score + obj.bonusScore,
+    heroine: {
+      ...state.heroine,
+      credits: state.heroine.credits + obj.bonusCredits,
+      nanites: (state.heroine.nanites ?? 0) + obj.bonusNanites,
+    },
+  };
 }
 
 function loadValidSavedRun(): RunState | null {
@@ -100,7 +128,6 @@ export default function App() {
   const [hoveredColor, setHoveredColor] = useState<TileType | null>(null);
   const [selectedColor, setSelectedColor] = useState<TileType | null>(null);
   const [bestRecord, setBestRecord] = useState<BestRunRecord>(() => loadBestRecord());
-  const [loupePayload, setLoupePayload] = useState<LoupeInspectPayload | null>(null);
   const [altHeldTactical, setAltHeldTactical] = useState<boolean>(false);
   const [hoveringSwap, setHoveringSwap] = useState<boolean>(false);
 
@@ -128,18 +155,26 @@ export default function App() {
 
   const effectiveTacticalView = a11yPrefs.tacticalView || altHeldTactical;
 
-  const [initialState] = useState<{ saved: RunState | null; active: RunState }>(() => {
+  const [initialState] = useState<{
+    saved: RunState | null;
+    active: RunState;
+    encounterSnapshot: RunState | null;
+  }>(() => {
     const loaded = loadValidSavedRun();
-    const urlScreen = typeof window !== 'undefined'
-      ? new URLSearchParams(window.location.search).get('screen')
-      : null;
-    let active = loaded ?? createInitialRun(104729);
-    if (urlScreen === 'medbay') {
-      active = { ...active, screen: 'medbay' };
-    }
+    const active = loaded ?? createInitialRun(104729);
+    const savedSnap = loaded && loaded.screen === 'combat' ? loadEncounterSnapshot() : null;
+    const encounterSnapshot =
+      active.screen === 'combat'
+        ? savedSnap &&
+          savedSnap.runId === active.runId &&
+          savedSnap.combat?.nodeId === active.combat?.nodeId
+          ? savedSnap
+          : active
+        : null;
     return {
       saved: loaded,
       active,
+      encounterSnapshot,
     };
   });
 
@@ -152,9 +187,11 @@ export default function App() {
   const [defibNoticeVisible, setDefibNoticeVisible] = useState<boolean>(false);
 
   // Low-Floor / High-Ceiling Tactical Sandbox & Onboarding State
-  const [turnHistory, setTurnHistory] = useState<RunState[]>([]);
-  const [encounterStartSnapshot, setEncounterStartSnapshot] = useState<RunState | null>(() =>
-    initialState.active.screen === 'combat' ? initialState.active : null,
+  const [turnHistory, setTurnHistory] = useState<
+    Array<{ run: RunState; swappedThisTurn: boolean }>
+  >([]);
+  const [encounterStartSnapshot, setEncounterStartSnapshot] = useState<RunState | null>(
+    initialState.encounterSnapshot,
   );
   const [undosUsedInNode, setUndosUsedInNode] = useState<number>(0);
   const [swappedThisTurn, setSwappedThisTurn] = useState<boolean>(false);
@@ -253,7 +290,13 @@ export default function App() {
     const tid = window.setTimeout(() => {
       if (nextEnemyIdx !== -1) {
         enemyActedSetRef.current.add(nextEnemyIdx);
-        const nextState = executeSingleEnemyAction(run, nextEnemyIdx);
+        const rawNextState = executeSingleEnemyAction(run, nextEnemyIdx);
+        const nextState = applyBossObjectivesIfVictory(
+          rawNextState,
+          encounterStartSnapshot?.heroine.hp ?? run.heroine.maxHp,
+          undosUsedInNode,
+          lang,
+        );
         const cues = nextState.combat?.lastCues ?? [];
         if (cues.some((c) => c.kind === 'enemy_acid')) soundEngine.playAcidSpit();
         else if (cues.some((c) => c.kind === 'enemy_attack')) soundEngine.playEnemyHit();
@@ -283,7 +326,7 @@ export default function App() {
     return () => {
       window.clearTimeout(tid);
     };
-  }, [combat, codexTarget, paused, poolModalOpen, run, showTitle]);
+  }, [combat, codexTarget, encounterStartSnapshot?.heroine.hp, lang, paused, poolModalOpen, run, showTitle, undosUsedInNode]);
 
   // Sync document.body.dataset.state cleanly without triggering storage writes
   useEffect(() => {
@@ -379,7 +422,9 @@ export default function App() {
       setPoolModalOpen(false);
       setDefibNoticeVisible(false);
       setTurnHistory([]);
-      setEncounterStartSnapshot(fresh.screen === 'combat' ? fresh : null);
+      const nextSnapshot = fresh.screen === 'combat' ? fresh : null;
+      setEncounterStartSnapshot(nextSnapshot);
+      saveEncounterSnapshot(nextSnapshot);
       setUndosUsedInNode(0);
       setSwappedThisTurn(false);
       setHintVisible(false);
@@ -403,9 +448,17 @@ export default function App() {
         );
       }
       setRun(savedRunSnapshot);
-      setEncounterStartSnapshot(
-        savedRunSnapshot.screen === 'combat' ? savedRunSnapshot : null,
-      );
+      const savedSnap =
+        savedRunSnapshot.screen === 'combat' ? loadEncounterSnapshot() : null;
+      const nextSnapshot =
+        savedRunSnapshot.screen === 'combat'
+          ? savedSnap &&
+            savedSnap.runId === savedRunSnapshot.runId &&
+            savedSnap.combat?.nodeId === savedRunSnapshot.combat?.nodeId
+            ? savedSnap
+            : savedRunSnapshot
+          : null;
+      setEncounterStartSnapshot(nextSnapshot);
       setTurnHistory([]);
       setUndosUsedInNode(0);
       setSwappedThisTurn(false);
@@ -470,6 +523,15 @@ export default function App() {
     });
   }, []);
 
+  const handleToggleTwoStepConfirm = useCallback(() => {
+    soundEngine.playClick();
+    setA11yPrefs((prev) => {
+      const next = { ...prev, twoStepConfirm: !prev.twoStepConfirm };
+      saveAccessibilityPrefs(next);
+      return next;
+    });
+  }, []);
+
   const handleToggleLang = useCallback(() => {
     soundEngine.playClick();
     setLang((prev) => (prev === 'en' ? 'cs' : 'en'));
@@ -515,11 +577,17 @@ export default function App() {
       else if (color === 'defense') soundEngine.playShield(preview.surgeTriggered);
       else soundEngine.playUpgrade(preview.surgeTriggered);
 
-      setTurnHistory((prev) => [...prev.slice(-12), currentRun]);
+      setTurnHistory((prev) => [...prev.slice(-12), { run: currentRun, swappedThisTurn }]);
       setSwappedThisTurn(false);
       setHintVisible(false);
       enemyActedSetRef.current.clear();
-      const nextState = resolvePlayerColor(currentRun, color);
+      const rawNextState = resolvePlayerColor(currentRun, color);
+      const nextState = applyBossObjectivesIfVictory(
+        rawNextState,
+        encounterStartSnapshot?.heroine.hp ?? currentRun.heroine.maxHp,
+        undosUsedInNode,
+        lang,
+      );
       const cues = nextState.combat?.lastCues ?? [];
       if (cues.some((c) => c.kind === 'enemy_burst')) soundEngine.playBioBurst();
       if (cues.some((c) => c.kind === 'enemy_retaliate')) soundEngine.playRetaliateSpike();
@@ -528,7 +596,16 @@ export default function App() {
       setHoveredColor(null);
       setSelectedColor(null);
     },
-    [codexTarget, paused, poolModalOpen, showTitle],
+    [
+      codexTarget,
+      encounterStartSnapshot?.heroine.hp,
+      lang,
+      paused,
+      poolModalOpen,
+      showTitle,
+      swappedThisTurn,
+      undosUsedInNode,
+    ],
   );
 
   const handleOverdrive = useCallback(() => {
@@ -539,16 +616,31 @@ export default function App() {
     }
     if (currentRun.heroine.overdrive < 100) return;
     soundEngine.playOverdrive();
-    setTurnHistory((prev) => [...prev.slice(-12), currentRun]);
+    setTurnHistory((prev) => [...prev.slice(-12), { run: currentRun, swappedThisTurn }]);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
-    const nextState = executeOverdrive(currentRun);
+    const rawNextState = executeOverdrive(currentRun);
+    const nextState = applyBossObjectivesIfVictory(
+      rawNextState,
+      encounterStartSnapshot?.heroine.hp ?? currentRun.heroine.maxHp,
+      undosUsedInNode,
+      lang,
+    );
     const cues = nextState.combat?.lastCues ?? [];
     if (cues.some((c) => c.kind === 'enemy_burst')) soundEngine.playBioBurst();
     if (cues.some((c) => c.kind === 'enemy_phase_gate')) soundEngine.playShieldPipCrack();
     setRun(nextState);
-  }, [codexTarget, paused, poolModalOpen, showTitle]);
+  }, [
+    codexTarget,
+    encounterStartSnapshot?.heroine.hp,
+    lang,
+    paused,
+    poolModalOpen,
+    showTitle,
+    swappedThisTurn,
+    undosUsedInNode,
+  ]);
 
   const handleSwapEnemies = useCallback(() => {
     const currentRun = runRef.current;
@@ -563,7 +655,7 @@ export default function App() {
     const swapped = repositionFrontEnemies(currentRun.combat);
     if (!swapped.swapped) return;
     soundEngine.playEnemyArmor();
-    setTurnHistory((prev) => [...prev.slice(-12), currentRun]);
+    setTurnHistory((prev) => [...prev.slice(-12), { run: currentRun, swappedThisTurn }]);
     setSwappedThisTurn(true);
     setHasUsedSwapEver(true);
     setRun({
@@ -583,15 +675,15 @@ export default function App() {
     }
     soundEngine.playClick();
     enemyActedSetRef.current.clear();
-    const prevRun = turnHistory[turnHistory.length - 1];
+    const prevEntry = turnHistory[turnHistory.length - 1];
     setTurnHistory((prev) => prev.slice(0, -1));
     setUndosUsedInNode((u) => u + 1);
-    setSwappedThisTurn(false);
+    setSwappedThisTurn(prevEntry.swappedThisTurn);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
     setReadyOutcomeKey(null);
-    setRun(prevRun);
+    setRun(prevEntry.run);
   }, [codexTarget, paused, poolModalOpen, showTitle, turnHistory]);
 
   const handleResetEncounter = useCallback(() => {
@@ -601,7 +693,6 @@ export default function App() {
     }
     soundEngine.playClick();
     enemyActedSetRef.current.clear();
-    recordedRunIdRef.current = null;
     setTurnHistory([]);
     setUndosUsedInNode((u) => u + 1);
     setSwappedThisTurn(false);
@@ -616,7 +707,6 @@ export default function App() {
     if (!encounterStartSnapshot) return;
     soundEngine.playUpgrade(true);
     enemyActedSetRef.current.clear();
-    recordedRunIdRef.current = null;
     const buffed = applyFailForwardBuff(encounterStartSnapshot);
     setTurnHistory([]);
     setUndosUsedInNode((u) => u + 1);
@@ -654,19 +744,19 @@ export default function App() {
     if (!hintVisible || run.screen !== 'combat' || combat?.phase !== 'PLAYER_IDLE') {
       return null;
     }
-    return computeOptimalTurnHint(run, lang);
-  }, [combat?.phase, hintVisible, lang, run]);
+    return computeOptimalTurnHint(run, lang, swappedThisTurn);
+  }, [combat?.phase, hintVisible, lang, run, swappedThisTurn]);
 
   const handleClaimCombatReward = useCallback(
     (defId: string | null) => {
       soundEngine.playClick();
-      setRun((prev) => {
-        const next = claimCombatEquipmentReward(prev, defId);
-        if (!prev.heroine.emergencyDefibUsed && next.heroine.emergencyDefibUsed) {
-          setDefibNoticeVisible(true);
-        }
-        if (objectivesSummary) {
-          return {
+      const prev = runRef.current;
+      const next = claimCombatEquipmentReward(prev, defId);
+      if (!prev.heroine.emergencyDefibUsed && next.heroine.emergencyDefibUsed) {
+        setDefibNoticeVisible(true);
+      }
+      const finalized = objectivesSummary
+        ? {
             ...next,
             score: next.score + objectivesSummary.bonusScore,
             heroine: {
@@ -674,10 +764,11 @@ export default function App() {
               credits: next.heroine.credits + objectivesSummary.bonusCredits,
               nanites: (next.heroine.nanites ?? 0) + objectivesSummary.bonusNanites,
             },
-          };
-        }
-        return next;
-      });
+          }
+        : next;
+      setEncounterStartSnapshot(null);
+      saveEncounterSnapshot(null);
+      setRun(finalized);
     },
     [objectivesSummary],
   );
@@ -702,7 +793,9 @@ export default function App() {
       );
     }
     const nextRun = startNodeEncounter(current, nodeId);
-    setEncounterStartSnapshot(nextRun.screen === 'combat' ? nextRun : null);
+    const nextSnapshot = nextRun.screen === 'combat' ? nextRun : null;
+    setEncounterStartSnapshot(nextSnapshot);
+    saveEncounterSnapshot(nextSnapshot);
     setRun(nextRun);
   }, []);
 
@@ -863,9 +956,7 @@ export default function App() {
 
       if (e.key === 'Escape' || e.key.toLowerCase() === 'p') {
         e.preventDefault();
-        if (loupePayload) {
-          setLoupePayload(null);
-        } else if (codexTarget) {
+        if (codexTarget) {
           setCodexTarget(null);
         } else if (poolModalOpen) {
           setPoolModalOpen(false);
@@ -949,11 +1040,17 @@ export default function App() {
       }
     };
 
+    const onWindowBlur = () => {
+      setAltHeldTactical(false);
+    };
+
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onWindowBlur);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onWindowBlur);
     };
   }, [
     codexTarget,
@@ -972,7 +1069,6 @@ export default function App() {
     handleToggleMute,
     handleToggleTacticalView,
     handleUndoTurn,
-    loupePayload,
     paused,
     poolModalOpen,
     run.screen,
@@ -1072,12 +1168,6 @@ export default function App() {
       <TopHud
         run={run}
         lang={lang}
-        muted={muted}
-        hudMinimized={hudMinimized}
-        activePreview={activePreview}
-        tacticalView={effectiveTacticalView}
-        semanticZoom={a11yPrefs.semanticZoom}
-        autoFocusCamera={a11yPrefs.autoFocusCamera}
         objectivesSummary={objectivesSummary}
         canUndoTurn={turnHistory.length > 0}
         canResetEncounter={Boolean(
@@ -1086,20 +1176,6 @@ export default function App() {
         onUndoTurn={handleUndoTurn}
         onResetEncounter={handleResetEncounter}
         isCompactLandscape={viewport.isCompactLandscape}
-        isNarrowPortrait={viewport.isNarrowPortrait}
-        showLandscapeToggle={viewport.canOfferLandscapeToggle}
-        isLandscapeRotated={viewport.isLandscapeRotated}
-        onToggleLandscape={viewport.toggleLandscapeLock}
-        showFullscreenButton={showFullscreenButton}
-        isFullscreen={fullscreen.isFullscreen}
-        onToggleFullscreen={handleToggleFullscreen}
-        onToggleHudMinimized={handleToggleHudMinimized}
-        onToggleTacticalView={handleToggleTacticalView}
-        onCycleSemanticZoom={handleCycleSemanticZoom}
-        onToggleAutoFocusCamera={handleToggleAutoFocusCamera}
-        onInspectLoupe={setLoupePayload}
-        onToggleLang={handleToggleLang}
-        onToggleMute={handleToggleMute}
         onOpenPool={handleOpenPool}
         onOpenCodex={() =>
           handleOpenCodex('heroes', run.heroine.characterId ?? 'kira', null)
@@ -1121,7 +1197,6 @@ export default function App() {
           effectiveWidth={viewport.effectiveWidth}
           onSelectNode={handleSelectMapNode}
           onOpenLoadout={handleOpenPool}
-          onInspectLoupe={setLoupePayload}
         />
       )}
 
@@ -1134,6 +1209,7 @@ export default function App() {
           onBuyEquipment={handleBuyEquipment}
           onRestockShop={handleRestockShop}
           onInstall={handleInstallImplant}
+          onOpenPool={handleOpenPool}
           onSkip={handleSkipClinic}
         />
       )}
@@ -1174,7 +1250,6 @@ export default function App() {
                 pipMathMode={pipMathMode}
                 hoveringSwap={hoveringSwap}
                 onUndoTurn={handleUndoTurn}
-                onInspectLoupe={setLoupePayload}
                 onOpenCodex={handleOpenCodex}
               />
 
@@ -1266,62 +1341,95 @@ export default function App() {
                         )}
                     </div>
 
-                    {combat.rewardEquipmentChoices.length > 0 && (
-                      <div className="mt-2.5 sm:mt-4">
-                        <div className="text-center text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#00F0FF]">
-                          {t.combatLootPrompt}
-                        </div>
-                        <div className="mt-2 grid grid-cols-1 gap-2 min-[500px]:grid-cols-2 sm:gap-3">
-                          {combat.rewardEquipmentChoices.map((defId) => {
-                            const def = EQUIPMENT_BY_ID[defId];
-                            if (!def) return null;
-                            const meta = t.equipment[def.id];
-                            return (
-                              <button
-                                key={defId}
-                                type="button"
-                                onClick={() => handleClaimCombatReward(defId)}
-                                className="chrome-pill flex flex-col justify-between rounded-xl border-cyan-300/45 p-2.5 sm:p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#00F0FF] cursor-pointer"
+                    {combat.rewardEquipmentChoices.length > 0 && (() => {
+                      const usedWeight = getEquippedEquipmentWeight(run.heroine);
+                      return (
+                        <div className="mt-2.5 sm:mt-4">
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <span className="text-[11px] sm:text-xs font-bold uppercase tracking-wider text-[#00F0FF]">
+                              {t.combatLootPrompt}
+                            </span>
+                            <div className="flex items-center gap-2 font-mono-tabular text-[11px]">
+                              <span
+                                className={
+                                  usedWeight >= run.heroine.carryCapacity
+                                    ? 'font-bold text-amber-300'
+                                    : 'font-semibold text-cyan-200'
+                                }
                               >
-                                <div>
-                                  <div className="flex items-center justify-between gap-2">
-                                    <span className="font-display text-sm sm:text-base font-bold text-white">
-                                      {meta?.name ?? def.id}
-                                    </span>
-                                    <span className="font-mono-tabular text-[11px] sm:text-xs font-bold text-[#00F0FF]">
-                                      {t.sizeLabel}: {def.size}
-                                    </span>
-                                  </div>
-                                  <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-slate-200">
-                                    {meta?.desc ?? ''}
-                                  </p>
-                                  <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]">
-                                    {def.tiles.map((spec, idx) => (
+                                {t.capacityLabel}: {usedWeight}/{run.heroine.carryCapacity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={handleOpenPool}
+                                className="chrome-pill rounded-md px-2 py-0.5 text-[10px] font-bold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer"
+                              >
+                                ▣ {t.inspectPool}
+                              </button>
+                            </div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 gap-2 min-[500px]:grid-cols-2 sm:gap-3">
+                            {combat.rewardEquipmentChoices.map((defId) => {
+                              const def = EQUIPMENT_BY_ID[defId];
+                              if (!def) return null;
+                              const meta = t.equipment[def.id];
+                              const fitsEquip = usedWeight + def.size <= run.heroine.carryCapacity;
+                              return (
+                                <button
+                                  key={defId}
+                                  type="button"
+                                  onClick={() => handleClaimCombatReward(defId)}
+                                  className="chrome-pill flex flex-col justify-between rounded-xl border-cyan-300/45 p-2.5 sm:p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#00F0FF] cursor-pointer"
+                                >
+                                  <div>
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="font-display text-sm sm:text-base font-bold text-white">
+                                        {meta?.name ?? def.id}
+                                      </span>
                                       <span
-                                        key={`${defId}_loot_${idx}`}
-                                        className={`font-bold ${
-                                          spec.type === 'attack'
-                                            ? 'text-rose-200'
-                                            : spec.type === 'defense'
-                                              ? 'text-cyan-200'
-                                              : 'text-amber-200'
+                                        className={`font-mono-tabular text-[11px] sm:text-xs font-bold ${
+                                          fitsEquip ? 'text-[#00F0FF]' : 'text-amber-300'
                                         }`}
                                       >
-                                        {idx > 0 ? '· ' : ''}
-                                        {formatTileShortLabel(spec, lang)}
+                                        {t.sizeLabel}: {def.size}
                                       </span>
-                                    ))}
+                                    </div>
+                                    <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-slate-200">
+                                      {meta?.desc ?? ''}
+                                    </p>
+                                    <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]">
+                                      {def.tiles.map((spec, idx) => (
+                                        <span
+                                          key={`${defId}_loot_${idx}`}
+                                          className={`font-bold ${
+                                            spec.type === 'attack'
+                                              ? 'text-rose-200'
+                                              : spec.type === 'defense'
+                                                ? 'text-cyan-200'
+                                                : 'text-amber-200'
+                                          }`}
+                                        >
+                                          {idx > 0 ? '· ' : ''}
+                                          {formatTileShortLabel(spec, lang)}
+                                        </span>
+                                      ))}
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="mt-2 sm:mt-3 text-[11px] sm:text-xs font-bold text-[#00F0FF]">
-                                  {t.claimEquipment} →
-                                </div>
-                              </button>
-                            );
-                          })}
+                                  <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2 text-[11px] sm:text-xs font-bold">
+                                    <span className={fitsEquip ? 'text-[#00F0FF]' : 'text-amber-300'}>
+                                      {fitsEquip
+                                        ? `✓ ${lang === 'cs' ? 'Vybavit hned' : 'Auto-Equip'}`
+                                        : `⬡ ${lang === 'cs' ? 'Do batohu (plno)' : 'Store to Bag (Full)'}`}
+                                    </span>
+                                    <span className="text-slate-300">→</span>
+                                  </div>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      );
+                    })()}
 
                     <div className="mt-3 sm:mt-5 flex justify-center">
                       <button
@@ -1363,20 +1471,13 @@ export default function App() {
               onSelectColor={handleSelectColor}
               onCommitColor={handleCommitColor}
               onOverdrive={handleOverdrive}
-              onTogglePipMath={handleTogglePipMath}
               onSwapEnemies={handleSwapEnemies}
               onHoverSwap={setHoveringSwap}
               onToggleHint={handleToggleHint}
-              onInspectLoupe={setLoupePayload}
               onOpenCodex={handleOpenCodex}
             />
           </>
         )}
-
-      <TacticalLoupeOverlay
-        payload={loupePayload}
-        onDismiss={() => setLoupePayload(null)}
-      />
 
       {poolModalOpen && (
         <PoolModal
@@ -1399,6 +1500,29 @@ export default function App() {
           }
           onRestart={() => handleStartNewRun(run.heroine.characterId ?? 'kira')}
           onTitle={handleReturnToTitle}
+          settings={{
+            tacticalView: effectiveTacticalView,
+            semanticZoom: a11yPrefs.semanticZoom,
+            autoFocusCamera: a11yPrefs.autoFocusCamera,
+            pipMathMode,
+            hudMinimized,
+            twoStepConfirm: a11yPrefs.twoStepConfirm,
+            muted,
+            showLandscapeToggle: viewport.canOfferLandscapeToggle,
+            isLandscapeRotated: viewport.isLandscapeRotated,
+            showFullscreenButton,
+            isFullscreen: fullscreen.isFullscreen,
+            onToggleTacticalView: handleToggleTacticalView,
+            onCycleSemanticZoom: handleCycleSemanticZoom,
+            onToggleAutoFocusCamera: handleToggleAutoFocusCamera,
+            onTogglePipMath: handleTogglePipMath,
+            onToggleHudMinimized: handleToggleHudMinimized,
+            onToggleTwoStepConfirm: handleToggleTwoStepConfirm,
+            onToggleMute: handleToggleMute,
+            onToggleLang: handleToggleLang,
+            onToggleLandscape: viewport.toggleLandscapeLock,
+            onToggleFullscreen: handleToggleFullscreen,
+          }}
         />
       )}
 

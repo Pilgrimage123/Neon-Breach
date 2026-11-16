@@ -61,12 +61,9 @@ import {
   spawnBurst,
   stepCombatSimulation,
 } from './combat/combatVfx';
-import { getEnemyRolePip, getTileCornerPip } from '../utils/accessibilityAndScale';
+import { getEnemyRolePip } from '../utils/accessibilityAndScale';
 import { enforceEightWordRule } from '../utils/spatialMinimalistUi';
-import {
-  formatDiscretePipMath,
-} from '../utils/tacticalSandboxAndHints';
-import type { LoupeInspectPayload } from './TacticalLoupeOverlay';
+import { formatDiscretePipMath } from '../utils/tacticalSandboxAndHints';
 
 interface CombatStageCanvasProps {
   runId: string;
@@ -82,7 +79,6 @@ interface CombatStageCanvasProps {
   pipMathMode?: boolean;
   hoveringSwap?: boolean;
   onUndoTurn?: () => void;
-  onInspectLoupe?: (payload: LoupeInspectPayload | null) => void;
   onOpenCodex?: (tab: CodexTab, hero?: CharacterId, termId?: GlossaryTermId | null) => void;
 }
 
@@ -116,7 +112,6 @@ export function CombatStageCanvas({
   pipMathMode = false,
   hoveringSwap = false,
   onUndoTurn,
-  onInspectLoupe,
   onOpenCodex,
 }: CombatStageCanvasProps) {
   const t = TRANSLATIONS[lang];
@@ -127,7 +122,6 @@ export function CombatStageCanvas({
   const [hoveredEnemyId, setHoveredEnemyId] = useState<string | null>(null);
   const [stageSize, setStageSize] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const [cutoutVersion, setCutoutVersion] = useState(0);
-  const holdTimerRef = useRef<number | null>(null);
 
   const charId: CharacterId = heroine.characterId ?? 'kira';
   const activeArchetypeKey = combat.enemies.map((e) => e.archetype).join(',');
@@ -158,6 +152,12 @@ export function CombatStageCanvas({
   const tacticalViewRef = useRef<boolean>(tacticalView);
   const autoFocusCameraRef = useRef<boolean>(autoFocusCamera);
   const hoveringSwapRef = useRef<boolean>(hoveringSwap);
+  const hitboxLayerRef = useRef<HTMLDivElement | null>(null);
+  const kiraThreat = useMemo(
+    () => previewHeroineThreat(combat, heroine, activePreview),
+    [combat, heroine, activePreview],
+  );
+  const kiraThreatRef = useRef(kiraThreat);
   combatRef.current = combat;
   heroineRef.current = heroine;
   pausedRef.current = paused;
@@ -169,6 +169,7 @@ export function CombatStageCanvas({
   tacticalViewRef.current = tacticalView;
   autoFocusCameraRef.current = autoFocusCamera;
   hoveringSwapRef.current = hoveringSwap;
+  kiraThreatRef.current = kiraThreat;
 
   const simRef = useRef<CombatStageSim | null>(null);
   if (!simRef.current) {
@@ -486,8 +487,19 @@ export function CombatStageCanvas({
         tacticalViewRef.current,
         autoFocusCameraRef.current,
         hoveringSwapRef.current,
+        kiraThreatRef.current,
       );
-      const zoomStr = (activeSim.cameraZoom || 1).toFixed(2);
+      const camZoom = activeSim.cameraZoom || 1;
+      const camPanX = activeSim.cameraPanX || 0;
+      const camPanY = activeSim.cameraPanY || 0;
+      if (hitboxLayerRef.current) {
+        const hasCamTransform =
+          Math.abs(camZoom - 1) > 0.004 || Math.abs(camPanX) > 0.5 || Math.abs(camPanY) > 0.5;
+        hitboxLayerRef.current.style.transform = hasCamTransform
+          ? `translate(${camPanX}px, ${camPanY}px) scale(${camZoom})`
+          : '';
+      }
+      const zoomStr = camZoom.toFixed(2);
       if (activeCanvas.dataset.cameraZoom !== zoomStr) {
         activeCanvas.dataset.cameraZoom = zoomStr;
       }
@@ -650,7 +662,6 @@ export function CombatStageCanvas({
   }, [charId, activeArchetypes]);
 
   const frontLivingIdx = combat.enemies.findIndex((e) => e.hp > 0);
-  const kiraThreat = previewHeroineThreat(combat, heroine, activePreview);
   const kiraHpPct = Math.max(0, Math.min(100, Math.round((heroine.hp / heroine.maxHp) * 100)));
   const kiraProjHpPct = Math.max(
     0,
@@ -738,87 +749,6 @@ export function CombatStageCanvas({
   const hasDenseEnemyRow = combat.enemies.length + pendingDrops.length >= 3;
   const hcBorderClass = highContrastBorders || tacticalView ? 'tactical-hc-border' : '';
 
-  const clearHoldTimer = () => {
-    if (holdTimerRef.current !== null) {
-      window.clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-  };
-
-  const triggerHeroLoupe = (clientX: number, clientY: number) => {
-    if (!onInspectLoupe) return;
-    onInspectLoupe({
-      id: 'hero-pod',
-      pip: getTileCornerPip('defense'),
-      kicker: `${charMeta.code} · OPERATIVE`,
-      title: charMeta.name,
-      primaryStat: `${heroine.hp}/${heroine.maxHp} HP`,
-      subtitle: `${t.shieldLabel} ${heroine.shield} · OD ${heroine.overdrive}%`,
-      detailLine:
-        lang === 'cs'
-          ? '**Štít** blokuje zásahy. **Surge** při 4+.'
-          : '**Shield** blocks hits. **Surge** at 4+.',
-      ruleBadge:
-        kiraThreat.hpDamageTaken > 0
-          ? `INCOMING: -${kiraThreat.hpDamageTaken} HP`
-          : 'SUIT INTEGRITY NOMINAL',
-      pointerX: clientX,
-      pointerY: clientY,
-      viewportW: window.innerWidth,
-      viewportH: window.innerHeight,
-      keywords: ['shield', 'surge'],
-      lang,
-    });
-  };
-
-  const triggerEnemyLoupe = (enemyId: string, clientX: number, clientY: number) => {
-    if (!onInspectLoupe) return;
-    const enemy = combat.enemies.find((e) => e.id === enemyId);
-    if (!enemy) return;
-    const enemyMeta = t.enemies[enemy.archetype];
-    const intent = enemy.intentCycle[enemy.currentIntentIndex];
-    const rolePip = getEnemyRolePip(enemy.archetype);
-    const enrageBonus = enemy.enrageAtkBonus ?? 0;
-    const condActive = isIntentConditionMet(intent, {
-      shieldAfterPlayer: kiraThreat.shieldAfterPlayer,
-      colorPlayed: activePreview?.tileCount ? activePreview.color : null,
-    });
-    const effectiveVal = intent.value + enrageBonus;
-    const kws: ('armor' | 'pip' | 'retaliate' | 'corrode' | 'stagger')[] = [];
-    if (enemy.armor > 0) kws.push('armor');
-    if (enemy.shieldPips > 0) kws.push('pip');
-    if (enemy.passive === 'spike_retaliate') kws.push('retaliate');
-    if (intent.kind === 'acid') kws.push('corrode');
-    if (enemy.staggered || intent.kind === 'charge' || intent.kind === 'heavy') kws.push('stagger');
-    if (kws.length === 0) kws.push('armor');
-
-    onInspectLoupe({
-      id: `enemy-${enemy.id}`,
-      pip: rolePip,
-      kicker: `${rolePip.shortCode} · ${lang === 'cs' ? rolePip.labelCs : rolePip.labelEn}`,
-      title: enemyMeta.name,
-      primaryStat: `${enemy.hp}/${enemy.maxHp} HP${enemy.armor > 0 ? ` +${enemy.armor}A` : ''}`,
-      subtitle: `${formatEnemyIntentCompact(intent, lang, enrageBonus, { staggered: enemy.staggered, conditionActive: condActive })}`,
-      detailLine: enemy.staggered
-        ? `⚡ **Staggered:** 0 DMG recovery.`
-        : intent.kind === 'acid'
-          ? `**[⚔: ${effectiveVal}]** DMG. **Corrode** 1 tile.`
-          : `**[⚔: ${effectiveVal}]** DMG. ${enemy.armor > 0 ? '**Armor** active.' : '**Push** 1 tile.'}`,
-      ruleBadge:
-        enemy.shieldPips > 0
-          ? `❖ ${enemy.shieldPips} PIP`
-          : enemy.armor > 0
-            ? `🛡 ${enemy.armor} ARM`
-            : undefined,
-      pointerX: clientX,
-      pointerY: clientY,
-      viewportW: window.innerWidth,
-      viewportH: window.innerHeight,
-      keywords: kws,
-      lang,
-    });
-  };
-
   return (
     <div
       ref={containerRef}
@@ -832,14 +762,18 @@ export function CombatStageCanvas({
         data-autofocus-camera={autoFocusCamera ? 'true' : 'false'}
         onContextMenu={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
-          const hitId = hitTestEnemySprite(
-            e.clientX - rect.left,
-            e.clientY - rect.top,
-            enemyHitBoxes,
-          );
+          const sim = simRef.current;
+          const zoom = sim?.cameraZoom || 1;
+          const panX = sim?.cameraPanX || 0;
+          const panY = sim?.cameraPanY || 0;
+          const halfW = rect.width * 0.5;
+          const halfH = rect.height * 0.5;
+          const worldX = (e.clientX - rect.left - halfW - panX) / zoom + halfW;
+          const worldY = (e.clientY - rect.top - halfH - panY) / zoom + halfH;
+          const hitId = hitTestEnemySprite(worldX, worldY, enemyHitBoxes);
           if (hitId) {
             e.preventDefault();
-            triggerEnemyLoupe(hitId, e.clientX, e.clientY);
+            setInspectedTarget((prev) => (prev === hitId ? null : hitId));
           } else if (onUndoTurn) {
             e.preventDefault();
             onUndoTurn();
@@ -847,11 +781,15 @@ export function CombatStageCanvas({
         }}
         onClick={(e) => {
           const rect = e.currentTarget.getBoundingClientRect();
-          const hitId = hitTestEnemySprite(
-            e.clientX - rect.left,
-            e.clientY - rect.top,
-            enemyHitBoxes,
-          );
+          const sim = simRef.current;
+          const zoom = sim?.cameraZoom || 1;
+          const panX = sim?.cameraPanX || 0;
+          const panY = sim?.cameraPanY || 0;
+          const halfW = rect.width * 0.5;
+          const halfH = rect.height * 0.5;
+          const worldX = (e.clientX - rect.left - halfW - panX) / zoom + halfW;
+          const worldY = (e.clientY - rect.top - halfH - panY) / zoom + halfH;
+          const hitId = hitTestEnemySprite(worldX, worldY, enemyHitBoxes);
           if (hitId) {
             setInspectedTarget((prev) => (prev === hitId ? null : hitId));
           } else if (inspectedTarget) {
@@ -864,52 +802,45 @@ export function CombatStageCanvas({
       />
 
       {/* Accessible Interactive Sprite Hitboxes for Direct Click/Tap/Keyboard/Loupe Inspection */}
-      {stageReady &&
-        enemyHitBoxes.map((box) => {
-          const enemy = combat.enemies[box.idx];
-          if (!enemy || enemy.hp <= 0) return null;
-          const enemyMeta = t.enemies[enemy.archetype];
-          const isInspected = inspectedTarget === enemy.id;
-          return (
-            <button
-              key={`hitbox-${enemy.id}`}
-              type="button"
-              data-testid={`enemy-sprite-hitbox-${enemy.id}`}
-              aria-label={`${enemyMeta.name} ${enemy.hp}/${enemy.maxHp} ${t.hpLabel}${
-                enemy.armor > 0 ? ` · ${enemy.armor} ${t.armorLabel}` : ''
-              }`}
-              aria-pressed={isInspected}
-              onMouseEnter={() => setHoveredEnemyId(enemy.id)}
-              onMouseLeave={() => setHoveredEnemyId((prev) => (prev === enemy.id ? null : prev))}
-              onFocus={() => setHoveredEnemyId(enemy.id)}
-              onBlur={() => setHoveredEnemyId((prev) => (prev === enemy.id ? null : prev))}
-              onContextMenu={(e) => {
-                e.preventDefault();
-                triggerEnemyLoupe(enemy.id, e.clientX, e.clientY);
-              }}
-              onPointerDown={(e) => {
-                clearHoldTimer();
-                const cx = e.clientX;
-                const cy = e.clientY;
-                holdTimerRef.current = window.setTimeout(() => {
-                  triggerEnemyLoupe(enemy.id, cx, cy);
-                }, 300);
-              }}
-              onPointerUp={clearHoldTimer}
-              onPointerCancel={clearHoldTimer}
-              onClick={() =>
-                setInspectedTarget((prev) => (prev === enemy.id ? null : enemy.id))
-              }
-              style={{
-                left: `${box.x}px`,
-                top: `${box.y}px`,
-                width: `${box.width}px`,
-                height: `${box.height}px`,
-              }}
-              className="absolute z-[5] cursor-pointer rounded-lg bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]"
-            />
-          );
-        })}
+      {stageReady && (
+        <div
+          ref={hitboxLayerRef}
+          style={{ transformOrigin: '50% 50%' }}
+          className="pointer-events-none absolute inset-0 z-[5]"
+        >
+          {enemyHitBoxes.map((box) => {
+            const enemy = combat.enemies[box.idx];
+            if (!enemy || enemy.hp <= 0) return null;
+            const enemyMeta = t.enemies[enemy.archetype];
+            const isInspected = inspectedTarget === enemy.id;
+            return (
+              <button
+                key={`hitbox-${enemy.id}`}
+                type="button"
+                data-testid={`enemy-sprite-hitbox-${enemy.id}`}
+                aria-label={`${enemyMeta.name} ${enemy.hp}/${enemy.maxHp} ${t.hpLabel}${
+                  enemy.armor > 0 ? ` · ${enemy.armor} ${t.armorLabel}` : ''
+                }`}
+                aria-pressed={isInspected}
+                onMouseEnter={() => setHoveredEnemyId(enemy.id)}
+                onMouseLeave={() => setHoveredEnemyId((prev) => (prev === enemy.id ? null : prev))}
+                onFocus={() => setHoveredEnemyId(enemy.id)}
+                onBlur={() => setHoveredEnemyId((prev) => (prev === enemy.id ? null : prev))}
+                onClick={() =>
+                  setInspectedTarget((prev) => (prev === enemy.id ? null : enemy.id))
+                }
+                style={{
+                  left: `${box.x}px`,
+                  top: `${box.y}px`,
+                  width: `${box.width}px`,
+                  height: `${box.height}px`,
+                }}
+                className="pointer-events-auto absolute cursor-pointer rounded-lg bg-transparent focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00F0FF]"
+              />
+            );
+          })}
+        </div>
+      )}
 
       {!stageReady && (
         <div
@@ -929,27 +860,13 @@ export function CombatStageCanvas({
           isCompactLandscape ? 'top-1' : 'top-1.5 sm:top-2'
         }`}
       >
-        {/* Left: Operative Chrome Lifebar Pod (tappable for full passive/status info & Loupe) */}
+        {/* Left: Operative Chrome Lifebar Pod (tappable for passive/status details) */}
         <button
           type="button"
           data-testid="kira-lifebar-pod"
           data-preview-incoming-dmg={kiraThreat.hpDamageTaken}
           data-preview-lethal={kiraThreat.willDie ? 'true' : 'false'}
           onClick={() => setInspectedTarget((prev) => (prev === 'hero' ? null : 'hero'))}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            triggerHeroLoupe(e.clientX, e.clientY);
-          }}
-          onPointerDown={(e) => {
-            clearHoldTimer();
-            const cx = e.clientX;
-            const cy = e.clientY;
-            holdTimerRef.current = window.setTimeout(() => {
-              triggerHeroLoupe(cx, cy);
-            }, 300);
-          }}
-          onPointerUp={clearHoldTimer}
-          onPointerCancel={clearHoldTimer}
           aria-expanded={inspectedTarget === 'hero'}
           aria-label={`${charMeta.code} ${heroine.hp}/${heroine.maxHp} ${t.hpLabel}`}
           className={`pointer-events-auto text-left rounded-lg transition-all duration-200 shrink-0 cursor-pointer ${hcBorderClass} ${
@@ -1223,21 +1140,6 @@ export function CombatStageCanvas({
                 data-preview-lethal={willDie ? 'true' : 'false'}
                 onMouseEnter={() => !isDead && setHoveredEnemyId(enemy.id)}
                 onMouseLeave={() => setHoveredEnemyId((prev) => (prev === enemy.id ? null : prev))}
-                onContextMenu={(e) => {
-                  e.preventDefault();
-                  if (!isDead) triggerEnemyLoupe(enemy.id, e.clientX, e.clientY);
-                }}
-                onPointerDown={(e) => {
-                  clearHoldTimer();
-                  if (isDead) return;
-                  const cx = e.clientX;
-                  const cy = e.clientY;
-                  holdTimerRef.current = window.setTimeout(() => {
-                    triggerEnemyLoupe(enemy.id, cx, cy);
-                  }, 300);
-                }}
-                onPointerUp={clearHoldTimer}
-                onPointerCancel={clearHoldTimer}
                 onClick={() =>
                   setInspectedTarget((prev) => (prev === enemy.id ? null : enemy.id))
                 }
@@ -1412,46 +1314,40 @@ export function CombatStageCanvas({
                     <span className="text-slate-400">KO</span>
                   )}
                   <div className="flex items-center gap-1 shrink-0">
-                    {!isDead && enemy.staggered && (
-                      <span
-                        data-testid={`enemy-staggered-${enemy.id}`}
-                        className="rounded bg-cyan-500/25 px-1 text-[8px] font-extrabold text-cyan-200"
-                      >
-                        {t.staggeredTag}
-                      </span>
+                    {!isDead && (
+                      enemy.staggered ? (
+                        <span
+                          data-testid={`enemy-staggered-${enemy.id}`}
+                          className="rounded bg-cyan-500/25 px-1 text-[8px] font-extrabold text-cyan-200"
+                        >
+                          {t.staggeredTag}
+                        </span>
+                      ) : enemy.enragedAlone ? (
+                        <span
+                          data-testid={`enemy-enraged-alone-${enemy.id}`}
+                          className="rounded bg-rose-500/35 px-1 text-[8px] font-extrabold text-rose-100"
+                        >
+                          {t.enragedAloneTag}
+                        </span>
+                      ) : enemy.sosCharging ? (
+                        <span className="rounded bg-amber-400/25 px-1 text-[8px] font-extrabold text-amber-200">
+                          {t.sosFlareBadgeLabel}
+                        </span>
+                      ) : enrageBonus > 0 ? (
+                        <span className="rounded bg-rose-500/25 px-1 text-[8px] font-extrabold text-rose-200">
+                          +{enrageBonus}
+                        </span>
+                      ) : enemy.isZeroReward ? (
+                        <span className="rounded bg-slate-700/70 px-1 text-[8px] font-bold text-slate-300">
+                          {t.zeroRewardBadgeLabel}
+                        </span>
+                      ) : null
                     )}
-                    {!isDead && enemy.enragedAlone && (
-                      <span
-                        data-testid={`enemy-enraged-alone-${enemy.id}`}
-                        className="rounded bg-rose-500/35 px-1 text-[8px] font-extrabold text-rose-100"
-                      >
-                        {t.enragedAloneTag}
-                      </span>
-                    )}
-                    {!isDead && enrageBonus > 0 && !enemy.enragedAlone && (
-                      <span className="rounded bg-rose-500/25 px-1 text-[8px] font-extrabold text-rose-200">
-                        +{enrageBonus}
-                      </span>
-                    )}
-                    {!isDead && enemy.sosCharging && (
-                      <span className="rounded bg-amber-400/25 px-1 text-[8px] font-extrabold text-amber-200">
-                        {t.sosFlareBadgeLabel}
-                      </span>
-                    )}
-                    {!isDead && enemy.isZeroReward && (
-                      <span className="rounded bg-slate-700/70 px-1 text-[8px] font-bold text-slate-300">
-                        {t.zeroRewardBadgeLabel}
-                      </span>
-                    )}
-                    {hasShieldPips ? (
+                    {hasShieldPips && (
                       <span className="shrink-0 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-sky-300">
-                        {willCrackShieldPip ? `${enemy.shieldPips}→${remainingShieldPips}` : enemy.shieldPips} {t.pipShort}
+                        {willCrackShieldPip ? `${enemy.shieldPips}→${remainingShieldPips}` : enemy.shieldPips}
                       </span>
-                    ) : hasArmor ? (
-                      <span className="shrink-0 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-amber-300/90">
-                        {t.armorShort}
-                      </span>
-                    ) : null}
+                    )}
                   </div>
                 </div>
 
@@ -1476,38 +1372,29 @@ export function CombatStageCanvas({
                                 : ''
                             }`}
                     </span>
-                    <div className="flex items-center gap-1">
-                      {willStagger && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {willDie ? (
+                        <span className="rounded bg-[#FF2E7E] px-1 text-[8px] font-extrabold uppercase tracking-wider text-white">
+                          ☠ {t.lethalLabel}
+                        </span>
+                      ) : willStagger ? (
                         <span
                           data-testid={`enemy-will-stagger-${enemy.id}`}
                           className="rounded bg-cyan-500/30 px-1 text-[8px] font-extrabold uppercase text-cyan-200 animate-pulse"
                         >
                           {t.staggerPreviewLabel}
                         </span>
-                      )}
-                      {willTriggerPhaseGate && (
+                      ) : willTriggerPhaseGate ? (
                         <span className="rounded bg-lime-400/20 px-1 text-[8px] font-extrabold uppercase text-lime-300">
                           {t.phaseGateLabel}
                         </span>
-                      )}
-                      {willBreakArmor && (
+                      ) : willBreakArmor ? (
                         <span className="text-[#FFC700] uppercase">{t.armorBreakLabel}</span>
-                      )}
-                      {willDie && enemy.passive === 'volatile_burst' && livingEnemies.length > 1 && (
+                      ) : chainedBurstDmg > 0 ? (
                         <span className="rounded bg-lime-400/20 px-1 text-[8px] font-extrabold uppercase text-lime-300">
-                          {t.bioBurstLabel}
+                          💥-{chainedBurstDmg}
                         </span>
-                      )}
-                      {chainedBurstDmg > 0 && !willDie && (
-                        <span className="rounded bg-lime-400/20 px-1 text-[8px] font-extrabold uppercase text-lime-300">
-                          💥-{chainedBurstDmg} BURST
-                        </span>
-                      )}
-                      {willDie && (
-                        <span className="rounded bg-[#FF2E7E] px-1 text-[8px] font-extrabold uppercase tracking-wider text-white">
-                          ☠ {t.lethalLabel}
-                        </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 )}

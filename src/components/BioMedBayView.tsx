@@ -501,7 +501,7 @@ export function BioMedBayView({
                     {t.medbayHealTitle}
                   </h2>
                   <p className="mt-1 text-[11px] leading-snug text-slate-200">
-                    {t.medbayHealDesc.replace('{name}', charMeta.code)}
+                    {t.medbayHealDesc.replace('{name}', charMeta.name)}
                   </p>
                   <div className="mt-1.5 font-mono-tabular text-xs font-bold text-white">
                     {run.heroine.hp} → {healedHp} / {run.heroine.maxHp} {t.hpLabel}
@@ -618,7 +618,7 @@ export function BioMedBayView({
                     {t.medbayOverclockDesc}
                   </p>
                   <div className="mt-1.5 font-mono-tabular text-xs font-bold text-fuchsia-200">
-                    +2 ATK / +35% OD / Cleanse
+                    {lang === 'cs' ? '+2 ATK / +35% OD / Čištění' : '+2 ATK / +35% OD / Cleanse'}
                     {isFundedClinic && (
                       <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
                     )}
@@ -660,7 +660,7 @@ export function BioMedBayView({
                     {t.medbayExtractDesc}
                   </p>
                   <div className="mt-1.5 font-mono-tabular text-xs font-bold text-amber-200">
-                    Bank {nanites} {t.nanitesShort} & {run.heroine.credits} {t.creditsLabel}
+                    {lang === 'cs' ? 'Uložit' : 'Bank'} {nanites} {t.nanitesShort} & {run.heroine.credits} {t.creditsLabel}
                   </div>
                 </div>
                 <button

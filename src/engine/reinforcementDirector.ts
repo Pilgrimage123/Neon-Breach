@@ -74,7 +74,7 @@ export function isIntentConditionMet(
 }
 
 export function getEffectiveEnemyIntentValue(
-  enemy: EnemyUnit,
+  enemy: Pick<EnemyUnit, 'staggered' | 'enrageAtkBonus'>,
   intent: EnemyIntent,
   ctx?: EnemyIntentContext,
 ): number {

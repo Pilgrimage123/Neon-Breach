@@ -458,7 +458,7 @@ export function cleanWhiteBackgroundData(
   }
 }
 
-export function applyColorGradingData(
+function applyColorGradingData(
   data: Uint8ClampedArray,
   w: number,
   h: number,
@@ -801,7 +801,7 @@ export function buildOptionsKey(options?: SpriteCutoutOptions): string {
     options?.saturationScale !== undefined || options?.crimsonDampen !== undefined
       ? `|sat_${options?.saturationScale ?? 1}_cd_${options?.crimsonDampen ?? 0}`
       : '';
-  return `${options?.removeInteriorWhite ? '1' : '0'}|${options?.removeBottomFloorShadow ? '1' : '0'}|${options?.removeDarkBackground ? '1' : '0'}|${options?.minPocketArea ?? 'auto'}|${options?.defringeStrength ?? 0.55}|${options?.unmixLightGlow ? '1' : '0'}|${options?.preserveExistingAlpha ? '1' : '0'}|${options?.maxDimension ?? 'full'}${colorKey}`;
+  return `${options?.removeInteriorWhite ? '1' : '0'}|${options?.removeBottomFloorShadow ? '1' : '0'}|${options?.removeDarkBackground ? '1' : '0'}|${options?.minPocketArea ?? 'auto'}|${options?.defringeStrength ?? 0.55}|${options?.unmixLightGlow ? '1' : '0'}|${options?.unmixDarkHoloGlass ? '1' : '0'}|${options?.preserveExistingAlpha ? '1' : '0'}|${options?.maxDimension ?? 'full'}${colorKey}`;
 }
 
 function buildFrameCacheKey(src: string, rect: SpriteRect, optionsKey: string): string {

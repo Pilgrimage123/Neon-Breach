@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
 import {
-  SECTOR_BOSS_TELEGRAPH,
   getAvailableNextNodes,
+  getBossTelegraphIntel,
   getConnectingPathNodeIds,
   getLaneClusterProfiles,
   getNodeEconomyMetrics,
@@ -18,7 +18,6 @@ import {
   resolveSemanticZoomLoD,
   type SemanticZoomLevel,
 } from '../utils/accessibilityAndScale';
-import type { LoupeInspectPayload } from './TacticalLoupeOverlay';
 
 interface SectorMapViewProps {
   run: RunState;
@@ -33,7 +32,6 @@ interface SectorMapViewProps {
   effectiveWidth?: number;
   onSelectNode: (nodeId: string) => void;
   onOpenLoadout: () => void;
-  onInspectLoupe?: (payload: LoupeInspectPayload | null) => void;
 }
 
 const NODE_STYLE: Record<
@@ -164,7 +162,6 @@ export function SectorMapView({
   effectiveWidth = 1280,
   onSelectNode,
   onOpenLoadout,
-  onInspectLoupe,
 }: SectorMapViewProps) {
   const t = TRANSLATIONS[lang];
   const lod = useMemo(
@@ -173,13 +170,6 @@ export function SectorMapView({
   );
   const hcBorderClass = highContrastBorders || tacticalView ? 'tactical-hc-border' : '';
   const lastPointerTypeRef = useRef<string>('mouse');
-  const holdTimerRef = useRef<number | null>(null);
-  const clearHoldTimer = () => {
-    if (holdTimerRef.current !== null) {
-      window.clearTimeout(holdTimerRef.current);
-      holdTimerRef.current = null;
-    }
-  };
   const availableNodes = useMemo(
     () => getAvailableNextNodes(run.mapNodes, run.currentNodeId),
     [run.mapNodes, run.currentNodeId],
@@ -188,9 +178,10 @@ export function SectorMapView({
   const advice = useMemo(() => getTacticalRouteAdvice(run), [run]);
 
   const laneProfiles = useMemo(
-    () => getLaneClusterProfiles(run.mapNodes, run.heroine),
-    [run.mapNodes, run.heroine],
+    () => getLaneClusterProfiles(run.mapNodes, run.heroine, lang),
+    [run.mapNodes, run.heroine, lang],
   );
+  const bossTelegraph = useMemo(() => getBossTelegraphIntel(lang), [lang]);
   const hasRecon =
     run.heroine.implants.includes('synapse_overclock') ||
     run.heroine.implants.includes('surge_resonator');
@@ -269,8 +260,8 @@ export function SectorMapView({
   );
 
   const intelByNodeId = useMemo(
-    () => new Map(run.mapNodes.map((n) => [n.id, getNodeEncounterIntel(n, run.seed)])),
-    [run.mapNodes, run.seed],
+    () => new Map(run.mapNodes.map((n) => [n.id, getNodeEncounterIntel(n, run.seed, lang)])),
+    [run.mapNodes, run.seed, lang],
   );
 
   const layers = useMemo(
@@ -337,8 +328,8 @@ export function SectorMapView({
       !node.cleared && !isCurrent && !isAvailable && !currentReachableIds.has(node.id);
 
     const style = NODE_STYLE[node.type];
-    const intel = intelByNodeId.get(node.id)!;
-    const econ = getNodeEconomyMetrics(node, run.heroine);
+    const intel = intelByNodeId.get(node.id) ?? getNodeEncounterIntel(node, run.seed, lang);
+    const econ = getNodeEconomyMetrics(node, run.heroine, lang);
 
     const statusLabel = node.cleared
       ? '✓'
@@ -352,7 +343,7 @@ export function SectorMapView({
               ? '·'
               : t.nodeLocked;
 
-    const reconPreview = hasRecon ? getReconPreviewForNode(node, run) : null;
+    const reconPreview = hasRecon ? getReconPreviewForNode(node, run, lang) : null;
 
     const squadNames =
       intel.enemies.length > 0
@@ -375,27 +366,6 @@ export function SectorMapView({
     const minShopCredits = node.modifier === 'flash_sale' ? 20 : 30;
     const nodePip = getNodeCornerPip(node.type);
 
-    const emitNodeLoupe = (clientX: number, clientY: number) => {
-      if (!onInspectLoupe) return;
-      onInspectLoupe({
-        id: `node-${node.id}`,
-        pip: nodePip,
-        kicker: `${intel.sectorCode} · ${nodePip.shortCode}`,
-        title: t.nodes[node.type],
-        primaryStat: bottomMetric,
-        subtitle: `${statusLabel} · ${getRewardLabel(node.type)}`,
-        detailLine: `${squadNames} · ${econ.opportunityCost}`,
-        ruleBadge:
-          econ.tensionHpPct > 0
-            ? `RISK: -${econ.tensionHpPct}% HP · YIELD: +${econ.runYieldCredits} CR`
-            : `RECOVERY NODE · YIELD: +${econ.runYieldCredits} CR`,
-        pointerX: clientX,
-        pointerY: clientY,
-        viewportW: window.innerWidth,
-        viewportH: window.innerHeight,
-      });
-    };
-
     return (
       <button
         key={node.id}
@@ -405,18 +375,6 @@ export function SectorMapView({
         data-node-pip={nodePip.symbol}
         onPointerDown={(e) => {
           lastPointerTypeRef.current = e.pointerType || 'mouse';
-          clearHoldTimer();
-          const cx = e.clientX;
-          const cy = e.clientY;
-          holdTimerRef.current = window.setTimeout(() => {
-            emitNodeLoupe(cx, cy);
-          }, 300);
-        }}
-        onPointerUp={clearHoldTimer}
-        onPointerCancel={clearHoldTimer}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          emitNodeLoupe(e.clientX, e.clientY);
         }}
         onMouseEnter={() => {
           if (availIndex >= 0) {
@@ -721,10 +679,10 @@ export function SectorMapView({
               ·
             </span>
             <span
-              title={`${SECTOR_BOSS_TELEGRAPH.name} — ${SECTOR_BOSS_TELEGRAPH.recommendedPrep}`}
+              title={`${bossTelegraph.name} — ${bossTelegraph.recommendedPrep}`}
               className="hidden sm:inline font-mono-tabular text-xs font-bold text-lime-300 truncate"
             >
-              ☠ {SECTOR_BOSS_TELEGRAPH.name} ({SECTOR_BOSS_TELEGRAPH.hp} HP)
+              ☠ {bossTelegraph.name} ({bossTelegraph.hp} HP)
             </span>
           </div>
 
@@ -834,12 +792,12 @@ export function SectorMapView({
                   isCompactLandscape ? 'gap-2' : 'gap-2 sm:gap-3'
                 }`}
               >
-                {/* 3-Row Lane Archetype Rail: Displays ALL 3 Lanes (01, 02, 03) */}
+                {/* Concise 3-Row Lane Archetype Rail */}
                 <div
                   className={`grid grid-rows-3 shrink-0 ${
                     isCompactLandscape
-                      ? 'w-28 gap-y-1'
-                      : 'w-28 md:w-36 lg:w-44 gap-y-1.5 sm:gap-y-2'
+                      ? 'w-24 gap-y-1'
+                      : 'w-24 sm:w-32 gap-y-1.5 sm:gap-y-2'
                   }`}
                 >
                   {laneProfiles.map((profile) => {
@@ -867,7 +825,7 @@ export function SectorMapView({
                         key={`lane_rail_${profile.lane}`}
                         title={archDesc}
                         className={`flex flex-col justify-center rounded-lg border border-cyan-500/25 bg-cyan-950/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] min-h-0 overflow-hidden ${
-                          isCompactLandscape ? 'px-1.5 py-0.5' : 'px-2 py-1 sm:px-2.5 sm:py-1.5'
+                          isCompactLandscape ? 'px-1.5 py-0.5' : 'px-2 py-1'
                         }`}
                       >
                         <div className="flex items-center gap-1 min-w-0">
@@ -875,35 +833,13 @@ export function SectorMapView({
                             0{profile.lane + 1}
                           </span>
                           <span className="font-mono-tabular text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-cyan-200 truncate">
-                            · {archLabel}
+                            {archLabel}
                           </span>
                         </div>
-                        {!isCompactLandscape && (
-                          <span className="hidden md:block mt-0.5 font-sans text-[8px] sm:text-[9px] text-slate-300 leading-tight line-clamp-2">
-                            {archDesc}
-                          </span>
-                        )}
-                        <div className="mt-0.5 flex items-center gap-1 font-mono-tabular text-[7.5px] sm:text-[8.5px] font-semibold truncate">
-                          <span className="text-rose-300">
-                            {isCompactLandscape ? (
-                              `-${profile.totalTensionHpEst} HP`
-                            ) : (
-                              <>
-                                <span className="md:hidden">-{profile.totalTensionHpEst} HP</span>
-                                <span className="hidden md:inline">{profile.totalTensionHpEst} {t.mapRiskShort}</span>
-                              </>
-                            )}
-                          </span>
+                        <div className="mt-0.5 flex items-center gap-1 font-mono-tabular text-[8px] sm:text-[9px] font-semibold truncate">
+                          <span className="text-rose-300">-{profile.totalTensionHpEst} HP</span>
                           <span className="text-slate-500">·</span>
                           <span className="text-amber-300">+{profile.totalRunYieldCredits} CR</span>
-                          {profile.totalMetaYieldNanites > 0 && !isCompactLandscape && (
-                            <>
-                              <span className="hidden lg:inline text-slate-500">·</span>
-                              <span className="hidden lg:inline text-cyan-300">
-                                +{profile.totalMetaYieldNanites} {t.nanitesShort}
-                              </span>
-                            </>
-                          )}
                         </div>
                       </div>
                     );
@@ -1057,16 +993,16 @@ export function SectorMapView({
 
         {/* Bottom Focused Node Tactical Briefing & Direct Deploy Bar */}
         {briefingNode && (() => {
-          const briefingEconomy = getNodeEconomyMetrics(briefingNode, run.heroine);
+          const briefingEconomy = getNodeEconomyMetrics(briefingNode, run.heroine, lang);
           const consecutiveCombat = run.heroine.consecutiveCombatWithoutClinic ?? 0;
-          const reconPreview = hasRecon ? getReconPreviewForNode(briefingNode, run) : null;
+          const reconPreview = hasRecon ? getReconPreviewForNode(briefingNode, run, lang) : null;
           const reconDetail =
             reconPreview?.kind === 'event'
               ? `${reconPreview.eventTitle}: ${reconPreview.choices.join(' / ')}`
               : reconPreview?.kind === 'clinic'
                 ? `${reconPreview.isFlashSale ? t.bountyFlashSaleBadge : t.clinicShopTitle} · ${t.implantSlotsLabel}: ${MAX_IMPLANTS - reconPreview.openSockets}/${MAX_IMPLANTS}`
                 : reconPreview?.kind === 'medbay'
-                  ? `+${reconPreview.healTotal} ${t.hpLabel}${reconPreview.isFunded ? ' (Funded)' : ''}`
+                  ? `+${reconPreview.healTotal} ${t.hpLabel}${reconPreview.isFunded ? ` (${t.bountyFundedClinicBadge})` : ''}`
                   : reconPreview?.kind === 'combat'
                     ? reconPreview.enemies
                         .map(
@@ -1078,136 +1014,61 @@ export function SectorMapView({
 
           return (
             <div
-              className={`chrome-panel-bright flex shrink-0 justify-between gap-2 rounded-xl ${
-                isCompactLandscape
-                  ? 'flex-row items-center px-2.5 py-1'
-                  : 'flex-col items-start px-3.5 py-2 sm:px-4 sm:py-2.5'
+              className={`chrome-panel-bright flex shrink-0 flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl ${
+                isCompactLandscape ? 'px-2.5 py-1' : 'px-3.5 py-2 sm:px-4'
               }`}
             >
-              <div className="flex flex-col gap-1 w-full min-w-0">
-                {/* Primary Intel Row */}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] sm:text-xs min-w-0">
-                  <span className="font-mono-tabular font-bold text-[#00F0FF]">
-                    {intelByNodeId.get(briefingNode.id)?.sectorCode}
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-[10px] sm:text-xs">
+                <span className="font-mono-tabular font-bold text-[#00F0FF]">
+                  {intelByNodeId.get(briefingNode.id)?.sectorCode}
+                </span>
+                <span aria-hidden="true" className="text-slate-500">
+                  ·
+                </span>
+                <span className="font-display text-xs sm:text-sm font-bold text-white">
+                  {t.nodes[briefingNode.type]}
+                </span>
+                <span aria-hidden="true" className="hidden sm:inline text-slate-500">
+                  ·
+                </span>
+                <span className="hidden sm:inline text-slate-200 truncate max-w-md">
+                  {t.nodeDescs[briefingNode.type]}
+                </span>
+                <span className="rounded bg-slate-900/80 border border-white/10 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-[#FFC700]">
+                  {getRewardLabel(briefingNode.type)}
+                </span>
+                <span
+                  className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold ${
+                    briefingEconomy.tensionHpPct > 20
+                      ? 'border-rose-400/40 bg-rose-950/50 text-rose-300'
+                      : briefingEconomy.tensionHpPct < 0
+                        ? 'border-emerald-400/40 bg-emerald-950/50 text-emerald-300'
+                        : 'border-slate-700/60 bg-slate-900/80 text-slate-300'
+                  }`}
+                >
+                  {briefingEconomy.tensionHpPct > 0
+                    ? `~-${briefingEconomy.tensionHpEst} HP`
+                    : briefingEconomy.tensionHpPct < 0
+                      ? `+${Math.abs(briefingEconomy.tensionHpPct)}% HP`
+                      : `+${briefingEconomy.runYieldCredits} CR`}
+                </span>
+                {intelByNodeId.get(briefingNode.id)?.threatTraits?.[0] && (
+                  <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold text-rose-200">
+                    {intelByNodeId.get(briefingNode.id)?.threatTraits?.[0]}
                   </span>
-                  <span aria-hidden="true" className="text-slate-400">
-                    ·
+                )}
+                {consecutiveCombat >= 2 && (
+                  <span className="rounded bg-amber-500/20 border border-amber-400/45 px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold text-amber-200">
+                    ⚡ +{Math.min(50, consecutiveCombat * 10)}% CR
                   </span>
-                  <span className="font-display text-xs sm:text-sm font-bold text-white">
-                    {t.nodes[briefingNode.type]}
+                )}
+                {hasRecon && reconDetail && (
+                  <span
+                    title={reconDetail}
+                    className="rounded bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold text-cyan-200 truncate max-w-[260px]"
+                  >
+                    ✦ {reconDetail}
                   </span>
-                  <span aria-hidden="true" className="text-slate-400">
-                    ·
-                  </span>
-                  <span className="text-slate-200">{t.nodeDescs[briefingNode.type]}</span>
-                  <span aria-hidden="true" className="text-slate-400">
-                    ·
-                  </span>
-                  <span className="font-mono-tabular font-semibold text-[#FFC700]">
-                    {getRewardLabel(briefingNode.type)}
-                  </span>
-
-                  {/* Threat Traits / Intel Badges */}
-                  {intelByNodeId.get(briefingNode.id)?.threatTraits?.map((trait, tIdx) => (
-                    <span
-                      key={`trait_${tIdx}`}
-                      className="px-1.5 py-0.2 rounded bg-rose-500/20 border border-rose-400/40 text-rose-300 text-[9px] font-mono-tabular font-bold"
-                    >
-                      {trait}
-                    </span>
-                  ))}
-
-                  <span aria-hidden="true" className="hidden md:inline text-slate-400">
-                    ·
-                  </span>
-                  <span className="font-mono-tabular text-slate-300">
-                    {t.mapOpensNext}:{' '}
-                    {briefingNode.nextIds
-                      .map((id) => nodeById.get(id))
-                      .filter((n): n is MapNode => Boolean(n))
-                      .map((n) => t.nodes[n.type])
-                      .join(' / ') || t.nodes.BOSS}
-                  </span>
-                </div>
-
-                {/* HP as Currency Economy Bar */}
-                {!isCompactLandscape && (
-                  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[9px] sm:text-[10px] font-mono-tabular">
-                    <span className="flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 border border-slate-700/60">
-                      <span className="text-slate-400 font-semibold">{t.tensionLabel}:</span>
-                      <span
-                        className={`font-bold ${
-                          briefingEconomy.tensionHpPct > 20
-                            ? 'text-rose-400'
-                            : briefingEconomy.tensionHpPct < 0
-                              ? 'text-emerald-400'
-                              : 'text-slate-200'
-                        }`}
-                      >
-                        {briefingEconomy.tensionHpPct > 0
-                          ? `-${briefingEconomy.tensionHpPct}% HP (~${briefingEconomy.tensionHpEst} HP)`
-                          : briefingEconomy.tensionHpPct < 0
-                            ? `+${Math.abs(briefingEconomy.tensionHpPct)}% ${t.mapHpRecoveryLabel}`
-                            : '0% HP'}
-                      </span>
-                    </span>
-
-                    <span className="flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 border border-slate-700/60">
-                      <span className="text-slate-400 font-semibold">{t.yieldLabel}:</span>
-                      <span className="font-bold text-amber-300">
-                        +{briefingEconomy.runYieldCredits} CR ({briefingEconomy.runYieldPowerRating})
-                      </span>
-                    </span>
-
-                    <span className="flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 border border-slate-700/60">
-                      <span className="text-slate-400 font-semibold">{t.nanitesLabel}:</span>
-                      <span className="font-bold text-cyan-300">
-                        +{briefingEconomy.metaYieldNanites} {t.nanitesShort}
-                      </span>
-                    </span>
-
-                    {/* Mercenary Interest Streak */}
-                    {consecutiveCombat >= 2 && (
-                      <span className="flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 border border-amber-400/50 text-amber-300 font-bold">
-                        <span>⚡</span>
-                        <span>
-                          {t.abstinenceBonusLabel}: +{Math.min(50, consecutiveCombat * 10)}% CR ({consecutiveCombat}x)
-                        </span>
-                      </span>
-                    )}
-
-                    {/* Recon Sensors Active + Real Telemetry Preview */}
-                    {hasRecon && (
-                      <span
-                        title={reconDetail ?? undefined}
-                        className="flex items-center gap-1 rounded bg-cyan-500/20 px-1.5 py-0.5 border border-cyan-400/40 text-cyan-200 font-bold max-w-full"
-                      >
-                        <span>✦</span>
-                        <span className="text-cyan-300 shrink-0">{t.reconActiveBadge}</span>
-                        {reconDetail && (
-                          <span className="text-slate-100 font-normal truncate max-w-[340px]">
-                            · {reconDetail}
-                          </span>
-                        )}
-                      </span>
-                    )}
-
-                    {/* Defibrillator Status */}
-                    <span
-                      className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${
-                        run.heroine.emergencyDefibUsed
-                          ? 'border-slate-700/50 bg-slate-900/50 text-slate-500'
-                          : 'border-emerald-500/40 bg-emerald-950/40 text-emerald-300'
-                      }`}
-                    >
-                      [{run.heroine.emergencyDefibUsed ? t.defibDischargedLabel : t.defibArmedLabel}]
-                    </span>
-
-                    <span className="hidden lg:inline text-slate-300 italic truncate max-w-sm">
-                      <span className="not-italic text-slate-400 font-semibold">{t.oppCostLabel}:</span>{' '}
-                      {briefingEconomy.opportunityCost}
-                    </span>
-                  </div>
                 )}
               </div>
 
@@ -1218,7 +1079,7 @@ export function SectorMapView({
                   className={`chrome-btn-primary rounded-lg font-display font-bold transition-transform hover:-translate-y-0.5 cursor-pointer shrink-0 whitespace-nowrap ${
                     isCompactLandscape
                       ? 'w-auto px-3 py-1 text-xs'
-                      : 'w-full sm:w-auto px-5 py-2 text-sm'
+                      : 'w-full sm:w-auto px-4 py-1.5 text-xs sm:text-sm'
                   }`}
                 >
                   {t.enterNode}: {t.nodes[briefingNode.type]} [Enter]

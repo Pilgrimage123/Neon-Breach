@@ -3,19 +3,14 @@ import type { CharacterId, EnemyPassiveKind } from '../engine/types';
 export type Language = 'en' | 'cs';
 
 export interface TranslationPack {
-  gameTitle: string;
   gameSubtitle: string;
   startRun: string;
   continueRun: string;
   newRun: string;
   selectOperativeLabel: string;
   controlsHint: string;
-  turnLabel: string;
   hpLabel: string;
   shieldLabel: string;
-  overdriveLabel: string;
-  overdriveButton: string;
-  damageBoostLabel: string;
   creditsLabel: string;
   capacityLabel: string;
   attackName: string;
@@ -40,7 +35,6 @@ export interface TranslationPack {
   phaseGateLabel: string;
   bioBurstLabel: string;
   retaliateLabel: string;
-  tileJamWarnLabel: string;
   staggeredTag: string;
   staggerPreviewLabel: string;
   enragedAloneTag: string;
@@ -53,12 +47,9 @@ export interface TranslationPack {
   surgeAttackEffect: string;
   surgeDefenseEffect: string;
   surgeTechEffect: string;
-  drawPoolLabel: string;
   discardPoolLabel: string;
   poolTotalLabel: string;
   nextDrawLabel: string;
-  boardHint: string;
-  previewTitle: string;
   previewNoTiles: string;
   previewStayCount: string;
   previewDamage: string;
@@ -72,13 +63,6 @@ export interface TranslationPack {
   previewTechPierce: string;
   previewCorrodeCleanse: string;
   previewSurgeTriggered: string;
-  enemyIntentAttack: string;
-  enemyIntentAcid: string;
-  enemyIntentArmor: string;
-  enemyIntentBolster: string;
-  enemyIntentCharge: string;
-  enemyIntentLeech: string;
-  enemyIntentHeavy: string;
   armorLabel: string;
   armorShort: string;
   corrodeLabel: string;
@@ -89,7 +73,6 @@ export interface TranslationPack {
   noImplants: string;
   implantSlotsLabel: string;
   inspectPool: string;
-  loadoutButton: string;
   poolModalTitle: string;
   poolModalDesc: string;
   equippedGearTitle: string;
@@ -111,31 +94,12 @@ export interface TranslationPack {
   returnTitle: string;
   mute: string;
   unmute: string;
-  languageName: string;
   landscapeToggle: string;
   portraitToggle: string;
   fullscreenEnter: string;
   fullscreenExit: string;
   tacticalInfoButton: string;
   passiveLabel: string;
-  counterPlayLabel: string;
-  overdriveTitleLabel: string;
-  surgeRuleLabel: string;
-  tapInfoHint: string;
-  enemyIntentDescAttack: string;
-  enemyIntentDescHeavy: string;
-  enemyIntentDescAcid: string;
-  enemyIntentDescArmor: string;
-  enemyIntentDescBolster: string;
-  enemyIntentDescCharge: string;
-  enemyIntentDescLeech: string;
-  corrodeDesc: string;
-  armorDesc: string;
-  nextActionLabel: string;
-  behaviorCycleLabel: string;
-  enemyArmorActiveDesc: string;
-  enemyArmorNoneDesc: string;
-  enemyShieldPipDesc: string;
   victoryTitle: string;
   victorySubtitle: string;
   defeatTitle: string;
@@ -153,13 +117,10 @@ export interface TranslationPack {
   enemiesDefeatedLabel: string;
   turnsLabel: string;
   damageDealtLabel: string;
-  heatGaugeLabel: string;
   heatLowLabel: string;
   heatMediumLabel: string;
   heatOvertimeLabel: string;
-  parCachesLabel: string;
   parCachePrefix: string;
-  tempoLabel: string;
   tempoTip: string;
   inboundDropLabel: string;
   dropZeroDmgRule: string;
@@ -169,7 +130,6 @@ export interface TranslationPack {
   dropReasonSos: string;
   dropReasonSweeper: string;
   dropRubberBandDelayed: string;
-  enrageBadgeLabel: string;
   sosFlareBadgeLabel: string;
   zeroRewardBadgeLabel: string;
   fastClearBonusLabel: string;
@@ -177,17 +137,9 @@ export interface TranslationPack {
   parBonusLabel: string;
   tempoBonusLabel: string;
   sectorMapTitle: string;
-  sectorMapSubtitle: string;
   layerLabel: string;
-  nodeCleared: string;
-  nodeAvailable: string;
   nodeLocked: string;
   enterNode: string;
-  mapAdvisorTitle: string;
-  mapRecommendedBadge: string;
-  mapDownstreamBadge: string;
-  mapLaneNorth: string;
-  mapLaneSouth: string;
   mapAdviceLowHp: string;
   mapAdviceElite: string;
   mapAdviceClinic: string;
@@ -274,7 +226,6 @@ export interface TranslationPack {
   laneGamblerDesc: string;
   laneShortPrefix: string;
   mapRiskShort: string;
-  mapPathTargetBadge: string;
   mapAnomalyLabel: string;
   mapMultiHopLabel: string;
   mapHpRecoveryLabel: string;
@@ -291,8 +242,6 @@ export interface TranslationPack {
   abstinenceBonusLabel: string;
   emergencyDefibTriggered: string;
   reconActiveBadge: string;
-  bossTelegraphTitle: string;
-  bossTelegraphIntel: string;
   shopAffordable: string;
   shopLowCredits: string;
   medbayOverclockTitle: string;
@@ -333,19 +282,14 @@ export interface TranslationPack {
 
 export const TRANSLATIONS: Record<Language, TranslationPack> = {
   en: {
-    gameTitle: 'NEON BREACH',
     gameSubtitle: 'Resolve 1 tile type per turn · Combine gear & TECH boosts · Purge the sky-bridge',
     startRun: 'Start Run',
     continueRun: 'Continue Run',
     newRun: 'New Run',
     selectOperativeLabel: 'Select Operative',
     controlsHint: '1/2/3 Select Type · Space Overdrive · F Fullscreen · P Pause · M Mute · L Language',
-    turnLabel: 'Turn',
     hpLabel: 'HP',
     shieldLabel: 'Shield',
-    overdriveLabel: 'Overdrive',
-    overdriveButton: 'Plasma Overdrive',
-    damageBoostLabel: 'DMG Boost',
     creditsLabel: 'CR',
     capacityLabel: 'Load',
     attackName: 'Attack',
@@ -370,7 +314,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     phaseGateLabel: '50% PHASE LOCK',
     bioBurstLabel: '+6 BIO-BURST ALL',
     retaliateLabel: '3 RETALIATE',
-    tileJamWarnLabel: 'JAMS 1 TILE ON HIT',
     staggeredTag: '⚡ STAGGERED',
     staggerPreviewLabel: '⚡ STAGGER!',
     enragedAloneTag: 'ALONE +2',
@@ -383,12 +326,9 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     surgeAttackEffect: 'Armor Break + 50% Cleave',
     surgeDefenseEffect: 'Reflect 8 DMG on Block',
     surgeTechEffect: '+15% Overdrive & +6 Shield',
-    drawPoolLabel: 'Draw',
     discardPoolLabel: 'Cycle',
     poolTotalLabel: 'Active Pool',
     nextDrawLabel: 'Upcoming Draws',
-    boardHint: 'Activate 1 type per turn. Unresolved tiles stay held on board and refill to 6.',
-    previewTitle: 'Turn Outcome Preview',
     previewNoTiles: 'No tiles of this type on board.',
     previewStayCount: 'held next turn',
     previewDamage: 'DMG front target',
@@ -402,13 +342,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     previewTechPierce: 'Pierce DMG front',
     previewCorrodeCleanse: 'Corrode cleansed',
     previewSurgeTriggered: 'Stack Surge Active',
-    enemyIntentAttack: 'Strike',
-    enemyIntentAcid: 'Acid Spit',
-    enemyIntentArmor: 'Chitin Harden',
-    enemyIntentBolster: 'Aegis Bolster',
-    enemyIntentCharge: 'Thermal Charge',
-    enemyIntentLeech: 'Bio-Leech',
-    enemyIntentHeavy: 'Apex Rend',
     armorLabel: 'Armor',
     armorShort: 'ARM',
     corrodeLabel: 'Corrode',
@@ -419,7 +352,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     noImplants: 'No implants installed',
     implantSlotsLabel: 'Implants',
     inspectPool: 'Loadout & Pool',
-    loadoutButton: 'Gear',
     poolModalTitle: 'Loadout & Active Tile Pool',
     poolModalDesc: '{name} combines 5 innate tiles with equipped gear up to {capacity} capacity.',
     equippedGearTitle: 'Equipped Gear',
@@ -441,32 +373,12 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     returnTitle: 'Title Screen',
     mute: 'Mute',
     unmute: 'Unmute',
-    languageName: 'EN',
     landscapeToggle: 'Landscape',
     portraitToggle: 'Portrait',
     fullscreenEnter: 'Fullscreen',
     fullscreenExit: 'Exit Fullscreen',
     tacticalInfoButton: 'Info',
     passiveLabel: 'Lock Rule',
-    counterPlayLabel: 'Counter-Play',
-    overdriveTitleLabel: 'Overdrive',
-    surgeRuleLabel: 'Surge',
-    tapInfoHint: 'Tap to inspect · Tap again to resolve',
-    enemyIntentDescAttack: 'Deals {val} incoming DMG to your Shield, then HP.',
-    enemyIntentDescHeavy: 'Heavy apex strike dealing {val} incoming DMG.',
-    enemyIntentDescAcid: 'Deals {val} DMG and adds +{sec} Corrode (jams 1 board tile if unblocked by Shield).',
-    enemyIntentDescArmor: 'Gains +{val} Armor that absorbs incoming Attack DMG.',
-    enemyIntentDescBolster: 'Projects +{val} Armor to ALL living mutants on the sky-bridge.',
-    enemyIntentDescCharge: 'Charging thermal core ({sec}T left) → unleashes a {val} DMG detonation when ready.',
-    enemyIntentDescLeech: 'Deals {val} DMG and heals itself +{sec} HP if any unblocked HP damage lands.',
-    corrodeDesc: 'Reduces Shield gained from Defense tiles.',
-    armorDesc: 'Absorbs Attack DMG before enemy HP is reduced.',
-    nextActionLabel: 'Next Action',
-    behaviorCycleLabel: 'Action Cycle',
-    enemyArmorActiveDesc:
-      'Blocks up to {armor} regular Attack DMG before HP is hit. Stack Surge shatters all Armor; Phase-Blade pierces 30%.',
-    enemyArmorNoneDesc: 'Unarmored — incoming Attack DMG hits HP directly.',
-    enemyShieldPipDesc: 'Active Aegis Pip (◆): completely negates the next 1 damaging hit regardless of damage amount.',
     victoryTitle: 'Sector Purged',
     victorySubtitle: 'The Xenomorph Matriarch has fallen and the Neo-Prague sky-bridge is secure.',
     defeatTitle: 'Signal Lost',
@@ -484,13 +396,10 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     enemiesDefeatedLabel: 'Mutants Purged',
     turnsLabel: 'Turns',
     damageDealtLabel: 'Damage Dealt',
-    heatGaugeLabel: 'HEAT',
     heatLowLabel: 'LOW HEAT',
     heatMediumLabel: 'MED HEAT',
     heatOvertimeLabel: 'OVERTIME',
-    parCachesLabel: 'Par Caches',
     parCachePrefix: 'T',
-    tempoLabel: 'TEMPO',
     tempoTip: 'Deal damage on consecutive turns for bonus CR (+2 CR/turn, max +8 CR).',
     inboundDropLabel: 'DROP INBOUND',
     dropZeroDmgRule: '0 DMG on arrival turn',
@@ -500,7 +409,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     dropReasonSos: 'SOS FLARE',
     dropReasonSweeper: 'OVERTIME SWEEPER',
     dropRubberBandDelayed: 'DELAYED (+1T)',
-    enrageBadgeLabel: 'ENRAGE',
     sosFlareBadgeLabel: 'SOS',
     zeroRewardBadgeLabel: '0 CR',
     fastClearBonusLabel: 'Fast Clear Bonus',
@@ -508,17 +416,9 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     parBonusLabel: 'Par Caches',
     tempoBonusLabel: 'Tempo',
     sectorMapTitle: 'Sector Route Map',
-    sectorMapSubtitle: "Select your next sky-bridge branch or adjust {name}'s gear loadout before deployment.",
     layerLabel: 'Sector',
-    nodeCleared: 'Cleared',
-    nodeAvailable: 'Available',
     nodeLocked: 'Locked',
     enterNode: 'Deploy',
-    mapAdvisorTitle: 'Tactical Route Advisor',
-    mapRecommendedBadge: 'OPT-VECTOR',
-    mapDownstreamBadge: 'DOWNSTREAM',
-    mapLaneNorth: 'North Canopy · High-Tech',
-    mapLaneSouth: 'South Catwalk · Sustain',
     mapAdviceLowHp: 'Hull integrity below threshold — route toward Bio-Med Bay for +22 HP repair.',
     mapAdviceElite: 'Vitals optimal — engage Elite Abomination for high score, gear loot & Cyber-Clinic.',
     mapAdviceClinic: 'Cyber-Clinic ahead — install a passive implant and buy new equipment.',
@@ -587,7 +487,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     laneGamblerDesc: 'Anomalies & Trades · Low Combat Fatigue',
     laneShortPrefix: 'LANE',
     mapRiskShort: 'HP Risk',
-    mapPathTargetBadge: 'PATH TARGET',
     mapAnomalyLabel: 'ANOMALY (?)',
     mapMultiHopLabel: 'Multi-Hop Planned Route',
     mapHpRecoveryLabel: 'HP Recovery',
@@ -604,8 +503,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     abstinenceBonusLabel: 'Mercenary Interest (Streak)',
     emergencyDefibTriggered: 'EMERGENCY DEFIBRILLATOR: Vital surge restored +15% HP!',
     reconActiveBadge: 'RECON ACTIVE',
-    bossTelegraphTitle: 'SECTOR GATEKEEPER TELEGRAPH',
-    bossTelegraphIntel: 'Apex Brood Sovereign · Sector 05 Finale',
     shopAffordable: 'AFFORDABLE',
     shopLowCredits: 'LOW CREDITS',
     eventViewTitle: 'CYBER-GRID ENCOUNTER',
@@ -785,11 +682,11 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
       },
       utocny_dron_sokol: {
         name: 'Solar Hawk Gunship Drone',
-        desc: 'Autonomous rotary-plasma jet drone delivering dual 5 ATK strafing runs and a 6 DEF wing-screen.',
+        desc: 'Autonomous rotary-plasma jet drone delivering 6 ATK and 5 ATK strafing runs.',
       },
       stito_dron_ankh: {
         name: 'Ankh Bio-Shield Array',
-        desc: 'Twin-rotor Ankh medical & Aegis walker link granting +4 HP bio-repair and a 7 DEF hex-dome.',
+        desc: 'Twin-rotor Ankh medical & Aegis walker link granting +4 HP bio-repair and an 8 DEF hex-dome.',
       },
       karabin_vx: {
         name: 'VX Assault Carbine',
@@ -854,19 +751,14 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     },
   },
   cs: {
-    gameTitle: 'NEON BREACH',
     gameSubtitle: 'Aktivuj 1 typ dlaždic za tah · Skládej výbavu a TECH efekty · Očisti nebeský most',
     startRun: 'Spustit misi',
     continueRun: 'Pokračovat v misi',
     newRun: 'Nová mise',
     selectOperativeLabel: 'Výběr operativky',
     controlsHint: '1/2/3 Vyber typ · Mezerník Overdrive · F Celá obrazovka · P Pauza · M Zvuk · L Jazyk',
-    turnLabel: 'Tah',
     hpLabel: 'Zdraví',
     shieldLabel: 'Štít',
-    overdriveLabel: 'Overdrive',
-    overdriveButton: 'Plazmový Overdrive',
-    damageBoostLabel: 'Boost DMG',
     creditsLabel: 'CR',
     capacityLabel: 'Nosnost',
     attackName: 'Útok',
@@ -891,7 +783,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     phaseGateLabel: '50% FÁZOVÝ ZÁMEK',
     bioBurstLabel: '+6 BIO-EXPLOZE VŠEM',
     retaliateLabel: '3 ODPLATA',
-    tileJamWarnLabel: 'ZABLOKUJE 1 DLAŽDICI',
     staggeredTag: '⚡ OMRÁČEN',
     staggerPreviewLabel: '⚡ OMRÁČÍ!',
     enragedAloneTag: 'SÁM +2',
@@ -904,12 +795,9 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     surgeAttackEffect: 'Průraz brnění + 50% rozmach',
     surgeDefenseEffect: 'Odraz 8 DMG při bloku',
     surgeTechEffect: '+15 % Overdrive a +6 Štít',
-    drawPoolLabel: 'Zásobník',
     discardPoolLabel: 'Cyklus',
     poolTotalLabel: 'Aktivní pool',
     nextDrawLabel: 'Příští dlaždice',
-    boardHint: 'Aktivuj 1 typ za tah. Zbylé dlaždice držíš na desce a dobereš do 6.',
-    previewTitle: 'Náhled výsledku tahu',
     previewNoTiles: 'Na desce není žádná dlaždice tohoto typu.',
     previewStayCount: 'zůstane příští tah',
     previewDamage: 'DMG přednímu cíli',
@@ -923,13 +811,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     previewTechPierce: 'Průrazné DMG vpředu',
     previewCorrodeCleanse: 'Očištěná koroze',
     previewSurgeTriggered: 'Bonus přetížení aktivní',
-    enemyIntentAttack: 'Seknutí',
-    enemyIntentAcid: 'Žíravý plivanec',
-    enemyIntentArmor: 'Tvrzení krunýře',
-    enemyIntentBolster: 'Aegis podpora',
-    enemyIntentCharge: 'Žárové nabíjení',
-    enemyIntentLeech: 'Bio-vysátí',
-    enemyIntentHeavy: 'Smrtící drápy',
     armorLabel: 'Brnění',
     armorShort: 'BRN',
     corrodeLabel: 'Koroze',
@@ -940,7 +821,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     noImplants: 'Žádné implantáty',
     implantSlotsLabel: 'Implantáty',
     inspectPool: 'Výbava a Pool',
-    loadoutButton: 'Výbava',
     poolModalTitle: 'Výbava a aktivní pool dlaždic',
     poolModalDesc: '{name} kombinuje svých 5 vrozených dlaždic s nasazeným vybavením do nosnosti {capacity}.',
     equippedGearTitle: 'Nasazené vybavení',
@@ -962,32 +842,12 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     returnTitle: 'Hlavní obrazovka',
     mute: 'Ztlumit',
     unmute: 'Zapnout zvuk',
-    languageName: 'CS',
     landscapeToggle: 'Na šířku',
     portraitToggle: 'Na výšku',
     fullscreenEnter: 'Celá obrazovka',
     fullscreenExit: 'Ukončit režim',
     tacticalInfoButton: 'Info',
     passiveLabel: 'Pravidlo zámku',
-    counterPlayLabel: 'Proti-hra',
-    overdriveTitleLabel: 'Overdrive',
-    surgeRuleLabel: 'Přetížení',
-    tapInfoHint: 'Klepni pro náhled · Znovu pro akci',
-    enemyIntentDescAttack: 'Udělí {val} poškození nejprve do Štítu, poté do Zdraví.',
-    enemyIntentDescHeavy: 'Silný úder za {val} příchozího poškození.',
-    enemyIntentDescAcid: 'Udělí {val} poškození, přidá +{sec} Koroze a při zásahu Zdraví zablokuje 1 dlaždici.',
-    enemyIntentDescArmor: 'Získá +{val} Brnění, které pohlcuje poškození Útoku.',
-    enemyIntentDescBolster: 'Propůjčí +{val} Brnění VŠEM žijícím mutantům na mostě.',
-    enemyIntentDescCharge: 'Nabíjí žárové jádro (zbývá {sec}T) → po nabití udeří za {val} DMG.',
-    enemyIntentDescLeech: 'Udělí {val} poškození a vyléčí si +{sec} Zdraví, pokud projde poškození do Zdraví.',
-    corrodeDesc: 'Snižuje Štít získaný z dlaždic Obrany.',
-    armorDesc: 'Pohlcuje poškození Útoku před snížením zdraví nepřítele.',
-    nextActionLabel: 'Příští akce',
-    behaviorCycleLabel: 'Cyklus akcí',
-    enemyArmorActiveDesc:
-      'Pohltí až {armor} běžného poškození Útoku před zásahem Zdraví. Přetížení zničí celé brnění; Fázová čepel projde 30 %.',
-    enemyArmorNoneDesc: 'Bez brnění — poškození Útoku jde přímo do zdraví.',
-    enemyShieldPipDesc: 'Aktivní Aegis Pip (◆): zcela pohltí příští 1 zásah bez ohledu na výši poškození.',
     victoryTitle: 'Sektor vyčištěn',
     victorySubtitle: 'Xenomorfní Matriarcha padla a nebeský most Nové Prahy je zabezpečen.',
     defeatTitle: 'Signál ztracen',
@@ -1005,13 +865,10 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     enemiesDefeatedLabel: 'Zneškodněno mutantů',
     turnsLabel: 'Tahy',
     damageDealtLabel: 'Udělené poškození',
-    heatGaugeLabel: 'ŽÁR',
     heatLowLabel: 'NÍZKÝ ŽÁR',
     heatMediumLabel: 'POSILY',
     heatOvertimeLabel: 'PŘESČAS',
-    parCachesLabel: 'Bonusové schránky',
     parCachePrefix: 'T',
-    tempoLabel: 'TEMPO',
     tempoTip: 'Zraňuj nepřátele v po sobě jdoucích tazích pro bonusové CR (+2 CR/tah, max +8 CR).',
     inboundDropLabel: 'VÝSADEK',
     dropZeroDmgRule: '0 DMG v tahu dopadu',
@@ -1021,7 +878,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     dropReasonSos: 'SOS SIGNÁL',
     dropReasonSweeper: 'ČISTIČ',
     dropRubberBandDelayed: 'ODLOŽENO (+1T)',
-    enrageBadgeLabel: 'ZUŘIVOST',
     sosFlareBadgeLabel: 'SOS',
     zeroRewardBadgeLabel: '0 CR',
     fastClearBonusLabel: 'Bonus za rychlé vyčištění',
@@ -1029,17 +885,9 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     parBonusLabel: 'Par schránky',
     tempoBonusLabel: 'Tempo',
     sectorMapTitle: 'Mapa trasy sektoru',
-    sectorMapSubtitle: 'Vyber další větev mostu nebo před bojem uprav výbavu ({name}).',
     layerLabel: 'Úsek',
-    nodeCleared: 'Vyčištěno',
-    nodeAvailable: 'Dostupné',
     nodeLocked: 'Uzamčeno',
     enterNode: 'Vstoupit',
-    mapAdvisorTitle: 'Taktický poradce trasy',
-    mapRecommendedBadge: 'DOPORUČENO',
-    mapDownstreamBadge: 'NAVAZUJE',
-    mapLaneNorth: 'Severní klenba · Hi-Tech',
-    mapLaneSouth: 'Jižní lávka · Podpora',
     mapAdviceLowHp: 'Zdraví pod limitem — zvol trasu k Bio-ošetřovně pro opravu +22 Zdraví.',
     mapAdviceElite: 'Zdraví optimální — zaútoč na Elitní zrůdu pro kořist + Kyber-kliniku.',
     mapAdviceClinic: 'Blízko je Kyber-klinika — kup nové vybavení a nainstaluj implantát.',
@@ -1085,7 +933,7 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     applyExtract: 'Zavolat raketoplán',
     medbayNurseName: 'Dr. Amara Vance',
     medbayNurseRole: 'Vrchní bio-medička',
-    medbayNurseIdleNominal: 'funkce stabilní — purpurové nano-sérum je připraveno k přetaktování či zpevnění schránky.',
+    medbayNurseIdleNominal: 'Funkce stabilní — purpurové nano-sérum je připraveno k přetaktování či zpevnění schránky.',
     medbayNurseIdleCritical: 'Varování traumatu! Nehýbej se — mám připravenou dávku regeneračního nano-gelu k okamžité aplikaci.',
     medbayNurseHoverHeal: 'Připravuji nano-injektor: okamžitá buněčná obnova +22 Zdraví.',
     medbayNurseHoverCalibrate: 'Zesiluji podkožní pletivo: trvalé navýšení kapacity o +10 Max Zdraví.',
@@ -1108,7 +956,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     laneGamblerDesc: 'Anomálie a obchody · Nízká bojová únava',
     laneShortPrefix: 'TRASA',
     mapRiskShort: 'HP riziko',
-    mapPathTargetBadge: 'CÍL TRASY',
     mapAnomalyLabel: 'ANOMÁLIE (?)',
     mapMultiHopLabel: 'Plánovaná trasa',
     mapHpRecoveryLabel: 'Obnova HP',
@@ -1125,8 +972,6 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     abstinenceBonusLabel: 'Žoldnéřský úrok (série)',
     emergencyDefibTriggered: 'NOUZOVÝ DEFIBRILÁTOR: Životní injekce obnovila +15% HP!',
     reconActiveBadge: 'PRŮZKUM AKTIVNÍ',
-    bossTelegraphTitle: 'TELEGRAF STRÁŽCE SEKTORU',
-    bossTelegraphIntel: 'Vládce líhně · Finále Sektor 05',
     shopAffordable: 'DOSTUPNÉ',
     shopLowCredits: 'MÁLO KREDITŮ',
     eventViewTitle: 'UDÁLOST V KYBER-SÍTI',
@@ -1306,11 +1151,11 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
       },
       utocny_dron_sokol: {
         name: 'Útočný dron Sokol',
-        desc: 'Autonomní tryskový dron s rotačním plazmovým dělem (2× 5 ATK nálet a 6 DEF kryt).',
+        desc: 'Autonomní tryskový dron s rotačním plazmovým dělem (nálety 6 ATK a 5 ATK).',
       },
       stito_dron_ankh: {
         name: 'Štíto-dron Ankh',
-        desc: 'Propojení bio-medického dronu Ankh a kráčejícího štítu (+4 HP oprava a 7 DEF kupole).',
+        desc: 'Propojení bio-medického dronu Ankh a kráčejícího štítu (+4 HP oprava a 8 DEF kupole).',
       },
       karabin_vx: {
         name: 'Karabina VX',

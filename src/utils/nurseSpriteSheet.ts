@@ -136,7 +136,7 @@ export interface NursePoseKinematics {
   activeLimbY: number;
 }
 
-export const NURSE_POSE_KINEMATICS: readonly NursePoseKinematics[] = [
+const NURSE_POSE_KINEMATICS: readonly NursePoseKinematics[] = [
   { headTiltRad: 0.0, headYPx: 0, syringeDxPx: 0, syringeDyPx: 0, activeLimbX: 65, activeLimbY: 340 },
   { headTiltRad: 0.015, headYPx: 1.2, syringeDxPx: 1.5, syringeDyPx: 1.0, activeLimbX: 68, activeLimbY: 342 },
   { headTiltRad: 0.024, headYPx: 2.0, syringeDxPx: -1.0, syringeDyPx: 1.8, activeLimbX: 70, activeLimbY: 345 },
@@ -161,7 +161,7 @@ export interface NurseTrajectoryWarp {
   limbTravelDist: number;
 }
 
-export function getNurseTrajectoryWarp(fromIdx: number, toIdx: number, t: number): NurseTrajectoryWarp {
+function getNurseTrajectoryWarp(fromIdx: number, toIdx: number, t: number): NurseTrajectoryWarp {
   const from = NURSE_POSE_KINEMATICS[fromIdx] ?? NURSE_POSE_KINEMATICS[0];
   const to = NURSE_POSE_KINEMATICS[toIdx] ?? NURSE_POSE_KINEMATICS[0];
 

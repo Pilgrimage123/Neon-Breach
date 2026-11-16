@@ -1,5 +1,5 @@
 import { getEffectiveEnemyIntentValue } from '../../engine/reinforcementDirector';
-import type { CharacterId, EnemyArchetype, EnemyIntent, EnemyUnit } from '../../engine/types';
+import type { CharacterId, EnemyArchetype, EnemyIntent } from '../../engine/types';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import type { CrawlerVariant } from '../../utils/crawlerSpriteSheet';
 import { type HeroineAnimState, createInitialHeroineAnimState } from '../../utils/heroineSpriteSheet';
@@ -196,6 +196,7 @@ export interface CombatStageSim {
   ghosts: AfterimageGhost[];
   ghostSampleTimer: number;
   enemyAnims: Map<string, ActorAnim>;
+  enemyWoundOrigins: Map<string, { x: number; y: number; groundY: number }>;
   particles: Particle[];
   particleCursor: number;
   bloodDrops: BloodDroplet[];
@@ -392,6 +393,7 @@ export function createCombatStageSim(): CombatStageSim {
     ghosts: [],
     ghostSampleTimer: 0,
     enemyAnims: new Map(),
+    enemyWoundOrigins: new Map(),
     particles,
     particleCursor: 0,
     bloodDrops,
@@ -455,6 +457,7 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   };
   sim.ghosts = [];
   sim.enemyAnims.clear();
+  sim.enemyWoundOrigins.clear();
   for (let i = 0; i < sim.particles.length; i++) sim.particles[i].active = false;
   for (let i = 0; i < sim.bloodDrops.length; i++) sim.bloodDrops[i].active = false;
   for (let i = 0; i < sim.floorBlood.length; i++) sim.floorBlood[i].active = false;
@@ -486,7 +489,7 @@ export function formatEnemyIntent(
   }
   const val =
     enrageAtkBonus > 0
-      ? getEffectiveEnemyIntentValue({ enrageAtkBonus } as EnemyUnit, intent)
+      ? getEffectiveEnemyIntentValue({ enrageAtkBonus }, intent)
       : intent.value;
   const condTag = intent.conditionBonus ? `(+${intent.conditionBonus}?)` : '';
   switch (intent.kind) {

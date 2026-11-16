@@ -21,7 +21,6 @@ export const MAX_IMPLANTS = 4;
 export const KIRA_CARRY_CAPACITY = 12;
 export const AURELIA_CARRY_CAPACITY = 14;
 export const ZURI_CARRY_CAPACITY = 13;
-export const STARTING_CREDITS = 45;
 export const CLINIC_RESTOCK_COST = 12;
 
 export interface HeroOverdriveSpec {
@@ -425,7 +424,10 @@ export function getEquippedEquipmentWeight(heroine: Pick<HeroineState, 'ownedEqu
 }
 
 export function rebuildMasterPool(
-  heroine: Pick<HeroineState, 'characterId' | 'ownedEquipment' | 'equippedInstanceIds'>,
+  heroine: Pick<
+    HeroineState,
+    'characterId' | 'ownedEquipment' | 'equippedInstanceIds' | 'overclockCount'
+  >,
 ): Tile[] {
   const innateSpecs = getInnateTilesForCharacter(heroine.characterId ?? 'kira');
   const pool: Tile[] = innateSpecs.map((spec, idx) => ({
@@ -453,6 +455,18 @@ export function rebuildMasterPool(
         isHeldFromPrevTurn: false,
       });
     });
+  }
+
+  const overclockCount = Math.max(0, heroine.overclockCount ?? 0);
+  if (overclockCount > 0) {
+    const atkBonus = overclockCount * 2;
+    let upgraded = 0;
+    for (let i = 0; i < pool.length && upgraded < 2; i++) {
+      if (pool[i].type === 'attack') {
+        pool[i] = { ...pool[i], value: pool[i].value + atkBonus };
+        upgraded++;
+      }
+    }
   }
 
   return pool;

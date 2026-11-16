@@ -1,3 +1,4 @@
+import type { Language } from '../i18n/translations';
 import type { CyberEvent, HeroineState, MapNode } from './types';
 
 export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
@@ -18,8 +19,8 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
       },
       {
         id: 'ai_siphon',
-        label: 'Siphon Shield Capacitor',
-        description: 'Reroute emergency capacitors for +14 Shield and system cleanse.',
+        label: 'Siphon Emergency Bio-Cell',
+        description: 'Reroute emergency bio-cells to restore +8 HP and gain +10% Overdrive.',
         rewardHp: 8,
         rewardOverdrive: 10,
       },
@@ -121,15 +122,131 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
   },
 ];
 
+interface CyberEventTextCopy {
+  title: string;
+  subtitle: string;
+  story: string;
+  choices: Record<string, { label: string; description: string }>;
+}
+
+const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
+  rogue_ai_cache: {
+    title: 'AI Jádro pod Klenbou',
+    subtitle: 'Vyřazená sledovací subrutina',
+    story:
+      'Za prasklou přepážkou hučí blikající vojenský terminál. Jeho kvantová paměť ukrývá nešifrovanou firemní telemetrii a živé napájecí okruhy.',
+    choices: {
+      ai_overclock: {
+        label: 'Přetaktovat neurální odběr',
+        description: 'Obětuj 6 HP bio-popálením a získej datové kredity a bojový náboj.',
+      },
+      ai_siphon: {
+        label: 'Odsát nouzový bio-článek',
+        description: 'Přesměruj záložní bio-články pro obnovu +8 HP a zisk +10% Overdrive.',
+      },
+      ai_nanites: {
+        label: 'Extrahovat nanitové paměťové jádro',
+        description: 'Opatrně extrahuj +2 nanitová jádra pro trvalý postup.',
+      },
+    },
+  },
+  black_market_smuggler: {
+    title: 'Pašerák z černého trhu',
+    subtitle: 'Obchodník se zbraněmi ze stínové lávky',
+    story:
+      'Z parních průduchů vystupuje zahalený kurýr s upravenými bojovými stimulanty a prototypovým vybavením zachráněným z dolní klenby.',
+    choices: {
+      smuggler_booster: {
+        label: 'Koupit experimentální posilovač (-25 CR)',
+        description: 'Zaplať 25 kreditů za trvalé vyladění zbraní (+20% k poškození).',
+      },
+      smuggler_sell: {
+        label: 'Prodat přebytečný šrot a munici',
+        description: 'Vyměň nadbytečnou munici a telemetrii za +30 kreditů.',
+      },
+      smuggler_bypass: {
+        label: 'Odmítnout a prohledat okolí',
+        description: 'Zdvořile projdi kolem a posbírej spadlé součástky (+8 kreditů).',
+      },
+    },
+  },
+  derelict_combat_drone: {
+    title: 'Vrak bojového drona',
+    subtitle: 'Havarovaná jednotka Aegis Vanguard',
+    story:
+      'Neponičený bojový dron visí na přetržených magnetických kabelech nad propastí mostu a jeho plazmové jádro stále pulzuje zbytkovou energií.',
+    choices: {
+      drone_hotwire: {
+        label: 'Zkratovat plazmové jádro',
+        description: 'Okamžitě nabij svůj plazmový Overdrive na plných 100% kapacity.',
+      },
+      drone_repair: {
+        label: 'Vytěžit nano-pancíř',
+        description: 'Integruj nepoškozené pláty šasi drona a obnov si +20 HP.',
+      },
+      drone_components: {
+        label: 'Rozebrat vzácné jádro',
+        description: 'Extrahuj specializovaná nanitová jádra (+2 nanity) a +15 kreditů.',
+      },
+    },
+  },
+  tachyon_terminal: {
+    title: 'Terminál kvantové anomálie',
+    subtitle: 'Zkreslení tachyonové sítě',
+    story:
+      'Lokální kvantová porucha pokřivila senzorová pole mostu. Napojení na jádro umožňuje manipulovat s energií reality.',
+    choices: {
+      tachyon_extract: {
+        label: 'Hloubková extrakce dat',
+        description: 'Snášej 5 HP bio-traumatu a vytěž cenná data (+45 kreditů, +1 nanit).',
+      },
+      tachyon_recalibrate: {
+        label: 'Kalibrace harmonického pulzu',
+        description: 'Stabilizuj lokální pole pro opravu +14 HP a zisk +15 kreditů.',
+      },
+      tachyon_charge: {
+        label: 'Pohltit energii pole',
+        description: 'Usmerni záření do +10% bonusu k poškození a +30% Overdrive.',
+      },
+    },
+  },
+};
+
+export function localizeCyberEvent(event: CyberEvent, lang: Language = 'en'): CyberEvent {
+  if (lang !== 'cs') {
+    return {
+      ...event,
+      choices: event.choices.map((c) => ({ ...c })),
+    };
+  }
+  const cs = CYBER_EVENT_CS[event.id];
+  if (!cs) {
+    return {
+      ...event,
+      choices: event.choices.map((c) => ({ ...c })),
+    };
+  }
+  return {
+    ...event,
+    title: cs.title,
+    subtitle: cs.subtitle,
+    story: cs.story,
+    choices: event.choices.map((c) => {
+      const choiceCs = cs.choices[c.id];
+      return choiceCs
+        ? { ...c, label: choiceCs.label, description: choiceCs.description }
+        : { ...c };
+    }),
+  };
+}
+
 export function getCyberEventForNode(
   node: MapNode,
   seed: number,
   _heroine: HeroineState,
+  lang: Language = 'en',
 ): CyberEvent {
   const hash = Math.abs(seed * 31 + node.layer * 13 + node.lane * 7);
   const template = CYBER_EVENT_TEMPLATES[hash % CYBER_EVENT_TEMPLATES.length];
-  return {
-    ...template,
-    choices: template.choices.map((c) => ({ ...c })),
-  };
+  return localizeCyberEvent(template, lang);
 }

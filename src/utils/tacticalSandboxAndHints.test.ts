@@ -136,4 +136,30 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
   assert.ok(buffed.heroine.hp > 10);
   assert.equal(buffed.heroine.shield, 10);
   assert.equal(buffed.heroine.overdrive, 50);
+
+  // Respects alreadySwappedThisTurn = true and Aurelia's heldTileBonus = 0
+  const hintAfterSwap = computeOptimalTurnHint(run, 'en', true);
+  assert.ok(hintAfterSwap && hintAfterSwap.recommendedAction !== 'swap');
+
+  const aureliaRun = createInitialRun(104729, 'aurelia');
+  assert.ok(aureliaRun.combat);
+  const aureliaTurn2 = {
+    ...aureliaRun,
+    combat: {
+      ...aureliaRun.combat,
+      turn: 2,
+      board: aureliaRun.combat.board.map((t, i) => ({
+        ...t,
+        type: i % 2 === 0 ? ('attack' as const) : ('defense' as const),
+        isHeldFromPrevTurn: true,
+      })),
+    },
+  };
+  const aureliaPrompt = computeContextualMicroPrompt({
+    run: aureliaTurn2,
+    countByColor: { attack: 3, defense: 3, tech: 0 },
+    alreadySwappedThisTurn: false,
+    lang: 'en',
+  });
+  assert.ok(!aureliaPrompt || !aureliaPrompt.includes('HELD tiles gain'));
 });

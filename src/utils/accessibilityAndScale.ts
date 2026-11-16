@@ -1,5 +1,4 @@
 import type { EnemyArchetype, MapNodeType, TileType } from '../engine/types';
-import type { Language } from '../i18n/translations';
 
 export type SemanticZoomLevel = 'overview' | 'standard' | 'closeup';
 
@@ -449,7 +448,7 @@ export function computeLoupeAnchorPosition(
   };
 }
 
-export function createDefaultAccessibilityPrefs(profile: PhysicalScreenProfile): AccessibilityPrefs {
+function createDefaultAccessibilityPrefs(profile: PhysicalScreenProfile): AccessibilityPrefs {
   return {
     tacticalView: false,
     semanticZoom: 'standard',
@@ -501,11 +500,4 @@ export function saveAccessibilityPrefs(prefs: AccessibilityPrefs): void {
   } catch {
     // Ignore storage quota errors
   }
-}
-
-export function formatSemanticZoomLabel(level: SemanticZoomLevel, lang: Language): string {
-  if (lang === 'cs') {
-    return level === 'overview' ? 'Přehled' : level === 'closeup' ? 'Detail+' : '1×';
-  }
-  return level === 'overview' ? 'Overview' : level === 'closeup' ? 'Close-Up' : '1×';
 }

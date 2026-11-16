@@ -167,8 +167,8 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
     icon: '▲',
     labelEn: 'Held',
     labelCs: 'Drženo',
-    ruleEn: 'Kept on board. Gains +1 power.',
-    ruleCs: 'Zůstává na desce. Získá +1 sílu.',
+    ruleEn: 'Kept on board for next turn.',
+    ruleCs: 'Zůstává na desce pro další tah.',
     accentHex: '#FFC700',
   },
   stagger: {

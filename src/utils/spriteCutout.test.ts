@@ -282,10 +282,13 @@ test('computeSpriteBoundsFromData computes normalized ratios for opaque pixels',
   assert.equal(bounds.centerXRatio, ((2 + 7) * 0.5) / 10);
 });
 
-test('buildOptionsKey differentiates maxDimension and default options', () => {
+test('buildOptionsKey differentiates maxDimension, unmixDarkHoloGlass, and default options', () => {
   const fullKey = buildOptionsKey({ removeInteriorWhite: true, minPocketArea: 18 });
   const scaledKey = buildOptionsKey({ removeInteriorWhite: true, minPocketArea: 18, maxDimension: 512 });
+  const holoKey = buildOptionsKey({ removeDarkBackground: true, unmixDarkHoloGlass: true });
+  const darkKey = buildOptionsKey({ removeDarkBackground: true, unmixDarkHoloGlass: false });
   assert.notEqual(fullKey, scaledKey);
+  assert.notEqual(holoKey, darkKey);
   assert.ok(scaledKey.endsWith('|512'));
   assert.ok(fullKey.endsWith('|full'));
 });

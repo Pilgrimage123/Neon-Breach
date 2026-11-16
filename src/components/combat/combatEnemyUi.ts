@@ -273,10 +273,7 @@ export function formatEnemyIntentCompact(
   }
   const val =
     enrageAtkBonus > 0
-      ? getEffectiveEnemyIntentValue(
-          { enrageAtkBonus } as EnemyUnit,
-          intent,
-        )
+      ? getEffectiveEnemyIntentValue({ enrageAtkBonus }, intent)
       : intent.value;
   const condVal =
     intent.condition && intent.conditionBonus
@@ -322,10 +319,7 @@ export function formatEnemyIntentSummary(
   }
   const val =
     enrageAtkBonus > 0
-      ? getEffectiveEnemyIntentValue(
-          { enrageAtkBonus } as EnemyUnit,
-          intent,
-        )
+      ? getEffectiveEnemyIntentValue({ enrageAtkBonus }, intent)
       : intent.value;
   const condTag =
     intent.condition === 'if_no_shield'

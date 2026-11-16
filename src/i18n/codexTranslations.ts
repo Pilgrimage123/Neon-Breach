@@ -426,10 +426,10 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: '16+ Burst Interrupt',
         summary: 'Dealing 16+ HP/Armor damage in a single turn interrupts Heavy or Charge attacks.',
         mechanics:
-          'When a Pyre Stinger (charging) or Carapace Brute (Heavy slam) takes 16+ combined HP and Armor damage in 1 turn without dying, it becomes STAGGERED: its upcoming attack becomes 0 DMG recovery and Thermal Charge resets to 2T.',
+          'When a Pyre Stinger (charging), Carapace Brute (Heavy slam), or Xenomorph Matriarch (Heavy strike) takes 16+ combined HP and Armor damage in 1 turn without dying, it becomes STAGGERED: its upcoming attack becomes 0 DMG recovery and Thermal Charge resets to 2T.',
         tacticalTip:
           'Watch for the ⚡ STAGGER! preview badge on enemy pods when hovering high-burst Attacks or Overdrive.',
-        keywords: ['stagger', 'interrupt', '16', 'burst', 'charge', 'heavy', 'brute', 'stinger'],
+        keywords: ['stagger', 'interrupt', '16', 'burst', 'charge', 'heavy', 'brute', 'stinger', 'boss'],
       },
       tile_hex: {
         term: 'Targeted Tile Hex (⬡)',
@@ -793,10 +793,10 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Přerušení 16+ DMG',
         summary: 'Udělení 16+ HP/BRN poškození v jednom tahu přeruší Těžké údery i Žárové nabíjení.',
         mechanics:
-          'Pokud Žárový žahavec (nabíjení) nebo Krunýřový kolos (Těžký úder) utrpí 16+ celkového poškození do HP a Brnění v jednom tahu a přežije, je OMRÁČEN: jeho příští akce klesne na 0 DMG a nabíjení se vrátí na 2T.',
+          'Pokud Žárový žahavec (nabíjení), Krunýřový kolos (Těžký úder) nebo Xenomorfní Matriarcha (Těžký úder) utrpí 16+ celkového poškození do HP a Brnění v jednom tahu a přežije, je OMRÁČEN: jeho příští akce klesne na 0 DMG a nabíjení se vrátí na 2T.',
         tacticalTip:
           'Sleduj štítek ⚡ OMRÁČÍ! na kartě nepřítele při najetí na silný Útok nebo Overdrive.',
-        keywords: ['omráčení', 'stagger', 'přerušení', '16', 'kolos', 'žahavec'],
+        keywords: ['omráčení', 'stagger', 'přerušení', '16', 'kolos', 'žahavec', 'boss'],
       },
       tile_hex: {
         term: 'Kletba dlaždice (⬡)',

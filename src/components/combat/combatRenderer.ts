@@ -1,5 +1,12 @@
 import { previewHeroineThreat } from '../../engine/gameEngine';
-import type { CharacterId, CombatState, HeroineState, TileType, TurnPreview } from '../../engine/types';
+import type {
+  CharacterId,
+  CombatState,
+  HeroineState,
+  HeroineThreatPreview,
+  TileType,
+  TurnPreview,
+} from '../../engine/types';
 import { AURELIA_CANONICAL_HEIGHT, AURELIA_SHEET_FRAMES } from '../../utils/aureliaSpriteSheet';
 import {
   CRAWLER_ARCH_SCALE,
@@ -92,6 +99,7 @@ export function renderCombatStage(
   tacticalViewActive = false,
   autoFocusCamera = false,
   hoveringSwap = false,
+  precomputedThreat?: HeroineThreatPreview,
 ): void {
   const { w, h } = sim.size;
   const dpr = sim.dpr;
@@ -178,7 +186,11 @@ export function renderCombatStage(
   sim.cameraPanX = (sim.cameraPanX || 0) + (targetPanX - (sim.cameraPanX || 0)) * camLerp;
   sim.cameraPanY = (sim.cameraPanY || 0) + (targetPanY - (sim.cameraPanY || 0)) * camLerp;
 
-  if (Math.abs(sim.cameraZoom - 1) > 0.004 || Math.abs(sim.cameraPanX) > 0.5) {
+  if (
+    Math.abs(sim.cameraZoom - 1) > 0.004 ||
+    Math.abs(sim.cameraPanX) > 0.5 ||
+    Math.abs(sim.cameraPanY) > 0.5
+  ) {
     ctx.translate(w * 0.5 + sim.cameraPanX, h * 0.5 + sim.cameraPanY);
     ctx.scale(sim.cameraZoom, sim.cameraZoom);
     ctx.translate(-w * 0.5, -h * 0.5);
@@ -907,7 +919,7 @@ export function renderCombatStage(
 
   // On-stage Kira Lifebar + Enemy-Inflicted Damage & Lethal Death Preview directly under Kira's feet
   if (heroine.hp > 0 && !isProne && !heroSample.isDashing) {
-    const kiraThreat = previewHeroineThreat(combat, heroine, activePreview);
+    const kiraThreat = precomputedThreat ?? previewHeroineThreat(combat, heroine, activePreview);
     const hasThreatOrHeal =
       kiraThreat.hpDamageTaken > 0 ||
       kiraThreat.rawIncomingDamage > 0 ||

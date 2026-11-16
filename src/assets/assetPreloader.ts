@@ -49,20 +49,20 @@ export {
   ZURI_SHEET_OPTIONS,
 };
 
-export const KIRA_COMBAT_OPTIONS: SpriteCutoutOptions = {
+const KIRA_COMBAT_OPTIONS: SpriteCutoutOptions = {
   removeInteriorWhite: true,
   minPocketArea: 14,
   defringeStrength: 0.78,
 };
 
-export const KIRA_EMOTE_OPTIONS: SpriteCutoutOptions = {
+const KIRA_EMOTE_OPTIONS: SpriteCutoutOptions = {
   removeInteriorWhite: true,
   minPocketArea: 14,
   defringeStrength: 0.78,
   unmixLightGlow: true,
 };
 
-export const AURELIA_SHEET_OPTIONS: SpriteCutoutOptions = {
+const AURELIA_SHEET_OPTIONS: SpriteCutoutOptions = {
   removeBottomFloorShadow: true,
   defringeStrength: 0.78,
 };
@@ -74,13 +74,13 @@ export const ENEMY_CUTOUT_OPTIONS: SpriteCutoutOptions = {
   maxDimension: 512,
 };
 
-export const CRAWLER_SHEET_OPTIONS: SpriteCutoutOptions = {
+const CRAWLER_SHEET_OPTIONS: SpriteCutoutOptions = {
   removeInteriorWhite: true,
   minPocketArea: 24,
   defringeStrength: 0.78,
 };
 
-export interface PreloadedEnemyCutout {
+interface PreloadedEnemyCutout {
   canvas: HTMLCanvasElement;
   bounds: SpriteBounds;
 }
@@ -171,7 +171,7 @@ export function getPreloadedZuriDroneFrames(): HTMLCanvasElement[] | null {
   );
 }
 
-export function loadZuriDroneFrames(): Promise<HTMLCanvasElement[]> {
+function loadZuriDroneFrames(): Promise<HTMLCanvasElement[]> {
   return loadSpriteSheetFrames(
     GAME_ASSETS.zuriDrones,
     ZURI_DRONE_FRAMES,

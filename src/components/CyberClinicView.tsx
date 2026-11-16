@@ -19,6 +19,7 @@ interface CyberClinicViewProps {
   onBuyEquipment: (defId: string) => void;
   onRestockShop: () => void;
   onInstall: (implantId: CyberImplantId, replaceId?: CyberImplantId) => void;
+  onOpenPool?: () => void;
   onSkip: () => void;
 }
 
@@ -30,6 +31,7 @@ export function CyberClinicView({
   onBuyEquipment,
   onRestockShop,
   onInstall,
+  onOpenPool,
   onSkip,
 }: CyberClinicViewProps) {
   const t = TRANSLATIONS[lang];
@@ -88,29 +90,36 @@ export function CyberClinicView({
             <span aria-hidden="true" className="text-slate-400">
               ·
             </span>
-            <span className="font-semibold text-[#00F0FF]">
-              {t.capacityLabel}: {equippedWeight}/{run.heroine.carryCapacity}
-            </span>
-            {isCompactLandscape && (
-              <>
-                {pendingImplant && (
-                  <button
-                    type="button"
-                    onClick={() => setPendingImplant(null)}
-                    className="chrome-pill rounded-lg px-2 py-0.5 font-sans text-[10px] font-semibold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer"
-                  >
-                    ←
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={onSkip}
-                  className="chrome-pill ml-1 rounded-lg px-2.5 py-0.5 font-sans text-[11px] font-semibold text-slate-100 hover:border-cyan-300 hover:text-white cursor-pointer"
-                >
-                  {t.skipClinic}
-                </button>
-              </>
+            {onOpenPool ? (
+              <button
+                type="button"
+                onClick={onOpenPool}
+                className="chrome-pill rounded-lg px-2 py-0.5 text-[11px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
+                title={t.inspectPool}
+              >
+                ▣ {t.capacityLabel}: {equippedWeight}/{run.heroine.carryCapacity}
+              </button>
+            ) : (
+              <span className="font-semibold text-[#00F0FF]">
+                {t.capacityLabel}: {equippedWeight}/{run.heroine.carryCapacity}
+              </span>
             )}
+            {pendingImplant && (
+              <button
+                type="button"
+                onClick={() => setPendingImplant(null)}
+                className="chrome-pill rounded-lg px-2 py-0.5 font-sans text-[11px] font-semibold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer"
+              >
+                ← {lang === 'cs' ? 'Zpět' : 'Back'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onSkip}
+              className="chrome-pill ml-1 rounded-lg px-2.5 py-0.5 sm:px-3 sm:py-1 font-sans text-[11px] sm:text-xs font-semibold text-slate-100 hover:border-cyan-300 hover:text-white cursor-pointer"
+            >
+              {t.skipClinic} →
+            </button>
           </div>
         </div>
 
@@ -158,6 +167,7 @@ export function CyberClinicView({
                   const meta = t.equipment[def.id];
                   const price = isFlashSale ? Math.max(10, Math.round(def.price * 0.65)) : def.price;
                   const canAfford = run.heroine.credits >= price;
+                  const fitsEquip = equippedWeight + def.size <= run.heroine.carryCapacity;
 
                   return (
                     <div
@@ -174,8 +184,8 @@ export function CyberClinicView({
                             <h2 className="font-display text-xs sm:text-sm font-bold text-white truncate">
                               {meta?.name ?? def.id}
                             </h2>
-                            <span className="text-[#00F0FF] shrink-0">
-                              {t.sizeLabel}: {def.size}
+                            <span className={fitsEquip ? 'text-[#00F0FF] shrink-0' : 'text-amber-300 shrink-0'}>
+                              {t.sizeLabel}: {def.size} · {fitsEquip ? '✓' : '⬡'}
                             </span>
                           </div>
                           {!isCompactLandscape && (
@@ -368,29 +378,6 @@ export function CyberClinicView({
             )}
           </div>
         </div>
-
-        {!isCompactLandscape && (
-          <div className="mt-3.5 flex items-center justify-between border-t border-white/15 pt-3 shrink-0">
-            {pendingImplant ? (
-              <button
-                type="button"
-                onClick={() => setPendingImplant(null)}
-                className="chrome-pill rounded-lg px-3.5 py-1.5 text-xs font-semibold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer"
-              >
-                ← {t.clinicSelectPrompt}
-              </button>
-            ) : (
-              <span />
-            )}
-            <button
-              type="button"
-              onClick={onSkip}
-              className="chrome-pill rounded-lg px-4 py-1.5 text-xs font-semibold text-slate-100 hover:border-cyan-300 hover:text-white cursor-pointer"
-            >
-              {t.skipClinic}
-            </button>
-          </div>
-        )}
       </div>
     </main>
   );
