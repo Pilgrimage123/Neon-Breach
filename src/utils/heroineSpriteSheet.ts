@@ -1,9 +1,9 @@
 import type { TileType } from '../engine/types';
 
-export const HEROINE_SHEET_WIDTH = 1774;
-export const HEROINE_SHEET_HEIGHT = 887;
-export const HEROINE_EMOTE_SHEET_WIDTH = 1774;
-export const HEROINE_EMOTE_SHEET_HEIGHT = 887;
+export const HEROINE_SHEET_WIDTH = 2115;
+export const HEROINE_SHEET_HEIGHT = 1189;
+export const HEROINE_EMOTE_SHEET_WIDTH = 2095;
+export const HEROINE_EMOTE_SHEET_HEIGHT = 1007;
 export const HEROINE_CANONICAL_HEIGHT = 214;
 
 export type HeroineSheetSource = 'combat' | 'emote';
@@ -28,100 +28,102 @@ export interface HeroineFrameDef {
   muzzleRel?: { dx: number; dy: number };
   /** Optional kick arc tip relative to (anchorX, bottomY) in unscaled sprite pixels */
   kickTipRel?: { dx: number; dy: number };
+  /** Optional sub-rectangles (relative to frame top-left) to clear before background removal */
+  excludeRects?: readonly { x: number; y: number; w: number; h: number }[];
 }
 
 export const HEROINE_COMBAT_FRAMES: readonly HeroineFrameDef[] = [
   // Row 0: Idle & Sprint Run (7 frames, normalized to exact 214.0px standing height)
-  { id: 'r0_f0', row: 0, col: 0, x: 66, y: 0, w: 136, h: 224, anchorX: 79.0, bottomY: 219, rowScale: 1.019, sheet: 'combat' },
-  { id: 'r0_f1', row: 0, col: 1, x: 309, y: 0, w: 140, h: 222, anchorX: 70.5, bottomY: 217, rowScale: 1.034, sheet: 'combat' },
-  { id: 'r0_f2', row: 0, col: 2, x: 506, y: 0, w: 176, h: 218, anchorX: 98.5, bottomY: 213, rowScale: 1.035, sheet: 'combat' },
-  { id: 'r0_f3', row: 0, col: 3, x: 751, y: 0, w: 158, h: 215, anchorX: 82.5, bottomY: 210, rowScale: 1.035, sheet: 'combat' },
-  { id: 'r0_f4', row: 0, col: 4, x: 958, y: 5, w: 178, h: 214, anchorX: 84.7, bottomY: 208, rowScale: 1.035, sheet: 'combat' },
-  { id: 'r0_f5', row: 0, col: 5, x: 1207, y: 5, w: 161, h: 212, anchorX: 74.4, bottomY: 207, rowScale: 1.035, sheet: 'combat' },
-  { id: 'r0_f6', row: 0, col: 6, x: 1403, y: 5, w: 193, h: 212, anchorX: 100.9, bottomY: 207, rowScale: 1.035, sheet: 'combat' },
+  { id: 'r0_f0', row: 0, col: 0, x: 16, y: 16, w: 136, h: 224, anchorX: 79, bottomY: 219, rowScale: 1.019, sheet: 'combat' },
+  { id: 'r0_f1', row: 0, col: 1, x: 170, y: 16, w: 140, h: 222, anchorX: 70.5, bottomY: 217, rowScale: 1.034, sheet: 'combat' },
+  { id: 'r0_f2', row: 0, col: 2, x: 328, y: 16, w: 176, h: 218, anchorX: 98.5, bottomY: 213, rowScale: 1.035, sheet: 'combat' },
+  { id: 'r0_f3', row: 0, col: 3, x: 522, y: 16, w: 158, h: 215, anchorX: 82.5, bottomY: 210, rowScale: 1.035, sheet: 'combat' },
+  { id: 'r0_f4', row: 0, col: 4, x: 698, y: 16, w: 178, h: 214, anchorX: 84.7, bottomY: 208, rowScale: 1.035, sheet: 'combat' },
+  { id: 'r0_f5', row: 0, col: 5, x: 894, y: 16, w: 161, h: 212, anchorX: 74.4, bottomY: 207, rowScale: 1.035, sheet: 'combat' },
+  { id: 'r0_f6', row: 0, col: 6, x: 1073, y: 16, w: 193, h: 212, anchorX: 100.9, bottomY: 207, rowScale: 1.035, sheet: 'combat' },
 
-  // Row 1: Pistol Aim & Muzzle Flash Burst (7 frames, normalized to exact 214.0px standing height)
-  { id: 'r1_f0', row: 1, col: 0, x: 34, y: 226, w: 176, h: 220, anchorX: 87.0, bottomY: 215, rowScale: 1.059, sheet: 'combat', muzzleRel: { dx: 82, dy: -158 } },
-  { id: 'r1_f1', row: 1, col: 1, x: 253, y: 226, w: 184, h: 220, anchorX: 97.5, bottomY: 215, rowScale: 1.054, sheet: 'combat', muzzleRel: { dx: 82, dy: -165 } },
-  { id: 'r1_f2', row: 1, col: 2, x: 470, y: 226, w: 192, h: 220, anchorX: 106.0, bottomY: 215, rowScale: 1.065, sheet: 'combat', muzzleRel: { dx: 80, dy: -168 } },
-  { id: 'r1_f3', row: 1, col: 3, x: 686, y: 226, w: 225, h: 220, anchorX: 114.0, bottomY: 215, rowScale: 1.070, sheet: 'combat', muzzleRel: { dx: 96, dy: -170 } },
-  { id: 'r1_f4', row: 1, col: 4, x: 915, y: 227, w: 220, h: 219, anchorX: 110.5, bottomY: 214, rowScale: 1.086, sheet: 'combat', muzzleRel: { dx: 96, dy: -170 } },
-  { id: 'r1_f5', row: 1, col: 5, x: 1152, y: 226, w: 190, h: 220, anchorX: 102.0, bottomY: 215, rowScale: 1.070, sheet: 'combat', muzzleRel: { dx: 84, dy: -164 } },
-  { id: 'r1_f6', row: 1, col: 6, x: 1393, y: 228, w: 180, h: 218, anchorX: 93.0, bottomY: 213, rowScale: 1.075, sheet: 'combat', muzzleRel: { dx: 80, dy: -156 } },
+  // Row 1: Pistol Aim & Muzzle Flash Burst (7 frames, upscaled to canonical 214.0px standing height)
+  { id: 'r1_f0', row: 1, col: 0, x: 16, y: 258, w: 186, h: 233, anchorX: 91.94, bottomY: 227.7, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 87, dy: -167 } },
+  { id: 'r1_f1', row: 1, col: 1, x: 220, y: 258, w: 194, h: 232, anchorX: 102.8, bottomY: 226.73, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 86, dy: -174 } },
+  { id: 'r1_f2', row: 1, col: 2, x: 432, y: 258, w: 204, h: 234, anchorX: 112.63, bottomY: 228.68, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 85, dy: -179 } },
+  { id: 'r1_f3', row: 1, col: 3, x: 654, y: 258, w: 241, h: 235, anchorX: 122.11, bottomY: 229.66, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 103, dy: -182 } },
+  { id: 'r1_f4', row: 1, col: 4, x: 913, y: 258, w: 239, h: 238, anchorX: 120.04, bottomY: 232.57, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 104, dy: -185 } },
+  { id: 'r1_f5', row: 1, col: 5, x: 1170, y: 258, w: 203, h: 235, anchorX: 108.98, bottomY: 229.66, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 90, dy: -175 } },
+  { id: 'r1_f6', row: 1, col: 6, x: 1391, y: 258, w: 194, h: 234, anchorX: 100.23, bottomY: 228.63, rowScale: 1, sheet: 'combat', muzzleRel: { dx: 86, dy: -167 } },
 
-  // Row 2: High Plasma Kick Combo (8 frames, normalized to exact 214.0px standing height)
-  { id: 'r2_f0', row: 2, col: 0, x: 46, y: 449, w: 149, h: 172, anchorX: 80.5, bottomY: 167, rowScale: 1.363, sheet: 'combat' },
-  { id: 'r2_f1', row: 2, col: 1, x: 246, y: 449, w: 138, h: 172, anchorX: 77.0, bottomY: 167, rowScale: 1.390, sheet: 'combat' },
-  { id: 'r2_f2', row: 2, col: 2, x: 437, y: 448, w: 142, h: 174, anchorX: 76.0, bottomY: 169, rowScale: 1.346, sheet: 'combat' },
-  { id: 'r2_f3', row: 2, col: 3, x: 628, y: 448, w: 157, h: 175, anchorX: 89.5, bottomY: 171, rowScale: 1.363, sheet: 'combat' },
-  { id: 'r2_f4', row: 2, col: 4, x: 817, y: 452, w: 197, h: 171, anchorX: 82.0, bottomY: 166, rowScale: 1.346, sheet: 'combat', kickTipRel: { dx: 105, dy: -124 } },
-  { id: 'r2_f5', row: 2, col: 5, x: 1042, y: 450, w: 118, h: 172, anchorX: 52.0, bottomY: 167, rowScale: 1.417, sheet: 'combat' },
-  { id: 'r2_f6', row: 2, col: 6, x: 1214, y: 453, w: 122, h: 169, anchorX: 75.0, bottomY: 164, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r2_f7', row: 2, col: 7, x: 1394, y: 450, w: 140, h: 172, anchorX: 75.5, bottomY: 167, rowScale: 1.346, sheet: 'combat' },
+  // Row 2: High Plasma Kick Combo (8 frames, upscaled to canonical 214.0px standing height)
+  { id: 'r2_f0', row: 2, col: 0, x: 16, y: 514, w: 203, h: 234, anchorX: 109.67, bottomY: 227.2, rowScale: 1, sheet: 'combat' },
+  { id: 'r2_f1', row: 2, col: 1, x: 237, y: 514, w: 192, h: 239, anchorX: 107.13, bottomY: 232.05, rowScale: 1, sheet: 'combat' },
+  { id: 'r2_f2', row: 2, col: 2, x: 447, y: 514, w: 191, h: 234, anchorX: 102.23, bottomY: 227.28, rowScale: 1, sheet: 'combat' },
+  { id: 'r2_f3', row: 2, col: 3, x: 656, y: 514, w: 214, h: 239, anchorX: 121.99, bottomY: 233.54, rowScale: 1, sheet: 'combat' },
+  { id: 'r2_f4', row: 2, col: 4, x: 888, y: 514, w: 265, h: 230, anchorX: 110.3, bottomY: 223.27, rowScale: 1, sheet: 'combat', kickTipRel: { dx: 141, dy: -167 } },
+  { id: 'r2_f5', row: 2, col: 5, x: 1171, y: 514, w: 167, h: 244, anchorX: 73.59, bottomY: 236.91, rowScale: 1, sheet: 'combat' },
+  { id: 'r2_f6', row: 2, col: 6, x: 1356, y: 514, w: 175, h: 243, anchorX: 107.58, bottomY: 235.81, rowScale: 1, sheet: 'combat' },
+  { id: 'r2_f7', row: 2, col: 7, x: 1549, y: 514, w: 188, h: 232, anchorX: 101.39, bottomY: 225.26, rowScale: 1, sheet: 'combat' },
 
-  // Row 3: Guard, Hit Spark, Knockback Stagger & Kneel (6 frames, normalized to exact 214.0px standing height)
-  { id: 'r3_f0', row: 3, col: 0, x: 35, y: 623, w: 143, h: 158, anchorX: 81.5, bottomY: 154, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r3_f1', row: 3, col: 1, x: 216, y: 624, w: 154, h: 157, anchorX: 93.5, bottomY: 152, rowScale: 1.466, sheet: 'combat' },
-  { id: 'r3_f2', row: 3, col: 2, x: 395, y: 630, w: 147, h: 151, anchorX: 97.5, bottomY: 146, rowScale: 1.466, sheet: 'combat' },
-  { id: 'r3_f3', row: 3, col: 3, x: 568, y: 626, w: 176, h: 155, anchorX: 111.5, bottomY: 150, rowScale: 1.466, sheet: 'combat' },
-  { id: 'r3_f4', row: 3, col: 4, x: 769, y: 649, w: 152, h: 127, anchorX: 97.5, bottomY: 122, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r3_f5', row: 3, col: 5, x: 963, y: 660, w: 136, h: 117, anchorX: 67.5, bottomY: 112, rowScale: 1.436, sheet: 'combat' },
+  // Row 3: Guard, Hit Spark, Knockback Stagger & Kneel (6 frames, upscaled to canonical 214.0px standing height)
+  { id: 'r3_f0', row: 3, col: 0, x: 16, y: 776, w: 205, h: 227, anchorX: 116.84, bottomY: 221.25, rowScale: 1, sheet: 'combat' },
+  { id: 'r3_f1', row: 3, col: 1, x: 239, y: 776, w: 226, h: 230, anchorX: 137.21, bottomY: 222.68, rowScale: 1, sheet: 'combat' },
+  { id: 'r3_f2', row: 3, col: 2, x: 483, y: 776, w: 216, h: 221, anchorX: 143.27, bottomY: 213.68, rowScale: 1, sheet: 'combat' },
+  { id: 'r3_f3', row: 3, col: 3, x: 717, y: 776, w: 258, h: 227, anchorX: 163.45, bottomY: 219.68, rowScale: 1, sheet: 'combat' },
+  { id: 'r3_f4', row: 3, col: 4, x: 993, y: 776, w: 218, h: 182, anchorX: 139.84, bottomY: 174.83, rowScale: 1, sheet: 'combat' },
+  { id: 'r3_f5', row: 3, col: 5, x: 1229, y: 776, w: 195, h: 168, anchorX: 96.78, bottomY: 160.82, rowScale: 1, sheet: 'combat' },
 
-  // Row 4: Collapse to Prone Defeat (8 frames, normalized scale 1.436)
-  { id: 'r4_f0', row: 4, col: 0, x: 40, y: 782, w: 136, h: 104, anchorX: 74.2, bottomY: 99, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f1', row: 4, col: 1, x: 212, y: 788, w: 148, h: 97, anchorX: 82.5, bottomY: 92, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f2', row: 4, col: 2, x: 391, y: 790, w: 136, h: 92, anchorX: 71.2, bottomY: 88, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f3', row: 4, col: 3, x: 556, y: 794, w: 174, h: 85, anchorX: 84.7, bottomY: 81, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f4', row: 4, col: 4, x: 757, y: 801, w: 168, h: 78, anchorX: 81.3, bottomY: 73, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f5', row: 4, col: 5, x: 944, y: 806, w: 192, h: 73, anchorX: 96.8, bottomY: 68, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f6', row: 4, col: 6, x: 1161, y: 810, w: 191, h: 66, anchorX: 99.9, bottomY: 61, rowScale: 1.436, sheet: 'combat' },
-  { id: 'r4_f7', row: 4, col: 7, x: 1372, y: 819, w: 218, h: 56, anchorX: 107.3, bottomY: 51, rowScale: 1.436, sheet: 'combat' },
+  // Row 4: Collapse to Prone Defeat (8 frames, upscaled to canonical 214.0px standing scale)
+  { id: 'r4_f0', row: 4, col: 0, x: 16, y: 1024, w: 195, h: 149, anchorX: 106.39, bottomY: 141.84, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f1', row: 4, col: 1, x: 229, y: 1024, w: 213, h: 139, anchorX: 118.73, bottomY: 131.84, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f2', row: 4, col: 2, x: 460, y: 1024, w: 195, h: 132, anchorX: 102.09, bottomY: 126.26, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f3', row: 4, col: 3, x: 673, y: 1024, w: 250, h: 122, anchorX: 121.7, bottomY: 116.26, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f4', row: 4, col: 4, x: 941, y: 1024, w: 241, h: 112, anchorX: 116.63, bottomY: 104.82, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f5', row: 4, col: 5, x: 1200, y: 1024, w: 276, h: 105, anchorX: 139.15, bottomY: 97.81, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f6', row: 4, col: 6, x: 1494, y: 1024, w: 274, h: 95, anchorX: 143.31, bottomY: 87.8, rowScale: 1, sheet: 'combat' },
+  { id: 'r4_f7', row: 4, col: 7, x: 1786, y: 1024, w: 313, h: 80, anchorX: 154.06, bottomY: 72.86, rowScale: 1, sheet: 'combat' },
 ];
 
 export const HEROINE_EMOTE_FRAMES: readonly HeroineFrameDef[] = [
   // Row 5 (Emote Sheet Row 0): IDLE1 — Hair Twirl & Wink (indices 36..44, exact 214.0px standing height)
-  { id: 'r5_f0', row: 5, col: 0, x: 66, y: 6, w: 126, h: 213, anchorX: 76.5, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r5_f1', row: 5, col: 1, x: 262, y: 7, w: 124, h: 212, anchorX: 74.5, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
-  { id: 'r5_f2', row: 5, col: 2, x: 446, y: 7, w: 128, h: 212, anchorX: 75.0, bottomY: 210, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r5_f3', row: 5, col: 3, x: 612, y: 7, w: 147, h: 212, anchorX: 96.0, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
-  { id: 'r5_f4', row: 5, col: 4, x: 803, y: 6, w: 142, h: 213, anchorX: 86.5, bottomY: 211, rowScale: 1.044, sheet: 'emote' },
-  { id: 'r5_f5', row: 5, col: 5, x: 986, y: 7, w: 143, h: 212, anchorX: 89.0, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
-  { id: 'r5_f6', row: 5, col: 6, x: 1179, y: 4, w: 135, h: 215, anchorX: 81.0, bottomY: 213, rowScale: 1.044, sheet: 'emote' },
-  { id: 'r5_f7', row: 5, col: 7, x: 1371, y: 6, w: 147, h: 213, anchorX: 83.0, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r5_f8', row: 5, col: 8, x: 1570, y: 6, w: 139, h: 213, anchorX: 87.0, bottomY: 211, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r5_f0', row: 5, col: 0, x: 16, y: 16, w: 126, h: 213, anchorX: 76.5, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r5_f1', row: 5, col: 1, x: 160, y: 16, w: 124, h: 212, anchorX: 74.5, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r5_f2', row: 5, col: 2, x: 302, y: 16, w: 128, h: 212, anchorX: 75, bottomY: 210, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r5_f3', row: 5, col: 3, x: 448, y: 16, w: 147, h: 212, anchorX: 96, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r5_f4', row: 5, col: 4, x: 613, y: 16, w: 142, h: 213, anchorX: 86.5, bottomY: 211, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r5_f5', row: 5, col: 5, x: 773, y: 16, w: 143, h: 212, anchorX: 89, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r5_f6', row: 5, col: 6, x: 934, y: 16, w: 135, h: 215, anchorX: 81, bottomY: 213, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r5_f7', row: 5, col: 7, x: 1087, y: 16, w: 147, h: 213, anchorX: 83, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r5_f8', row: 5, col: 8, x: 1252, y: 16, w: 139, h: 213, anchorX: 87, bottomY: 211, rowScale: 1.044, sheet: 'emote' },
 
   // Row 6 (Emote Sheet Row 1): IDLE2 — Smartphone Selfie & Peace Pose (indices 45..53, exact 214.0px standing height)
-  { id: 'r6_f0', row: 6, col: 0, x: 61, y: 240, w: 129, h: 216, anchorX: 82.5, bottomY: 214, rowScale: 1.029, sheet: 'emote' },
-  { id: 'r6_f1', row: 6, col: 1, x: 240, y: 238, w: 141, h: 218, anchorX: 93.5, bottomY: 216, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r6_f2', row: 6, col: 2, x: 420, y: 241, w: 148, h: 215, anchorX: 89.5, bottomY: 213, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r6_f3', row: 6, col: 3, x: 595, y: 242, w: 140, h: 214, anchorX: 93.0, bottomY: 211, rowScale: 1.044, sheet: 'emote' },
-  { id: 'r6_f4', row: 6, col: 4, x: 774, y: 240, w: 167, h: 216, anchorX: 101.5, bottomY: 214, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r6_f5', row: 6, col: 5, x: 960, y: 240, w: 175, h: 216, anchorX: 97.5, bottomY: 214, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r6_f6', row: 6, col: 6, x: 1152, y: 243, w: 171, h: 213, anchorX: 101.5, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
-  { id: 'r6_f7', row: 6, col: 7, x: 1354, y: 242, w: 150, h: 214, anchorX: 94.0, bottomY: 212, rowScale: 1.034, sheet: 'emote' },
-  { id: 'r6_f8', row: 6, col: 8, x: 1540, y: 242, w: 139, h: 214, anchorX: 90.5, bottomY: 212, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r6_f0', row: 6, col: 0, x: 16, y: 249, w: 129, h: 216, anchorX: 82.5, bottomY: 214, rowScale: 1.029, sheet: 'emote' },
+  { id: 'r6_f1', row: 6, col: 1, x: 163, y: 249, w: 141, h: 218, anchorX: 93.5, bottomY: 216, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r6_f2', row: 6, col: 2, x: 322, y: 249, w: 148, h: 215, anchorX: 89.5, bottomY: 213, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r6_f3', row: 6, col: 3, x: 488, y: 249, w: 140, h: 214, anchorX: 93, bottomY: 211, rowScale: 1.044, sheet: 'emote' },
+  { id: 'r6_f4', row: 6, col: 4, x: 646, y: 249, w: 167, h: 216, anchorX: 101.5, bottomY: 214, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r6_f5', row: 6, col: 5, x: 831, y: 249, w: 175, h: 216, anchorX: 97.5, bottomY: 214, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r6_f6', row: 6, col: 6, x: 1024, y: 249, w: 171, h: 213, anchorX: 101.5, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
+  { id: 'r6_f7', row: 6, col: 7, x: 1213, y: 249, w: 150, h: 214, anchorX: 94, bottomY: 212, rowScale: 1.034, sheet: 'emote' },
+  { id: 'r6_f8', row: 6, col: 8, x: 1381, y: 249, w: 139, h: 214, anchorX: 90.5, bottomY: 212, rowScale: 1.039, sheet: 'emote' },
 
-  // Row 7 (Emote Sheet Row 2): VICTORY — Crouch, Peace-Sign Jump with Golden Burst, Land & Pose (indices 54..62, exact 214.0px standing scale)
-  { id: 'r7_f0', row: 7, col: 0, x: 58, y: 515, w: 111, h: 137, anchorX: 65.5, bottomY: 135, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f1', row: 7, col: 1, x: 242, y: 495, w: 128, h: 156, anchorX: 75.4, bottomY: 154, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f2', row: 7, col: 2, x: 414, y: 483, w: 144, h: 168, anchorX: 67.0, bottomY: 164, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f3', row: 7, col: 3, x: 581, y: 475, w: 150, h: 164, anchorX: 86.8, bottomY: 162, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f4', row: 7, col: 4, x: 754, y: 463, w: 147, h: 140, anchorX: 96.3, bottomY: 138, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f5', row: 7, col: 5, x: 914, y: 461, w: 200, h: 154, anchorX: 101.5, bottomY: 152, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f6', row: 7, col: 6, x: 1133, y: 475, w: 147, h: 177, anchorX: 89.0, bottomY: 174, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f7', row: 7, col: 7, x: 1335, y: 496, w: 138, h: 156, anchorX: 88.5, bottomY: 154, rowScale: 1.436, sheet: 'emote' },
-  { id: 'r7_f8', row: 7, col: 8, x: 1536, y: 472, w: 172, h: 180, anchorX: 100.5, bottomY: 178, rowScale: 1.436, sheet: 'emote' },
+  // Row 7 (Emote Sheet Row 2): VICTORY — Crouch, Peace-Sign Jump with Golden Burst, Land & Pose (indices 54..62, upscaled to canonical 214.0px scale)
+  { id: 'r7_f0', row: 7, col: 0, x: 16, y: 485, w: 159, h: 197, anchorX: 93.82, bottomY: 194.12, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f1', row: 7, col: 1, x: 193, y: 485, w: 184, h: 224, anchorX: 108.39, bottomY: 221.13, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f2', row: 7, col: 2, x: 395, y: 485, w: 207, h: 241, anchorX: 96.31, bottomY: 235.26, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f3', row: 7, col: 3, x: 620, y: 485, w: 215, h: 236, anchorX: 124.41, bottomY: 233.12, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f4', row: 7, col: 4, x: 853, y: 485, w: 211, h: 201, anchorX: 138.23, bottomY: 198.13, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f5', row: 7, col: 5, x: 1082, y: 485, w: 287, h: 221, anchorX: 145.65, bottomY: 218.13, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f6', row: 7, col: 6, x: 1387, y: 485, w: 211, h: 254, anchorX: 127.75, bottomY: 249.69, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f7', row: 7, col: 7, x: 1616, y: 485, w: 198, h: 224, anchorX: 126.98, bottomY: 221.13, rowScale: 1, sheet: 'emote' },
+  { id: 'r7_f8', row: 7, col: 8, x: 1832, y: 485, w: 247, h: 258, anchorX: 144.32, bottomY: 255.13, rowScale: 1, sheet: 'emote' },
 
-  // Row 8 (Emote Sheet Row 3): USING TECH — Cyan/Magenta Holographic Rings & AR Screens (indices 63..71, exact 214.0px standing height)
-  { id: 'r8_f0', row: 8, col: 0, x: 61, y: 669, w: 129, h: 205, anchorX: 80.0, bottomY: 203, rowScale: 1.092, sheet: 'emote' },
-  { id: 'r8_f1', row: 8, col: 1, x: 244, y: 670, w: 150, h: 204, anchorX: 83.5, bottomY: 202, rowScale: 1.097, sheet: 'emote' },
-  { id: 'r8_f2', row: 8, col: 2, x: 409, y: 671, w: 158, h: 203, anchorX: 97.0, bottomY: 201, rowScale: 1.097, sheet: 'emote' },
-  { id: 'r8_f3', row: 8, col: 3, x: 580, y: 671, w: 178, h: 203, anchorX: 104.0, bottomY: 201, rowScale: 1.103, sheet: 'emote' },
-  { id: 'r8_f4', row: 8, col: 4, x: 762, y: 672, w: 170, h: 202, anchorX: 107.0, bottomY: 200, rowScale: 1.120, sheet: 'emote' },
-  { id: 'r8_f5', row: 8, col: 5, x: 942, y: 669, w: 175, h: 205, anchorX: 113.5, bottomY: 203, rowScale: 1.103, sheet: 'emote' },
-  { id: 'r8_f6', row: 8, col: 6, x: 1133, y: 670, w: 182, h: 204, anchorX: 113.0, bottomY: 202, rowScale: 1.103, sheet: 'emote' },
-  { id: 'r8_f7', row: 8, col: 7, x: 1321, y: 668, w: 193, h: 206, anchorX: 119.0, bottomY: 204, rowScale: 1.103, sheet: 'emote' },
-  { id: 'r8_f8', row: 8, col: 8, x: 1521, y: 664, w: 217, h: 210, anchorX: 114.5, bottomY: 207, rowScale: 1.097, sheet: 'emote' },
+  // Row 8 (Emote Sheet Row 3): USING TECH — Cyan/Magenta Holographic Rings & AR Screens (indices 63..71, upscaled to canonical 214.0px height)
+  { id: 'r8_f0', row: 8, col: 0, x: 16, y: 761, w: 141, h: 224, anchorX: 87.44, bottomY: 221.81, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f1', row: 8, col: 1, x: 175, y: 761, w: 165, h: 224, anchorX: 91.85, bottomY: 221.8, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f2', row: 8, col: 2, x: 358, y: 761, w: 173, h: 223, anchorX: 106.21, bottomY: 220.8, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f3', row: 8, col: 3, x: 549, y: 761, w: 196, h: 224, anchorX: 114.52, bottomY: 221.79, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f4', row: 8, col: 4, x: 763, y: 761, w: 190, h: 226, anchorX: 119.59, bottomY: 223.76, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f5', row: 8, col: 5, x: 971, y: 761, w: 193, h: 226, anchorX: 125.17, bottomY: 223.8, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f6', row: 8, col: 6, x: 1182, y: 761, w: 201, h: 225, anchorX: 124.8, bottomY: 222.79, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f7', row: 8, col: 7, x: 1401, y: 761, w: 213, h: 227, anchorX: 131.33, bottomY: 224.8, rowScale: 1, sheet: 'emote' },
+  { id: 'r8_f8', row: 8, col: 8, x: 1632, y: 761, w: 238, h: 230, anchorX: 125.58, bottomY: 226.71, rowScale: 1, sheet: 'emote' },
 ];
 
 export const HEROINE_SHEET_FRAMES: readonly HeroineFrameDef[] = [

@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -13,10 +15,28 @@ import {
   triggerHeroineAnimation,
 } from './heroineSpriteSheet';
 
+function readPngDimensions(relPath: string): { width: number; height: number } {
+  const buf = fs.readFileSync(path.resolve(process.cwd(), relPath));
+  return {
+    width: buf.readUInt32BE(16),
+    height: buf.readUInt32BE(20),
+  };
+}
+
 test('all 72 sprite sheet frames (36 combat + 36 emote) lie cleanly inside sheet bounds without intra-sheet overlap', () => {
   assert.equal(HEROINE_COMBAT_FRAMES.length, 36);
   assert.equal(HEROINE_EMOTE_FRAMES.length, 36);
   assert.equal(HEROINE_SHEET_FRAMES.length, 72);
+
+  const combatDims = readPngDimensions('public/assets/aistudio/image_99454af5.png');
+  assert.equal(combatDims.width, HEROINE_SHEET_WIDTH);
+  assert.equal(combatDims.height, HEROINE_SHEET_HEIGHT);
+
+  const emoteDims = readPngDimensions(
+    'public/assets/aistudio/Kyberpunkov__hrdinka__neonov__sprite_animace_4403eebd.png',
+  );
+  assert.equal(emoteDims.width, HEROINE_EMOTE_SHEET_WIDTH);
+  assert.equal(emoteDims.height, HEROINE_EMOTE_SHEET_HEIGHT);
 
   for (const frame of HEROINE_SHEET_FRAMES) {
     const maxW = frame.sheet === 'emote' ? HEROINE_EMOTE_SHEET_WIDTH : HEROINE_SHEET_WIDTH;
@@ -250,17 +270,25 @@ test('USING TECH (upgrade) plays all 9 holographic tech frames (63..71) and VICT
 });
 
 test('all standing poses across combat and emote sheets normalize to uniform 214px height and cross-blend smoothly', () => {
-  // Measured dark-outline standing character heights in source PNGs:
+  // Upscaled frames (Rows 1, 2, 3, 4, 7, 8) are normalized directly to canonical 214px resolution (rowScale === 1.0)
+  for (const frame of HEROINE_SHEET_FRAMES) {
+    assert.ok(
+      frame.rowScale >= 1.0 && frame.rowScale <= 1.05,
+      `${frame.id} rowScale=${frame.rowScale} indicates un-upscaled low-resolution sprite`,
+    );
+  }
+
+  // Measured standing character heights in the upscaled source PNGs:
   const standingSamples: Array<{ index: number; charH: number }> = [
-    { index: 0, charH: 210 },  // r0_f0 Idle
-    { index: 1, charH: 207 },  // r0_f1 Ready
-    { index: 7, charH: 202 },  // r1_f0 Shoot
-    { index: 14, charH: 157 }, // r2_f0 Kick start
-    { index: 22, charH: 149 }, // r3_f0 Guard
-    { index: 36, charH: 206 }, // r5_f0 IDLE1
-    { index: 45, charH: 208 }, // r6_f0 IDLE2
-    { index: 62, charH: 149 }, // r7_f8 VICTORY stand
-    { index: 63, charH: 196 }, // r8_f0 USING TECH
+    { index: 0, charH: 210 },  // r0_f0 Idle (native)
+    { index: 1, charH: 207 },  // r0_f1 Ready (native)
+    { index: 7, charH: 214 },  // r1_f0 Shoot (upscaled)
+    { index: 14, charH: 214 }, // r2_f0 Kick start (upscaled)
+    { index: 22, charH: 214 }, // r3_f0 Guard (upscaled)
+    { index: 36, charH: 206 }, // r5_f0 IDLE1 (native)
+    { index: 45, charH: 208 }, // r6_f0 IDLE2 (native)
+    { index: 62, charH: 214 }, // r7_f8 VICTORY stand (upscaled)
+    { index: 63, charH: 214 }, // r8_f0 USING TECH (upscaled)
   ];
 
   for (const s of standingSamples) {

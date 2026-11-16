@@ -1,5 +1,7 @@
-import type { EnemyArchetype, EnemyIntent } from '../../engine/types';
+import { getEffectiveEnemyIntentValue } from '../../engine/reinforcementDirector';
+import type { CharacterId, EnemyArchetype, EnemyIntent, EnemyUnit } from '../../engine/types';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
+import type { CrawlerVariant } from '../../utils/crawlerSpriteSheet';
 import { type HeroineAnimState, createInitialHeroineAnimState } from '../../utils/heroineSpriteSheet';
 import type { SpriteBounds } from '../../utils/spriteCutout';
 
@@ -27,6 +29,9 @@ export const ENEMY_FOOT_DEFAULTS: Record<
   EnemyArchetype,
   { bottomRatio: number; farFootOffsetRatio: number; centerXRatio: number }
 > = {
+  larva: { bottomRatio: 0.972, farFootOffsetRatio: 0.032, centerXRatio: 0.56 },
+  skitter: { bottomRatio: 0.972, farFootOffsetRatio: 0.034, centerXRatio: 0.56 },
+  stinger: { bottomRatio: 0.984, farFootOffsetRatio: 0.036, centerXRatio: 0.56 },
   stalker: { bottomRatio: 0.908, farFootOffsetRatio: 0.052, centerXRatio: 0.5 },
   spitter: { bottomRatio: 0.918, farFootOffsetRatio: 0.036, centerXRatio: 0.49 },
   brute: { bottomRatio: 0.938, farFootOffsetRatio: 0.044, centerXRatio: 0.51 },
@@ -160,6 +165,8 @@ export interface ActorAnim {
   staggerDuration: number;
   staggerIntensity: number;
   bleedSpurtTimer: number;
+  attackAnimTimer: number;
+  attackAnimDuration: number;
 }
 
 export interface EnemyCutoutEntry {
@@ -209,10 +216,15 @@ export interface CombatStageSim {
   deckGradCache: CanvasGradient | null;
   deckGradBackY: number;
   deckGradFrontY: number;
-  heroFrames: HTMLCanvasElement[] | null;
+  heroFramesByChar: Record<CharacterId, HTMLCanvasElement[] | null>;
+  zuriDroneFrames: HTMLCanvasElement[] | null;
   enemyCutouts: Map<EnemyArchetype, EnemyCutoutEntry>;
+  crawlerFrames: Map<CrawlerVariant, HTMLCanvasElement[]>;
   size: { w: number; h: number };
   dpr: number;
+  cameraZoom: number;
+  cameraPanX: number;
+  cameraPanY: number;
   needsRedraw: boolean;
 }
 
@@ -374,6 +386,8 @@ export function createCombatStageSim(): CombatStageSim {
       staggerDuration: 0.42,
       staggerIntensity: 1,
       bleedSpurtTimer: 0,
+      attackAnimTimer: 0,
+      attackAnimDuration: 0.52,
     },
     ghosts: [],
     ghostSampleTimer: 0,
@@ -398,10 +412,15 @@ export function createCombatStageSim(): CombatStageSim {
     deckGradCache: null,
     deckGradBackY: 0,
     deckGradFrontY: 0,
-    heroFrames: null,
+    heroFramesByChar: { kira: null, aurelia: null, zuri: null },
+    zuriDroneFrames: null,
     enemyCutouts: new Map(),
+    crawlerFrames: new Map(),
     size: { w: 1200, h: 420 },
     dpr: 1,
+    cameraZoom: 1,
+    cameraPanX: 0,
+    cameraPanY: 0,
     needsRedraw: true,
   };
 }
@@ -409,6 +428,9 @@ export function createCombatStageSim(): CombatStageSim {
 export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.trauma = 0;
   sim.hitstop = 0;
+  sim.cameraZoom = 1;
+  sim.cameraPanX = 0;
+  sim.cameraPanY = 0;
   sim.slashArcTimer = 0;
   sim.kickWaveTimer = 0;
   sim.shieldDomeTimer = 0;
@@ -428,6 +450,8 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
     staggerDuration: 0.42,
     staggerIntensity: 1,
     bleedSpurtTimer: 0,
+    attackAnimTimer: 0,
+    attackAnimDuration: 0.52,
   };
   sim.ghosts = [];
   sim.enemyAnims.clear();
@@ -443,23 +467,53 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.needsRedraw = true;
 }
 
-export function formatEnemyIntent(intent: EnemyIntent, lang: Language): string {
+export function formatEnemyIntent(
+  intent: EnemyIntent,
+  lang: Language,
+  enrageAtkBonus = 0,
+  staggered = false,
+): string {
   const t = TRANSLATIONS[lang];
+  if (
+    staggered &&
+    (intent.kind === 'attack' ||
+      intent.kind === 'heavy' ||
+      intent.kind === 'acid' ||
+      intent.kind === 'leech' ||
+      intent.kind === 'charge')
+  ) {
+    return '⚡ 0 DMG';
+  }
+  const val =
+    enrageAtkBonus > 0
+      ? getEffectiveEnemyIntentValue({ enrageAtkBonus } as EnemyUnit, intent)
+      : intent.value;
+  const condTag = intent.conditionBonus ? `(+${intent.conditionBonus}?)` : '';
   switch (intent.kind) {
     case 'attack':
-      return `${t.enemyIntentAttack} · ${intent.value} DMG`;
     case 'heavy':
-      return `${t.enemyIntentHeavy} · ${intent.value} DMG`;
+      return `${val}${condTag} DMG`;
     case 'acid':
-      return `${t.enemyIntentAcid} · ${intent.value} DMG +${intent.secondaryValue ?? 2}`;
+      return `${val} DMG +${intent.secondaryValue ?? 2} ${t.corrodeShort}`;
     case 'armor':
-      return `${t.enemyIntentArmor} · +${intent.value} ${t.armorLabel}`;
+      return `+${val} ${t.armorLabel}`;
+    case 'bolster':
+      return `+${val} ${t.armorShort} ${t.allShort}`;
+    case 'charge':
+      return `0 DMG (${intent.secondaryValue ?? 1}T → ${val})`;
     case 'leech':
-      return `${t.enemyIntentLeech} · ${intent.value} DMG`;
+      return `${val} DMG +${intent.secondaryValue ?? 4} ${t.hpLabel}`;
+    default:
+      return `${val} DMG`;
   }
 }
 
 export function getEnemyLaneMetrics(w: number, enemyCount: number): { baseX: number; stepX: number } {
+  if (w < 460) {
+    const baseX = enemyCount === 1 ? w * 0.74 : enemyCount === 2 ? w * 0.61 : w * 0.51;
+    const stepX = enemyCount === 2 ? w * 0.21 : w * 0.165;
+    return { baseX, stepX };
+  }
   const baseX = enemyCount === 1 ? w * 0.76 : enemyCount === 2 ? w * 0.65 : w * 0.56;
   const stepX = enemyCount === 2 ? w * 0.17 : w * 0.145;
   return { baseX, stepX };
@@ -476,12 +530,12 @@ export function getStageLayoutMetrics(
   canonicalHeight: number,
 ) {
   const groundY = getBridgeGroundY(h);
-  const heroBaseX = w * 0.22;
+  const heroBaseX = w < 460 ? w * 0.19 : w * 0.22;
   const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, enemyCount);
-  const heroTargetHeight = Math.min(h * 0.57, w * 0.31, 214);
+  const heroTargetHeight = Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
   const baseScale = heroTargetHeight / canonicalHeight;
   const effectiveDashTargetX = dashTargetX > heroBaseX ? dashTargetX : enemyBaseX;
-  const dashDistance = Math.max(80, effectiveDashTargetX - heroBaseX - w * 0.11);
+  const dashDistance = Math.max(70, effectiveDashTargetX - heroBaseX - w * 0.11);
   const heroDrawScale = baseScale * rowScale;
   const heroX = heroBaseX + xProgress * dashDistance;
   const heroY = groundY + yHopPx * baseScale;

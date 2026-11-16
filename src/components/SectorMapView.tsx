@@ -1,20 +1,39 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { MAX_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
 import {
+  SECTOR_BOSS_TELEGRAPH,
   getAvailableNextNodes,
+  getConnectingPathNodeIds,
+  getLaneClusterProfiles,
+  getNodeEconomyMetrics,
   getNodeEncounterIntel,
   getReachableNodeIds,
+  getReconPreviewForNode,
   getTacticalRouteAdvice,
 } from '../engine/mapGenerator';
 import type { MapNode, MapNodeType, RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
+import {
+  getNodeCornerPip,
+  resolveSemanticZoomLoD,
+  type SemanticZoomLevel,
+} from '../utils/accessibilityAndScale';
+import type { LoupeInspectPayload } from './TacticalLoupeOverlay';
 
 interface SectorMapViewProps {
   run: RunState;
   lang: Language;
   modalOpen?: boolean;
+  tacticalView?: boolean;
+  semanticZoom?: SemanticZoomLevel;
+  twoStepConfirm?: boolean;
+  highContrastBorders?: boolean;
+  isCompactLandscape?: boolean;
+  isNarrowPortrait?: boolean;
+  effectiveWidth?: number;
   onSelectNode: (nodeId: string) => void;
   onOpenLoadout: () => void;
+  onInspectLoupe?: (payload: LoupeInspectPayload | null) => void;
 }
 
 const NODE_STYLE: Record<
@@ -44,6 +63,12 @@ const NODE_STYLE: Record<
     accent: 'text-emerald-200',
     bg: 'bg-gradient-to-b from-[#0E332C]/90 to-[#081C19]/92',
     hex: '#10F5A0',
+  },
+  EVENT: {
+    border: 'border-purple-400/70',
+    accent: 'text-purple-200',
+    bg: 'bg-gradient-to-b from-[#2B123D]/90 to-[#170921]/92',
+    hex: '#C084FC',
   },
   BOSS: {
     border: 'border-lime-400/80',
@@ -85,6 +110,15 @@ function NodeEmblem({ type }: { type: MapNodeType }) {
       </svg>
     );
   }
+  if (type === 'EVENT') {
+    return (
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C084FC" strokeWidth="2.2" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+        <circle cx="12" cy="17" r="1" fill="#C084FC" />
+      </svg>
+    );
+  }
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#84CC16" strokeWidth="2.2" aria-hidden="true">
       <path d="M12 2.5L21 8.5L17.2 20H6.8L3 8.5L12 2.5Z" />
@@ -121,10 +155,31 @@ export function SectorMapView({
   run,
   lang,
   modalOpen = false,
+  tacticalView = false,
+  semanticZoom = 'standard',
+  twoStepConfirm = false,
+  highContrastBorders = false,
+  isCompactLandscape = false,
+  isNarrowPortrait = false,
+  effectiveWidth = 1280,
   onSelectNode,
   onOpenLoadout,
+  onInspectLoupe,
 }: SectorMapViewProps) {
   const t = TRANSLATIONS[lang];
+  const lod = useMemo(
+    () => resolveSemanticZoomLoD(semanticZoom, tacticalView),
+    [semanticZoom, tacticalView],
+  );
+  const hcBorderClass = highContrastBorders || tacticalView ? 'tactical-hc-border' : '';
+  const lastPointerTypeRef = useRef<string>('mouse');
+  const holdTimerRef = useRef<number | null>(null);
+  const clearHoldTimer = () => {
+    if (holdTimerRef.current !== null) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
   const availableNodes = useMemo(
     () => getAvailableNextNodes(run.mapNodes, run.currentNodeId),
     [run.mapNodes, run.currentNodeId],
@@ -132,11 +187,22 @@ export function SectorMapView({
   const availableIds = useMemo(() => new Set(availableNodes.map((n) => n.id)), [availableNodes]);
   const advice = useMemo(() => getTacticalRouteAdvice(run), [run]);
 
+  const laneProfiles = useMemo(
+    () => getLaneClusterProfiles(run.mapNodes, run.heroine),
+    [run.mapNodes, run.heroine],
+  );
+  const hasRecon =
+    run.heroine.implants.includes('synapse_overclock') ||
+    run.heroine.implants.includes('surge_resonator');
+
   const [selectedIdx, setSelectedIdx] = useState<number>(() => {
     if (!advice.recommendedNodeId) return 0;
     const recIdx = availableNodes.findIndex((n) => n.id === advice.recommendedNodeId);
     return recIdx >= 0 ? recIdx : 0;
   });
+
+  // Target node for multi-hop path inspection (defaults to focused immediate node)
+  const [inspectedTargetId, setInspectedTargetId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!advice.recommendedNodeId) {
@@ -153,9 +219,11 @@ export function SectorMapView({
       if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
         e.preventDefault();
         setSelectedIdx((prev) => (prev + 1) % availableNodes.length);
+        setInspectedTargetId(null);
       } else if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
         e.preventDefault();
         setSelectedIdx((prev) => (prev - 1 + availableNodes.length) % availableNodes.length);
+        setInspectedTargetId(null);
       } else if (e.key === 'Enter' || e.key === ' ') {
         const activeEl = document.activeElement;
         if (activeEl && activeEl.tagName === 'BUTTON') return;
@@ -175,6 +243,15 @@ export function SectorMapView({
 
   const focusedNode = availableNodes[selectedIdx] ?? availableNodes[0] ?? null;
   const focusedNodeId = focusedNode?.id ?? null;
+
+  // Active target for path inspection: inspectedTargetId if set, otherwise focusedNodeId
+  const effectiveTargetId = inspectedTargetId ?? focusedNodeId;
+
+  // Multi-hop path highlighting from current position to effective target
+  const multiHopPathIds = useMemo(() => {
+    if (!effectiveTargetId) return new Set<string>();
+    return getConnectingPathNodeIds(run.mapNodes, run.currentNodeId, effectiveTargetId);
+  }, [run.mapNodes, run.currentNodeId, effectiveTargetId]);
 
   const previewReachableIds = useMemo(
     () => getReachableNodeIds(run.mapNodes, focusedNodeId),
@@ -230,6 +307,8 @@ export function SectorMapView({
         return t.mapRewardElite;
       case 'MED_BAY':
         return t.mapRewardMedbay;
+      case 'EVENT':
+        return t.nodes.EVENT;
       case 'BOSS':
         return t.mapRewardBoss;
       default:
@@ -237,12 +316,18 @@ export function SectorMapView({
     }
   };
 
+  const inspectedNode = inspectedTargetId ? nodeById.get(inspectedTargetId) : null;
+  const briefingNode = inspectedNode ?? focusedNode;
+
   const renderNodeCard = (node: MapNode) => {
     const isAvailable = availableIds.has(node.id);
     const availIndex = availableIndexById.get(node.id) ?? -1;
     const isCurrent = run.currentNodeId === node.id;
     const isKeyboardFocused = focusedNodeId === node.id;
     const isRecommended = advice.recommendedNodeId === node.id && isAvailable;
+    const isInspected = inspectedTargetId === node.id;
+    const isMultiHopPath = multiHopPathIds.has(node.id);
+
     const isDownstreamFromFocus =
       !isAvailable &&
       !node.cleared &&
@@ -253,42 +338,119 @@ export function SectorMapView({
 
     const style = NODE_STYLE[node.type];
     const intel = intelByNodeId.get(node.id)!;
+    const econ = getNodeEconomyMetrics(node, run.heroine);
 
     const statusLabel = node.cleared
-      ? t.nodeCleared
+      ? '✓'
       : isRecommended
-        ? t.mapRecommendedBadge
+        ? `★ ${availIndex + 1}`
         : isAvailable
-          ? `${t.nodeAvailable} [${availIndex + 1}]`
-          : isDownstreamFromFocus
-            ? t.mapDownstreamBadge
-            : t.nodeLocked;
+          ? `[${availIndex + 1}]`
+          : isMultiHopPath
+            ? '→'
+            : isDownstreamFromFocus
+              ? '·'
+              : t.nodeLocked;
+
+    const reconPreview = hasRecon ? getReconPreviewForNode(node, run) : null;
 
     const squadNames =
       intel.enemies.length > 0
         ? intel.enemies.map((e) => t.enemies[e.archetype].name).join(' + ')
-        : t.nodeDescs[node.type];
+        : reconPreview?.kind === 'event'
+          ? reconPreview.eventTitle
+          : t.nodeDescs[node.type];
 
     const bottomMetric =
       intel.totalEnemyHp > 0
         ? `${intel.enemies.length}x · ${intel.totalEnemyHp} HP`
         : node.type === 'CYBER_CLINIC'
           ? `${t.implantSlotsLabel} ${run.heroine.implants.length}/${MAX_IMPLANTS}`
-          : `${t.hpLabel} ${run.heroine.hp}/${run.heroine.maxHp}`;
+          : node.type === 'EVENT'
+            ? reconPreview?.kind === 'event'
+              ? t.reconPreviewPrefix
+              : t.mapAnomalyLabel
+            : `${t.hpLabel} ${run.heroine.hp}/${run.heroine.maxHp}`;
+
+    const minShopCredits = node.modifier === 'flash_sale' ? 20 : 30;
+    const nodePip = getNodeCornerPip(node.type);
+
+    const emitNodeLoupe = (clientX: number, clientY: number) => {
+      if (!onInspectLoupe) return;
+      onInspectLoupe({
+        id: `node-${node.id}`,
+        pip: nodePip,
+        kicker: `${intel.sectorCode} · ${nodePip.shortCode}`,
+        title: t.nodes[node.type],
+        primaryStat: bottomMetric,
+        subtitle: `${statusLabel} · ${getRewardLabel(node.type)}`,
+        detailLine: `${squadNames} · ${econ.opportunityCost}`,
+        ruleBadge:
+          econ.tensionHpPct > 0
+            ? `RISK: -${econ.tensionHpPct}% HP · YIELD: +${econ.runYieldCredits} CR`
+            : `RECOVERY NODE · YIELD: +${econ.runYieldCredits} CR`,
+        pointerX: clientX,
+        pointerY: clientY,
+        viewportW: window.innerWidth,
+        viewportH: window.innerHeight,
+      });
+    };
 
     return (
       <button
         key={node.id}
         type="button"
-        disabled={!isAvailable}
+        disabled={false}
+        data-testid={`map-node-${node.id}`}
+        data-node-pip={nodePip.symbol}
+        onPointerDown={(e) => {
+          lastPointerTypeRef.current = e.pointerType || 'mouse';
+          clearHoldTimer();
+          const cx = e.clientX;
+          const cy = e.clientY;
+          holdTimerRef.current = window.setTimeout(() => {
+            emitNodeLoupe(cx, cy);
+          }, 300);
+        }}
+        onPointerUp={clearHoldTimer}
+        onPointerCancel={clearHoldTimer}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          emitNodeLoupe(e.clientX, e.clientY);
+        }}
         onMouseEnter={() => {
-          if (availIndex >= 0) setSelectedIdx(availIndex);
+          if (availIndex >= 0) {
+            setSelectedIdx(availIndex);
+            setInspectedTargetId(null);
+          } else {
+            setInspectedTargetId(node.id);
+          }
         }}
         onFocus={() => {
-          if (availIndex >= 0) setSelectedIdx(availIndex);
+          if (availIndex >= 0) {
+            setSelectedIdx(availIndex);
+            setInspectedTargetId(null);
+          } else {
+            setInspectedTargetId(node.id);
+          }
         }}
-        onClick={() => onSelectNode(node.id)}
-        className={`group relative flex h-full w-full flex-col justify-between rounded-xl border p-2.5 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition-all duration-150 ${
+        onClick={() => {
+          const isTouch = lastPointerTypeRef.current === 'touch';
+          lastPointerTypeRef.current = 'mouse';
+          if (isAvailable) {
+            if ((isTouch || twoStepConfirm) && availIndex >= 0 && selectedIdx !== availIndex) {
+              setSelectedIdx(availIndex);
+              setInspectedTargetId(null);
+              return;
+            }
+            onSelectNode(node.id);
+          } else {
+            setInspectedTargetId(node.id);
+          }
+        }}
+        className={`group relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-xl border ${hcBorderClass} ${
+          isCompactLandscape ? 'px-2 py-1' : 'p-1.5 sm:p-2'
+        } text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition-all duration-150 ${
           isAvailable
             ? `${style.border} ${style.bg} ${
                 isKeyboardFocused
@@ -297,123 +459,290 @@ export function SectorMapView({
               } hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(0,240,255,0.38)] cursor-pointer`
             : isCurrent
               ? 'border-[#FFC700]/80 bg-[#1B274D]/95 ring-1 ring-[#FFC700]/55 shadow-[0_0_18px_rgba(255,199,0,0.25)]'
-              : node.cleared
-                ? 'border-amber-300/35 bg-[#121D3D]/80 opacity-85'
-                : isDownstreamFromFocus
-                  ? `${style.border} bg-[#111E40]/90 opacity-95 ring-1 ring-cyan-300/40`
-                  : isUnreachableLocked
-                    ? 'border-white/10 bg-[#080F24]/55 text-slate-500 opacity-40 cursor-not-allowed'
-                    : 'border-white/15 bg-[#0C1530]/75 text-slate-400 opacity-70 cursor-not-allowed'
+              : isInspected
+                ? `${style.border} ring-2 ring-purple-400 bg-purple-950/40 shadow-[0_0_22px_rgba(192,132,252,0.35)] cursor-pointer`
+                : isMultiHopPath
+                  ? `${style.border} ring-1 ring-cyan-300 bg-cyan-950/40 shadow-[0_0_18px_rgba(0,240,255,0.25)] cursor-pointer`
+                  : node.cleared
+                    ? 'border-amber-300/35 bg-[#121D3D]/80 opacity-85'
+                    : isDownstreamFromFocus
+                      ? `${style.border} bg-[#111E40]/90 opacity-95 ring-1 ring-cyan-300/40 cursor-pointer`
+                      : isUnreachableLocked
+                        ? 'border-white/10 bg-[#080F24]/55 text-slate-500 opacity-40 cursor-pointer'
+                        : 'border-white/15 bg-[#0C1530]/75 text-slate-400 opacity-70 cursor-pointer'
         }`}
       >
-        {/* Left & Right Chrome Hardware Connector Ports (desktop) */}
-        {node.layer > 0 && (
-          <span
-            aria-hidden="true"
-            className={`hidden md:block absolute -left-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border ${
-              isAvailable
-                ? 'border-white bg-[#00F0FF] shadow-[0_0_8px_#00F0FF]'
-                : node.cleared || isCurrent
-                  ? 'border-white bg-[#FFC700]'
-                  : isDownstreamFromFocus
-                    ? 'border-cyan-200 bg-cyan-400'
-                    : 'border-slate-500 bg-slate-800'
-            }`}
-          />
+        {isCompactLandscape || lod.mapNodeCompactMode ? (
+          <>
+            {/* Compact Landscape / Semantic Overview 2-Row Card */}
+            <div className="flex w-full items-center justify-between gap-1 min-w-0">
+              <div className="flex items-center gap-1 min-w-0">
+                <span
+                  data-testid={`map-node-pip-${node.id}`}
+                  style={{ backgroundColor: nodePip.accentHex, color: '#020617' }}
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[9px] font-black leading-none"
+                >
+                  {nodePip.symbol}
+                </span>
+                <NodeEmblem type={node.type} />
+                <span className={`font-display text-[11px] sm:text-xs font-bold leading-tight truncate ${style.accent}`}>
+                  {t.nodes[node.type]}
+                </span>
+              </div>
+              <span
+                className={`shrink-0 font-mono-tabular text-[8px] font-bold uppercase tracking-wider ${
+                  isRecommended
+                    ? 'text-[#FFC700]'
+                    : isAvailable
+                      ? 'text-[#00F0FF]'
+                      : node.cleared || isCurrent
+                        ? 'text-amber-300'
+                        : isMultiHopPath
+                          ? 'text-cyan-300'
+                          : isDownstreamFromFocus
+                            ? 'text-cyan-300'
+                            : 'text-slate-400'
+                }`}
+              >
+                {statusLabel}
+              </span>
+            </div>
+
+            <div className="flex w-full items-center justify-between gap-1.5 text-[9px] font-mono-tabular min-w-0">
+              <div className="flex items-center gap-1 min-w-0">
+                <span className="truncate font-sans text-slate-200/95">{squadNames}</span>
+                {econ.tensionHpPct !== 0 && (
+                  <span
+                    className={`shrink-0 px-1 py-0.2 rounded text-[7.5px] font-bold ${
+                      econ.tensionHpPct > 20
+                        ? 'bg-rose-500/25 text-rose-300'
+                        : econ.tensionHpPct > 0
+                          ? 'bg-amber-500/25 text-amber-300'
+                          : 'bg-emerald-500/25 text-emerald-300'
+                    }`}
+                  >
+                    {econ.tensionHpPct > 0 ? `-${econ.tensionHpPct}%` : `+${Math.abs(econ.tensionHpPct)}%`}
+                  </span>
+                )}
+              </div>
+              <span className="shrink-0 font-bold text-white">{bottomMetric}</span>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Left & Right Chrome Hardware Connector Ports */}
+            {node.layer > 0 && (
+              <span
+                aria-hidden="true"
+                className={`hidden sm:block absolute -left-1.5 top-1/2 h-2 w-2 md:h-2.5 md:w-2.5 -translate-y-1/2 rounded-full border ${
+                  isAvailable
+                    ? 'border-white bg-[#00F0FF] shadow-[0_0_8px_#00F0FF]'
+                    : node.cleared || isCurrent
+                      ? 'border-white bg-[#FFC700]'
+                      : isMultiHopPath
+                        ? 'border-white bg-[#00F0FF]'
+                        : isDownstreamFromFocus
+                          ? 'border-cyan-200 bg-cyan-400'
+                          : 'border-slate-500 bg-slate-800'
+                }`}
+              />
+            )}
+            {node.layer < 4 && (
+              <span
+                aria-hidden="true"
+                className={`hidden sm:block absolute -right-1.5 top-1/2 h-2 w-2 md:h-2.5 md:w-2.5 -translate-y-1/2 rounded-full border ${
+                  isCurrent
+                    ? 'border-white bg-[#00F0FF] shadow-[0_0_8px_#00F0FF]'
+                    : node.cleared
+                      ? 'border-white bg-[#FFC700]'
+                      : isAvailable && isKeyboardFocused
+                        ? 'border-white bg-[#00F0FF]'
+                        : isMultiHopPath
+                          ? 'border-white bg-[#00F0FF]'
+                          : 'border-slate-500 bg-slate-800'
+                }`}
+              />
+            )}
+
+            {/* Top Row: Double-Coding Corner Pip + Sector Coordinate + Status Text */}
+            <div className="flex w-full items-center justify-between gap-1">
+              <div className="flex items-center gap-1 min-w-0">
+                <span
+                  data-testid={`map-node-pip-${node.id}`}
+                  style={{ backgroundColor: nodePip.accentHex, color: '#020617' }}
+                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[9px] font-black leading-none"
+                >
+                  {nodePip.symbol}
+                </span>
+                <NodeEmblem type={node.type} />
+                <span className="font-mono-tabular text-[9px] sm:text-[10px] font-semibold tracking-wider text-slate-300 truncate">
+                  {intel.sectorCode}
+                </span>
+              </div>
+              <span
+                className={`shrink-0 font-mono-tabular text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${
+                  isRecommended
+                    ? 'text-[#FFC700]'
+                    : isAvailable
+                      ? 'text-[#00F0FF]'
+                      : node.cleared || isCurrent
+                        ? 'text-amber-300'
+                        : isMultiHopPath
+                          ? 'text-cyan-300'
+                          : isDownstreamFromFocus
+                            ? 'text-cyan-300'
+                            : 'text-slate-400'
+                }`}
+              >
+                {statusLabel}
+              </span>
+            </div>
+
+            {/* Middle Row: Node Title & Squad / Facility Subtitle */}
+            <div className="my-0.5 min-w-0">
+              <div className="flex items-center gap-1 min-w-0 flex-wrap sm:flex-wrap">
+                <div className={`font-display text-xs sm:text-sm font-bold leading-tight truncate ${style.accent}`}>
+                  {t.nodes[node.type]}
+                </div>
+                <div className="flex items-center gap-1 min-w-0 flex-nowrap sm:flex-wrap overflow-hidden">
+                  {/* Hot-Spot Bounty Modifier Badges */}
+                  {node.modifier === 'golden_bounty' && (
+                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                      {t.bountyGoldenBadge}
+                    </span>
+                  )}
+                  {node.modifier === 'double_credits' && (
+                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                      {t.bountyDoubleBadge}
+                    </span>
+                  )}
+                  {node.modifier === 'nanite_cache' && (
+                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-cyan-400/25 border border-cyan-300/60 text-cyan-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                      {t.bountyNaniteBadge}
+                    </span>
+                  )}
+                  {/* Dynamic Modifiers */}
+                  {node.modifier === 'overcharged_hazard' && (
+                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-rose-500/25 border border-rose-400/60 text-rose-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                      {t.bountyOverchargedBadge}
+                    </span>
+                  )}
+                  {node.modifier === 'flash_sale' && (
+                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight animate-pulse">
+                      {t.bountyFlashSaleBadge}
+                    </span>
+                  )}
+                  {node.modifier === 'funded_clinic' && (
+                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                      {t.bountyFundedClinicBadge}
+                    </span>
+                  )}
+                  {/* Smart Shop Badges */}
+                  {node.type === 'CYBER_CLINIC' && (
+                    <span
+                      className={`shrink-0 whitespace-nowrap px-1 py-0.2 rounded text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight border ${
+                        run.heroine.credits >= minShopCredits
+                          ? 'bg-emerald-400/20 border-emerald-400/50 text-emerald-300'
+                          : 'bg-amber-400/20 border-amber-400/50 text-amber-300'
+                      }`}
+                    >
+                      {run.heroine.credits >= minShopCredits
+                        ? `${t.shopAffordable} (${minShopCredits}+ CR)`
+                        : t.shopLowCredits}
+                    </span>
+                  )}
+                </div>
+              </div>
+              <p className="mt-0.5 line-clamp-1 text-[9px] sm:text-[11px] leading-tight sm:leading-snug text-slate-200/90">
+                {squadNames}
+              </p>
+            </div>
+
+            {/* Bottom Row: Threat HP / Status + Reward Metadata */}
+            <div className="flex w-full items-center justify-between gap-2 border-t border-white/15 pt-0.5 sm:pt-1 text-[9px] sm:text-[10px] font-mono-tabular min-w-0">
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="whitespace-nowrap font-bold text-white">{bottomMetric}</span>
+                {econ.tensionHpPct !== 0 && (
+                  <span
+                    title={econ.opportunityCost}
+                    className={`px-1 py-0.2 rounded text-[7.5px] sm:text-[8px] font-bold shrink-0 ${
+                      econ.tensionHpPct > 20
+                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                        : econ.tensionHpPct > 0
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                    }`}
+                  >
+                    {econ.tensionHpPct > 0 ? `-${econ.tensionHpPct}%` : `+${Math.abs(econ.tensionHpPct)}%`}
+                  </span>
+                )}
+              </div>
+              <span className={`min-w-0 flex-1 truncate text-right font-semibold ${style.accent}`}>
+                {getRewardLabel(node.type)}
+              </span>
+            </div>
+          </>
         )}
-        {node.layer < 4 && (
-          <span
-            aria-hidden="true"
-            className={`hidden md:block absolute -right-1.5 top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border ${
-              isCurrent
-                ? 'border-white bg-[#00F0FF] shadow-[0_0_8px_#00F0FF]'
-                : node.cleared
-                  ? 'border-white bg-[#FFC700]'
-                  : isAvailable && isKeyboardFocused
-                    ? 'border-white bg-[#00F0FF]'
-                    : 'border-slate-500 bg-slate-800'
-            }`}
-          />
-        )}
-
-        {/* Top Row: Sector Coordinate + Unboxed Status Text */}
-        <div className="flex w-full items-center justify-between gap-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <NodeEmblem type={node.type} />
-            <span className="font-mono-tabular text-[10px] font-semibold tracking-wider text-slate-300 truncate">
-              {intel.sectorCode}
-            </span>
-          </div>
-          <span
-            className={`shrink-0 font-mono-tabular text-[10px] font-bold uppercase tracking-wider ${
-              isRecommended
-                ? 'text-[#FFC700]'
-                : isAvailable
-                  ? 'text-[#00F0FF]'
-                  : node.cleared || isCurrent
-                    ? 'text-amber-300'
-                    : isDownstreamFromFocus
-                      ? 'text-cyan-300'
-                      : 'text-slate-400'
-            }`}
-          >
-            {statusLabel}
-          </span>
-        </div>
-
-        {/* Middle Row: Node Title & Squad / Facility Subtitle */}
-        <div className="my-0.5">
-          <div className={`font-display text-sm font-bold leading-tight ${style.accent}`}>
-            {t.nodes[node.type]}
-          </div>
-          <p className="mt-0.5 line-clamp-1 text-[11px] leading-snug text-slate-200/90">
-            {squadNames}
-          </p>
-        </div>
-
-        {/* Bottom Row: Unclipped Threat HP / Status + Unboxed Reward Metadata */}
-        <div className="flex w-full items-center justify-between gap-1.5 border-t border-white/15 pt-1 text-[10px] font-mono-tabular">
-          <span className="whitespace-nowrap font-bold text-white">{bottomMetric}</span>
-          <span className={`truncate font-semibold ${style.accent}`}>
-            {getRewardLabel(node.type)}
-          </span>
-        </div>
       </button>
     );
   };
 
+  const needsHorizontalPan = isNarrowPortrait || effectiveWidth < 560;
+
   return (
-    <main className="cyber-vista-bg relative flex flex-1 flex-col justify-between overflow-y-auto px-3 py-3 sm:px-5 sm:py-3.5">
-      <div className="mx-auto flex w-full max-w-[1380px] flex-1 flex-col justify-between gap-3">
-        {/* Compact Chrome Command Header + Route Advisor */}
-        <div className="chrome-glass flex flex-col justify-between gap-2.5 rounded-xl px-4 py-2.5 lg:flex-row lg:items-center">
-          <div className="flex flex-wrap items-baseline gap-3">
-            <h1 className="chrome-text-shimmer font-display text-lg font-bold tracking-wide sm:text-xl">
+    <main
+      className={`cyber-vista-bg relative flex flex-1 min-h-0 flex-col justify-between overflow-hidden ${
+        isCompactLandscape ? 'px-2.5 py-1' : 'px-3 py-2 sm:px-5 sm:py-3'
+      }`}
+    >
+      <div
+        className={`mx-auto flex w-full max-w-[1380px] flex-1 min-h-0 flex-col justify-between ${
+          isCompactLandscape ? 'gap-1' : 'gap-2 sm:gap-2.5'
+        }`}
+      >
+        {/* Unified Single-Row Sector Command Bar: Layer Progress · Boss Intel · Advisor · Loadout */}
+        <div
+          className={`chrome-glass flex shrink-0 flex-wrap lg:flex-nowrap items-center justify-between gap-2 rounded-xl ${
+            isCompactLandscape ? 'px-2.5 py-1' : 'px-3.5 py-2 sm:px-4'
+          }`}
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <h1
+              className={`chrome-text-shimmer font-display font-bold tracking-wide whitespace-nowrap ${
+                isCompactLandscape ? 'text-sm' : 'text-base sm:text-lg'
+              }`}
+            >
               {t.sectorMapTitle}
             </h1>
-            <span className="font-mono-tabular text-xs font-bold text-[#00F0FF]">
-              {t.layerLabel} {Math.min(5, (nodeById.get(run.currentNodeId ?? '')?.layer ?? 0) + 2)}/5
+            <span className="font-mono-tabular text-xs font-bold text-[#00F0FF] whitespace-nowrap">
+              {Math.min(5, (nodeById.get(run.currentNodeId ?? '')?.layer ?? 0) + 2)}/5
             </span>
-            <span className="hidden xl:inline text-xs text-slate-300">· {t.sectorMapSubtitle}</span>
+            <span aria-hidden="true" className="hidden sm:inline text-slate-500">
+              ·
+            </span>
+            <span
+              title={`${SECTOR_BOSS_TELEGRAPH.name} — ${SECTOR_BOSS_TELEGRAPH.recommendedPrep}`}
+              className="hidden sm:inline font-mono-tabular text-xs font-bold text-lime-300 truncate"
+            >
+              ☠ {SECTOR_BOSS_TELEGRAPH.name} ({SECTOR_BOSS_TELEGRAPH.hp} HP)
+            </span>
           </div>
 
-          {/* Smart Route Advisor & Live Loadout Telemetry */}
-          <div className="flex flex-wrap items-center gap-2.5">
-            <div className="chrome-pill flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs">
-              <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-[#FFC700]">
-                {t.mapAdvisorTitle}
-                {advice.recommendedNodeId
-                  ? ` → ${t.nodes[nodeById.get(advice.recommendedNodeId)?.type ?? 'COMBAT']}`
-                  : ''}
-                :
-              </span>
-              <span className="text-slate-100">{adviceText}</span>
-            </div>
+          <div className="flex flex-wrap lg:flex-nowrap items-center justify-end gap-2 min-w-0">
+            <span className="hidden xl:inline text-xs font-medium text-amber-200/95 truncate max-w-[34ch]">
+              ★{' '}
+              {advice.recommendedNodeId
+                ? `${t.nodes[nodeById.get(advice.recommendedNodeId)?.type ?? 'COMBAT']}: `
+                : ''}
+              {adviceText}
+            </span>
 
             <button
               type="button"
               onClick={onOpenLoadout}
-              className="chrome-pill flex items-center gap-2.5 rounded-lg px-3 py-1.5 font-mono-tabular text-xs transition-colors hover:border-cyan-300 cursor-pointer"
+              className={`chrome-pill flex items-center gap-1.5 rounded-lg font-mono-tabular transition-colors hover:border-cyan-300 cursor-pointer shrink-0 ${
+                isCompactLandscape ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs'
+              }`}
             >
               <span>
                 <span className="text-slate-300">{t.mapLoadoutStatus}: </span>
@@ -422,247 +751,486 @@ export function SectorMapView({
                 </span>
               </span>
               <span className="text-slate-500">·</span>
-              <span>
-                <span className="text-slate-300">{t.poolTotalLabel}: </span>
-                <span className="font-bold text-[#FFC700]">{run.masterPool.length}</span>
+              <span className="font-bold text-[#FFC700]">{run.masterPool.length}</span>
+              <span className="text-slate-500">·</span>
+              <span className="font-bold text-cyan-300">
+                {run.heroine.nanites ?? 0} {t.nanitesShort}
               </span>
             </button>
           </div>
         </div>
 
-        {/* Main 5-Sector x 3-Lane Sky-Bridge Tactical Schematic */}
-        <div className="chrome-glass relative flex-1 rounded-xl p-3.5 sm:p-4">
-          {/* Column Sector Headers (Desktop) */}
-          <div className="mb-2.5 hidden md:grid md:grid-cols-5 md:gap-7">
-            {LAYER_INDICES.map((layerIdx) => {
-              const isCurrentLayer =
-                nodeById.get(run.currentNodeId ?? '')?.layer === layerIdx;
-              const isNextLayer =
-                (nodeById.get(run.currentNodeId ?? '')?.layer ?? -1) + 1 === layerIdx;
-              return (
+        {/* Main 5-Sector x 3-Lane Horizontal Sky-Bridge Tactical Schematic */}
+        <div
+          className={`chrome-glass relative flex flex-1 min-h-0 flex-col rounded-xl ${
+            isCompactLandscape ? 'p-1.5' : 'p-2 sm:p-3'
+          }`}
+        >
+          <div
+            className={`flex flex-1 min-h-0 flex-col ${
+              needsHorizontalPan ? 'overflow-x-auto overflow-y-auto pb-1' : 'overflow-x-hidden overflow-y-auto'
+            }`}
+          >
+            <div
+              className={`flex flex-1 min-h-0 flex-col ${
+                needsHorizontalPan ? 'min-w-[880px] min-h-[340px]' : 'w-full min-h-[310px]'
+              }`}
+            >
+              {/* Column Sector Headers (offset matches Left Lane Rail) */}
+              <div
+                className={`flex items-stretch shrink-0 ${
+                  isCompactLandscape ? 'mb-1 gap-2' : 'mb-1.5 gap-2 sm:mb-2 sm:gap-3'
+                }`}
+              >
                 <div
-                  key={`header_${layerIdx}`}
-                  className={`flex items-center justify-between rounded-md border px-2.5 py-1 text-[11px] font-mono-tabular uppercase tracking-wider ${
-                    isNextLayer
-                      ? 'border-[#00F0FF]/65 bg-cyan-500/20 text-white font-bold shadow-[0_0_14px_rgba(0,240,255,0.2)]'
-                      : isCurrentLayer
-                        ? 'border-[#FFC700]/50 bg-amber-500/15 text-amber-200 font-semibold'
-                        : 'border-white/15 bg-slate-950/55 text-slate-300'
+                  className={`flex items-center justify-center rounded-md border border-cyan-500/30 bg-slate-950/60 font-mono-tabular uppercase tracking-wider text-cyan-300 font-bold shrink-0 ${
+                    isCompactLandscape
+                      ? 'w-28 px-1.5 py-0.5 text-[8px]'
+                      : 'w-28 md:w-36 lg:w-44 px-2 py-0.5 text-[9px] sm:text-[10px]'
                   }`}
                 >
-                  <span>
-                    {t.layerLabel} 0{layerIdx + 1}
-                  </span>
-                  <span className="text-[10px] opacity-80">{(layerIdx + 1) * 0.5} KM</span>
+                  {t.laneShortPrefix} · {t.yieldLabel}
                 </div>
-              );
-            })}
-          </div>
-
-          {/* Desktop 5x3 Matrix + Exact Port-to-Port SVG Spline Overlay */}
-          <div className="relative hidden md:block h-[432px] w-full">
-            <svg
-              viewBox="0 0 1000 432"
-              preserveAspectRatio="none"
-              aria-hidden="true"
-              className="pointer-events-none absolute inset-0 h-full w-full"
-            >
-              {/* 3 Horizontal Sky-Bridge Lane Guide Tracks */}
-              {LANE_TRACK_Y.map((yPos, idx) => (
-                <g key={`track_${idx}`}>
-                  <line
-                    x1="80"
-                    y1={yPos}
-                    x2="920"
-                    y2={yPos}
-                    stroke="rgba(56, 189, 248, 0.14)"
-                    strokeWidth="16"
-                    strokeLinecap="round"
-                  />
-                  <line
-                    x1="80"
-                    y1={yPos}
-                    x2="920"
-                    y2={yPos}
-                    stroke="rgba(224, 242, 254, 0.22)"
-                    strokeWidth="1"
-                    strokeDasharray="8 8"
-                  />
-                </g>
-              ))}
-
-              {/* Node-to-Node Cubic Bezier Conduit Edges */}
-              {run.mapNodes.map((node) => {
-                const p1 = getPortCoords(node);
-                return node.nextIds.map((nextId) => {
-                  const target = nodeById.get(nextId);
-                  if (!target) return null;
-                  const p2 = getPortCoords(target);
-
-                  const isImmediateAvailable =
-                    node.id === run.currentNodeId && availableIds.has(target.id);
-                  const isFocusedImmediate =
-                    isImmediateAvailable && target.id === focusedNodeId;
-                  const isTraversed =
-                    node.cleared && (target.cleared || target.id === run.currentNodeId);
-                  const isDownstreamPreview =
-                    Boolean(focusedNodeId) &&
-                    previewReachableIds.has(node.id) &&
-                    previewReachableIds.has(target.id) &&
-                    node.layer >= (focusedNode?.layer ?? 99);
-
-                  const dx = (p2.leftX - p1.rightX) * 0.62;
-                  const pathD = `M ${p1.rightX} ${p1.y} C ${p1.rightX + dx} ${p1.y}, ${p2.leftX - dx} ${p2.y}, ${p2.leftX} ${p2.y}`;
-
-                  const strokeColor = isFocusedImmediate
-                    ? '#FFC700'
-                    : isImmediateAvailable
-                      ? '#00F0FF'
-                      : isTraversed
-                        ? '#FFC700'
-                        : isDownstreamPreview
-                          ? 'rgba(0, 240, 255, 0.78)'
-                          : 'rgba(203, 213, 225, 0.24)';
-
-                  const strokeW =
-                    isFocusedImmediate || isImmediateAvailable
-                      ? 3.4
-                      : isTraversed || isDownstreamPreview
-                        ? 2.5
-                        : 1.6;
-
-                  return (
-                    <g key={`${node.id}_${target.id}`}>
-                      {(isImmediateAvailable || isDownstreamPreview) && (
-                        <path
-                          d={pathD}
-                          fill="none"
-                          stroke={isFocusedImmediate ? 'rgba(255,199,0,0.28)' : 'rgba(0,240,255,0.25)'}
-                          strokeWidth={strokeW + 5}
-                        />
-                      )}
-                      <path
-                        d={pathD}
-                        fill="none"
-                        stroke={strokeColor}
-                        strokeWidth={strokeW}
-                        strokeDasharray={
-                          isImmediateAvailable
-                            ? '8 5'
-                            : isDownstreamPreview
-                              ? '5 4'
-                              : undefined
-                        }
-                      />
-                    </g>
-                  );
-                });
-              })}
-            </svg>
-
-            {/* 5 Columns x 3 Rows Deterministic Node Matrix */}
-            <div className="relative z-10 grid h-full w-full grid-cols-5 grid-rows-3 gap-x-7 gap-y-3.5">
-              {ROW_INDICES.map((rowIdx) =>
-                LAYER_INDICES.map((colIdx) => {
-                  const node =
-                    colIdx === 0 || colIdx === 4
-                      ? rowIdx === 1
-                        ? layers[colIdx][0]
-                        : undefined
-                      : layers[colIdx].find((n) => n.lane === rowIdx);
-
-                  if (!node) {
-                    const laneLabel =
-                      colIdx === 0
-                        ? rowIdx === 0
-                          ? t.mapLaneNorth
-                          : rowIdx === 2
-                            ? t.mapLaneSouth
-                            : ''
-                        : '';
+                <div
+                  className={`grid flex-1 grid-cols-5 ${
+                    isCompactLandscape ? 'gap-2' : 'gap-3 sm:gap-7'
+                  }`}
+                >
+                  {LAYER_INDICES.map((layerIdx) => {
+                    const isCurrentLayer =
+                      nodeById.get(run.currentNodeId ?? '')?.layer === layerIdx;
+                    const isNextLayer =
+                      (nodeById.get(run.currentNodeId ?? '')?.layer ?? -1) + 1 === layerIdx;
                     return (
                       <div
-                        key={`empty_${colIdx}_${rowIdx}`}
-                        className="flex items-center justify-start px-2 pointer-events-none"
+                        key={`header_${layerIdx}`}
+                        className={`flex items-center justify-between rounded-md border ${
+                          isCompactLandscape
+                            ? 'px-1.5 py-0.5 text-[9px]'
+                            : 'px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px]'
+                        } font-mono-tabular uppercase tracking-wider ${
+                          isNextLayer
+                            ? 'border-[#00F0FF]/65 bg-cyan-500/20 text-white font-bold shadow-[0_0_14px_rgba(0,240,255,0.2)]'
+                            : isCurrentLayer
+                              ? 'border-[#FFC700]/50 bg-amber-500/15 text-amber-200 font-semibold'
+                              : 'border-white/15 bg-slate-950/55 text-slate-300'
+                        }`}
                       >
-                        {laneLabel && (
-                          <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-slate-300/80">
-                            {laneLabel}
-                          </span>
-                        )}
+                        <span>
+                          {t.layerLabel} 0{layerIdx + 1}
+                        </span>
+                        <span className="text-[8px] sm:text-[10px] opacity-80">
+                          {(layerIdx + 1) * 0.5} KM
+                        </span>
                       </div>
                     );
-                  }
-
-                  return (
-                    <div key={node.id} className="h-full w-full py-0.5">
-                      {renderNodeCard(node)}
-                    </div>
-                  );
-                }),
-              )}
-            </div>
-          </div>
-
-          {/* Mobile / Tablet Responsive Stacked Sector List */}
-          <div className="grid grid-cols-1 gap-4 md:hidden">
-            {layers.map((layerNodes, layerIdx) => (
-              <div key={`mob_layer_${layerIdx}`} className="flex flex-col gap-2">
-                <div className="flex items-center justify-between border-b border-white/15 pb-1 text-xs font-mono-tabular uppercase tracking-wider text-slate-300">
-                  <span>
-                    {t.layerLabel} 0{layerIdx + 1}
-                  </span>
-                  <span>{(layerIdx + 1) * 0.5} KM</span>
-                </div>
-                <div className="flex flex-col gap-2.5">
-                  {layerNodes.map((node) => renderNodeCard(node))}
+                  })}
                 </div>
               </div>
-            ))}
+
+              {/* Left 3-Row Lane Archetype Rail + 5x3 Matrix & Aligned SVG Spline Overlay */}
+              <div
+                className={`flex flex-1 min-h-0 w-full ${
+                  isCompactLandscape ? 'gap-2' : 'gap-2 sm:gap-3'
+                }`}
+              >
+                {/* 3-Row Lane Archetype Rail: Displays ALL 3 Lanes (01, 02, 03) */}
+                <div
+                  className={`grid grid-rows-3 shrink-0 ${
+                    isCompactLandscape
+                      ? 'w-28 gap-y-1'
+                      : 'w-28 md:w-36 lg:w-44 gap-y-1.5 sm:gap-y-2'
+                  }`}
+                >
+                  {laneProfiles.map((profile) => {
+                    const archLabel =
+                      profile.archetype === 'gauntlet'
+                        ? t.laneArchetypeGauntlet
+                        : profile.archetype === 'gambler'
+                          ? t.laneArchetypeGambler
+                          : t.laneArchetypeMercenary;
+                    const archDesc =
+                      profile.archetype === 'gauntlet'
+                        ? t.laneGauntletDesc
+                        : profile.archetype === 'gambler'
+                          ? t.laneGamblerDesc
+                          : t.laneMercenaryDesc;
+                    const laneColor =
+                      profile.archetype === 'gauntlet'
+                        ? 'text-rose-300'
+                        : profile.archetype === 'gambler'
+                          ? 'text-purple-300'
+                          : 'text-amber-300';
+
+                    return (
+                      <div
+                        key={`lane_rail_${profile.lane}`}
+                        title={archDesc}
+                        className={`flex flex-col justify-center rounded-lg border border-cyan-500/25 bg-cyan-950/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] min-h-0 overflow-hidden ${
+                          isCompactLandscape ? 'px-1.5 py-0.5' : 'px-2 py-1 sm:px-2.5 sm:py-1.5'
+                        }`}
+                      >
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className={`font-mono-tabular text-[8px] sm:text-[9px] font-black shrink-0 ${laneColor}`}>
+                            0{profile.lane + 1}
+                          </span>
+                          <span className="font-mono-tabular text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-cyan-200 truncate">
+                            · {archLabel}
+                          </span>
+                        </div>
+                        {!isCompactLandscape && (
+                          <span className="hidden md:block mt-0.5 font-sans text-[8px] sm:text-[9px] text-slate-300 leading-tight line-clamp-2">
+                            {archDesc}
+                          </span>
+                        )}
+                        <div className="mt-0.5 flex items-center gap-1 font-mono-tabular text-[7.5px] sm:text-[8.5px] font-semibold truncate">
+                          <span className="text-rose-300">
+                            {isCompactLandscape ? (
+                              `-${profile.totalTensionHpEst} HP`
+                            ) : (
+                              <>
+                                <span className="md:hidden">-{profile.totalTensionHpEst} HP</span>
+                                <span className="hidden md:inline">{profile.totalTensionHpEst} {t.mapRiskShort}</span>
+                              </>
+                            )}
+                          </span>
+                          <span className="text-slate-500">·</span>
+                          <span className="text-amber-300">+{profile.totalRunYieldCredits} CR</span>
+                          {profile.totalMetaYieldNanites > 0 && !isCompactLandscape && (
+                            <>
+                              <span className="hidden lg:inline text-slate-500">·</span>
+                              <span className="hidden lg:inline text-cyan-300">
+                                +{profile.totalMetaYieldNanites} {t.nanitesShort}
+                              </span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* 5x3 Matrix + Exact Port-to-Port SVG Spline Overlay */}
+                <div className="relative flex-1 min-h-0">
+                  <svg
+                    viewBox="0 0 1000 432"
+                    preserveAspectRatio="none"
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 h-full w-full"
+                  >
+                    {/* 3 Horizontal Sky-Bridge Lane Guide Tracks */}
+                    {LANE_TRACK_Y.map((yPos, idx) => (
+                      <g key={`track_${idx}`}>
+                        <line
+                          x1="80"
+                          y1={yPos}
+                          x2="920"
+                          y2={yPos}
+                          stroke="rgba(56, 189, 248, 0.14)"
+                          strokeWidth="16"
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1="80"
+                          y1={yPos}
+                          x2="920"
+                          y2={yPos}
+                          stroke="rgba(224, 242, 254, 0.22)"
+                          strokeWidth="1"
+                          strokeDasharray="8 8"
+                        />
+                      </g>
+                    ))}
+
+                    {/* Node-to-Node Cubic Bezier Conduit Edges */}
+                    {run.mapNodes.map((node) => {
+                      const p1 = getPortCoords(node);
+                      return node.nextIds.map((nextId) => {
+                        const target = nodeById.get(nextId);
+                        if (!target) return null;
+                        const p2 = getPortCoords(target);
+
+                        const isImmediateAvailable =
+                          node.id === run.currentNodeId && availableIds.has(target.id);
+                        const isFocusedImmediate =
+                          isImmediateAvailable && target.id === focusedNodeId;
+                        const isTraversed =
+                          node.cleared && (target.cleared || target.id === run.currentNodeId);
+                        const isMultiHopEdge =
+                          multiHopPathIds.has(node.id) && multiHopPathIds.has(target.id);
+                        const isDownstreamPreview =
+                          Boolean(focusedNodeId) &&
+                          previewReachableIds.has(node.id) &&
+                          previewReachableIds.has(target.id) &&
+                          node.layer >= (focusedNode?.layer ?? 99);
+
+                        const dx = (p2.leftX - p1.rightX) * 0.62;
+                        const pathD = `M ${p1.rightX} ${p1.y} C ${p1.rightX + dx} ${p1.y}, ${p2.leftX - dx} ${p2.y}, ${p2.leftX} ${p2.y}`;
+
+                        const strokeColor = isMultiHopEdge
+                          ? '#00F0FF'
+                          : isFocusedImmediate
+                            ? '#FFC700'
+                            : isImmediateAvailable
+                              ? '#00F0FF'
+                              : isTraversed
+                                ? '#FFC700'
+                                : isDownstreamPreview
+                                  ? 'rgba(0, 240, 255, 0.78)'
+                                  : 'rgba(203, 213, 225, 0.24)';
+
+                        const strokeW =
+                          isMultiHopEdge || isFocusedImmediate || isImmediateAvailable
+                            ? 3.4
+                            : isTraversed || isDownstreamPreview
+                              ? 2.5
+                              : 1.6;
+
+                        return (
+                          <g key={`${node.id}_${target.id}`}>
+                            {(isMultiHopEdge || isImmediateAvailable || isDownstreamPreview) && (
+                              <path
+                                d={pathD}
+                                fill="none"
+                                stroke={isMultiHopEdge ? 'rgba(0,240,255,0.45)' : isFocusedImmediate ? 'rgba(255,199,0,0.28)' : 'rgba(0,240,255,0.25)'}
+                                strokeWidth={strokeW + 5}
+                              />
+                            )}
+                            <path
+                              d={pathD}
+                              fill="none"
+                              stroke={strokeColor}
+                              strokeWidth={strokeW}
+                              strokeDasharray={
+                                isMultiHopEdge || isImmediateAvailable
+                                  ? '8 5'
+                                  : isDownstreamPreview
+                                    ? '5 4'
+                                    : undefined
+                              }
+                            />
+                          </g>
+                        );
+                      });
+                    })}
+                  </svg>
+
+                  {/* 5 Columns x 3 Rows Deterministic Node Matrix */}
+                  <div
+                    className={`relative z-10 grid h-full w-full grid-cols-5 grid-rows-3 ${
+                      isCompactLandscape
+                        ? 'gap-x-2 gap-y-1'
+                        : 'gap-x-3 gap-y-1.5 sm:gap-x-7 sm:gap-y-2'
+                    }`}
+                  >
+                    {ROW_INDICES.map((rowIdx) =>
+                      LAYER_INDICES.map((colIdx) => {
+                        const node =
+                          colIdx === 0 || colIdx === 4
+                            ? rowIdx === 1
+                              ? layers[colIdx][0]
+                              : undefined
+                            : layers[colIdx].find((n) => n.lane === rowIdx);
+
+                        if (!node) {
+                          return (
+                            <div
+                              key={`empty_${colIdx}_${rowIdx}`}
+                              className="pointer-events-none min-h-0"
+                            />
+                          );
+                        }
+
+                        return (
+                          <div key={node.id} className="h-full w-full min-w-0 min-h-0">
+                            {renderNodeCard(node)}
+                          </div>
+                        );
+                      }),
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Bottom Focused Node Tactical Briefing & Direct Deploy Bar */}
-        {focusedNode && (
-          <div className="chrome-panel-bright flex flex-col items-start justify-between gap-2.5 rounded-xl px-4 py-2.5 sm:flex-row sm:items-center">
-            <div className="flex flex-wrap items-center gap-2.5 text-xs">
-              <span className="font-mono-tabular font-bold text-[#00F0FF]">
-                {intelByNodeId.get(focusedNode.id)?.sectorCode}
-              </span>
-              <span aria-hidden="true" className="text-slate-400">
-                ·
-              </span>
-              <span className="font-display text-sm font-bold text-white">
-                {t.nodes[focusedNode.type]}
-              </span>
-              <span aria-hidden="true" className="text-slate-400">
-                ·
-              </span>
-              <span className="font-mono-tabular font-semibold text-[#FFC700]">
-                {getRewardLabel(focusedNode.type)}
-              </span>
-              <span aria-hidden="true" className="hidden md:inline text-slate-400">
-                ·
-              </span>
-              <span className="font-mono-tabular text-slate-200">
-                {t.mapOpensNext}:{' '}
-                {focusedNode.nextIds
-                  .map((id) => nodeById.get(id))
-                  .filter((n): n is MapNode => Boolean(n))
-                  .map((n) => t.nodes[n.type])
-                  .join(' / ') || t.nodes.BOSS}
-              </span>
-            </div>
+        {briefingNode && (() => {
+          const briefingEconomy = getNodeEconomyMetrics(briefingNode, run.heroine);
+          const consecutiveCombat = run.heroine.consecutiveCombatWithoutClinic ?? 0;
+          const reconPreview = hasRecon ? getReconPreviewForNode(briefingNode, run) : null;
+          const reconDetail =
+            reconPreview?.kind === 'event'
+              ? `${reconPreview.eventTitle}: ${reconPreview.choices.join(' / ')}`
+              : reconPreview?.kind === 'clinic'
+                ? `${reconPreview.isFlashSale ? t.bountyFlashSaleBadge : t.clinicShopTitle} · ${t.implantSlotsLabel}: ${MAX_IMPLANTS - reconPreview.openSockets}/${MAX_IMPLANTS}`
+                : reconPreview?.kind === 'medbay'
+                  ? `+${reconPreview.healTotal} ${t.hpLabel}${reconPreview.isFunded ? ' (Funded)' : ''}`
+                  : reconPreview?.kind === 'combat'
+                    ? reconPreview.enemies
+                        .map(
+                          (e) =>
+                            `${t.enemies[e.archetype].name} (${e.hp}HP${e.armor > 0 ? `+${e.armor}A` : ''} · ${e.firstIntent.kind.toUpperCase()} ${e.firstIntent.value})`,
+                        )
+                        .join(' | ')
+                    : null;
 
-            <button
-              type="button"
-              onClick={() => onSelectNode(focusedNode.id)}
-              className="chrome-btn-primary w-full sm:w-auto rounded-lg px-5 py-2 font-display text-sm font-bold transition-transform hover:-translate-y-0.5 cursor-pointer shrink-0 whitespace-nowrap"
+          return (
+            <div
+              className={`chrome-panel-bright flex shrink-0 justify-between gap-2 rounded-xl ${
+                isCompactLandscape
+                  ? 'flex-row items-center px-2.5 py-1'
+                  : 'flex-col items-start px-3.5 py-2 sm:px-4 sm:py-2.5'
+              }`}
             >
-              {t.enterNode}: {t.nodes[focusedNode.type]} [Enter]
-            </button>
-          </div>
-        )}
+              <div className="flex flex-col gap-1 w-full min-w-0">
+                {/* Primary Intel Row */}
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] sm:text-xs min-w-0">
+                  <span className="font-mono-tabular font-bold text-[#00F0FF]">
+                    {intelByNodeId.get(briefingNode.id)?.sectorCode}
+                  </span>
+                  <span aria-hidden="true" className="text-slate-400">
+                    ·
+                  </span>
+                  <span className="font-display text-xs sm:text-sm font-bold text-white">
+                    {t.nodes[briefingNode.type]}
+                  </span>
+                  <span aria-hidden="true" className="text-slate-400">
+                    ·
+                  </span>
+                  <span className="text-slate-200">{t.nodeDescs[briefingNode.type]}</span>
+                  <span aria-hidden="true" className="text-slate-400">
+                    ·
+                  </span>
+                  <span className="font-mono-tabular font-semibold text-[#FFC700]">
+                    {getRewardLabel(briefingNode.type)}
+                  </span>
+
+                  {/* Threat Traits / Intel Badges */}
+                  {intelByNodeId.get(briefingNode.id)?.threatTraits?.map((trait, tIdx) => (
+                    <span
+                      key={`trait_${tIdx}`}
+                      className="px-1.5 py-0.2 rounded bg-rose-500/20 border border-rose-400/40 text-rose-300 text-[9px] font-mono-tabular font-bold"
+                    >
+                      {trait}
+                    </span>
+                  ))}
+
+                  <span aria-hidden="true" className="hidden md:inline text-slate-400">
+                    ·
+                  </span>
+                  <span className="font-mono-tabular text-slate-300">
+                    {t.mapOpensNext}:{' '}
+                    {briefingNode.nextIds
+                      .map((id) => nodeById.get(id))
+                      .filter((n): n is MapNode => Boolean(n))
+                      .map((n) => t.nodes[n.type])
+                      .join(' / ') || t.nodes.BOSS}
+                  </span>
+                </div>
+
+                {/* HP as Currency Economy Bar */}
+                {!isCompactLandscape && (
+                  <div className="flex flex-wrap items-center gap-2 pt-0.5 text-[9px] sm:text-[10px] font-mono-tabular">
+                    <span className="flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 border border-slate-700/60">
+                      <span className="text-slate-400 font-semibold">{t.tensionLabel}:</span>
+                      <span
+                        className={`font-bold ${
+                          briefingEconomy.tensionHpPct > 20
+                            ? 'text-rose-400'
+                            : briefingEconomy.tensionHpPct < 0
+                              ? 'text-emerald-400'
+                              : 'text-slate-200'
+                        }`}
+                      >
+                        {briefingEconomy.tensionHpPct > 0
+                          ? `-${briefingEconomy.tensionHpPct}% HP (~${briefingEconomy.tensionHpEst} HP)`
+                          : briefingEconomy.tensionHpPct < 0
+                            ? `+${Math.abs(briefingEconomy.tensionHpPct)}% ${t.mapHpRecoveryLabel}`
+                            : '0% HP'}
+                      </span>
+                    </span>
+
+                    <span className="flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 border border-slate-700/60">
+                      <span className="text-slate-400 font-semibold">{t.yieldLabel}:</span>
+                      <span className="font-bold text-amber-300">
+                        +{briefingEconomy.runYieldCredits} CR ({briefingEconomy.runYieldPowerRating})
+                      </span>
+                    </span>
+
+                    <span className="flex items-center gap-1 rounded bg-slate-900/80 px-1.5 py-0.5 border border-slate-700/60">
+                      <span className="text-slate-400 font-semibold">{t.nanitesLabel}:</span>
+                      <span className="font-bold text-cyan-300">
+                        +{briefingEconomy.metaYieldNanites} {t.nanitesShort}
+                      </span>
+                    </span>
+
+                    {/* Mercenary Interest Streak */}
+                    {consecutiveCombat >= 2 && (
+                      <span className="flex items-center gap-1 rounded bg-amber-500/20 px-1.5 py-0.5 border border-amber-400/50 text-amber-300 font-bold">
+                        <span>⚡</span>
+                        <span>
+                          {t.abstinenceBonusLabel}: +{Math.min(50, consecutiveCombat * 10)}% CR ({consecutiveCombat}x)
+                        </span>
+                      </span>
+                    )}
+
+                    {/* Recon Sensors Active + Real Telemetry Preview */}
+                    {hasRecon && (
+                      <span
+                        title={reconDetail ?? undefined}
+                        className="flex items-center gap-1 rounded bg-cyan-500/20 px-1.5 py-0.5 border border-cyan-400/40 text-cyan-200 font-bold max-w-full"
+                      >
+                        <span>✦</span>
+                        <span className="text-cyan-300 shrink-0">{t.reconActiveBadge}</span>
+                        {reconDetail && (
+                          <span className="text-slate-100 font-normal truncate max-w-[340px]">
+                            · {reconDetail}
+                          </span>
+                        )}
+                      </span>
+                    )}
+
+                    {/* Defibrillator Status */}
+                    <span
+                      className={`px-1.5 py-0.5 rounded border text-[9px] font-bold ${
+                        run.heroine.emergencyDefibUsed
+                          ? 'border-slate-700/50 bg-slate-900/50 text-slate-500'
+                          : 'border-emerald-500/40 bg-emerald-950/40 text-emerald-300'
+                      }`}
+                    >
+                      [{run.heroine.emergencyDefibUsed ? t.defibDischargedLabel : t.defibArmedLabel}]
+                    </span>
+
+                    <span className="hidden lg:inline text-slate-300 italic truncate max-w-sm">
+                      <span className="not-italic text-slate-400 font-semibold">{t.oppCostLabel}:</span>{' '}
+                      {briefingEconomy.opportunityCost}
+                    </span>
+                  </div>
+                )}
+              </div>
+
+              {availableIds.has(briefingNode.id) ? (
+                <button
+                  type="button"
+                  onClick={() => onSelectNode(briefingNode.id)}
+                  className={`chrome-btn-primary rounded-lg font-display font-bold transition-transform hover:-translate-y-0.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                    isCompactLandscape
+                      ? 'w-auto px-3 py-1 text-xs'
+                      : 'w-full sm:w-auto px-5 py-2 text-sm'
+                  }`}
+                >
+                  {t.enterNode}: {t.nodes[briefingNode.type]} [Enter]
+                </button>
+              ) : (
+                <span className="font-mono-tabular text-xs text-slate-400 font-bold px-3 py-1 rounded bg-slate-800/60 border border-slate-700/50 shrink-0">
+                  {t.mapMultiHopLabel}
+                </span>
+              )}
+            </div>
+          );
+        })()}
       </div>
     </main>
   );

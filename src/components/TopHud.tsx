@@ -1,9 +1,15 @@
-import { useState } from 'react';
-import { MAX_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
-import { previewHeroineThreat } from '../engine/gameEngine';
+import { useEffect, useRef, useState } from 'react';
+import { CYBER_IMPLANTS, MAX_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
 import type { CyberImplantId, RunState, TurnPreview } from '../engine/types';
+import { CODEX_TRANSLATIONS } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
+import {
+  getTileCornerPip,
+  type SemanticZoomLevel,
+} from '../utils/accessibilityAndScale';
+import type { EncounterObjectivesSummary } from '../utils/tacticalSandboxAndHints';
 import { ImplantIcon } from './ImplantIcon';
+import type { LoupeInspectPayload } from './TacticalLoupeOverlay';
 
 interface TopHudProps {
   run: RunState;
@@ -11,10 +17,31 @@ interface TopHudProps {
   muted: boolean;
   hudMinimized?: boolean;
   activePreview?: TurnPreview | null;
+  tacticalView?: boolean;
+  semanticZoom?: SemanticZoomLevel;
+  autoFocusCamera?: boolean;
+  objectivesSummary?: EncounterObjectivesSummary | null;
+  canUndoTurn?: boolean;
+  canResetEncounter?: boolean;
+  onUndoTurn?: () => void;
+  onResetEncounter?: () => void;
+  isCompactLandscape?: boolean;
+  isNarrowPortrait?: boolean;
+  showLandscapeToggle?: boolean;
+  isLandscapeRotated?: boolean;
+  onToggleLandscape?: () => void;
+  showFullscreenButton?: boolean;
+  isFullscreen?: boolean;
+  onToggleFullscreen?: () => void;
   onToggleHudMinimized?: () => void;
+  onToggleTacticalView?: () => void;
+  onCycleSemanticZoom?: () => void;
+  onToggleAutoFocusCamera?: () => void;
+  onInspectLoupe?: (payload: LoupeInspectPayload | null) => void;
   onToggleLang: () => void;
   onToggleMute: () => void;
   onOpenPool: () => void;
+  onOpenCodex: () => void;
   onOpenPause: () => void;
 }
 
@@ -23,358 +50,417 @@ export function TopHud({
   lang,
   muted,
   hudMinimized = false,
-  activePreview = null,
+  activePreview: _activePreview = null,
+  tacticalView = false,
+  semanticZoom = 'standard',
+  autoFocusCamera = true,
+  objectivesSummary = null,
+  canUndoTurn = false,
+  canResetEncounter = false,
+  onUndoTurn,
+  onResetEncounter,
+  isCompactLandscape = false,
+  showLandscapeToggle = false,
+  isLandscapeRotated = false,
+  onToggleLandscape,
+  showFullscreenButton = false,
+  isFullscreen = false,
+  onToggleFullscreen,
   onToggleHudMinimized,
+  onToggleTacticalView,
+  onCycleSemanticZoom,
+  onToggleAutoFocusCamera,
+  onInspectLoupe,
   onToggleLang,
   onToggleMute,
   onOpenPool,
+  onOpenCodex,
   onOpenPause,
 }: TopHudProps) {
   const t = TRANSLATIONS[lang];
-  const [hoveredImplant, setHoveredImplant] = useState<CyberImplantId | null>(null);
-  const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
-  const hpPct = Math.max(0, Math.min(100, Math.round((run.heroine.hp / run.heroine.maxHp) * 100)));
-  const equippedWeight = getEquippedEquipmentWeight(run.heroine);
+  const codexT = CODEX_TRANSLATIONS[lang];
+  const { heroine } = run;
+  const charMeta = t.characters[heroine.characterId ?? 'kira'];
+  const usedWeight = getEquippedEquipmentWeight(heroine);
+  const [inspectImplantId, setInspectImplantId] = useState<CyberImplantId | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const barRef = useRef<HTMLElement | null>(null);
 
-  const kiraThreat = previewHeroineThreat(
-    run.screen === 'combat' ? run.combat : null,
-    run.heroine,
-    activePreview,
-  );
-  const projHpPct = Math.max(
-    0,
-    Math.min(100, Math.round((kiraThreat.projectedHp / run.heroine.maxHp) * 100)),
-  );
-  const preEnemyHpPct = Math.max(
-    0,
-    Math.min(100, Math.round((kiraThreat.hpBeforeEnemies / run.heroine.maxHp) * 100)),
-  );
-  const dmgBarPct = Math.max(0, preEnemyHpPct - projHpPct);
-  const healBarPct = Math.max(0, projHpPct - hpPct);
-  const hasHpPreview =
-    kiraThreat.hpDamageTaken > 0 || kiraThreat.projectedHp !== run.heroine.hp;
+  useEffect(() => {
+    if (!inspectImplantId && !drawerOpen) return;
+    const handlePointerDown = (e: PointerEvent) => {
+      if (barRef.current && !barRef.current.contains(e.target as Node)) {
+        setInspectImplantId(null);
+        setDrawerOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [inspectImplantId, drawerOpen]);
+
+  const combat = run.combat;
+  const isCombat = run.screen === 'combat' && Boolean(combat);
 
   return (
-    <header className="chrome-glass relative z-30 flex h-10 shrink-0 items-center justify-between gap-2 border-t-0 border-x-0 border-b border-cyan-300/35 px-3 sm:px-4">
-      {/* Left: Chrome Wordmark + Unboxed Sector/Turn Metadata */}
-      <div className="flex items-center gap-3 min-w-0">
-        <span className="chrome-text-shimmer font-display text-sm font-bold tracking-wider whitespace-nowrap shrink-0">
-          {t.gameTitle}
-        </span>
-        <div className="hidden md:flex items-center gap-1.5 text-[11px] text-slate-200/90 truncate">
-          <span className="font-mono-tabular font-semibold text-cyan-200">
-            {t.layerLabel} {currentNode ? currentNode.layer + 1 : 1}/5
-          </span>
-          {currentNode && (
-            <>
-              <span aria-hidden="true" className="text-slate-400">
-                ·
-              </span>
-              <span className="font-medium text-white">{t.nodes[currentNode.type]}</span>
-            </>
-          )}
-          {run.screen === 'combat' && run.combat && (
-            <>
-              <span aria-hidden="true" className="text-slate-400">
-                ·
-              </span>
-              <span className="font-mono-tabular text-amber-200">
-                {t.turnLabel} {run.combat.turn}
-              </span>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Center: Compact Chrome Vitality Strip */}
-      <div className="flex items-center gap-2.5 sm:gap-4">
-        {/* HP Inline Gauge with Enemy Damage & Death Preview */}
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-rose-200">
-            {t.hpLabel}
-          </span>
-          <div
-            data-testid="tophud-kira-lifebar"
-            data-preview-incoming-dmg={kiraThreat.hpDamageTaken}
-            data-preview-lethal={kiraThreat.willDie ? 'true' : 'false'}
-            className={`relative h-2 w-16 sm:w-24 overflow-hidden rounded-full bg-slate-950/85 p-[1px] ${
-              kiraThreat.willDie
-                ? 'ring-1 ring-[#FF2E7E] shadow-[0_0_10px_rgba(255,46,126,0.75)]'
-                : kiraThreat.hpDamageTaken > 0
-                  ? 'ring-1 ring-[#FFC700]/75'
-                  : 'ring-1 ring-white/25'
+    <header
+      ref={barRef}
+      data-testid="top-hud-bar"
+      className={`aaa-charcoal-surface chrome-glass relative z-30 shrink-0 rounded-xl border border-[#F4F4F6]/25 bg-[#181A20]/96 text-[#F4F4F6] ${
+        isCompactLandscape
+          ? 'mx-1.5 mt-1 px-2 py-0.5'
+          : 'mx-2 mt-1 px-2.5 py-1 sm:mx-3 sm:mt-1.5 sm:px-3.5 sm:py-1.5'
+      }`}
+    >
+      <div className="flex items-center justify-between gap-3">
+        {/* Zone 1: Brand + Clean Unboxed Metadata (Turns · Objectives · Credits) */}
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <span
+            className={`font-display font-extrabold tracking-wider text-[#F4F4F6] whitespace-nowrap shrink-0 ${
+              isCompactLandscape ? 'text-xs' : 'text-sm sm:text-base'
             }`}
           >
-            {/* Remaining HP after enemy attacks */}
+            NEON<span className="text-cyan-300">BREACH</span>
+          </span>
+
+          <span aria-hidden="true" className="text-slate-500 shrink-0">
+            ·
+          </span>
+
+          {/* Turn Counter in Combat or Sector Progress on Map */}
+          {isCombat && combat ? (
             <div
-              className="absolute inset-y-0 left-0 rounded-l-full bg-gradient-to-r from-[#FF2E7E] via-[#FF5C9E] to-[#FFB3D1] transition-all duration-150"
-              style={{ width: `${Math.min(hpPct, projHpPct)}%` }}
-            />
-            {/* Net heal segment if projectedHp > current hp */}
-            {healBarPct > 0 && (
-              <div
-                className="absolute inset-y-0 bg-gradient-to-r from-[#10B981] to-[#6EE7B7] animate-pulse transition-all duration-150"
-                style={{ left: `${hpPct}%`, width: `${healBarPct}%` }}
-              />
-            )}
-            {/* Enemy-inflicted damage chunk on Kira's lifebar */}
-            {dmgBarPct > 0 && (
-              <div
-                data-testid="tophud-kira-lifebar-preview"
-                className={`absolute inset-y-0 transition-all duration-150 ${
-                  kiraThreat.willDie
-                    ? 'bg-gradient-to-r from-[#FFC700] via-[#FF2E7E] to-white animate-pulse'
-                    : 'bg-gradient-to-r from-[#FFC700] to-[#FEF08A] animate-pulse'
-                }`}
-                style={{ left: `${projHpPct}%`, width: `${dmgBarPct}%` }}
-              />
-            )}
-          </div>
-          <span className="flex items-center gap-0.5 font-mono-tabular text-xs font-bold text-white whitespace-nowrap">
-            {hasHpPreview ? (
-              <>
-                <span className="text-rose-200/85">{run.heroine.hp}</span>
-                <span className="text-amber-300">→</span>
-                <span
-                  className={
-                    kiraThreat.willDie
-                      ? 'text-[#FF2E7E] font-extrabold animate-pulse'
-                      : kiraThreat.projectedHp < run.heroine.hp
-                        ? 'text-[#FFC700]'
-                        : 'text-emerald-300'
-                  }
-                >
-                  {kiraThreat.projectedHp}
-                </span>
-                <span className="text-slate-400">/{run.heroine.maxHp}</span>
-                {kiraThreat.willDie && (
-                  <span
-                    title={t.lethalLabel}
-                    className="ml-0.5 rounded bg-[#FF2E7E] px-1 py-0.2 text-[9px] font-extrabold uppercase tracking-wider text-white animate-pulse"
-                  >
-                    ☠ {t.lethalLabel}
-                  </span>
-                )}
-              </>
-            ) : (
-              <>
-                {run.heroine.hp}/{run.heroine.maxHp}
-              </>
-            )}
-          </span>
-        </div>
-
-        {/* Shield Readout */}
-        <div className="flex items-baseline gap-1 border-l border-white/15 pl-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-200">
-            {t.shieldLabel}
-          </span>
-          <span className="font-mono-tabular text-xs font-bold text-[#00F0FF] whitespace-nowrap">
-            {kiraThreat.shieldAfterPlayer !== run.heroine.shield
-              ? `${run.heroine.shield}→${kiraThreat.shieldAfterPlayer}`
-              : run.heroine.shield}
-          </span>
-        </div>
-
-        {/* Overdrive Inline Gauge */}
-        <div className="hidden sm:flex items-center gap-1.5 border-l border-white/15 pl-2.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-200">
-            {t.overdriveLabel}
-          </span>
-          <div className="h-2 w-14 overflow-hidden rounded-full bg-slate-950/80 p-[1px] ring-1 ring-white/25">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] transition-all duration-200"
-              style={{ width: `${Math.min(100, run.heroine.overdrive)}%` }}
-            />
-          </div>
-          <span className="font-mono-tabular text-xs font-bold text-[#FFC700]">
-            {run.heroine.overdrive}%
-          </span>
-        </div>
-
-        {/* Credits Readout */}
-        <div className="hidden lg:flex items-baseline gap-1 border-l border-white/15 pl-2.5">
-          <span className="font-mono-tabular text-xs font-bold text-[#FFC700]">
-            {run.heroine.credits}
-          </span>
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-amber-100/80">
-            {t.creditsLabel}
-          </span>
-        </div>
-
-        {/* Cybernetic Implants 4-Socket Micro Strip */}
-        <div
-          className="relative hidden md:flex items-center gap-1 border-l border-white/15 pl-2.5"
-          aria-label={t.implantsTitle}
-        >
-          {Array.from({ length: MAX_IMPLANTS }).map((_, idx) => {
-            const implantId = run.heroine.implants[idx];
-            if (!implantId) {
-              return (
-                <div
-                  key={`slot_empty_${idx}`}
-                  title={t.noImplants}
-                  className="flex h-6 w-6 items-center justify-center rounded border border-white/15 bg-slate-950/50 text-[10px] text-slate-400"
-                >
-                  ·
-                </div>
-              );
-            }
-            const meta = t.implants[implantId];
-            return (
-              <button
-                key={implantId}
-                type="button"
-                tabIndex={-1}
-                onMouseEnter={() => setHoveredImplant(implantId)}
-                onMouseLeave={() => setHoveredImplant(null)}
-                onFocus={() => setHoveredImplant(implantId)}
-                onBlur={() => setHoveredImplant(null)}
-                aria-label={`${meta.name}: ${meta.desc}`}
-                className="chrome-pill flex h-6 w-6 items-center justify-center rounded transition-transform hover:scale-105 focus-visible:outline-2 focus-visible:outline-cyan-300"
-              >
-                <ImplantIcon id={implantId} size={16} />
-              </button>
-            );
-          })}
-
-          {hoveredImplant && (
-            <div className="chrome-panel-bright pointer-events-none absolute left-2 top-8 z-50 w-60 rounded-lg p-2.5">
-              <div className="text-xs font-bold text-cyan-200">
-                {t.implants[hoveredImplant].name}
-              </div>
-              <div className="mt-0.5 text-[11px] leading-snug text-slate-100">
-                {t.implants[hoveredImplant].desc}
-              </div>
+              data-testid="tophud-turn-counter"
+              className="flex items-baseline gap-1.5 font-mono-tabular whitespace-nowrap shrink-0"
+            >
+              <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+                {t.turnsLabel}
+              </span>
+              <span className="tactical-numeral-stroke text-lg sm:text-xl font-black text-[#F4F4F6] leading-none">
+                {combat.turn}
+              </span>
             </div>
+          ) : (
+            <span className="font-mono-tabular text-xs sm:text-sm font-bold text-cyan-200 whitespace-nowrap shrink-0">
+              {run.mapNodes.filter((n) => n.cleared).length}/{run.mapNodes.length}
+            </span>
           )}
-        </div>
-      </div>
 
-      {/* Right: Sleek Chrome Controls */}
-      <div className="flex items-center gap-1 shrink-0">
-        {run.screen === 'combat' && onToggleHudMinimized && (
+          {/* Compact 1-Line Objective Stars in Top Bar (full criteria on hover) */}
+          {isCombat && objectivesSummary && (
+            <>
+              <span aria-hidden="true" className="hidden md:inline text-slate-500 shrink-0">
+                ·
+              </span>
+              <div
+                data-testid="tophud-objective-tracker"
+                className="hidden md:flex items-center gap-1.5 font-mono-tabular text-xs whitespace-nowrap shrink-0"
+              >
+                {objectivesSummary.tiers.map((tier) => (
+                  <span
+                    key={tier.tier}
+                    title={`${tier.tierLabel} — ${tier.title} (${tier.rewardText})`}
+                    className={`font-bold tracking-tight transition-colors ${
+                      tier.completed ? 'text-[#FFC700]' : 'text-slate-500'
+                    }`}
+                  >
+                    {'★'.repeat(tier.tier)}
+                  </span>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* Show Hero HP in TopHud only outside combat (combat shows live pod directly on stage) */}
+          {!isCombat && (
+            <>
+              <span aria-hidden="true" className="text-slate-500 shrink-0">
+                ·
+              </span>
+              <div
+                className="flex items-center gap-1 font-mono-tabular text-xs sm:text-sm font-bold text-[#F4F4F6] whitespace-nowrap shrink-0"
+                onMouseEnter={(e) => {
+                  if (!onInspectLoupe) return;
+                  onInspectLoupe({
+                    id: 'tophud-hero',
+                    pip: getTileCornerPip('defense'),
+                    kicker: `${charMeta.code} · OPERATIVE`,
+                    title: charMeta.name,
+                    primaryStat: `${heroine.hp}/${heroine.maxHp} HP`,
+                    subtitle: `${t.shieldLabel} ${heroine.shield} · OD ${heroine.overdrive}%`,
+                    detailLine: 'Match tiles. Survive incoming strikes.',
+                    pointerX: e.clientX,
+                    pointerY: e.clientY,
+                    viewportW: window.innerWidth,
+                    viewportH: window.innerHeight,
+                    keywords: ['shield', 'armor'],
+                    lang,
+                  });
+                }}
+                onMouseLeave={() => onInspectLoupe?.(null)}
+              >
+                <span className="text-rose-300">♥</span>
+                <span className="tactical-numeral-stroke">
+                  {heroine.hp}/{heroine.maxHp}
+                </span>
+              </div>
+            </>
+          )}
+
+          <span aria-hidden="true" className="hidden sm:inline text-slate-500 shrink-0">
+            ·
+          </span>
+
+          {/* Unboxed Credits Counter */}
+          <div className="hidden sm:flex items-center gap-1 font-mono-tabular text-xs sm:text-sm font-bold text-amber-300 whitespace-nowrap shrink-0">
+            <span aria-hidden="true">◈</span>
+            <span>{heroine.credits}</span>
+          </div>
+        </div>
+
+        {/* Zone 2 & 3: Direct Puzzle Actions (Undo / Reset) + Tactical Utilities */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isCombat && onUndoTurn && (
+            <button
+              type="button"
+              data-testid="tophud-undo-btn"
+              onClick={onUndoTurn}
+              disabled={!canUndoTurn}
+              title={
+                lang === 'cs'
+                  ? 'Vrátit tah zpět (U nebo pravé tlačítko na ploše)'
+                  : 'Undo turn (U or right-click board)'
+              }
+              className="flex items-center gap-1 rounded-lg border border-cyan-300/50 bg-cyan-950/55 px-2.5 py-1 font-mono-tabular text-xs font-extrabold text-[#F4F4F6] transition hover:border-cyan-200 hover:bg-cyan-900/70 disabled:opacity-30 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <span className="text-cyan-300">↶</span>
+              <span>{lang === 'cs' ? 'Zpět' : 'Undo'}</span>
+            </button>
+          )}
+
+          {isCombat && onResetEncounter && (
+            <button
+              type="button"
+              data-testid="tophud-reset-btn"
+              onClick={onResetEncounter}
+              disabled={!canResetEncounter}
+              title={lang === 'cs' ? 'Restartovat střet od 1. tahu' : 'Reset puzzle to Turn 1'}
+              className="flex items-center gap-1 rounded-lg border border-white/20 bg-[#0E1015] px-2 py-1 font-mono-tabular text-xs font-bold text-[#F4F4F6] transition hover:border-amber-300 disabled:opacity-30 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <span className="text-amber-300">⟲</span>
+              <span className="hidden sm:inline">{lang === 'cs' ? 'Reset' : 'Reset'}</span>
+            </button>
+          )}
+
+          {onToggleTacticalView && (
+            <button
+              type="button"
+              data-testid="tactical-view-toggle"
+              onClick={onToggleTacticalView}
+              aria-pressed={tacticalView}
+              title="Tactical View (Alt / Tab)"
+              className={`rounded-lg border px-2 py-1 font-mono-tabular text-[11px] font-bold transition whitespace-nowrap shrink-0 cursor-pointer ${
+                tacticalView
+                  ? 'border-cyan-300 bg-cyan-500/25 text-white'
+                  : 'border-white/15 bg-[#0E1015] text-cyan-200 hover:border-cyan-300'
+              }`}
+            >
+              ⌖ {lang === 'cs' ? 'TAK' : 'TAC'}
+            </button>
+          )}
+
           <button
             type="button"
-            tabIndex={-1}
-            onClick={(e) => {
-              e.currentTarget.blur();
-              onToggleHudMinimized();
+            data-testid="tophud-pool-button"
+            onClick={onOpenPool}
+            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 font-mono-tabular text-[11px] font-bold text-cyan-200 hover:border-cyan-300 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <span>▣</span>
+            <span className="hidden lg:inline">{t.inspectPool}</span>
+            <span className="text-slate-300">
+              {usedWeight}/{heroine.carryCapacity}
+            </span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="tophud-codex-button"
+            onClick={onOpenCodex}
+            aria-label={codexT.codexButtonLabel}
+            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 text-[11px] font-bold text-cyan-200 transition hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <span className="font-mono-tabular text-cyan-300">?</span>
+            <span className="hidden lg:inline">{codexT.codexButtonLabel}</span>
+          </button>
+
+          <button
+            type="button"
+            data-testid="tophud-drawer-toggle"
+            onClick={() => {
+              setDrawerOpen((prev) => !prev);
+              setInspectImplantId(null);
             }}
-            aria-label={hudMinimized ? 'Expand tactical HUD' : 'Minimize tactical HUD'}
-            title={hudMinimized ? 'Expand HUD [H]' : 'Compact Vista Mode [H]'}
-            className={`chrome-pill flex h-7 items-center gap-1 rounded px-2 text-[11px] font-bold transition-all whitespace-nowrap shrink-0 ${
-              hudMinimized
-                ? 'border-cyan-300 text-[#00F0FF] shadow-[0_0_12px_rgba(0,240,255,0.35)]'
-                : 'text-slate-100 hover:border-cyan-300 hover:text-white'
+            aria-expanded={drawerOpen}
+            aria-label="Settings & Implants"
+            className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-bold transition whitespace-nowrap shrink-0 cursor-pointer ${
+              drawerOpen
+                ? 'border-cyan-300 bg-cyan-500/25 text-white'
+                : 'border-white/15 bg-[#0E1015] text-[#F4F4F6] hover:border-cyan-300'
             }`}
           >
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              {hudMinimized ? (
-                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
-              ) : (
-                <path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7" />
-              )}
-            </svg>
-            <span className="hidden xl:inline">{hudMinimized ? 'HUD +' : 'VISTA'}</span>
-          </button>
-        )}
-
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.currentTarget.blur();
-            onOpenPool();
-          }}
-          aria-label={`${t.inspectPool} (${equippedWeight}/${run.heroine.carryCapacity}, ${run.masterPool.length})`}
-          className="chrome-pill flex h-7 items-center gap-1 rounded px-2 text-[11px] font-semibold text-white transition-all hover:border-cyan-300 focus-visible:outline-2 focus-visible:outline-cyan-300 whitespace-nowrap shrink-0"
-        >
-          <span className="hidden sm:inline">{t.inspectPool}</span>
-          <span className="sm:hidden">{t.loadoutButton}</span>
-          <span className="font-mono-tabular font-bold text-[#00F0FF]">
-            {equippedWeight}/{run.heroine.carryCapacity}
-          </span>
-          <span className="hidden lg:inline font-mono-tabular text-slate-300">
-            · {run.masterPool.length}
-          </span>
-        </button>
-
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.currentTarget.blur();
-            onToggleMute();
-          }}
-          aria-label={muted ? t.unmute : t.mute}
-          title={`${muted ? t.unmute : t.mute} [M]`}
-          className="chrome-pill flex h-7 w-7 items-center justify-center rounded text-slate-100 transition-colors hover:border-cyan-300 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 shrink-0"
-        >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-          >
-            <path d="M11 5L6 9H2v6h4l5 4V5z" />
-            {muted ? (
-              <path d="M22 9l-6 6M16 9l6 6" stroke="#FF2E7E" />
-            ) : (
-              <path
-                d="M15.54 8.46a5 5 0 0 1 0 7.07M19.07 4.93a10 10 0 0 1 0 14.14"
-                stroke="#00F0FF"
-              />
+            <span>⚙</span>
+            {heroine.implants.length > 0 && (
+              <span className="font-mono-tabular text-[10px] text-cyan-300">
+                {heroine.implants.length}/{MAX_IMPLANTS}
+              </span>
             )}
-          </svg>
-        </button>
+          </button>
 
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.currentTarget.blur();
-            onToggleLang();
-          }}
-          aria-label="Toggle language"
-          title="Language [L]"
-          className="chrome-pill flex h-7 items-center justify-center rounded px-2 text-[11px] font-bold text-slate-100 transition-colors hover:border-cyan-300 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 whitespace-nowrap shrink-0"
-        >
-          {t.languageName}
-        </button>
-
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={(e) => {
-            e.currentTarget.blur();
-            onOpenPause();
-          }}
-          aria-label={t.pause}
-          title={`${t.pause} [P]`}
-          className="chrome-pill flex h-7 w-7 items-center justify-center rounded text-slate-100 transition-colors hover:border-cyan-300 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 shrink-0"
-        >
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <rect x="6" y="5" width="4" height="14" rx="1" />
-            <rect x="14" y="5" width="4" height="14" rx="1" />
-          </svg>
-        </button>
+          <button
+            type="button"
+            data-testid="tophud-pause-button"
+            onClick={onOpenPause}
+            aria-label={t.pauseTitle}
+            className="rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 font-mono-tabular text-[11px] font-bold text-slate-200 hover:border-cyan-300 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ❚❚
+          </button>
+        </div>
       </div>
+
+      {/* Collapsible Secondary Drawer (Implants, Semantic Zoom, Auto-Focus Camera, Audio, Language, Fullscreen) */}
+      {drawerOpen && !hudMinimized && (
+        <div
+          data-testid="tophud-secondary-drawer"
+          className="aaa-charcoal-surface mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-white/15 pt-2 text-xs"
+        >
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+              {t.implantSlotsLabel} ({heroine.implants.length}/{MAX_IMPLANTS}):
+            </span>
+            {heroine.implants.length === 0 ? (
+              <span className="text-[11px] text-slate-400 italic">{t.noImplants}</span>
+            ) : (
+              heroine.implants.map((impId) => {
+                const def = CYBER_IMPLANTS.find((c) => c.id === impId);
+                const copy = t.implants[impId];
+                if (!def || !copy) return null;
+                const isSelected = inspectImplantId === impId;
+                return (
+                  <button
+                    key={impId}
+                    type="button"
+                    onClick={() => setInspectImplantId((prev) => (prev === impId ? null : impId))}
+                    className={`chrome-pill flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] transition cursor-pointer ${
+                      isSelected
+                        ? 'border-cyan-300 bg-cyan-950/80 text-white'
+                        : 'text-slate-100 hover:border-cyan-400/50'
+                    }`}
+                  >
+                    <ImplantIcon id={impId} className="h-3.5 w-3.5 shrink-0" />
+                    <span className="font-medium">{copy.name}</span>
+                  </button>
+                );
+              })
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-1.5">
+            {onCycleSemanticZoom && (
+              <button
+                type="button"
+                data-testid="semantic-zoom-toggle"
+                onClick={onCycleSemanticZoom}
+                className="chrome-pill rounded-lg px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+              >
+                🔍 {semanticZoom.toUpperCase()}
+              </button>
+            )}
+            {onToggleAutoFocusCamera && (
+              <button
+                type="button"
+                data-testid="autofocus-camera-toggle"
+                onClick={onToggleAutoFocusCamera}
+                aria-pressed={autoFocusCamera}
+                className="chrome-pill rounded-lg px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+              >
+                🎥 {autoFocusCamera ? 'CAM ON' : 'CAM OFF'}
+              </button>
+            )}
+            {onToggleHudMinimized && (
+              <button
+                type="button"
+                onClick={onToggleHudMinimized}
+                className="chrome-pill rounded-lg px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-slate-200 hover:border-cyan-300 cursor-pointer"
+              >
+                {hudMinimized ? '▼ HUD' : '▲ HUD'}
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onToggleLang}
+              className="chrome-pill rounded-lg px-2 py-0.5 font-mono-tabular text-[11px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+            >
+              {lang.toUpperCase()}
+            </button>
+            <button
+              type="button"
+              onClick={onToggleMute}
+              aria-label={muted ? t.unmute : t.mute}
+              className="chrome-pill rounded-lg px-2 py-0.5 text-[11px] font-semibold text-slate-200 hover:border-cyan-300 cursor-pointer"
+            >
+              {muted ? '🔇' : '🔊'}
+            </button>
+            {showLandscapeToggle && onToggleLandscape && (
+              <button
+                type="button"
+                onClick={onToggleLandscape}
+                className="chrome-pill rounded-lg px-2 py-0.5 text-[11px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+              >
+                {isLandscapeRotated ? '📱' : '🔄'}
+              </button>
+            )}
+            {showFullscreenButton && onToggleFullscreen && (
+              <button
+                type="button"
+                onClick={onToggleFullscreen}
+                className="chrome-pill rounded-lg px-2 py-0.5 text-[11px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+              >
+                {isFullscreen ? '🗗' : '⛶'}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Tap-to-inspect implant popover */}
+      {inspectImplantId && t.implants[inspectImplantId] && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="aaa-charcoal-surface mt-1.5 flex items-center justify-between gap-3 rounded-xl border border-cyan-300/45 bg-[#181A20]/98 px-3 py-2 text-xs shadow-lg"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-cyan-300/35 bg-cyan-950/70">
+              <ImplantIcon id={inspectImplantId} className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-display font-bold text-cyan-200">
+                {t.implants[inspectImplantId].name}
+              </div>
+              <div className="text-[#F4F4F6] text-[14px] leading-[1.3] max-w-[40ch]">
+                {t.implants[inspectImplantId].desc}
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setInspectImplantId(null)}
+            className="chrome-pill shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-bold text-slate-200 hover:border-cyan-300 cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </header>
   );
 }

@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  AURELIA_CARRY_CAPACITY,
+  CLINIC_RESTOCK_COST,
+  DROPPABLE_EQUIPMENT_IDS,
+  ENEMY_TEMPLATES,
+  EQUIPMENT_BY_ID,
   KIRA_CARRY_CAPACITY,
+  ZURI_CARRY_CAPACITY,
+  buildEnemiesForNode,
   getEquippedEquipmentWeight,
   rebuildMasterPool,
 } from './data';
@@ -18,22 +25,32 @@ import {
   executeEnemyTurn,
   executeOverdrive,
   executeSingleEnemyAction,
+  getEffectiveTileValue,
   installCyberImplant,
   previewColorResolution,
   previewHeroineThreat,
+  resolveCyberEventChoice,
   resolvePlayerColor,
+  restockClinicShop,
+  scrapEquipmentInstance,
   sortTilesByGroup,
   startNodeEncounter,
   unequipEquipmentInstance,
 } from './gameEngine';
 import {
+  SECTOR_BOSS_TELEGRAPH,
   generateSectorMap,
   getAvailableNextNodes,
+  getConnectingPathNodeIds,
+  getLaneClusterProfiles,
+  getNodeEconomyMetrics,
   getNodeEncounterIntel,
   getReachableNodeIds,
+  getReconPreviewForNode,
   getTacticalRouteAdvice,
 } from './mapGenerator';
-import type { Tile } from './types';
+import { parseAndValidateRun, recordRunCompletion, loadBestRecord } from './persistence';
+import type { MapNode, RunState, Tile } from './types';
 
 function makeTile(
   id: string,
@@ -52,31 +69,38 @@ function makeTile(
   };
 }
 
-test('initial run builds Kira 9-tile pool (5 innate + 4 starting gear, 3/15 capacity) and draws 6', () => {
+test('initial run builds Kira 9-tile pool (5 innate + 4 starting gear, 3/12 capacity, 3 ATK · 2 DEF · 4 TECH) and draws 6', () => {
   const run = createInitialRun(42);
   assert.ok(run.combat);
+  assert.equal(run.heroine.hp, 58);
+  assert.equal(run.heroine.maxHp, 58);
+  assert.equal(run.heroine.credits, 45);
   assert.equal(run.heroine.carryCapacity, KIRA_CARRY_CAPACITY);
   assert.equal(getEquippedEquipmentWeight(run.heroine), 3);
   assert.equal(run.masterPool.length, 9);
 
-  // Verify exact innate + Pistole Aretta + Minilékarnička tile composition
-  const atk2 = run.masterPool.filter((t) => t.type === 'attack' && t.value === 2);
+  // Verify exact innate + Pistole Aretta + Minilékarnička tile composition (3 ATK · 2 DEF · 4 TECH)
+  const atk3 = run.masterPool.filter((t) => t.type === 'attack' && t.value === 3);
   const atk5 = run.masterPool.filter((t) => t.type === 'attack' && t.value === 5);
   const def8 = run.masterPool.filter((t) => t.type === 'defense' && t.value === 8);
   const def7 = run.masterPool.filter((t) => t.type === 'defense' && t.value === 7);
   const dmgBoosts = run.masterPool.filter(
-    (t) => t.type === 'tech' && t.techEffect?.kind === 'damage_boost' && t.techEffect.percent === 51,
+    (t) => t.type === 'tech' && t.techEffect?.kind === 'damage_boost' && t.techEffect.percent === 42,
   );
-  const heals = run.masterPool.filter(
+  const heal2 = run.masterPool.filter(
     (t) => t.type === 'tech' && t.techEffect?.kind === 'heal' && t.techEffect.amount === 2,
   );
+  const heal3 = run.masterPool.filter(
+    (t) => t.type === 'tech' && t.techEffect?.kind === 'heal' && t.techEffect.amount === 3,
+  );
 
-  assert.equal(atk2.length, 2);
+  assert.equal(atk3.length, 1);
   assert.equal(atk5.length, 2);
   assert.equal(def8.length, 1);
   assert.equal(def7.length, 1);
   assert.equal(dmgBoosts.length, 2);
-  assert.equal(heals.length, 1);
+  assert.equal(heal2.length, 1);
+  assert.equal(heal3.length, 1);
 
   assert.equal(run.combat.board.length, 6);
   assert.equal(run.combat.drawPile.length, 3);
@@ -151,7 +175,7 @@ test('TECH Damage booster 51% stacks additively, boosts ATK, decays by 10pp per 
   const techPreview = previewColorResolution(seededRun, 'tech');
   assert.equal(techPreview.damageBoostAddedPct, 102);
   assert.equal(techPreview.healAmount, 2);
-  assert.equal(techPreview.overdriveGained, 45);
+  assert.equal(techPreview.overdriveGained, 60); // Kira passive: 3 * 20% OD
 
   const afterTech = resolvePlayerColor(seededRun, 'tech');
   assert.equal(afterTech.heroine.damageBoostPct, 102);
@@ -206,7 +230,7 @@ test('TECH Damage booster 51% stacks additively, boosts ATK, decays by 10pp per 
   }
 });
 
-test('equipment equip/unequip updates masterPool and enforces carry capacity 15 and combat lock', () => {
+test('equipment equip/unequip updates masterPool and enforces carry capacity 12 and combat lock', () => {
   const combatRun = createInitialRun(250);
   assert.equal(canModifyEquipment(combatRun), false);
   // Locked during active combat
@@ -230,14 +254,14 @@ test('equipment equip/unequip updates masterPool and enforces carry capacity 15 
   assert.equal(afterUnequip.masterPool.filter((t) => t.sourceId === 'innate').length, 5);
   assert.equal(afterUnequip.masterPool.filter((t) => t.sourceId === 'minilekarnicka').length, 1);
 
-  // Re-equip Pistole Aretta -> back to 3/15 and 9 tiles
+  // Re-equip Pistole Aretta -> back to 3/12 and 9 tiles
   const afterReequip = equipEquipmentInstance(afterUnequip, 'eq_start_aretta');
   assert.equal(getEquippedEquipmentWeight(afterReequip.heroine), 3);
   assert.equal(afterReequip.masterPool.length, 9);
 
-  // Capacity overflow (> 15) blocks equipping heavy gear until space is freed
+  // Capacity overflow (> 12) blocks equipping heavy gear until space is freed
   let heavyRun = afterReequip;
-  // Equip 2x tezka_brokovnice (size 5 each -> 3 + 10 = 13/15)
+  // Equip 1x tezka_brokovnice (size 5) + 1x karabin_vx (size 4) -> 3 + 5 + 4 = 12/12
   heavyRun = {
     ...heavyRun,
     heroine: {
@@ -245,24 +269,24 @@ test('equipment equip/unequip updates masterPool and enforces carry capacity 15 
       ownedEquipment: [
         ...heavyRun.heroine.ownedEquipment,
         { instanceId: 'eq_shot1', defId: 'tezka_brokovnice' },
-        { instanceId: 'eq_shot2', defId: 'tezka_brokovnice' },
-        { instanceId: 'eq_rifle', defId: 'karabin_vx' }, // size 4 -> would make 17/15
+        { instanceId: 'eq_rifle', defId: 'karabin_vx' },
+        { instanceId: 'eq_shield', defId: 'takticky_stit' }, // size 3 -> would make 15/12
       ],
     },
   };
   heavyRun = equipEquipmentInstance(heavyRun, 'eq_shot1');
-  heavyRun = equipEquipmentInstance(heavyRun, 'eq_shot2');
-  assert.equal(getEquippedEquipmentWeight(heavyRun.heroine), 13);
+  heavyRun = equipEquipmentInstance(heavyRun, 'eq_rifle');
+  assert.equal(getEquippedEquipmentWeight(heavyRun.heroine), 12);
 
-  const blocked = equipEquipmentInstance(heavyRun, 'eq_rifle');
-  assert.equal(getEquippedEquipmentWeight(blocked.heroine), 13);
-  assert.ok(!blocked.heroine.equippedInstanceIds.includes('eq_rifle'));
+  const blocked = equipEquipmentInstance(heavyRun, 'eq_shield');
+  assert.equal(getEquippedEquipmentWeight(blocked.heroine), 12);
+  assert.ok(!blocked.heroine.equippedInstanceIds.includes('eq_shield'));
 
-  // Unequip one shotgun (13 -> 8), now karabin_vx (size 4 -> 12 <= 15) fits
-  const freed = unequipEquipmentInstance(blocked, 'eq_shot2');
-  const fitted = equipEquipmentInstance(freed, 'eq_rifle');
-  assert.equal(getEquippedEquipmentWeight(fitted.heroine), 12);
-  assert.ok(fitted.heroine.equippedInstanceIds.includes('eq_rifle'));
+  // Unequip rifle (12 -> 8), now takticky_stit (size 3 -> 11 <= 12) fits
+  const freed = unequipEquipmentInstance(blocked, 'eq_rifle');
+  const fitted = equipEquipmentInstance(freed, 'eq_shield');
+  assert.equal(getEquippedEquipmentWeight(fitted.heroine), 11);
+  assert.ok(fitted.heroine.equippedInstanceIds.includes('eq_shield'));
   assert.equal(fitted.masterPool.length, rebuildMasterPool(fitted.heroine).length);
 });
 
@@ -324,11 +348,11 @@ test('stack surge triggers at 4+ tiles or 3+ with Surge Resonator implant, inclu
     'tech',
   );
   assert.equal(techSurgePrev.surgeTriggered, true);
-  assert.equal(techSurgePrev.overdriveGained, 60); // 3*15 + 15 surge
+  assert.equal(techSurgePrev.overdriveGained, 75); // Kira: 3*20 + 15 surge
   assert.equal(techSurgePrev.shieldGained, 6);
 });
 
-test('overdrive deals 22 piercing damage and grants +8 shield without consuming tile turn', () => {
+test('Kira Overdrive (Plasma Blitz) deals 20 piercing damage, grants +6 shield and +30% DMG boost without consuming tile turn', () => {
   const base = createInitialRun(404);
   assert.ok(base.combat);
   const chargedRun = {
@@ -343,8 +367,9 @@ test('overdrive deals 22 piercing damage and grants +8 shield without consuming 
   const afterOd = executeOverdrive(chargedRun);
   assert.ok(afterOd.combat);
   assert.equal(afterOd.heroine.overdrive, 0);
-  assert.equal(afterOd.heroine.shield, 8);
-  assert.equal(afterOd.combat.enemies[0].hp, 8);
+  assert.equal(afterOd.heroine.shield, 6);
+  assert.equal(afterOd.heroine.damageBoostPct, 30);
+  assert.equal(afterOd.combat.enemies[0].hp, 10);
   assert.equal(afterOd.combat.phase, 'PLAYER_IDLE');
 });
 
@@ -386,13 +411,13 @@ test('all 10 cybernetic implants function deterministically in combat preview & 
     },
   };
   const atkPrev = previewColorResolution(atkRun, 'attack');
-  // (5+2+2 held) + (5+2 fresh) = 16
-  assert.equal(atkPrev.totalDamage, 16);
+  // Kira passive (+1 held) + monowire (+2 held) + plasma_amp (+2): (5+1+2+2 held) + (5+2 fresh) = 17
+  assert.equal(atkPrev.totalDamage, 17);
   assert.equal(atkPrev.armorPiercing, true);
   const afterAtk = resolvePlayerColor(atkRun, 'attack');
-  // 30% of 16 = 4 pierce; 12 regular hits 10 armor -> 2 hp + 4 pierce = 6 hp dmg
+  // 30% of 17 = 5 pierce; 12 regular hits 10 armor -> 2 hp + 5 pierce = 7 hp dmg
   assert.equal(afterAtk.combat?.enemies[0].armor, 0);
-  assert.equal(afterAtk.combat?.enemies[0].hp, 34);
+  assert.equal(afterAtk.combat?.enemies[0].hp, 33);
 
   // nano_weave + aegis_capacitor + kinetic_reflector
   const defRun = {
@@ -436,7 +461,7 @@ test('all 10 cybernetic implants function deterministically in combat preview & 
   };
   const techPrev = previewColorResolution(techRun, 'tech');
   assert.equal(techPrev.shieldGained, 6);
-  assert.equal(techPrev.overdriveGained, 40);
+  assert.equal(techPrev.overdriveGained, 50); // Kira: 2*20 + 10 flux
   assert.equal(techPrev.damageBoostAddedPct, 51);
   assert.equal(techPrev.healAmount, 2);
 
@@ -537,7 +562,7 @@ test('post-combat loot, cyber-clinic equipment shop + implant replacement, and b
   assert.equal(afterHeal.heroine.hp, 52);
 
   const afterCalibrate = applyMedBayAction(afterHeal, 'calibrate_max_hp');
-  assert.equal(afterCalibrate.heroine.maxHp, 70);
+  assert.equal(afterCalibrate.heroine.maxHp, 68);
   assert.equal(afterCalibrate.heroine.hp, 62);
 
   const creditsBeforeSalvage = afterCalibrate.heroine.credits;
@@ -564,7 +589,15 @@ test('boss victory transitions to victory screen, elite opens clinic after loot,
         makeTile('u1', 'tech', 0, false, { kind: 'heal', amount: 2 }),
         makeTile('u2', 'tech', 0, false, { kind: 'damage_boost', percent: 51, decayPerTurn: 10 }),
       ],
-      enemies: [{ ...bossRun.combat.enemies[0], hp: 10, armor: 0 }],
+      enemies: [
+        {
+          ...bossRun.combat.enemies[0],
+          hp: 10,
+          armor: 0,
+          shieldPips: 0,
+          phaseGateTriggered: true,
+        },
+      ],
     },
   };
 
@@ -624,7 +657,7 @@ test('staggered executeSingleEnemyAction resolves enemies one by one before adva
 
   const step1 = executeSingleEnemyAction(afterPlayer, 0);
   assert.equal(step1.combat?.phase, 'ENEMY_ACTING');
-  assert.equal(step1.combat?.enemies[0].armor, 16);
+  assert.equal(step1.combat?.enemies[0].armor, 14);
   assert.equal(step1.combat?.turn, 1);
 
   const step2 = executeSingleEnemyAction(step1, 1);
@@ -673,15 +706,15 @@ test('defense stack surge reflect and kinetic reflector KO award score and compl
     combat: {
       ...base.combat,
       board: defSurgeBoard,
-      enemies: [{ ...base.combat.enemies[0], hp: 6, armor: 0 }],
+      enemies: [{ ...base.combat.enemies[0], hp: 8, armor: 0 }],
     },
   };
 
   const afterDefKill = resolvePlayerColor(defSurgeRun, 'defense');
   assert.equal(afterDefKill.combat?.phase, 'VICTORY');
-  assert.equal(afterDefKill.combat?.totalDamageDealt, 6);
+  assert.equal(afterDefKill.combat?.totalDamageDealt, 8);
   assert.equal(afterDefKill.turnsCompleted, 1);
-  assert.equal(afterDefKill.score, 6 * 2 + 50);
+  assert.equal(afterDefKill.score, 8 * 2 + 50);
 
   const reflectorRun = {
     ...base,
@@ -834,6 +867,10 @@ test('previewHeroineThreat previews enemy inflicted damage, lethal death, shield
           hp: 15,
           maxHp: 24,
           armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'spike_retaliate' as const,
+          roleColor: 'crimson' as const,
           intentCycle: [{ kind: 'attack' as const, value: 9 }],
           currentIntentIndex: 0,
         },
@@ -843,6 +880,10 @@ test('previewHeroineThreat previews enemy inflicted damage, lethal death, shield
           hp: 20,
           maxHp: 22,
           armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'acid_jam' as const,
+          roleColor: 'blue' as const,
           intentCycle: [{ kind: 'acid' as const, value: 6, secondaryValue: 2 }],
           currentIntentIndex: 0,
         },
@@ -887,4 +928,1151 @@ test('previewHeroineThreat previews enemy inflicted damage, lethal death, shield
   assert.equal(techThreat.projectedHp, 5);
   assert.equal(techThreat.willDie, false);
 });
+
+test('createInitialRun defaults to kira and supports aurelia starter stats, Royal Aegis passive, Sovereign Broadside Overdrive, and 9-tile loadout', () => {
+  const defaultRun = createInitialRun(42);
+  assert.equal(defaultRun.heroine.characterId, 'kira');
+  assert.equal(defaultRun.heroine.maxHp, 58);
+  assert.equal(defaultRun.masterPool.length, 9);
+
+  const aureliaRun = createInitialRun(42, 'aurelia');
+  assert.ok(aureliaRun.combat);
+  assert.equal(aureliaRun.heroine.characterId, 'aurelia');
+  assert.equal(aureliaRun.heroine.hp, 66);
+  assert.equal(aureliaRun.heroine.maxHp, 66);
+  assert.equal(aureliaRun.heroine.credits, 40);
+  assert.equal(getEquippedEquipmentWeight(aureliaRun.heroine), 4);
+  assert.equal(aureliaRun.heroine.carryCapacity, AURELIA_CARRY_CAPACITY);
+  assert.equal(aureliaRun.masterPool.length, 9);
+
+  // Aurelia 9-tile pool: 4 ATK (6,6,4,3), 3 DEF (7,6,6), 2 TECH (Boost 42%, Heal 4)
+  const atk6 = aureliaRun.masterPool.filter((t) => t.type === 'attack' && t.value === 6);
+  const atk4 = aureliaRun.masterPool.filter((t) => t.type === 'attack' && t.value === 4);
+  const atk3 = aureliaRun.masterPool.filter((t) => t.type === 'attack' && t.value === 3);
+  const def6 = aureliaRun.masterPool.filter((t) => t.type === 'defense' && t.value === 6);
+  const def7 = aureliaRun.masterPool.filter((t) => t.type === 'defense' && t.value === 7);
+  const boost42 = aureliaRun.masterPool.filter(
+    (t) => t.type === 'tech' && t.techEffect?.kind === 'damage_boost' && t.techEffect.percent === 42,
+  );
+  const heals4 = aureliaRun.masterPool.filter(
+    (t) => t.type === 'tech' && t.techEffect?.kind === 'heal' && t.techEffect.amount === 4,
+  );
+  assert.equal(atk6.length, 2);
+  assert.equal(atk4.length, 1);
+  assert.equal(atk3.length, 1);
+  assert.equal(def6.length, 2);
+  assert.equal(def7.length, 1);
+  assert.equal(boost42.length, 1);
+  assert.equal(heals4.length, 1);
+
+  assert.equal(aureliaRun.combat.board.length, 6);
+  assert.equal(aureliaRun.combat.drawPile.length, 3);
+
+  // Test Aurelia Royal Aegis passive: Defense tiles deal 2 Riposte DMG per tile + retain up to 5 Shield after enemy round
+  const aureliaDefBoard = {
+    ...aureliaRun,
+    combat: {
+      ...aureliaRun.combat,
+      board: [
+        makeTile('ad1', 'defense', 7),
+        makeTile('ad2', 'defense', 6),
+        makeTile('ad3', 'defense', 6),
+        makeTile('aa1', 'attack', 6),
+        makeTile('aa2', 'attack', 6),
+        makeTile('at1', 'tech', 0, false, { kind: 'heal', amount: 4 }),
+      ],
+      enemies: [
+        {
+          ...aureliaRun.combat.enemies[0],
+          hp: 25,
+          armor: 0,
+          intentCycle: [{ kind: 'attack' as const, value: 8 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+  const aureliaDefPrev = previewColorResolution(aureliaDefBoard, 'defense');
+  assert.equal(aureliaDefPrev.shieldGained, 19);
+  assert.equal(aureliaDefPrev.reflectOnBlock, 6); // 3 * 2 Riposte DMG even without Surge!
+
+  const afterAureliaDef = resolvePlayerColor(aureliaDefBoard, 'defense');
+  assert.equal(afterAureliaDef.combat?.enemies[0].hp, 19);
+  const afterAureliaRound = executeEnemyTurn(afterAureliaDef);
+  // 19 shield - 8 incoming = 11 left -> retains 5 shield via Royal Aegis!
+  assert.equal(afterAureliaRound.heroine.shield, 5);
+
+  // Test Aurelia Sovereign Broadside Overdrive: 24 piercing DMG, +12 Shield, -2 Corrode
+  const aureliaOdState = {
+    ...aureliaRun,
+    heroine: { ...aureliaRun.heroine, overdrive: 100, shield: 3, corrode: 3 },
+    combat: {
+      ...aureliaRun.combat,
+      enemies: [
+        {
+          ...aureliaRun.combat.enemies[0],
+          hp: 30,
+          armor: 10,
+          shieldPips: 0,
+        },
+      ],
+    },
+  };
+  const afterAureliaOd = executeOverdrive(aureliaOdState);
+  assert.equal(afterAureliaOd.heroine.overdrive, 0);
+  assert.equal(afterAureliaOd.heroine.shield, 15);
+  assert.equal(afterAureliaOd.heroine.corrode, 1);
+  assert.equal(afterAureliaOd.combat?.enemies[0].hp, 6);
+
+  // Unequip Royal Twin-Barrel (3 weight, 3 tiles) on map -> weight 4->1, pool 9->6; re-equip -> 4/14, 9
+  const mapRun = completeCombatRewardAndOpenMap({
+    ...aureliaRun,
+    combat: { ...aureliaRun.combat, phase: 'VICTORY' },
+  });
+  const afterUnequip = unequipEquipmentInstance(mapRun, 'eq_start_scattergun');
+  assert.equal(getEquippedEquipmentWeight(afterUnequip.heroine), 1);
+  assert.equal(afterUnequip.masterPool.length, 6);
+
+  const afterReequip = equipEquipmentInstance(afterUnequip, 'eq_start_scattergun');
+  assert.equal(getEquippedEquipmentWeight(afterReequip.heroine), 4);
+  assert.equal(afterReequip.masterPool.length, 9);
+});
+
+test('parseAndValidateRun accepts valid runs and rejects corrupted characterId, enemy intentCycle, or missing arrays', () => {
+  const validAurelia = createInitialRun(77, 'aurelia');
+  const parsed = parseAndValidateRun(JSON.stringify(validAurelia));
+  assert.ok(parsed);
+  assert.equal(parsed.heroine.characterId, 'aurelia');
+
+  assert.equal(parseAndValidateRun(null), null);
+  assert.equal(parseAndValidateRun('not json'), null);
+
+  // Invalid characterId
+  const badChar = structuredClone(validAurelia);
+  (badChar.heroine as { characterId: string }).characterId = 'nova';
+  assert.equal(parseAndValidateRun(JSON.stringify(badChar)), null);
+
+  // Empty intentCycle
+  const emptyCycle = structuredClone(validAurelia);
+  emptyCycle.combat!.enemies[0].intentCycle = [];
+  assert.equal(parseAndValidateRun(JSON.stringify(emptyCycle)), null);
+
+  // Out-of-bounds currentIntentIndex
+  const badIntentIdx = structuredClone(validAurelia);
+  badIntentIdx.combat!.enemies[0].currentIntentIndex = 99;
+  assert.equal(parseAndValidateRun(JSON.stringify(badIntentIdx)), null);
+
+  // Invalid maxHp
+  const zeroMaxHp = structuredClone(validAurelia);
+  zeroMaxHp.heroine.maxHp = 0;
+  assert.equal(parseAndValidateRun(JSON.stringify(zeroMaxHp)), null);
+});
+
+test('three crawler filler enemies (larva, skitter, stinger) scale progressively in strength and spawn across sector encounters', () => {
+  const larva = ENEMY_TEMPLATES.larva;
+  const skitter = ENEMY_TEMPLATES.skitter;
+  const stinger = ENEMY_TEMPLATES.stinger;
+  const stalker = ENEMY_TEMPLATES.stalker;
+
+  // All 4 mobs scale in HP and behavior roles
+  assert.ok(larva.maxHp < skitter.maxHp && skitter.maxHp < stinger.maxHp);
+  assert.ok(stinger.maxHp < stalker.maxHp);
+
+  // Sector 1 (layer 0) features Larva + Stalker
+  const l0Enemies = buildEnemiesForNode('COMBAT', 0, 104729, 0);
+  assert.deepEqual(
+    l0Enemies.map((e) => e.archetype),
+    ['larva', 'stalker'],
+  );
+
+  // Sector 2 (layer 1) features Cobalt Skitter (skitter) and Spore Mite (larva)
+  const l1Lane0 = buildEnemiesForNode('COMBAT', 1, 100, 0);
+  const l1Lane1 = buildEnemiesForNode('COMBAT', 1, 100, 1);
+  assert.ok(l1Lane0.some((e) => e.archetype === 'skitter'));
+  assert.ok(l1Lane0.some((e) => e.archetype === 'larva'));
+  assert.ok(l1Lane1.some((e) => e.archetype === 'skitter'));
+
+  // Sector 3 (layer 2) features Pyre Stinger (stinger) staggered onto its armor intent Turn 1
+  const l2Combat = buildEnemiesForNode('COMBAT', 2, 100, 1);
+  assert.ok(l2Combat.some((e) => e.archetype === 'stinger'));
+  const stingerUnit = l2Combat.find((e) => e.archetype === 'stinger');
+  assert.ok(stingerUnit);
+  assert.equal(stingerUnit.intentCycle[stingerUnit.currentIntentIndex]?.kind, 'charge');
+});
+
+test('new TECH effects (armor_shred, overdrive_surge, tactical_shield) and getEffectiveTileValue work accurately', () => {
+  const base = createInitialRun(1111, 'kira');
+  assert.ok(base.combat);
+
+  const modifiedRun = {
+    ...base,
+    heroine: {
+      ...base.heroine,
+      corrode: 3,
+      overdrive: 10,
+      implants: ['plasma_amp' as const, 'monowire_edge' as const],
+    },
+    combat: {
+      ...base.combat,
+      board: [
+        makeTile('a1', 'attack', 5, true),
+        makeTile('t1', 'tech', 0, false, { kind: 'armor_shred', shredAmount: 10, pierceDamage: 4 }),
+        makeTile('t2', 'tech', 0, false, { kind: 'overdrive_surge', bonusOverdrive: 15, cleanseCorrode: 2 }),
+        makeTile('t3', 'tech', 0, false, { kind: 'tactical_shield', shieldAmount: 5, damageBoostPct: 22 }),
+      ],
+      enemies: [
+        { ...base.combat.enemies[0], id: 'e1', hp: 30, armor: 8 },
+        { ...base.combat.enemies[0], id: 'e2', hp: 20, armor: 12 },
+      ],
+    },
+  };
+
+  // getEffectiveTileValue: base 5 + Kira held (+1) + plasma_amp (+2) + monowire_edge (+2) = 10
+  const eff = getEffectiveTileValue(modifiedRun.combat.board[0], modifiedRun.heroine);
+  assert.equal(eff.value, 10);
+  assert.equal(eff.flatBonus, 5);
+
+  const techPrev = previewColorResolution(modifiedRun, 'tech');
+  assert.equal(techPrev.surgeTriggered, false);
+  assert.equal(techPrev.armorShredAmount, 10);
+  assert.equal(techPrev.techPierceDamage, 4);
+  assert.equal(techPrev.cleanseCorrodeAmount, 2);
+  assert.equal(techPrev.shieldGained, 5); // 5 tactical_shield (3 tiles < 4 threshold)
+  assert.equal(techPrev.damageBoostAddedPct, 22);
+  assert.equal(techPrev.overdriveGained, 75); // 3*20 + 15 overdrive_surge
+
+  const threat = previewHeroineThreat(modifiedRun.combat, modifiedRun.heroine, techPrev);
+  assert.equal(threat.shieldAfterPlayer, 5);
+
+  const afterTech = resolvePlayerColor(modifiedRun, 'tech');
+  assert.ok(afterTech.combat);
+  assert.equal(afterTech.combat.enemies[0].armor, 0);
+  assert.equal(afterTech.combat.enemies[0].hp, 26); // 4 pierce hit HP directly
+  assert.equal(afterTech.combat.enemies[1].armor, 2); // 12 - 10 shredded
+  assert.equal(afterTech.heroine.corrode, 1); // 3 - 2 cleansed
+  assert.equal(afterTech.heroine.shield, 5);
+  assert.equal(afterTech.heroine.damageBoostPct, 22);
+  assert.equal(afterTech.heroine.overdrive, 85);
+
+  // With surge_resonator, 3 TECH tiles trigger Stack Surge (+6 Shield, +15% Overdrive)
+  const surgeResRun = {
+    ...modifiedRun,
+    heroine: { ...modifiedRun.heroine, implants: [...modifiedRun.heroine.implants, 'surge_resonator' as const] },
+  };
+  const surgeTechPrev = previewColorResolution(surgeResRun, 'tech');
+  assert.equal(surgeTechPrev.surgeTriggered, true);
+  assert.equal(surgeTechPrev.shieldGained, 11);
+  assert.equal(surgeTechPrev.overdriveGained, 90);
+});
+
+test('10 droppable equipment catalog, Cargo Stash scrapping, Clinic restock, and Boss tuning', () => {
+  assert.equal(DROPPABLE_EQUIPMENT_IDS.length, 10);
+  for (const id of ['nano_ostri', 'kryo_kondenzator', 'pulzni_kuse', 'energeticky_konvertor', 'reaktivni_pancir']) {
+    assert.ok(EQUIPMENT_BY_ID[id], `Expected ${id} in EQUIPMENT_BY_ID`);
+    assert.equal(EQUIPMENT_BY_ID[id].droppable, true);
+  }
+
+  // Boss stats
+  assert.equal(ENEMY_TEMPLATES.boss.maxHp, 110);
+  assert.equal(ENEMY_TEMPLATES.boss.startingArmor, 10);
+
+  const base = createInitialRun(1212, 'kira');
+  const mapRun = completeCombatRewardAndOpenMap({
+    ...base,
+    combat: { ...base.combat!, phase: 'VICTORY' },
+  });
+
+  // Unequip Aretta Pistol -> cannot scrap while equipped, can scrap from Cargo Stash for +15 CR
+  const equippedAttempt = scrapEquipmentInstance(mapRun, 'eq_start_aretta');
+  assert.equal(equippedAttempt.heroine.ownedEquipment.length, 2);
+
+  const unequipped = unequipEquipmentInstance(mapRun, 'eq_start_aretta');
+  const creditsBeforeScrap = unequipped.heroine.credits;
+  const afterScrap = scrapEquipmentInstance(unequipped, 'eq_start_aretta');
+  assert.equal(afterScrap.heroine.ownedEquipment.length, 1);
+  assert.equal(afterScrap.heroine.credits, creditsBeforeScrap + Math.floor(EQUIPMENT_BY_ID.pistole_aretta.price * 0.5));
+
+  // Cannot scrap during combat
+  const combatAgain = startNodeEncounter(afterScrap, afterScrap.mapNodes.find((n) => n.layer === 1 && n.type === 'COMBAT')!.id);
+  const blockedCombatScrap = scrapEquipmentInstance(combatAgain, 'eq_start_medkit');
+  assert.equal(blockedCombatScrap.heroine.ownedEquipment.length, 1);
+
+  // Cyber-Clinic shop restock spends CLINIC_RESTOCK_COST and rotates choices
+  const clinicNode = mapRun.mapNodes.find((n) => n.type === 'CYBER_CLINIC')!;
+  const clinicRun = startNodeEncounter(
+    { ...mapRun, heroine: { ...mapRun.heroine, credits: 80 } },
+    clinicNode.id,
+  );
+  const initialShop = clinicRun.clinicShopChoices.slice();
+  const restocked = restockClinicShop(clinicRun);
+  assert.equal(restocked.heroine.credits, 80 - CLINIC_RESTOCK_COST);
+  assert.equal(restocked.clinicShopChoices.length, 3);
+  assert.ok(
+    restocked.clinicShopChoices.every((id) => !initialShop.includes(id)),
+    'Restock should rotate to different equipment options when 10 items exist',
+  );
+});
+
+test('Moving Lock enemy rules: Aegis Shield Pips, Boss 50% Phase Gate, Spore Mite Volatile Burst, Stalker Spike Retaliation, Skitter Bolster, Stinger Charge, and Spitter Acid Tile Jamming', () => {
+  const base = createInitialRun(1337, 'kira');
+  assert.ok(base.combat);
+
+  // 1. Aegis Shield Pip negates 1 damaging instance regardless of damage size
+  const pipRun = {
+    ...base,
+    combat: {
+      ...base.combat,
+      board: [makeTile('a1', 'attack', 20), makeTile('a2', 'attack', 10)],
+      enemies: [
+        {
+          ...base.combat.enemies[0],
+          id: 'skitter-1',
+          archetype: 'skitter' as const,
+          hp: 15,
+          maxHp: 15,
+          armor: 4,
+          shieldPips: 1,
+          maxShieldPips: 1,
+          passive: 'anchor_aegis' as const,
+          roleColor: 'blue' as const,
+        },
+      ],
+    },
+  };
+  const afterPipCrack = resolvePlayerColor(pipRun, 'attack');
+  assert.equal(afterPipCrack.combat?.enemies[0].shieldPips, 0);
+  assert.equal(afterPipCrack.combat?.enemies[0].hp, 15, 'Aegis Pip must negate the entire 30 DMG hit');
+  assert.equal(afterPipCrack.combat?.enemies[0].armor, 4, 'Armor stays intact when Aegis Pip absorbs the hit');
+
+  // 2. Boss 50% Phase Gate clamps damage at 55 HP, grants +10 Armor, and restores 1 Shield Pip
+  const bossNode = base.mapNodes.find((n) => n.type === 'BOSS')!;
+  const bossRun = startNodeEncounter(base, bossNode.id);
+  const bossGateTest = {
+    ...bossRun,
+    combat: {
+      ...bossRun.combat!,
+      board: [makeTile('a1', 'attack', 40), makeTile('a2', 'attack', 40)],
+      enemies: [
+        {
+          ...bossRun.combat!.enemies[0],
+          hp: 80,
+          maxHp: 110,
+          armor: 0,
+          shieldPips: 0,
+          phaseGatePct: 50,
+          phaseGateTriggered: false,
+        },
+      ],
+    },
+  };
+  const afterBossGate = resolvePlayerColor(bossGateTest, 'attack');
+  const gatedBoss = afterBossGate.combat!.enemies[0];
+  assert.equal(gatedBoss.hp, 55, '80 DMG hit on 80 HP Boss must clamp at 50% Phase Gate (55 HP)');
+  assert.equal(gatedBoss.phaseGateTriggered, true);
+  assert.equal(gatedBoss.armor, 10, 'Phase Gate must grant +10 Phase-2 Carapace Armor');
+  assert.equal(gatedBoss.shieldPips, 1, 'Phase Gate must restore 1 Aegis Shield Pip');
+  assert.ok(afterBossGate.combat!.lastCues.some((c) => c.kind === 'enemy_phase_gate'));
+
+  // 3. Spore Mite (larva) Volatile Bio-Rupture deals 6 Pierce DMG to surviving allies on death
+  const burstRun = {
+    ...base,
+    combat: {
+      ...base.combat,
+      board: [makeTile('a1', 'attack', 10), makeTile('a2', 'attack', 5)],
+      enemies: [
+        {
+          ...base.combat.enemies[0],
+          id: 'larva-front',
+          archetype: 'larva' as const,
+          hp: 12,
+          maxHp: 12,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'volatile_burst' as const,
+          roleColor: 'lime' as const,
+        },
+        {
+          ...base.combat.enemies[1],
+          id: 'stalker-back',
+          archetype: 'stalker' as const,
+          hp: 20,
+          maxHp: 22,
+          armor: 6,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'spike_retaliate' as const,
+          roleColor: 'crimson' as const,
+        },
+      ],
+    },
+  };
+  const afterBurst = resolvePlayerColor(burstRun, 'attack');
+  assert.equal(afterBurst.combat?.enemies[0].hp, 0);
+  assert.equal(
+    afterBurst.combat?.enemies[1].hp,
+    14,
+    'Volatile Bio-Rupture must deal 6 Pierce DMG directly to surviving ally HP (bypassing 6 Armor)',
+  );
+  assert.equal(afterBurst.combat?.enemies[1].armor, 6);
+  assert.ok(afterBurst.combat?.lastCues.some((c) => c.kind === 'enemy_burst'));
+
+  // 4. Chitin Stalker Spike Retaliation deals 3 DMG on non-Surge Attack and is bypassed by 4+ Stack Surge
+  const stalkerRun = {
+    ...base,
+    heroine: { ...base.heroine, hp: 40, shield: 1 },
+    combat: {
+      ...base.combat,
+      board: [
+        makeTile('a1', 'attack', 5),
+        makeTile('a2', 'attack', 5),
+        makeTile('d1', 'defense', 6),
+      ],
+      enemies: [
+        {
+          ...base.combat.enemies[0],
+          id: 'stalker-front',
+          archetype: 'stalker' as const,
+          hp: 22,
+          maxHp: 22,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'spike_retaliate' as const,
+          roleColor: 'crimson' as const,
+        },
+      ],
+    },
+  };
+  const nonSurgePrev = previewColorResolution(stalkerRun, 'attack');
+  assert.equal(nonSurgePrev.retaliateDamage, 3);
+  const afterNonSurge = resolvePlayerColor(stalkerRun, 'attack');
+  assert.equal(afterNonSurge.heroine.shield, 0, '1 Shield blocks 1 of the 3 Retaliate DMG');
+  assert.equal(afterNonSurge.heroine.hp, 38, 'Remaining 2 Retaliate DMG hits HP');
+  assert.ok(afterNonSurge.combat?.lastCues.some((c) => c.kind === 'enemy_retaliate'));
+
+  const surgeStalkerRun = {
+    ...stalkerRun,
+    combat: {
+      ...stalkerRun.combat,
+      board: [
+        makeTile('a1', 'attack', 3),
+        makeTile('a2', 'attack', 3),
+        makeTile('a3', 'attack', 3),
+        makeTile('a4', 'attack', 3),
+      ],
+    },
+  };
+  const surgePrev = previewColorResolution(surgeStalkerRun, 'attack');
+  assert.equal(surgePrev.surgeTriggered, true);
+  assert.equal(surgePrev.retaliateDamage, 0, 'Stack Surge must bypass Chitin Stalker retaliation');
+
+  // 5. Cobalt Skitter Bolster (+4 Armor to all allies, 0 hero DMG) & Pyre Stinger Charge (0 DMG windup)
+  const bolsterAndChargeRun = {
+    ...base,
+    heroine: { ...base.heroine, hp: 50, shield: 0 },
+    combat: {
+      ...base.combat,
+      phase: 'PLAYER_RESOLVED' as const,
+      enemies: [
+        {
+          ...base.combat.enemies[0],
+          id: 'skitter-anchor',
+          archetype: 'skitter' as const,
+          hp: 15,
+          maxHp: 15,
+          armor: 2,
+          shieldPips: 1,
+          maxShieldPips: 1,
+          passive: 'anchor_aegis' as const,
+          roleColor: 'blue' as const,
+          intentCycle: [{ kind: 'bolster' as const, value: 4 }],
+          currentIntentIndex: 0,
+        },
+        {
+          ...base.combat.enemies[1],
+          id: 'stinger-bomb',
+          archetype: 'stinger' as const,
+          hp: 16,
+          maxHp: 16,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'time_bomb' as const,
+          roleColor: 'orange' as const,
+          intentCycle: [
+            { kind: 'charge' as const, value: 16, secondaryValue: 1 },
+            { kind: 'heavy' as const, value: 16 },
+          ],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+  const threatDuringWindup = previewHeroineThreat(
+    bolsterAndChargeRun.combat,
+    bolsterAndChargeRun.heroine,
+    null,
+  );
+  assert.equal(
+    threatDuringWindup.rawIncomingDamage,
+    0,
+    'Bolster and Charge intents must preview 0 incoming hero damage',
+  );
+  const afterBolster = executeSingleEnemyAction(bolsterAndChargeRun, 0);
+  assert.equal(afterBolster.heroine.hp, 50);
+  assert.equal(afterBolster.combat?.enemies[0].armor, 6, 'Skitter gains +4 Armor from Bolster');
+  assert.equal(afterBolster.combat?.enemies[1].armor, 4, 'Ally Stinger gains +4 Armor from Bolster');
+  const afterCharge = executeSingleEnemyAction(afterBolster, 1);
+  assert.equal(afterCharge.heroine.hp, 50, 'Charge intent deals 0 damage on windup turn');
+  assert.equal(
+    afterCharge.combat?.enemies[1].currentIntentIndex,
+    1,
+    'Stinger advances to 16 DMG Heavy Plasma Lance for next turn',
+  );
+
+  // 6. Bile Spitter Acid Tile Jamming jams 1 board tile on unblocked Acid HP damage and clears after 1 turn
+  const acidJamRun = {
+    ...base,
+    heroine: { ...base.heroine, hp: 40, shield: 0 },
+    combat: {
+      ...base.combat,
+      phase: 'PLAYER_RESOLVED' as const,
+      board: [
+        makeTile('a1', 'attack', 6),
+        makeTile('d1', 'defense', 6),
+        makeTile('t1', 'tech', 0, false, { kind: 'heal', amount: 4 }),
+      ],
+      enemies: [
+        {
+          ...base.combat.enemies[0],
+          id: 'spitter-1',
+          archetype: 'spitter' as const,
+          hp: 20,
+          maxHp: 20,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'acid_jam' as const,
+          roleColor: 'blue' as const,
+          intentCycle: [{ kind: 'acid' as const, value: 5, secondaryValue: 2 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+  const afterSpit = executeSingleEnemyAction(acidJamRun, 0);
+  const nextTurnWithJam = advanceRoundAfterEnemies(afterSpit);
+  const jammedTiles = nextTurnWithJam.combat!.board.filter((t) => t.isJammed);
+  assert.equal(jammedTiles.length, 1, 'Unblocked Acid Spit from Spitter must jam 1 board tile');
+
+  // Resolving any unjammed color clears the jam on remaining tiles
+  const unjammedColor =
+    nextTurnWithJam.combat!.board.find((t) => !t.isJammed)?.type ?? 'defense';
+  const afterResolveUnjam = resolvePlayerColor(nextTurnWithJam, unjammedColor);
+  assert.equal(
+    afterResolveUnjam.combat!.board.some((t) => t.isJammed),
+    false,
+    'Resolving a player turn must clear jammed status on held board tiles',
+  );
+});
+
+test('createInitialRun supports zuri starter stats, Swarm Uplink passive, Solar Swarm Protocol Overdrive, 9-tile drone loadout, and persistence', () => {
+  const zuriRun = createInitialRun(42, 'zuri');
+  assert.ok(zuriRun.combat);
+  assert.equal(zuriRun.heroine.characterId, 'zuri');
+  assert.equal(zuriRun.heroine.hp, 62);
+  assert.equal(zuriRun.heroine.maxHp, 62);
+  assert.equal(zuriRun.heroine.credits, 50);
+  assert.equal(zuriRun.heroine.carryCapacity, ZURI_CARRY_CAPACITY);
+  assert.equal(getEquippedEquipmentWeight(zuriRun.heroine), 4);
+  assert.equal(zuriRun.masterPool.length, 9);
+
+  // Verify Zuri's 2 exclusive starter drone items + 9-tile pool (3 ATK · 3 DEF · 3 TECH)
+  assert.ok(zuriRun.heroine.ownedEquipment.some((eq) => eq.defId === 'utocny_dron_sokol'));
+  assert.ok(zuriRun.heroine.ownedEquipment.some((eq) => eq.defId === 'stito_dron_ankh'));
+  const atkTiles = zuriRun.masterPool.filter((t) => t.type === 'attack');
+  const defTiles = zuriRun.masterPool.filter((t) => t.type === 'defense');
+  const techTiles = zuriRun.masterPool.filter((t) => t.type === 'tech');
+  assert.equal(atkTiles.length, 3);
+  assert.equal(defTiles.length, 3);
+  assert.equal(techTiles.length, 3);
+
+  // Test parseAndValidateRun with zuri
+  const parsedZuri = parseAndValidateRun(JSON.stringify(zuriRun));
+  assert.ok(parsedZuri);
+  assert.equal(parsedZuri.heroine.characterId, 'zuri');
+
+  // Test Swarm Uplink passive: +1 held tile bonus, +1 DEF Riposte per tile, +25% OD per TECH tile, 3 Shield retain cap
+  const zuriBoard = {
+    ...zuriRun,
+    combat: {
+      ...zuriRun.combat,
+      board: [
+        makeTile('za1', 'attack', 6, true),
+        makeTile('zd1', 'defense', 7, true),
+        makeTile('zd2', 'defense', 7, false),
+        makeTile('zt1', 'tech', 0, false, { kind: 'damage_boost', percent: 45, decayPerTurn: 10 }),
+        makeTile('zt2', 'tech', 0, false, { kind: 'heal', amount: 3 }),
+      ],
+      enemies: [
+        {
+          ...zuriRun.combat.enemies[0],
+          hp: 25,
+          armor: 0,
+          intentCycle: [{ kind: 'attack' as const, value: 6 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+
+  const zuriAtkPrev = previewColorResolution(zuriBoard, 'attack');
+  assert.equal(zuriAtkPrev.totalDamage, 7); // 6 + 1 held bonus
+
+  const zuriTechPrev = previewColorResolution(zuriBoard, 'tech');
+  assert.equal(zuriTechPrev.overdriveGained, 50); // 2 * 25% OD per TECH tile
+
+  const zuriDefPrev = previewColorResolution(zuriBoard, 'defense');
+  assert.equal(zuriDefPrev.shieldGained, 15); // (7 + 1 held) + 7 = 15
+  assert.equal(zuriDefPrev.reflectOnBlock, 2); // 2 * 1 Riposte DMG per DEF tile
+
+  const afterZuriDef = resolvePlayerColor(zuriBoard, 'defense');
+  assert.equal(afterZuriDef.combat?.enemies[0].hp, 23); // 25 - 2 drone riposte
+  const afterZuriRound = executeEnemyTurn(afterZuriDef);
+  // 15 shield - 6 incoming = 9 remaining -> retains 3 shield via Swarm Uplink
+  assert.equal(afterZuriRound.heroine.shield, 3);
+
+  // Test Zuri Solar Swarm Protocol Overdrive: 22 piercing DMG, +9 Shield, +25% DMG Boost, -2 Corrode
+  const zuriOdState = {
+    ...zuriRun,
+    heroine: {
+      ...zuriRun.heroine,
+      overdrive: 100,
+      shield: 2,
+      damageBoostPct: 10,
+      corrode: 3,
+    },
+    combat: {
+      ...zuriRun.combat,
+      enemies: [
+        {
+          ...zuriRun.combat.enemies[0],
+          hp: 30,
+          armor: 10,
+          shieldPips: 0,
+        },
+      ],
+    },
+  };
+  const afterZuriOd = executeOverdrive(zuriOdState);
+  assert.equal(afterZuriOd.heroine.overdrive, 0);
+  assert.equal(afterZuriOd.heroine.shield, 11); // 2 + 9
+  assert.equal(afterZuriOd.heroine.damageBoostPct, 35); // 10 + 25
+  assert.equal(afterZuriOd.heroine.corrode, 1); // 3 - 2
+  assert.equal(afterZuriOd.combat?.enemies[0].hp, 8); // 30 - 22 piercing
+});
+
+test('Slay the Spire / FTL style Encounter Node Map: EVENT nodes, Boss Telegraph, Multi-hop pathing, Bounty modifiers, and Nanite banking', () => {
+  // 1. Map generation with EVENT nodes (variants 3, 4, 5) and Hot-Spot modifiers
+  const mapWithEvents = generateSectorMap(105);
+  assert.equal(mapWithEvents.length, 11);
+  const eventNodes = mapWithEvents.filter((n) => n.type === 'EVENT');
+  assert.ok(eventNodes.length > 0, 'Seed 105 map should contain at least 1 EVENT node');
+
+  const modifiedNodes = mapWithEvents.filter((n) => Boolean(n.modifier));
+  assert.ok(modifiedNodes.length > 0, 'Map should generate hot-spot bounty or nanite modifiers');
+
+  // 2. Boss Telegraph specifications (synced to ENEMY_TEMPLATES.boss)
+  assert.equal(SECTOR_BOSS_TELEGRAPH.hp, ENEMY_TEMPLATES.boss.maxHp);
+  assert.equal(SECTOR_BOSS_TELEGRAPH.gimmicks.length, 3);
+  const gimmickIds = SECTOR_BOSS_TELEGRAPH.gimmicks.map((g) => g.id);
+  assert.ok(gimmickIds.includes('phase_lock'));
+  assert.ok(gimmickIds.includes('acid_jam'));
+  assert.ok(gimmickIds.includes('swarm_call'));
+
+  // 3. Multi-hop path calculation
+  const pathFromRootToBoss = getConnectingPathNodeIds(mapWithEvents, 'n_0_0', 'n_4_0');
+  assert.ok(pathFromRootToBoss.has('n_0_0'));
+  assert.ok(pathFromRootToBoss.has('n_4_0'));
+  assert.ok(pathFromRootToBoss.size >= 5, 'Path must span at least 5 layer nodes to boss');
+
+  // 4. Mystery EVENT encounter flow & resolveCyberEventChoice
+  const targetEventNode = eventNodes[0];
+  const initialRun = createInitialRun(105);
+  const eventRun = startNodeEncounter(initialRun, targetEventNode.id);
+  assert.equal(eventRun.screen, 'event');
+  assert.ok(eventRun.activeEvent);
+  assert.ok(eventRun.activeEvent.choices.length >= 2);
+
+  // Test executing choice 0
+  const choice0 = eventRun.activeEvent.choices[0];
+  const beforeCr = eventRun.heroine.credits;
+  const beforeNanites = eventRun.heroine.nanites ?? 0;
+  const afterChoice = resolveCyberEventChoice(eventRun, 0);
+  assert.equal(afterChoice.screen, 'map');
+  assert.equal(afterChoice.activeEvent, null);
+  assert.equal(
+    afterChoice.heroine.credits,
+    beforeCr - (choice0.costCredits ?? 0) + (choice0.rewardCredits ?? 0),
+  );
+  assert.equal(
+    afterChoice.heroine.nanites ?? 0,
+    beforeNanites + (choice0.rewardNanites ?? 0),
+  );
+  const clearedNode = afterChoice.mapNodes.find((n) => n.id === targetEventNode.id);
+  assert.equal(clearedNode?.cleared, true);
+
+  // 5. Bounty Multipliers & Nanite Drops
+  const bountyRun = createInitialRun(103);
+  const eliteNode = bountyRun.mapNodes.find((n) => n.type === 'ELITE');
+  assert.ok(eliteNode);
+  eliteNode.modifier = 'nanite_cache';
+
+  const startedElite = startNodeEncounter(bountyRun, eliteNode.id);
+  assert.equal(startedElite.screen, 'combat');
+  // Elite victory loot drops nanites: 2 base + 2 from nanite_cache = +4
+  const victoryEliteRun = {
+    ...startedElite,
+    heroine: { ...startedElite.heroine, nanites: 1 },
+    combat: {
+      ...startedElite.combat!,
+      phase: 'VICTORY' as const,
+    },
+  };
+  const afterEliteLoot = claimCombatEquipmentReward(victoryEliteRun, null);
+  assert.equal(afterEliteLoot.heroine.nanites, 5); // 1 + 2 (elite) + 2 (cache)
+
+  // Double credits modifier
+  const combatNode = bountyRun.mapNodes.find((n) => n.layer === 1 && n.type === 'COMBAT');
+  assert.ok(combatNode);
+  combatNode.modifier = 'double_credits';
+  const startedDoubleCr = startNodeEncounter(bountyRun, combatNode.id);
+  assert.equal(startedDoubleCr.combat?.rewardCredits, 70); // 35 * 2
+
+  // 6. Bio-Med Bay Strategic Opportunities: Overclock & Extraction Shuttle
+  const medbayNode = bountyRun.mapNodes.find((n) => n.type === 'MED_BAY') ?? {
+    id: 'n_3_0',
+    layer: 3,
+    lane: 0,
+    type: 'MED_BAY' as const,
+    nextIds: ['n_4_0'],
+    cleared: false,
+  };
+  const medbayRun = startNodeEncounter(bountyRun, medbayNode.id);
+  assert.equal(medbayRun.screen, 'medbay');
+
+  // Test Neural Tile Overclock: +2 value to attack tiles, cleanses corrode, +35% Overdrive
+  const corrodedState = {
+    ...medbayRun,
+    heroine: { ...medbayRun.heroine, corrode: 4, overdrive: 20 },
+  };
+  const afterOverclock = applyMedBayAction(corrodedState, 'tile_overclock');
+  assert.equal(afterOverclock.screen, 'map');
+  assert.equal(afterOverclock.heroine.corrode, 0);
+  assert.equal(afterOverclock.heroine.overdrive, 55); // 20 + 35
+  const upgradedAttackTile = afterOverclock.masterPool.find((t) => t.type === 'attack');
+  assert.ok(upgradedAttackTile && upgradedAttackTile.value >= 3);
+
+  // Test Tactical Extraction Shuttle: concludes with victory screen
+  const extractionState = {
+    ...medbayRun,
+    heroine: { ...medbayRun.heroine, nanites: 8 },
+  };
+  const afterExtract = applyMedBayAction(extractionState, 'extract_bank');
+  assert.equal(afterExtract.screen, 'victory');
+  assert.equal(afterExtract.heroine.nanites, 8);
+
+  // 7. Nanite Banking Persistence
+  const rec1 = recordRunCompletion(500, true, 8);
+  assert.ok((rec1.totalNanites ?? 0) >= 8);
+  const loaded = loadBestRecord();
+  assert.equal(loaded.totalNanites, rec1.totalNanites);
+});
+
+test('27. HP as Currency Node Economy, Dynamic Micro-Clusters, Flash Sales, Funded Clinics, Defibrillator, and Mercenary Interest', () => {
+  const run = createInitialRun(300);
+
+  // 1. Validate getNodeEconomyMetrics
+  const combatNode: MapNode = {
+    id: 'c1',
+    layer: 1,
+    lane: 0,
+    type: 'COMBAT',
+    nextIds: [],
+    cleared: false,
+  };
+  const standardCombatEcon = getNodeEconomyMetrics(combatNode, run.heroine);
+  assert.equal(standardCombatEcon.tensionHpPct, 12);
+  assert.equal(standardCombatEcon.runYieldCredits, 35);
+  assert.equal(standardCombatEcon.metaYieldNanites, 0);
+
+  const overchargedNode: MapNode = { ...combatNode, modifier: 'overcharged_hazard' };
+  const ocEcon = getNodeEconomyMetrics(overchargedNode, run.heroine);
+  assert.equal(ocEcon.tensionHpPct, 18);
+  assert.equal(ocEcon.runYieldCredits, 35);
+  assert.equal(ocEcon.metaYieldNanites, 1);
+
+  const eliteNode: MapNode = {
+    id: 'e1',
+    layer: 2,
+    lane: 0,
+    type: 'ELITE',
+    nextIds: [],
+    cleared: false,
+  };
+  const eliteEcon = getNodeEconomyMetrics(eliteNode, run.heroine);
+  assert.equal(eliteEcon.tensionHpPct, 38);
+  assert.equal(eliteEcon.runYieldCredits, 60);
+  assert.equal(eliteEcon.metaYieldNanites, 2);
+
+  const medBayNode: MapNode = {
+    id: 'm1',
+    layer: 3,
+    lane: 1,
+    type: 'MED_BAY',
+    nextIds: [],
+    cleared: false,
+  };
+  const medBayEcon = getNodeEconomyMetrics(medBayNode, run.heroine);
+  assert.equal(medBayEcon.tensionHpPct, -35); // negative tension = healing
+
+  const clinicNode: MapNode = {
+    id: 's1',
+    layer: 2,
+    lane: 1,
+    type: 'CYBER_CLINIC',
+    modifier: 'flash_sale',
+    nextIds: [],
+    cleared: false,
+  };
+  const clinicEcon = getNodeEconomyMetrics(clinicNode, run.heroine);
+  assert.equal(clinicEcon.tensionHpPct, 0);
+  assert.equal(clinicEcon.runYieldPowerRating, 'CRITICAL');
+
+  // 2. Validate Lane Cluster Profiles
+  const profiles = getLaneClusterProfiles(run.mapNodes, run.heroine);
+  assert.equal(profiles.length, 3);
+  for (const prof of profiles) {
+    assert.ok(prof.totalTensionHpEst >= 0);
+    assert.ok(prof.totalRunYieldCredits >= 0);
+    assert.ok(['gauntlet', 'mercenary', 'gambler'].includes(prof.archetype));
+  }
+
+  // 3. Dynamic Modifiers in Non-Legacy Seed Generation vs Legacy Seeds
+  const nonLegacyMap = generateSectorMap(200);
+  const hasOvercharged = nonLegacyMap.some((n) => n.modifier === 'overcharged_hazard');
+  const hasFlashSale = nonLegacyMap.some((n) => n.modifier === 'flash_sale');
+  const hasFundedClinic = nonLegacyMap.some((n) => n.modifier === 'funded_clinic');
+  assert.ok(hasOvercharged, 'non-legacy map should spawn overcharged hazard');
+  assert.ok(hasFlashSale, 'non-legacy map should spawn flash sale');
+  assert.ok(hasFundedClinic, 'non-legacy map should spawn funded clinic');
+
+  const legacyMap = generateSectorMap(100);
+  assert.ok(!legacyMap.some((n) => n.modifier === 'overcharged_hazard'));
+  assert.ok(!legacyMap.some((n) => n.modifier === 'flash_sale'));
+  assert.ok(!legacyMap.some((n) => n.modifier === 'funded_clinic'));
+
+  // 4. Overcharged Hazard Combat Scaling & Reward (+25% stats & +1 Nanite)
+  const ocEnemies = buildEnemiesForNode('COMBAT', 1, 200, 0, 'overcharged_hazard');
+  const normEnemies = buildEnemiesForNode('COMBAT', 1, 200, 0);
+  assert.ok(ocEnemies[0].maxHp > normEnemies[0].maxHp);
+  assert.ok(ocEnemies[0].armor > normEnemies[0].armor);
+
+  const ocCombatRun = {
+    ...run,
+    currentNodeId: 'n_1_0',
+    mapNodes: [
+      ...run.mapNodes.filter((n) => n.id !== 'n_1_0'),
+      { ...run.mapNodes.find((n) => n.id === 'n_1_0')!, modifier: 'overcharged_hazard' as const },
+    ],
+    combat: {
+      ...run.combat!,
+      nodeId: 'n_1_0',
+      nodeType: 'COMBAT' as const,
+      phase: 'VICTORY' as const,
+      rewardCredits: 35,
+    },
+    heroine: {
+      ...run.heroine,
+      nanites: 0,
+      consecutiveCombatWithoutClinic: 0,
+    },
+  };
+  const afterOcVictory = claimCombatEquipmentReward(ocCombatRun, null);
+  assert.equal(afterOcVictory.heroine.nanites, 1, 'Overcharged combat victory awards +1 Nanite');
+  assert.equal(
+    afterOcVictory.heroine.consecutiveCombatWithoutClinic,
+    1,
+    'increments combat streak without clinic',
+  );
+
+  // 5. Flash Sale Shop 35% Discount in buyClinicEquipment
+  const shopRun: RunState = {
+    ...run,
+    screen: 'clinic',
+    currentNodeId: 'n_2_1',
+    mapNodes: [
+      ...run.mapNodes.filter((n) => n.id !== 'n_2_1'),
+      {
+        id: 'n_2_1',
+        layer: 2,
+        lane: 1,
+        type: 'CYBER_CLINIC',
+        modifier: 'flash_sale',
+        nextIds: [],
+        cleared: false,
+      },
+    ],
+    heroine: {
+      ...run.heroine,
+      credits: 30, // Normal price of karabin_vx is 45 (unaffordable), discounted is 29 (affordable!)
+      ownedEquipment: run.heroine.ownedEquipment.filter((e) => e.defId !== 'karabin_vx'),
+    },
+    clinicShopChoices: ['karabin_vx'],
+  };
+  const afterFlashBuy = buyClinicEquipment(shopRun, 'karabin_vx');
+  assert.ok(afterFlashBuy.heroine.ownedEquipment.some((e) => e.defId === 'karabin_vx'));
+  assert.equal(afterFlashBuy.heroine.credits, 30 - 29); // 30 - 29 = 1
+
+  // 6. Funded Clinic Bonus Repair in applyMedBayAction (+12 HP)
+  const fundedRun: RunState = {
+    ...run,
+    screen: 'medbay',
+    currentNodeId: 'n_3_1',
+    mapNodes: [
+      ...run.mapNodes.filter((n) => n.id !== 'n_3_1'),
+      {
+        id: 'n_3_1',
+        layer: 3,
+        lane: 1,
+        type: 'MED_BAY',
+        modifier: 'funded_clinic',
+        nextIds: [],
+        cleared: false,
+      },
+    ],
+    heroine: {
+      ...run.heroine,
+      hp: 10,
+      maxHp: 58,
+      consecutiveCombatWithoutClinic: 3,
+    },
+  };
+  const afterFundedRepair = applyMedBayAction(fundedRun, 'heal');
+  assert.equal(afterFundedRepair.heroine.hp, 10 + 22 + 12); // 44 HP (22 base + 12 funded bonus)
+  assert.equal(
+    afterFundedRepair.heroine.consecutiveCombatWithoutClinic,
+    0,
+    'visiting clinic resets consecutive combat streak',
+  );
+
+  // 7. Safety Net: Emergency Defibrillator (+15% HP when surviving Elite with <=15% HP)
+  const lowHpEliteRun: RunState = {
+    ...run,
+    currentNodeId: 'n_2_0',
+    mapNodes: [
+      ...run.mapNodes.filter((n) => n.id !== 'n_2_0'),
+      {
+        id: 'n_2_0',
+        layer: 2,
+        lane: 0,
+        type: 'ELITE',
+        nextIds: [],
+        cleared: false,
+      },
+    ],
+    combat: {
+      ...run.combat!,
+      nodeId: 'n_2_0',
+      nodeType: 'ELITE' as const,
+      phase: 'VICTORY' as const,
+      rewardCredits: 60,
+    },
+    heroine: {
+      ...run.heroine,
+      hp: 5, // <= 15% of 58 (8.7)
+      maxHp: 58,
+      emergencyDefibUsed: false,
+      consecutiveCombatWithoutClinic: 1,
+    },
+  };
+  const afterDefibVictory = claimCombatEquipmentReward(lowHpEliteRun, null);
+  assert.equal(afterDefibVictory.heroine.emergencyDefibUsed, true);
+  assert.equal(afterDefibVictory.heroine.hp, 5 + Math.round(58 * 0.15)); // 5 + 9 = 14
+
+  // 8. Mercenary Interest Streak (+10% credits per battle without clinic)
+  const streakRun: RunState = {
+    ...run,
+    currentNodeId: 'n_1_1',
+    combat: {
+      ...run.combat!,
+      nodeId: 'n_1_1',
+      nodeType: 'COMBAT' as const,
+      phase: 'VICTORY' as const,
+      rewardCredits: 50,
+    },
+    heroine: {
+      ...run.heroine,
+      credits: 0,
+      consecutiveCombatWithoutClinic: 3, // 30% streak bonus: 50 * 1.30 = 65
+    },
+  };
+  const afterStreakVictory = claimCombatEquipmentReward(streakRun, null);
+  assert.equal(afterStreakVictory.heroine.credits, 80); // 50 combat + 15 salvage + 15 streak bonus
+  assert.equal(afterStreakVictory.heroine.consecutiveCombatWithoutClinic, 4);
+});
+
+test('28. Regression audit fixes: single-use Defibrillator, accurate Overcharged/Support Intel, non-inverted Med-Bay lane risk, distinct lane archetypes, Recon implants, and Funded Clinic calibrate_max_hp', () => {
+  // 1. Initial run initializes emergencyDefibUsed to false
+  const fresh = createInitialRun(205);
+  assert.equal(fresh.heroine.emergencyDefibUsed, false);
+
+  // 2. Single-use Defibrillator does NOT trigger again if emergencyDefibUsed is already true
+  const eliteNode = fresh.mapNodes.find((n) => n.type === 'ELITE') ?? {
+    id: 'n_2_0',
+    layer: 2,
+    lane: 0,
+    type: 'ELITE' as const,
+    nextIds: [],
+    cleared: false,
+  };
+  const alreadyUsedDefibRun: RunState = {
+    ...fresh,
+    currentNodeId: eliteNode.id,
+    combat: {
+      ...fresh.combat!,
+      nodeId: eliteNode.id,
+      nodeType: 'ELITE',
+      phase: 'VICTORY',
+      rewardCredits: 60,
+    },
+    heroine: {
+      ...fresh.heroine,
+      hp: 4,
+      maxHp: 58,
+      emergencyDefibUsed: true,
+    },
+  };
+  const afterSecondElite = claimCombatEquipmentReward(alreadyUsedDefibRun, null);
+  assert.equal(afterSecondElite.heroine.hp, 4, 'Discharged defib must not heal a second time');
+  assert.equal(afterSecondElite.heroine.emergencyDefibUsed, true);
+
+  // 3. getNodeEncounterIntel matches startNodeEncounter on overcharged_hazard & populates flash_sale/funded_clinic traits
+  for (const seed of [200, 201, 202, 203, 204, 205]) {
+    const run = createInitialRun(seed);
+    for (const node of run.mapNodes) {
+      const intel = getNodeEncounterIntel(node, seed);
+      const started = startNodeEncounter(run, node.id);
+      if (node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY' || node.type === 'EVENT') {
+        assert.equal(intel.enemies.length, 0);
+        if (node.modifier === 'flash_sale') {
+          assert.ok(
+            intel.threatTraits?.some((tr) => tr.includes('Flash Sale') && tr.includes('Equipment')),
+            'Flash sale trait should be populated and accurate',
+          );
+        }
+        if (node.modifier === 'funded_clinic') {
+          assert.ok(
+            intel.threatTraits?.some((tr) => tr.includes('Funded Clinic')),
+            'Funded clinic trait should be populated',
+          );
+        }
+      } else {
+        assert.ok(started.combat);
+        assert.deepEqual(
+          intel.enemies,
+          started.combat.enemies.map((e) => ({
+            archetype: e.archetype,
+            hp: e.maxHp,
+            armor: e.armor,
+          })),
+          `Intel must match spawned combat enemies for seed ${seed} node ${node.id} (${node.modifier ?? 'none'})`,
+        );
+      }
+    }
+
+    // 4. All 6 map variants produce valid graphs (reachable boss, no consecutive same-type support, L1 clinic -> combat/elite)
+    //    AND all 3 lane archetypes (gauntlet, mercenary, gambler) appear distinctly
+    const rootReachable = getReachableNodeIds(run.mapNodes, 'n_0_0');
+    assert.equal(rootReachable.size, 11);
+    const byId = new Map(run.mapNodes.map((n) => [n.id, n]));
+    for (const node of run.mapNodes) {
+      assert.ok(getReachableNodeIds(run.mapNodes, node.id).has('n_4_0'));
+      const isSupport = node.type === 'CYBER_CLINIC' || node.type === 'MED_BAY';
+      for (const nextId of node.nextIds) {
+        const nextNode = byId.get(nextId)!;
+        if (isSupport) {
+          assert.notEqual(nextNode.type, node.type);
+        }
+        if (node.layer === 1 && node.type === 'CYBER_CLINIC') {
+          assert.ok(nextNode.type === 'COMBAT' || nextNode.type === 'ELITE');
+        }
+      }
+    }
+
+    const profiles = getLaneClusterProfiles(run.mapNodes, run.heroine);
+    const archetypes = new Set(profiles.map((p) => p.archetype));
+    assert.equal(
+      archetypes.size,
+      3,
+      `Seed ${seed} must exhibit all 3 distinct lane archetypes`,
+    );
+  }
+
+  // 5. Med-Bay negative tension does NOT add to lane totalTensionHpEst
+  const syntheticMedLane: MapNode[] = [
+    { id: 'n_1_0', layer: 1, lane: 0, type: 'COMBAT', nextIds: ['n_2_0'], cleared: false },
+    { id: 'n_2_0', layer: 2, lane: 0, type: 'MED_BAY', nextIds: ['n_3_0'], cleared: false },
+    { id: 'n_3_0', layer: 3, lane: 0, type: 'MED_BAY', nextIds: [], cleared: false },
+  ];
+  const syntheticProfiles = getLaneClusterProfiles(syntheticMedLane, fresh.heroine);
+  const combatOnlyTension = getNodeEconomyMetrics(syntheticMedLane[0], fresh.heroine).tensionHpEst;
+  assert.equal(
+    syntheticProfiles[0].totalTensionHpEst,
+    combatOnlyTension,
+    'Med-Bays must never inflate combat HP risk',
+  );
+
+  // 6. Recon implant preview uses heroine.implants (not ownedEquipment) and reveals EVENT details
+  const seedWithEvent = createInitialRun(203);
+  const eventNode = seedWithEvent.mapNodes.find((n) => n.type === 'EVENT');
+  assert.ok(eventNode);
+  assert.equal(getReconPreviewForNode(eventNode, seedWithEvent), null);
+
+  const runWithRecon: RunState = {
+    ...seedWithEvent,
+    heroine: {
+      ...seedWithEvent.heroine,
+      implants: ['synapse_overclock'],
+    },
+  };
+  const eventRecon = getReconPreviewForNode(eventNode, runWithRecon);
+  assert.ok(eventRecon && eventRecon.kind === 'event');
+  assert.ok(eventRecon.eventTitle.length > 0);
+  assert.ok(eventRecon.choices.length >= 2);
+
+  // 7. Funded Clinic +12 HP bonus on calibrate_max_hp applies against the raised maxHp (58 -> 68)
+  const fundedCalibrateRun: RunState = {
+    ...fresh,
+    screen: 'medbay',
+    currentNodeId: 'n_3_0',
+    mapNodes: [
+      ...fresh.mapNodes.filter((n) => n.id !== 'n_3_0'),
+      { id: 'n_3_0', layer: 3, lane: 0, type: 'MED_BAY', modifier: 'funded_clinic', nextIds: [], cleared: false },
+    ],
+    heroine: {
+      ...fresh.heroine,
+      hp: 46,
+      maxHp: 58,
+    },
+  };
+  const afterFundedCalibrate = applyMedBayAction(fundedCalibrateRun, 'calibrate_max_hp');
+  assert.equal(afterFundedCalibrate.heroine.maxHp, 68);
+  assert.equal(afterFundedCalibrate.heroine.hp, 68); // 46 + 10 calibrate + 12 funded = 68 (would have been 66 if capped at 58 first)
+});
+
+
+
+
 

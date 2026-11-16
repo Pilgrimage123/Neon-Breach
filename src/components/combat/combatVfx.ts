@@ -1,5 +1,6 @@
 import type { AnimationCue, CombatState, HeroineState } from '../../engine/types';
-import { triggerHeroineAnimation } from '../../utils/heroineSpriteSheet';
+import { triggerCharacterAnimation } from '../../utils/aureliaSpriteSheet';
+import { computeEffectiveSlotCount } from './combatEnemyUi';
 import {
   type ActorAnim,
   BLOOD_DROP_POOL_SIZE,
@@ -385,6 +386,8 @@ function ensureEnemyAnim(sim: CombatStageSim, id: string): ActorAnim {
       staggerDuration: 0.44,
       staggerIntensity: 1,
       bleedSpurtTimer: 0,
+      attackAnimTimer: 0,
+      attackAnimDuration: 0.52,
     };
     sim.enemyAnims.set(id, ea);
   }
@@ -408,9 +411,14 @@ export function applyCombatCues(
   sim.needsRedraw = true;
 
   const { w, h } = sim.size;
+  const charId = heroine.characterId ?? 'kira';
   const groundY = getBridgeGroundY(h);
   const heroX = w * 0.22;
-  const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, combat.enemies.length);
+  const slotCount = computeEffectiveSlotCount(
+    combat.enemies,
+    combat.director?.pendingReinforcements,
+  );
+  const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, slotCount);
 
   const getEnemyPos = (targetId?: string): { x: number; y: number; groundY: number } => {
     const idx = combat.enemies.findIndex((e) => e.id === targetId);
@@ -461,7 +469,7 @@ export function applyCombatCues(
       sim.attackToggle % 2 === 1;
     sim.attackToggle += 1;
     primaryAttackMode = useKick ? 'dash_kick' : 'shoot';
-    sim.heroState = triggerHeroineAnimation(sim.heroState, primaryAttackMode);
+    sim.heroState = triggerCharacterAnimation(sim.heroState, primaryAttackMode, charId);
   }
 
   const triggerEnemyKo = (enemyId: string) => {
@@ -572,14 +580,14 @@ export function applyCombatCues(
         });
       }
     } else if (cue.kind === 'hero_shield') {
-      sim.heroState = triggerHeroineAnimation(sim.heroState, 'guard');
+      sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
       sim.shieldDomeTimer = 0.48;
       spawnBurst(sim, heroX, groundY - 95, cue.surge ? 20 : 12, '#00E5FF', 1, 0.85);
       if (cue.value) {
         spawnFloatingText(sim, heroX, groundY - 150, `+${cue.value} SHD`, '#38BDF8', 1.05);
       }
     } else if (cue.kind === 'hero_tech') {
-      sim.heroState = triggerHeroineAnimation(sim.heroState, 'upgrade');
+      sim.heroState = triggerCharacterAnimation(sim.heroState, 'upgrade', charId);
       sim.upgradeBeamTimer = 0.55;
       spawnBurst(sim, heroX, groundY - 95, cue.surge ? 22 : 14, '#FFB800', 1, 0.9);
       spawnFloatingText(
@@ -597,7 +605,7 @@ export function applyCombatCues(
       sim.pendingShotTargetX = frontPos.x;
       sim.pendingShotTargetY = frontPos.y;
       sim.dashTargetX = frontPos.x;
-      sim.heroState = triggerHeroineAnimation(sim.heroState, 'overdrive');
+      sim.heroState = triggerCharacterAnimation(sim.heroState, 'overdrive', charId);
 
       for (const e of livingOrKo) ensureEnemyAnim(sim, e.id);
 
@@ -649,6 +657,8 @@ export function applyCombatCues(
         const ea = ensureEnemyAnim(sim, cue.targetId);
         ea.lunge = 1;
         ea.lungeDir = -1;
+        ea.attackAnimDuration = 0.52;
+        ea.attackAnimTimer = 0.52;
       }
       const blocked = cue.blocked ?? 0;
       const hpDamage = cue.hpDamage ?? (cue.value ?? 0);
@@ -658,7 +668,7 @@ export function applyCombatCues(
       const lowHp = heroine.hp <= heroine.maxHp * 0.35;
 
       if (isLethal) {
-        sim.heroState = triggerHeroineAnimation(sim.heroState, 'defeat');
+        sim.heroState = triggerCharacterAnimation(sim.heroState, 'defeat', charId);
       }
 
       sim.pendingImpacts.push({
@@ -667,7 +677,7 @@ export function applyCombatCues(
         execute: () => {
           if (!isLethal) {
             if (hpDamage === 0) {
-              sim.heroState = triggerHeroineAnimation(sim.heroState, 'guard');
+              sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
               sim.shieldDomeTimer = 0.46;
               sim.trauma = Math.min(1, sim.trauma + 0.14);
               spawnBurst(sim, heroX + 38, groundY - 95, 16, '#00E5FF', 1, 0.9);
@@ -680,7 +690,7 @@ export function applyCombatCues(
                 sim.shieldDomeTimer = 0.25;
                 spawnBurst(sim, heroX + 32, groundY - 95, 10, '#00E5FF', 1, 0.85);
               }
-              sim.heroState = triggerHeroineAnimation(sim.heroState, 'hit', { lowHpHit: lowHp });
+              sim.heroState = triggerCharacterAnimation(sim.heroState, 'hit', charId, { lowHpHit: lowHp });
               sim.heroAnim.flashTimer = 0.085;
               sim.trauma = Math.min(1, sim.trauma + 0.35);
               spawnBurst(sim, heroX, groundY - 85, 14, isAcid ? '#84CC16' : '#FB7185', isAcid ? 2 : 0, 0.9);
@@ -711,6 +721,94 @@ export function applyCombatCues(
       if (cue.value) {
         spawnFloatingText(sim, pos.x, pos.y - 35, `+${cue.value} ARM`, '#BEF264', 0.95);
       }
+    } else if (cue.kind === 'enemy_bolster') {
+      const bolsterVal = cue.value ?? 4;
+      for (const ally of combat.enemies) {
+        if (ally.hp <= 0) continue;
+        const pos = getEnemyPos(ally.id);
+        spawnBurst(sim, pos.x, pos.y, 12, '#FACC15', 1, 0.85);
+        spawnFloatingText(sim, pos.x, pos.y - 38, `+${bolsterVal} ARM`, '#FDE047', 1.0);
+      }
+    } else if (cue.kind === 'enemy_charge') {
+      const pos = getEnemyPos(cue.targetId);
+      spawnBurst(sim, pos.x, pos.y, 16, '#FB923C', 1, 0.95);
+      spawnFloatingText(sim, pos.x, pos.y - 42, 'CHARGING!', '#FDBA74', 1.05);
+    } else if (cue.kind === 'enemy_burst') {
+      const burstOrigin = getEnemyPos(cue.targetId);
+      const burstDmg = cue.value ?? 6;
+      sim.pendingImpacts.push({
+        triggerOn: 'delay',
+        delayRemaining: 0.14,
+        execute: () => {
+          sim.trauma = Math.min(1, sim.trauma + 0.42);
+          spawnBurst(sim, burstOrigin.x, burstOrigin.y, 26, '#A3E635', 1, 1.35);
+          spawnFloatingText(
+            sim,
+            burstOrigin.x,
+            burstOrigin.y - 52,
+            `💥 BIO-BURST`,
+            '#BEF264',
+            1.1,
+          );
+          for (const ally of combat.enemies) {
+            if (ally.id === cue.targetId) continue;
+            if (ally.hp <= 0 && !koIds.has(ally.id)) continue;
+            const allyPos = getEnemyPos(ally.id);
+            triggerEnemyHitStagger(sim, ally.id, allyPos, 1.25, koIds.has(ally.id));
+            spawnBurst(sim, allyPos.x, allyPos.y, 14, '#84CC16', 2, 1.0);
+            spawnFloatingText(sim, allyPos.x, allyPos.y - 36, `-${burstDmg}`, '#BEF264', 1.05);
+            if (koIds.has(ally.id)) triggerEnemyKo(ally.id);
+          }
+        },
+      });
+    } else if (cue.kind === 'enemy_retaliate') {
+      const stalkerPos = getEnemyPos(cue.targetId);
+      const retHpDmg = cue.hpDamage ?? (cue.value ?? 3);
+      const retBlocked = cue.blocked ?? 0;
+      sim.pendingImpacts.push({
+        triggerOn: 'delay',
+        delayRemaining: 0.16,
+        execute: () => {
+          spawnBolt(sim, stalkerPos.x - 16, stalkerPos.y, heroX + 24, groundY - 88, '#FF2E7E', () => {
+            sim.trauma = Math.min(1, sim.trauma + 0.28);
+            if (retHpDmg > 0) {
+              sim.heroAnim.flashTimer = 0.08;
+              spawnBurst(sim, heroX, groundY - 85, 14, '#FB7185', 1, 0.95);
+              spawnFloatingText(
+                sim,
+                heroX,
+                groundY - 135,
+                `-${retHpDmg} SPIKE`,
+                '#FDA4AF',
+                1.0,
+              );
+            } else if (retBlocked > 0) {
+              sim.shieldDomeTimer = 0.32;
+              spawnBurst(sim, heroX + 34, groundY - 92, 12, '#00E5FF', 1, 0.85);
+              spawnFloatingText(sim, heroX, groundY - 135, 'SPIKE BLOCKED', '#38BDF8', 0.95);
+            }
+          });
+        },
+      });
+    } else if (cue.kind === 'enemy_phase_gate') {
+      const bossPos = getEnemyPos(cue.targetId);
+      sim.pendingImpacts.push({
+        triggerOn: 'delay',
+        delayRemaining: 0.12,
+        execute: () => {
+          sim.trauma = Math.min(1, sim.trauma + 0.45);
+          spawnBurst(sim, bossPos.x, bossPos.y, 24, '#00F0FF', 1, 1.25);
+          spawnBurst(sim, bossPos.x, bossPos.y, 16, '#FFC700', 1, 1.0);
+          spawnFloatingText(
+            sim,
+            bossPos.x,
+            bossPos.y - 54,
+            `PHASE LOCK +${cue.value ?? 10} ARM`,
+            '#67E8F9',
+            1.1,
+          );
+        },
+      });
     } else if (cue.kind === 'enemy_ko' && cue.targetId && !primarySlashCue && !hasOverdrive) {
       const targetId = cue.targetId;
       if (
@@ -719,6 +817,52 @@ export function applyCombatCues(
       ) {
         triggerEnemyKo(targetId);
       }
+    } else if (cue.kind === 'enemy_telegraph') {
+      const pending = combat.director?.pendingReinforcements ?? [];
+      const drop = pending[pending.length - 1];
+      const dropX = drop ? enemyBaseX + drop.slotIndex * enemyStepX : enemyBaseX + enemyStepX;
+      spawnBurst(sim, dropX, groundY - 24, 16, '#FB923C', 1, 0.9);
+      spawnFloatingText(
+        sim,
+        dropX,
+        groundY - 70,
+        `INBOUND T-${cue.value ?? 1}`,
+        '#FDBA74',
+        1.0,
+      );
+    } else if (cue.kind === 'enemy_reinforce') {
+      const pos = getEnemyPos(cue.targetId);
+      sim.trauma = Math.min(1, sim.trauma + 0.25);
+      spawnBurst(sim, pos.x, pos.y + 12, 22, '#00F0FF', 1, 1.1);
+      spawnFloatingText(sim, pos.x, pos.y - 46, 'DROP LANDED', '#67E8F9', 1.05);
+    } else if (cue.kind === 'enemy_enrage') {
+      const pos = getEnemyPos(cue.targetId);
+      spawnBurst(sim, pos.x, pos.y, 14, '#FF2E7E', 1, 0.9);
+      spawnFloatingText(sim, pos.x, pos.y - 48, cue.textLabel ?? `ENRAGE +${cue.value ?? 1} ATK`, '#FDA4AF', 1.05);
+    } else if (cue.kind === 'enemy_stagger' && cue.targetId) {
+      const pos = getEnemyPos(cue.targetId);
+      sim.trauma = Math.min(1, sim.trauma + 0.34);
+      triggerEnemyHitStagger(sim, cue.targetId, pos, 1.3, false);
+      spawnBurst(sim, pos.x, pos.y, 20, '#00F0FF', 1, 1.1);
+      spawnBurst(sim, pos.x, pos.y, 12, '#FFC700', 1, 0.9);
+      spawnFloatingText(sim, pos.x, pos.y - 54, '⚡ STAGGERED!', '#67E8F9', 1.15);
+    } else if (cue.kind === 'tile_hex') {
+      const pos = getEnemyPos(cue.targetId);
+      spawnBurst(sim, pos.x, pos.y, 16, '#C084FC', 1, 1.0);
+      spawnFloatingText(sim, pos.x, pos.y - 44, cue.textLabel ?? '⬡ HEX', '#E9D5FF', 1.05);
+    } else if (cue.kind === 'tile_blight') {
+      spawnBurst(sim, heroX, groundY - 85, 16, '#84CC16', 1, 0.95);
+      spawnFloatingText(
+        sim,
+        heroX,
+        groundY - 144,
+        cue.textLabel ?? `☣ -${cue.value ?? 2} SLAG`,
+        '#BEF264',
+        1.0,
+      );
+    } else if (cue.kind === 'heat_jam') {
+      spawnBurst(sim, heroX, groundY - 85, 16, '#F97316', 1, 0.85);
+      spawnFloatingText(sim, heroX, groundY - 142, 'OVERHEAT JAM', '#FB923C', 1.0);
     }
   }
 }
@@ -754,12 +898,15 @@ export function stepCombatSimulation(sim: CombatStageSim, dt: number): number {
 
   sim.enemyAnims.forEach((ea, enemyId) => {
     ea.lunge = Math.max(0, ea.lunge - simDt * 5.2);
+    if (ea.attackAnimTimer > 0) {
+      ea.attackAnimTimer = Math.max(0, ea.attackAnimTimer - simDt);
+    }
     if (ea.staggerTimer > 0) {
       ea.staggerTimer = Math.max(0, ea.staggerTimer - simDt);
     }
     if (ea.dead && ea.koProgress < 1) {
       // Slower, more visceral KO dissolve so full hit, stagger & arterial bleeding are clearly shown
-      ea.koProgress = Math.min(1, ea.koProgress + simDt * 1.45);
+      ea.koProgress = Math.min(1, ea.koProgress + simDt * 1.15);
     }
 
     // Continuous secondary arterial spurts while staggering or collapsing
