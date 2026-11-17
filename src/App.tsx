@@ -96,10 +96,11 @@ function applyBossObjectivesIfVictory(
   const obj = computeEncounterObjectives({
     combat: state.combat,
     heroine: state.heroine,
-    startingHp,
+    startingHp: state.combat.startingHeroHp ?? startingHp,
     undosUsed,
     hintsUsed,
     failForwardUsed,
+    difficultyTier: state.difficultyTier ?? DEFAULT_DIFFICULTY_TIER,
     lang,
   });
   return {
@@ -465,7 +466,8 @@ export default function App() {
       setPoolModalOpen(false);
       setDefibNoticeVisible(false);
       setTurnHistory([]);
-      const nextSnapshot = fresh.screen === 'combat' ? fresh : null;
+      const isIronman = getDifficultyProfile(selectedDifficultyTier).maxRunResets === 0;
+      const nextSnapshot = !isIronman && fresh.screen === 'combat' ? fresh : null;
       setEncounterStartSnapshot(nextSnapshot);
       saveEncounterSnapshot(nextSnapshot);
       setUndosUsedInNode(0);
@@ -497,10 +499,13 @@ export default function App() {
       }
       setSelectedDifficultyTier(savedRunSnapshot.difficultyTier ?? DEFAULT_DIFFICULTY_TIER);
       setRun(savedRunSnapshot);
+      const isIronmanSaved =
+        getDifficultyProfile(savedRunSnapshot.difficultyTier ?? DEFAULT_DIFFICULTY_TIER)
+          .maxRunResets === 0;
       const savedSnap =
-        savedRunSnapshot.screen === 'combat' ? loadEncounterSnapshot() : null;
+        !isIronmanSaved && savedRunSnapshot.screen === 'combat' ? loadEncounterSnapshot() : null;
       const nextSnapshot =
-        savedRunSnapshot.screen === 'combat'
+        !isIronmanSaved && savedRunSnapshot.screen === 'combat'
           ? savedSnap &&
             savedSnap.runId === savedRunSnapshot.runId &&
             savedSnap.combat?.nodeId === savedRunSnapshot.combat?.nodeId
@@ -509,10 +514,10 @@ export default function App() {
           : null;
       setEncounterStartSnapshot(nextSnapshot);
       setTurnHistory([]);
-      setUndosUsedInNode(0);
-      setCommittedUndosUsedInNode(0);
-      setBattleResetsUsedInNode(0);
-      setFailedAttemptsInNode(0);
+      setUndosUsedInNode(savedRunSnapshot.combat?.committedUndosUsed ?? 0);
+      setCommittedUndosUsedInNode(savedRunSnapshot.combat?.committedUndosUsed ?? 0);
+      setBattleResetsUsedInNode(savedRunSnapshot.combat?.battleResetsUsed ?? 0);
+      setFailedAttemptsInNode(savedRunSnapshot.combat?.failedAttempts ?? 0);
       setHintsUsedInNode(0);
       setFailForwardUsedInNode(false);
       setSwappedThisTurn(false);
@@ -802,18 +807,42 @@ export default function App() {
     soundEngine.playClick();
     enemyActedSetRef.current.clear();
     const prevEntry = turnHistory[turnHistory.length - 1];
+    const nextCommittedUndos = !prevEntry.isSwapOnly
+      ? committedUndosUsedInNode + 1
+      : committedUndosUsedInNode;
     setTurnHistory((prev) => prev.slice(0, -1));
     setUndosUsedInNode((u) => u + 1);
     if (!prevEntry.isSwapOnly) {
-      setCommittedUndosUsedInNode((u) => u + 1);
+      setCommittedUndosUsedInNode(nextCommittedUndos);
     }
     setSwappedThisTurn(prevEntry.swappedThisTurn);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
     setReadyOutcomeKey(null);
-    setRun(prevEntry.run);
-  }, [canUndoTurn, codexTarget, paused, poolModalOpen, showTitle, turnHistory]);
+    const restoredRun: RunState = prevEntry.run.combat
+      ? {
+          ...prevEntry.run,
+          combat: {
+            ...prevEntry.run.combat,
+            committedUndosUsed: nextCommittedUndos,
+            battleResetsUsed: battleResetsUsedInNode,
+            failedAttempts: failedAttemptsInNode,
+          },
+        }
+      : prevEntry.run;
+    setRun(restoredRun);
+  }, [
+    battleResetsUsedInNode,
+    canUndoTurn,
+    codexTarget,
+    committedUndosUsedInNode,
+    failedAttemptsInNode,
+    paused,
+    poolModalOpen,
+    showTitle,
+    turnHistory,
+  ]);
 
   const handleResetEncounter = useCallback(() => {
     if (!encounterStartSnapshot || !hasResetBudget) {
@@ -823,22 +852,32 @@ export default function App() {
     soundEngine.playClick();
     enemyActedSetRef.current.clear();
     const nextRunResetsUsed = (runRef.current.runResetsUsed ?? 0) + 1;
+    const nextBattleResetsUsed = battleResetsUsedInNode + 1;
     const restored: RunState = {
       ...encounterStartSnapshot,
       runResetsUsed: nextRunResetsUsed,
+      combat: encounterStartSnapshot.combat
+        ? {
+            ...encounterStartSnapshot.combat,
+            committedUndosUsed: 0,
+            battleResetsUsed: nextBattleResetsUsed,
+            failedAttempts: failedAttemptsInNode,
+          }
+        : encounterStartSnapshot.combat,
     };
     setEncounterStartSnapshot(restored);
     saveEncounterSnapshot(restored);
     setTurnHistory([]);
     setUndosUsedInNode((u) => u + 1);
-    setBattleResetsUsedInNode((r) => r + 1);
+    setCommittedUndosUsedInNode(0);
+    setBattleResetsUsedInNode(nextBattleResetsUsed);
     setSwappedThisTurn(false);
     setHintVisible(false);
     setHoveredColor(null);
     setSelectedColor(null);
     setReadyOutcomeKey(null);
     setRun(restored);
-  }, [encounterStartSnapshot, hasResetBudget]);
+  }, [battleResetsUsedInNode, encounterStartSnapshot, failedAttemptsInNode, hasResetBudget]);
 
   const handleFailForwardRetry = useCallback(() => {
     if (!encounterStartSnapshot || !diffProfile.failForwardAllowed) {
@@ -902,7 +941,7 @@ export default function App() {
 
   const objectivesSummary = useMemo(() => {
     if (!combat) return null;
-    const startingHp = encounterStartSnapshot?.heroine.hp ?? run.heroine.maxHp;
+    const startingHp = combat.startingHeroHp ?? encounterStartSnapshot?.heroine.hp ?? run.heroine.maxHp;
     return computeEncounterObjectives({
       combat,
       heroine: run.heroine,
@@ -910,6 +949,7 @@ export default function App() {
       undosUsed: undosUsedInNode,
       hintsUsed: hintsUsedInNode,
       failForwardUsed: failForwardUsedInNode,
+      difficultyTier: run.difficultyTier ?? DEFAULT_DIFFICULTY_TIER,
       lang,
     });
   }, [
@@ -918,6 +958,7 @@ export default function App() {
     failForwardUsedInNode,
     hintsUsedInNode,
     lang,
+    run.difficultyTier,
     run.heroine,
     undosUsedInNode,
   ]);
@@ -991,7 +1032,9 @@ export default function App() {
       );
     }
     const nextRun = startNodeEncounter(current, nodeId);
-    const nextSnapshot = nextRun.screen === 'combat' ? nextRun : null;
+    const isIronmanRun =
+      getDifficultyProfile(nextRun.difficultyTier ?? DEFAULT_DIFFICULTY_TIER).maxRunResets === 0;
+    const nextSnapshot = !isIronmanRun && nextRun.screen === 'combat' ? nextRun : null;
     setEncounterStartSnapshot(nextSnapshot);
     saveEncounterSnapshot(nextSnapshot);
     setRun(nextRun);
@@ -1496,7 +1539,17 @@ export default function App() {
                           {t.creditsLabel}
                         </span>
                       </div>
-                      {combat.rewardBreakdown && (
+                      {combat.mandateBreachLootConfiscated && (
+                        <div
+                          data-testid="mandate-breach-banner"
+                          className="mt-2 rounded-lg border border-rose-400/70 bg-rose-950/65 px-3 py-1.5 font-mono-tabular text-[11px] font-bold text-rose-100"
+                        >
+                          {lang === 'cs'
+                            ? `⚠ PORUŠENÍ MANDÁTU (Velmistr): -${combat.mandateBreachPenaltyHp ?? 12} HP průlom · Kořist zabavena`
+                            : `⚠ GRANDMASTER MANDATE BREACH: -${combat.mandateBreachPenaltyHp ?? 12} HP Hull Breach · Loot Confiscated`}
+                        </div>
+                      )}
+                      {combat.rewardBreakdown && !combat.mandateBreachLootConfiscated && (
                         <div
                           data-testid="combat-reward-breakdown"
                           className="mt-1.5 flex flex-wrap items-center justify-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]"

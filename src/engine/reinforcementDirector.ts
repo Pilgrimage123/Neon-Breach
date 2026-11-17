@@ -1,5 +1,5 @@
 import { ENEMY_TEMPLATES, EQUIPMENT_BY_ID, getEquippedEquipmentWeight } from './data';
-import { getDifficultyProfile } from './difficulty';
+import { computeSmartScaledEnemyHp, getDifficultyProfile } from './difficulty';
 import type {
   AnimationCue,
   CombatDirectorState,
@@ -235,15 +235,17 @@ export function createReinforcementUnit(
   hpBonus = 0,
   armorBonus = 0,
   isZeroReward = false,
+  difficultyTier: DifficultyTier = 3,
 ): EnemyUnit {
   const safeArchetype: Exclude<EnemyArchetype, 'boss'> =
     archetype === 'boss' ? 'skitter' : archetype;
   const tpl = ENEMY_TEMPLATES[safeArchetype];
+  const scaledHp = computeSmartScaledEnemyHp(safeArchetype, tpl.maxHp, hpBonus, difficultyTier);
   return {
     id: `enemy_reinf_${safeArchetype}_${sequenceId}`,
     archetype: safeArchetype,
-    hp: tpl.maxHp + hpBonus,
-    maxHp: tpl.maxHp + hpBonus,
+    hp: scaledHp,
+    maxHp: scaledHp,
     armor: tpl.startingArmor + armorBonus,
     shieldPips: tpl.startingShieldPips,
     maxShieldPips: tpl.startingShieldPips,
@@ -487,6 +489,7 @@ export function advanceDirectorAtRoundEnd(params: {
           drop.hpBonus ?? 0,
           drop.armorBonus ?? 0,
           Boolean(drop.isZeroReward),
+          difficultyTier,
         );
         if (drop.slotIndex < nextEnemies.length && nextEnemies[drop.slotIndex].hp <= 0) {
           nextEnemies[drop.slotIndex] = unit;

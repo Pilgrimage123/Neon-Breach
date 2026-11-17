@@ -4,6 +4,7 @@ import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import type { CrawlerVariant } from '../../utils/crawlerSpriteSheet';
 import { type HeroineAnimState, createInitialHeroineAnimState } from '../../utils/heroineSpriteSheet';
 import type { SpriteBounds } from '../../utils/spriteCutout';
+import type { BloodOwnerKind, BloodShapeKind } from './mutantBlood';
 
 /**
  * Normalized Y coordinate in arena_backdrop_1794552838070.jpg where the cyan
@@ -18,8 +19,10 @@ export const PARTICLE_POOL_SIZE = 256;
 export const TEXT_POOL_SIZE = 24;
 export const BOLT_POOL_SIZE = 16;
 export const BLOOD_DROP_POOL_SIZE = 320;
-export const FLOOR_BLOOD_POOL_SIZE = 220;
+export const FLOOR_BLOOD_POOL_SIZE = 240;
+export const COVER_BLOOD_POOL_SIZE = 128;
 export const EDGE_DRIP_POOL_SIZE = 96;
+export const SCREEN_BLOOD_POOL_SIZE = 28;
 
 export function getBridgeGroundY(h: number): number {
   return Math.round(h * 0.785);
@@ -59,10 +62,15 @@ export interface BloodDroplet {
   vy: number;
   size: number;
   color: string;
+  highlightColor: string;
+  owner: BloodOwnerKind;
+  shapeKind: BloodShapeKind;
+  createdTurn: number;
   floorY: number;
   life: number;
   maxLife: number;
   splatOnFloor: boolean;
+  hitCover: boolean;
 }
 
 export interface FloorBloodPuddle {
@@ -85,12 +93,40 @@ export interface FloorBloodPuddle {
   color: string;
   coreColor: string;
   highlightColor: string;
+  owner: BloodOwnerKind;
+  shapeKind: BloodShapeKind;
+  angle: number;
+  createdTurn: number;
+  visualTurnAge: number;
+  seed: number;
+  plasmaColor: string;
   age: number;
   alpha: number;
   dripSpawnCooldown: number;
   lobeOffsetX: number;
   lobeOffsetY: number;
   lobeScale: number;
+}
+
+export interface CoverBloodDecal {
+  active: boolean;
+  surface: 'rear_cover' | 'front_curb';
+  x: number;
+  offsetY: number;
+  rx: number;
+  ry: number;
+  targetRy: number;
+  streakLen: number;
+  maxStreakLen: number;
+  owner: BloodOwnerKind;
+  shapeKind: BloodShapeKind;
+  angle: number;
+  createdTurn: number;
+  visualTurnAge: number;
+  seed: number;
+  plasmaColor: string;
+  age: number;
+  alpha: number;
 }
 
 export interface BridgeEdgeDrip {
@@ -113,6 +149,29 @@ export interface BridgeEdgeDrip {
   color: string;
   coreColor: string;
   highlightColor: string;
+  owner: BloodOwnerKind;
+  createdTurn: number;
+  visualTurnAge: number;
+  seed: number;
+}
+
+export interface ScreenBloodDrop {
+  active: boolean;
+  nx: number;
+  ny: number;
+  radius: number;
+  stretchY: number;
+  slideOffsetPx: number;
+  slideSpeed: number;
+  streakLen: number;
+  owner: BloodOwnerKind;
+  age: number;
+  lifespan: number;
+  alpha: number;
+  seed: number;
+  satelliteDx: number;
+  satelliteDy: number;
+  satelliteR: number;
 }
 
 export interface FloatingText {
@@ -177,6 +236,7 @@ export interface EnemyCutoutEntry {
 export interface CombatStageSim {
   trauma: number;
   hitstop: number;
+  currentTurn: number;
   slashArcTimer: number;
   slashSurge: boolean;
   kickWaveTimer: number;
@@ -195,16 +255,24 @@ export interface CombatStageSim {
   heroAnim: ActorAnim;
   ghosts: AfterimageGhost[];
   ghostSampleTimer: number;
+  heroTrailCooldown: number;
   enemyAnims: Map<string, ActorAnim>;
-  enemyWoundOrigins: Map<string, { x: number; y: number; groundY: number }>;
+  enemyWoundOrigins: Map<string, { x: number; y: number; groundY: number; owner: BloodOwnerKind }>;
+  prevEnemySlots: Map<string, number>;
+  enemyInitialArmor: Map<string, number>;
   particles: Particle[];
   particleCursor: number;
   bloodDrops: BloodDroplet[];
   bloodDropCursor: number;
   floorBlood: FloorBloodPuddle[];
   floorBloodCursor: number;
+  coverBlood: CoverBloodDecal[];
+  coverBloodCursor: number;
   edgeDrips: BridgeEdgeDrip[];
   edgeDripCursor: number;
+  screenBlood: ScreenBloodDrop[];
+  screenBloodCursor: number;
+  screenBloodCooldown: number;
   texts: FloatingText[];
   textCursor: number;
   bolts: PlasmaBolt[];
@@ -256,10 +324,15 @@ export function createCombatStageSim(): CombatStageSim {
       vy: 0,
       size: 4,
       color: '#84CC16',
+      highlightColor: '#D9F99D',
+      owner: 'larva',
+      shapeKind: 'puddle',
+      createdTurn: 1,
       floorY: 320,
       life: 0,
       maxLife: 0.9,
       splatOnFloor: true,
+      hitCover: false,
     });
   }
 
@@ -285,12 +358,43 @@ export function createCombatStageSim(): CombatStageSim {
       color: '#65A30D',
       coreColor: '#365314',
       highlightColor: '#BEF264',
+      owner: 'larva',
+      shapeKind: 'puddle',
+      angle: 0,
+      createdTurn: 1,
+      visualTurnAge: 0,
+      seed: i * 1.37,
+      plasmaColor: '#00F0FF',
       age: 0,
       alpha: 0.88,
       dripSpawnCooldown: 0.5,
       lobeOffsetX: 6,
       lobeOffsetY: 1.5,
       lobeScale: 0.68,
+    });
+  }
+
+  const coverBlood: CoverBloodDecal[] = [];
+  for (let i = 0; i < COVER_BLOOD_POOL_SIZE; i++) {
+    coverBlood.push({
+      active: false,
+      surface: 'rear_cover',
+      x: 0,
+      offsetY: -12,
+      rx: 6,
+      ry: 5,
+      targetRy: 14,
+      streakLen: 0,
+      maxStreakLen: 16,
+      owner: 'larva',
+      shapeKind: 'cone_droplet',
+      angle: 0,
+      createdTurn: 1,
+      visualTurnAge: 0,
+      seed: i * 2.13,
+      plasmaColor: '#00F0FF',
+      age: 0,
+      alpha: 0.88,
     });
   }
 
@@ -316,6 +420,32 @@ export function createCombatStageSim(): CombatStageSim {
       color: '#65A30D',
       coreColor: '#365314',
       highlightColor: '#BEF264',
+      owner: 'larva',
+      createdTurn: 1,
+      visualTurnAge: 0,
+      seed: i * 1.71,
+    });
+  }
+
+  const screenBlood: ScreenBloodDrop[] = [];
+  for (let i = 0; i < SCREEN_BLOOD_POOL_SIZE; i++) {
+    screenBlood.push({
+      active: false,
+      nx: 0.1,
+      ny: 0.85,
+      radius: 4.5,
+      stretchY: 1.15,
+      slideOffsetPx: 0,
+      slideSpeed: 2.5,
+      streakLen: 0,
+      owner: 'larva',
+      age: 0,
+      lifespan: 6,
+      alpha: 0.85,
+      seed: i * 2.71,
+      satelliteDx: 6,
+      satelliteDy: -4,
+      satelliteR: 1.6,
     });
   }
 
@@ -362,6 +492,7 @@ export function createCombatStageSim(): CombatStageSim {
   return {
     trauma: 0,
     hitstop: 0,
+    currentTurn: 1,
     slashArcTimer: 0,
     slashSurge: false,
     kickWaveTimer: 0,
@@ -392,16 +523,24 @@ export function createCombatStageSim(): CombatStageSim {
     },
     ghosts: [],
     ghostSampleTimer: 0,
+    heroTrailCooldown: 0,
     enemyAnims: new Map(),
     enemyWoundOrigins: new Map(),
+    prevEnemySlots: new Map(),
+    enemyInitialArmor: new Map(),
     particles,
     particleCursor: 0,
     bloodDrops,
     bloodDropCursor: 0,
     floorBlood,
     floorBloodCursor: 0,
+    coverBlood,
+    coverBloodCursor: 0,
     edgeDrips,
     edgeDripCursor: 0,
+    screenBlood,
+    screenBloodCursor: 0,
+    screenBloodCooldown: 0,
     texts,
     textCursor: 0,
     bolts,
@@ -430,6 +569,7 @@ export function createCombatStageSim(): CombatStageSim {
 export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.trauma = 0;
   sim.hitstop = 0;
+  sim.currentTurn = 1;
   sim.cameraZoom = 1;
   sim.cameraPanX = 0;
   sim.cameraPanY = 0;
@@ -456,12 +596,18 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
     attackAnimDuration: 0.52,
   };
   sim.ghosts = [];
+  sim.heroTrailCooldown = 0;
   sim.enemyAnims.clear();
   sim.enemyWoundOrigins.clear();
+  sim.prevEnemySlots.clear();
+  sim.enemyInitialArmor.clear();
   for (let i = 0; i < sim.particles.length; i++) sim.particles[i].active = false;
   for (let i = 0; i < sim.bloodDrops.length; i++) sim.bloodDrops[i].active = false;
   for (let i = 0; i < sim.floorBlood.length; i++) sim.floorBlood[i].active = false;
+  for (let i = 0; i < sim.coverBlood.length; i++) sim.coverBlood[i].active = false;
   for (let i = 0; i < sim.edgeDrips.length; i++) sim.edgeDrips[i].active = false;
+  for (let i = 0; i < sim.screenBlood.length; i++) sim.screenBlood[i].active = false;
+  sim.screenBloodCooldown = 0;
   for (let i = 0; i < sim.texts.length; i++) sim.texts[i].active = false;
   for (let i = 0; i < sim.bolts.length; i++) {
     sim.bolts[i].active = false;

@@ -178,4 +178,31 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
     lang: 'en',
   });
   assert.ok(!aureliaPrompt || !aureliaPrompt.includes('HELD tiles gain'));
+
+  // Tier 4 & 5 pay tight-economy secondary objective credits and Tier 5 marks 2-Star as Mandatory
+  const clearedT4 = {
+    ...aureliaRun.combat,
+    turn: 4,
+    phase: 'VICTORY' as const,
+    enemies: aureliaRun.combat.enemies.map((e) => ({ ...e, hp: 0 })),
+  };
+  const objT4 = computeEncounterObjectives({
+    combat: clearedT4,
+    heroine: aureliaRun.heroine,
+    startingHp: aureliaRun.heroine.hp,
+    undosUsed: 0,
+    difficultyTier: 4,
+    lang: 'en',
+  });
+  assert.equal(objT4.bonusCredits, 14);
+  const objT5 = computeEncounterObjectives({
+    combat: clearedT4,
+    heroine: aureliaRun.heroine,
+    startingHp: aureliaRun.heroine.hp,
+    undosUsed: 0,
+    difficultyTier: 5,
+    lang: 'en',
+  });
+  assert.equal(objT5.bonusCredits, 16);
+  assert.ok(objT5.tiers[1].tierLabel.includes('MANDATORY'));
 });

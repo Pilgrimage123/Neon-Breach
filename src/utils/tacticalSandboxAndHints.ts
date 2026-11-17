@@ -1,4 +1,5 @@
 import { getHeroSpec } from '../engine/data';
+import { getDifficultyProfile, getStageSecondaryTurnTarget } from '../engine/difficulty';
 import {
   applyDamageToEnemy,
   evaluateReactiveEnemyShifts,
@@ -6,7 +7,15 @@ import {
   previewColorResolution,
   previewHeroineThreat,
 } from '../engine/gameEngine';
-import type { CombatState, EnemyArchetype, EnemyUnit, HeroineState, RunState, TileType } from '../engine/types';
+import type {
+  CombatState,
+  DifficultyTier,
+  EnemyArchetype,
+  EnemyUnit,
+  HeroineState,
+  RunState,
+  TileType,
+} from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 
 export interface DiscretePipDisplay {
@@ -343,6 +352,7 @@ export function computeEncounterObjectives(params: {
   undosUsed: number;
   hintsUsed?: number;
   failForwardUsed?: boolean;
+  difficultyTier?: DifficultyTier;
   lang?: Language;
 }): EncounterObjectivesSummary {
   const {
@@ -352,8 +362,13 @@ export function computeEncounterObjectives(params: {
     undosUsed,
     hintsUsed = 0,
     failForwardUsed = false,
+    difficultyTier,
     lang = 'en',
   } = params;
+  const effectiveTier = difficultyTier ?? 3;
+  const diff = getDifficultyProfile(effectiveTier);
+  const turnTarget2Star = getStageSecondaryTurnTarget(combat.nodeType, effectiveTier);
+  const turnTarget3Star = Math.max(4, turnTarget2Star - 1);
   const isCleared =
     combat.phase === 'VICTORY' || combat.enemies.every((e) => e.hp <= 0);
   const hpLost = Math.max(0, startingHp - heroine.hp);
@@ -362,14 +377,14 @@ export function computeEncounterObjectives(params: {
   // Tier 1: Casual (The Floor) — Survive and clear the board in any number of turns
   const tier1Done = isCleared && heroine.hp > 0;
 
-  // Tier 2: Intermediate (3-Star System) — Beat in <= 5 turns OR take 0 HP damage (locked out if Fail-Forward was used)
-  const tier2CriteriaMet = !failForwardUsed && (combat.turn <= 5 || hpLost === 0);
+  // Tier 2: Intermediate (3-Star System / Tier 5 Mandate) — Beat in <= turnTarget2Star turns OR take 0 HP damage (locked out if Fail-Forward was used)
+  const tier2CriteriaMet = !failForwardUsed && (combat.turn <= turnTarget2Star || hpLost === 0);
   const tier2Done = tier1Done && tier2CriteriaMet;
 
-  // Tier 3: Hardcore (The Ceiling) — Beat in <= 4 turns with 1+ Stack Surge, 0 Undo, and 0 Hints used
+  // Tier 3: Hardcore (The Ceiling) — Beat in <= turnTarget3Star turns with 1+ Stack Surge, 0 Undo, and 0 Hints used
   const tier3CriteriaMet =
     !failForwardUsed &&
-    combat.turn <= 4 &&
+    combat.turn <= turnTarget3Star &&
     surgesCount >= 1 &&
     undosUsed === 0 &&
     hintsUsed === 0;
@@ -383,8 +398,9 @@ export function computeEncounterObjectives(params: {
         ? 1
         : 0;
 
-  // Decoupled from Credit inflation: 2★/3★ award prestige Score & Nanites only
-  const bonusCredits = 0;
+  // Award secondary objective credits only when difficultyTier is explicitly active & objective met
+  const bonusCredits =
+    difficultyTier !== undefined && tier2Done ? diff.secondaryObjectiveCredits : 0;
   const bonusNanites = (tier2Done ? 1 : 0) + (tier3Done ? 2 : 0);
   const bonusScore = (tier2Done ? 75 : 0) + (tier3Done ? 150 : 0);
 
@@ -402,16 +418,28 @@ export function computeEncounterObjectives(params: {
     },
     {
       tier: 2,
-      tierLabel: lang === 'cs' ? '★★ POKROČILÝ (3-Star)' : '★★ INTERMEDIATE',
+      tierLabel: diff.mandatoryBonusObjective
+        ? lang === 'cs'
+          ? '★★ POVINNÝ MANDÁT (Velmistr)'
+          : '★★ MANDATORY (Grandmaster)'
+        : lang === 'cs'
+          ? '★★ POKROČILÝ (3-Star)'
+          : '★★ INTERMEDIATE',
       title:
         lang === 'cs'
-          ? `Bleskový průlom (≤5 tahů) NEBO 0 ztráta HP (Nyní: T${combat.turn}, -${hpLost} HP)`
-          : `Blitz Clear (≤5 Turns) OR Zero HP Lost (Now: T${combat.turn}, -${hpLost} HP)`,
-      description:
-        lang === 'cs'
-          ? 'Vyčisti uzel do 5 tahů nebo bez ztráty zdraví (bez Nouzového restartu).'
-          : 'Beat the node in ≤5 turns or take zero hull damage (without Fail-Forward).',
-      rewardText: '+1 NC · +75 PTS',
+          ? `Bleskový průlom (≤${turnTarget2Star} tahů) NEBO 0 ztráta HP (Nyní: T${combat.turn}, -${hpLost} HP)`
+          : `Blitz Clear (≤${turnTarget2Star} Turns) OR Zero HP Lost (Now: T${combat.turn}, -${hpLost} HP)`,
+      description: diff.mandatoryBonusObjective
+        ? lang === 'cs'
+          ? `Povinné na Velmistra: do ${turnTarget2Star} tahů nebo bez ztráty HP (jinak průlom -12 HP a ztráta kořisti).`
+          : `Mandatory on Grandmaster: ≤${turnTarget2Star} turns or 0 HP lost (failure incurs -12 HP breach & forfeits loot).`
+        : lang === 'cs'
+          ? `Vyčisti uzel do ${turnTarget2Star} tahů nebo bez ztráty zdraví (bez Nouzového restartu).`
+          : `Beat the node in ≤${turnTarget2Star} turns or take zero hull damage (without Fail-Forward).`,
+      rewardText:
+        bonusCredits > 0 || (difficultyTier !== undefined && diff.secondaryObjectiveCredits > 0)
+          ? `+${diff.secondaryObjectiveCredits} CR · +1 NC · +75 PTS`
+          : '+1 NC · +75 PTS',
       completed: tier2Done,
     },
     {
@@ -419,12 +447,12 @@ export function computeEncounterObjectives(params: {
       tierLabel: lang === 'cs' ? '★★★ MISTROVSTVÍ (Ceiling)' : '★★★ HARDCORE (Mastery)',
       title:
         lang === 'cs'
-          ? `Bezchybný taktik: ≤4 tahy, 1+ Surge, 0 Zpět, 0 Tip (Surge: ${surgesCount}, Zpět: ${undosUsed}, Tip: ${hintsUsed})`
-          : `Apex Constraint: ≤4 Turns, 1+ Surge, 0 Undo, 0 Hint (Surges: ${surgesCount}, Undo: ${undosUsed}, Hint: ${hintsUsed})`,
+          ? `Bezchybný taktik: ≤${turnTarget3Star} tahy, 1+ Surge, 0 Zpět, 0 Tip (Surge: ${surgesCount}, Zpět: ${undosUsed}, Tip: ${hintsUsed})`
+          : `Apex Constraint: ≤${turnTarget3Star} Turns, 1+ Surge, 0 Undo, 0 Hint (Surges: ${surgesCount}, Undo: ${undosUsed}, Hint: ${hintsUsed})`,
       description:
         lang === 'cs'
-          ? 'Vyhraj do 4 tahů se Stack Surge, bez vrácení tahu a bez nápovědy.'
-          : 'Clear within 4 turns, trigger 1+ Stack Surge, and use 0 Undos and 0 Hints.',
+          ? `Vyhraj do ${turnTarget3Star} tahů se Stack Surge, bez vrácení tahu a bez nápovědy.`
+          : `Clear within ${turnTarget3Star} turns, trigger 1+ Stack Surge, and use 0 Undos and 0 Hints.`,
       rewardText: lang === 'cs' ? '+2 NC · +150 PTS · ★★★ ODZNAK' : '+2 NC · +150 PTS · ★★★ BADGE',
       completed: tier3Done,
     },

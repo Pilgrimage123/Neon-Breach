@@ -378,6 +378,12 @@ export interface CombatState {
   director?: CombatDirectorState;
   rewardBreakdown?: RewardBreakdown;
   lastColorPlayed?: TileType | null;
+  startingHeroHp?: number;
+  committedUndosUsed?: number;
+  battleResetsUsed?: number;
+  failedAttempts?: number;
+  mandateBreachPenaltyHp?: number;
+  mandateBreachLootConfiscated?: boolean;
 }
 
 export type ScreenPhase = 'title' | 'map' | 'combat' | 'clinic' | 'chip_dealer' | 'medbay' | 'event' | 'victory' | 'gameover';

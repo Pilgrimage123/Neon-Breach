@@ -31,15 +31,26 @@ import {
   BRIDGE_DECK_BACK_IMG_Y,
   BRIDGE_DECK_FRONT_IMG_Y,
   BRIDGE_DECK_IMG_Y,
+  COVER_BLOOD_POOL_SIZE,
   type CombatStageSim,
+  type CoverBloodDecal,
   EDGE_DRIP_POOL_SIZE,
   ENEMY_FOOT_DEFAULTS,
   FLOOR_BLOOD_POOL_SIZE,
+  type FloorBloodPuddle,
   PARTICLE_POOL_SIZE,
+  SCREEN_BLOOD_POOL_SIZE,
   TEXT_POOL_SIZE,
   getStageLayoutMetrics,
 } from './combatStageTypes';
 import { computeEffectiveSlotCount, computeEnemyArmorPreview } from './combatEnemyUi';
+import {
+  computeBloodWeatheringState,
+  getBloodBiologyProfile,
+  getEnemyStatusVisualFlags,
+  hexToRgba,
+  sampleWeatheredBloodColors,
+} from './mutantBlood';
 
 interface StaggerKinematics {
   dx: number;
@@ -83,6 +94,412 @@ function getEnemyStaggerKinematics(ea: ActorAnim | undefined): StaggerKinematics
     shearPx: u < 0.36 ? shudder * 10 * intensity : 0,
     bioFlashAlpha: Math.pow(1 - u, 1.7) * 0.52,
   };
+}
+
+function renderFloorBloodDecal(
+  ctx: CanvasRenderingContext2D,
+  fp: FloorBloodPuddle,
+  index: number,
+  elapsed: number,
+  tacticalViewActive: boolean,
+): void {
+  const profile = getBloodBiologyProfile(fp.owner);
+  const weathering = computeBloodWeatheringState(fp.visualTurnAge);
+  const colors = sampleWeatheredBloodColors(profile, fp.visualTurnAge);
+  const pulse = 0.72 + 0.28 * Math.sin(elapsed * 2.5 + fp.seed);
+  const creepWave =
+    weathering.turnAge < 1.5 ? Math.sin(elapsed * 1.8 + index * 0.9) * 0.45 * (1 - weathering.dryness) : 0;
+  const rx = fp.rx + creepWave;
+  const ry = fp.ry;
+
+  // Plasma / Laser / Acid cauterized black-and-neon scorch ring
+  if (fp.shapeKind === 'scorch_ring') {
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+
+    // Outer heat-warped carbon halo
+    ctx.globalAlpha = 0.78 * fp.alpha;
+    ctx.fillStyle = '#070B14';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 1.08, ry * 1.08, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Bubbling neon plasma scorch ring (dims over turns as residual thermal glow cools)
+    const rimAlpha = (0.35 + 0.65 * weathering.emissiveIntensity) * fp.alpha * (0.85 + 0.15 * pulse);
+    ctx.globalAlpha = rimAlpha;
+    ctx.strokeStyle = fp.plasmaColor;
+    ctx.lineWidth = Math.max(1.4, ry * 0.34);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.88, ry * 0.88, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Biology-tinted charred inner ring
+    ctx.globalAlpha = 0.72 * fp.alpha;
+    ctx.strokeStyle = colors.body;
+    ctx.lineWidth = 1.3;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.68, ry * 0.68, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Cauterized obsidian core
+    ctx.globalAlpha = 0.88 * fp.alpha;
+    ctx.fillStyle = '#03050A';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.56, ry * 0.56, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Fresh simmering plasma micro-bubbles along the ring edge
+    if (weathering.emissiveIntensity > 0.12 && !tacticalViewActive) {
+      ctx.globalAlpha = 0.78 * weathering.emissiveIntensity * fp.alpha;
+      ctx.fillStyle = fp.plasmaColor;
+      for (let b = 0; b < 4; b++) {
+        const ang = fp.seed + b * 1.57 + elapsed * 0.4;
+        const bx = Math.cos(ang) * rx * 0.84;
+        const by = Math.sin(ang) * ry * 0.84;
+        const br = 1.1 + 0.7 * Math.sin(elapsed * 6 + b * 2.1 + fp.seed);
+        ctx.beginPath();
+        ctx.arc(bx, by, Math.max(0.6, br), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+    ctx.restore();
+    return;
+  }
+
+  // Wide, sweeping melee crescent splatter arc
+  if (fp.shapeKind === 'melee_arc') {
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+    ctx.rotate(fp.angle);
+
+    // Raised meniscus contact shadow
+    ctx.globalAlpha = 0.46 * fp.alpha;
+    ctx.fillStyle = colors.rimShadow;
+    ctx.beginPath();
+    ctx.ellipse(1.4, 1.3, rx * 1.04, ry * 0.72, 0, -Math.PI * 0.18, Math.PI * 0.82);
+    ctx.fill();
+
+    // Sweeping crescent splatter body
+    ctx.globalAlpha = 0.88 * fp.alpha;
+    ctx.fillStyle = colors.body;
+    ctx.beginPath();
+    ctx.moveTo(-rx, -ry * 0.15);
+    ctx.quadraticCurveTo(0, ry * 1.25, rx, -ry * 0.25);
+    ctx.quadraticCurveTo(0, ry * 0.22, -rx, -ry * 0.15);
+    ctx.closePath();
+    ctx.fill();
+
+    // Satellite flick droplets along the sweep tangent
+    ctx.beginPath();
+    ctx.ellipse(rx * 1.12, -ry * 0.35, Math.max(2.2, rx * 0.14), Math.max(1.2, ry * 0.22), 0.25, 0, Math.PI * 2);
+    ctx.ellipse(-rx * 1.06, -ry * 0.22, Math.max(1.8, rx * 0.11), Math.max(1.0, ry * 0.18), -0.2, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Coagulated dark ridge
+    ctx.globalAlpha = 0.72 * fp.alpha;
+    ctx.fillStyle = colors.core;
+    ctx.beginPath();
+    ctx.moveTo(-rx * 0.72, 0);
+    ctx.quadraticCurveTo(0, ry * 0.82, rx * 0.75, -ry * 0.08);
+    ctx.quadraticCurveTo(0, ry * 0.35, -rx * 0.72, 0);
+    ctx.closePath();
+    ctx.fill();
+
+    // Subsurface cellular glow or chitinous suspended vein inside sweep arc
+    if (weathering.emissiveIntensity > 0.05) {
+      ctx.globalAlpha = weathering.emissiveIntensity * profile.emissiveStrength * 0.55 * fp.alpha * pulse;
+      ctx.strokeStyle = profile.hasSuspendedVeins ? colors.veinPrimary : colors.emissive;
+      ctx.lineWidth = 1.3;
+      ctx.beginPath();
+      ctx.moveTo(-rx * 0.65, ry * 0.08);
+      ctx.quadraticCurveTo(0, ry * 0.55, rx * 0.68, -ry * 0.02);
+      ctx.stroke();
+    }
+
+    // Specular sheen when wet
+    if (weathering.glossiness > 0.2) {
+      ctx.globalAlpha = weathering.glossiness * 0.58 * fp.alpha;
+      ctx.strokeStyle = colors.highlight;
+      ctx.lineWidth = 1.1;
+      ctx.beginPath();
+      ctx.moveTo(-rx * 0.52, ry * 0.1);
+      ctx.quadraticCurveTo(-rx * 0.1, ry * 0.42, rx * 0.36, ry * 0.18);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+    return;
+  }
+
+  // Standard viscous puddle, directional cone droplet, or bleeding/shredded trail drop
+  ctx.save();
+  ctx.translate(fp.x, fp.y);
+  if (fp.shapeKind === 'cone_droplet' && Math.abs(fp.angle) > 0.01) {
+    ctx.rotate(fp.angle * 0.35);
+  }
+
+  // Pass 0: Raised viscous normal-bevel shadow (gives thick gelatinous height above the deck)
+  const rimThick = 0.8 + profile.viscosity * 0.8 + weathering.crustAmount * 0.5;
+  ctx.globalAlpha = (0.38 + weathering.crustAmount * 0.22) * fp.alpha;
+  ctx.fillStyle = colors.rimShadow;
+  ctx.beginPath();
+  ctx.ellipse(1.1, 1.0, rx + rimThick, ry + rimThick * 0.55, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pass 1: Outer viscous pool + secondary lobe + creeping tendrils
+  ctx.globalAlpha = (tacticalViewActive ? 0.92 : 0.86) * fp.alpha;
+  ctx.fillStyle = colors.body;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  if (fp.shapeKind !== 'trail_drop') {
+    ctx.ellipse(
+      fp.lobeOffsetX,
+      fp.lobeOffsetY,
+      rx * fp.lobeScale,
+      ry * fp.lobeScale,
+      0,
+      0,
+      Math.PI * 2,
+    );
+  } else {
+    // Directional tear-drop tail on movement trail decals
+    ctx.ellipse(-rx * 0.85, 0, rx * 0.45, ry * 0.45, 0, 0, Math.PI * 2);
+  }
+
+  if (fp.tendrilLen1 > 1) {
+    const tx1 = fp.tendrilOffsetX1 + fp.flowVx * 0.45;
+    const ty1 = ry * 0.45 + fp.tendrilLen1 * 0.42;
+    ctx.ellipse(
+      (fp.tendrilOffsetX1 + tx1) * 0.5,
+      ty1 * 0.5,
+      Math.max(2.2, rx * 0.16),
+      Math.max(1.6, fp.tendrilLen1 * 0.26),
+      0.18,
+      0,
+      Math.PI * 2,
+    );
+    ctx.ellipse(tx1, ty1, Math.max(2.6, rx * 0.2), Math.max(1.5, ry * 0.38), 0, 0, Math.PI * 2);
+  }
+  if (fp.tendrilLen2 > 1) {
+    const tx2 = fp.tendrilOffsetX2 + fp.flowVx * 0.3;
+    const ty2 = ry * 0.4 + fp.tendrilLen2 * 0.38;
+    ctx.ellipse(
+      (fp.tendrilOffsetX2 + tx2) * 0.5,
+      ty2 * 0.5,
+      Math.max(1.8, rx * 0.13),
+      Math.max(1.3, fp.tendrilLen2 * 0.22),
+      -0.15,
+      0,
+      Math.PI * 2,
+    );
+  }
+  ctx.fill();
+
+  // Pass 1.5: Oil-slick Fresnel rim iridescence (Sulfur / Cobalt & Boss Apex)
+  const iriAlpha = weathering.iridescenceIntensity * profile.iridescence * fp.alpha;
+  if (iriAlpha > 0.05) {
+    ctx.globalAlpha = 0.62 * iriAlpha;
+    ctx.strokeStyle = colors.iridescenceA;
+    ctx.lineWidth = 1.25;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.94, ry * 0.9, 0, Math.PI * 0.85, Math.PI * 1.85);
+    ctx.stroke();
+
+    ctx.strokeStyle = colors.iridescenceB;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.92, ry * 0.88, 0, -Math.PI * 0.1, Math.PI * 0.72);
+    ctx.stroke();
+  }
+
+  // Pass 2: Coagulated inner viscous core
+  ctx.globalAlpha = 0.78 * fp.alpha;
+  ctx.fillStyle = colors.core;
+  ctx.beginPath();
+  ctx.ellipse(0, 0.3, rx * 0.62, ry * 0.6, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Pass 3: Subsurface Scattering / Cellular Emissive Pulse (fades out over 2-3 turns)
+  if (weathering.emissiveIntensity > 0.04 && profile.emissiveStrength > 0.15) {
+    if (profile.hasSuspendedVeins) {
+      // Chitinous / Ichorous suspended glowing veins inside pitch-black tar
+      const veinAlpha = weathering.emissiveIntensity * profile.emissiveStrength * fp.alpha * pulse;
+      ctx.save();
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 0.88, ry * 0.85, 0, 0, Math.PI * 2);
+      ctx.clip();
+
+      ctx.strokeStyle = colors.veinPrimary;
+      ctx.globalAlpha = 0.88 * veinAlpha;
+      ctx.lineWidth = Math.max(1.0, Math.min(2.2, ry * 0.28));
+      ctx.beginPath();
+      ctx.moveTo(-rx * 0.68, -ry * 0.12);
+      ctx.quadraticCurveTo(-rx * 0.12, ry * 0.42, rx * 0.65, -ry * 0.08);
+      ctx.stroke();
+
+      ctx.strokeStyle = colors.veinSecondary;
+      ctx.globalAlpha = 0.76 * veinAlpha;
+      ctx.lineWidth = Math.max(0.85, Math.min(1.6, ry * 0.2));
+      ctx.beginPath();
+      ctx.moveTo(-rx * 0.34, ry * 0.38);
+      ctx.quadraticCurveTo(rx * 0.06, -ry * 0.34, rx * 0.52, ry * 0.28);
+      ctx.stroke();
+      ctx.restore();
+    } else {
+      const subAlpha = weathering.emissiveIntensity * profile.emissiveStrength * 0.42 * fp.alpha * pulse;
+      ctx.globalAlpha = subAlpha;
+      ctx.fillStyle = colors.emissive;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 0.44, ry * 0.44, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // Pass 4: Specular Glossiness (bright & wet at Turn 0, dulling to matte) + Turn 2+ Crusted/Crystallized Flecks
+  if (weathering.glossiness > 0.18) {
+    ctx.globalAlpha = weathering.glossiness * 0.62 * fp.alpha;
+    ctx.fillStyle = colors.highlight;
+    ctx.beginPath();
+    ctx.ellipse(
+      -rx * 0.24,
+      -ry * 0.26,
+      Math.max(1.4, rx * 0.28 * weathering.glossiness),
+      Math.max(0.7, ry * 0.24 * weathering.glossiness),
+      -0.12,
+      0,
+      Math.PI * 2,
+    );
+    ctx.fill();
+  }
+
+  if (weathering.crustAmount > 0.15) {
+    // Crusted raised coagulated rim & crystallized dry specks
+    ctx.globalAlpha = weathering.crustAmount * 0.55 * fp.alpha;
+    ctx.strokeStyle = colors.crust;
+    ctx.lineWidth = 1.0;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.96, ry * 0.94, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.fillStyle = colors.highlight;
+    ctx.globalAlpha = weathering.crustAmount * 0.42 * fp.alpha;
+    for (let c = 0; c < 3; c++) {
+      const cx = Math.sin(fp.seed * 3.1 + c * 2.4) * rx * 0.55;
+      const cy = Math.cos(fp.seed * 1.7 + c * 1.9) * ry * 0.45;
+      ctx.fillRect(cx - 0.8, cy - 0.6, 1.6, 1.2);
+    }
+  }
+
+  ctx.restore();
+}
+
+function renderTacticalCoverBarriersAndDecals(
+  ctx: CanvasRenderingContext2D,
+  sim: CombatStageSim,
+  deckBackY: number,
+  w: number,
+  elapsed: number,
+  tacticalViewActive: boolean,
+): void {
+  const railHeight = Math.max(20, Math.min(34, Math.round(sim.size.h * 0.075)));
+  const railTopY = deckBackY - railHeight;
+  const stanchionStep = Math.max(96, Math.round(w / 8));
+
+  ctx.save();
+  // Sleek low-profile sky-bridge half-cover ballistic glass barrier along deckBackY
+  ctx.fillStyle = tacticalViewActive ? 'rgba(15, 23, 42, 0.55)' : 'rgba(6, 22, 46, 0.34)';
+  ctx.fillRect(0, railTopY, w, railHeight);
+
+  // Top chrome handrail cap
+  ctx.strokeStyle = tacticalViewActive ? 'rgba(226, 232, 240, 0.65)' : 'rgba(103, 232, 249, 0.36)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(0, railTopY);
+  ctx.lineTo(w, railTopY);
+  ctx.stroke();
+
+  // Vertical titanium cover stanchions / bollards
+  ctx.fillStyle = tacticalViewActive ? 'rgba(51, 65, 85, 0.72)' : 'rgba(15, 32, 58, 0.62)';
+  for (let sx = Math.round(stanchionStep * 0.5); sx < w; sx += stanchionStep) {
+    ctx.fillRect(sx - 3, railTopY - 2, 6, railHeight + 3);
+    ctx.fillStyle = 'rgba(0, 229, 255, 0.25)';
+    ctx.fillRect(sx - 1, railTopY + 3, 2, railHeight - 7);
+    ctx.fillStyle = tacticalViewActive ? 'rgba(51, 65, 85, 0.72)' : 'rgba(15, 32, 58, 0.62)';
+  }
+
+  // Project CoverBloodDecals onto the rear cover barrier surface
+  ctx.beginPath();
+  ctx.rect(0, railTopY - 4, w, railHeight + 6);
+  ctx.clip();
+
+  for (let i = 0; i < COVER_BLOOD_POOL_SIZE; i++) {
+    const cd: CoverBloodDecal = sim.coverBlood[i];
+    if (!cd.active || cd.surface !== 'rear_cover' || cd.alpha <= 0.01) continue;
+
+    const profile = getBloodBiologyProfile(cd.owner);
+    const weathering = computeBloodWeatheringState(cd.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, cd.visualTurnAge);
+    const cy = Math.max(railTopY + 3, Math.min(deckBackY - 2, deckBackY + cd.offsetY));
+
+    ctx.save();
+    ctx.translate(cd.x, cy);
+
+    if (cd.shapeKind === 'scorch_ring') {
+      ctx.globalAlpha = 0.75 * cd.alpha;
+      ctx.fillStyle = '#03050A';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, cd.rx * 0.9, cd.ry * 0.85, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = (0.3 + 0.65 * weathering.emissiveIntensity) * cd.alpha;
+      ctx.strokeStyle = cd.plasmaColor;
+      ctx.lineWidth = 1.6;
+      ctx.stroke();
+    } else {
+      // Draped vertical splatter + downward viscous gravity streak across cover glass
+      ctx.globalAlpha = 0.85 * cd.alpha;
+      ctx.fillStyle = colors.body;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, cd.rx, cd.ry, cd.angle * 0.2, 0, Math.PI * 2);
+      if (cd.streakLen > 1) {
+        const streakEnd = Math.min(deckBackY - cy, cd.streakLen);
+        ctx.moveTo(-cd.rx * 0.36, 0);
+        ctx.quadraticCurveTo(-cd.rx * 0.14, streakEnd * 0.6, 0, streakEnd);
+        ctx.quadraticCurveTo(cd.rx * 0.14, streakEnd * 0.6, cd.rx * 0.36, 0);
+        ctx.closePath();
+      }
+      ctx.fill();
+
+      // Coagulated core
+      ctx.globalAlpha = 0.76 * cd.alpha;
+      ctx.fillStyle = colors.core;
+      ctx.beginPath();
+      ctx.ellipse(0, 0.5, cd.rx * 0.55, cd.ry * 0.55, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Chitinous glowing vein or subsurface pulse on cover glass
+      if (weathering.emissiveIntensity > 0.06) {
+        const pulse = 0.75 + 0.25 * Math.sin(elapsed * 2.4 + cd.seed);
+        ctx.globalAlpha = weathering.emissiveIntensity * profile.emissiveStrength * 0.72 * cd.alpha * pulse;
+        ctx.strokeStyle = profile.hasSuspendedVeins ? colors.veinPrimary : colors.emissive;
+        ctx.lineWidth = 1.1;
+        ctx.beginPath();
+        ctx.moveTo(-cd.rx * 0.35, -cd.ry * 0.1);
+        ctx.quadraticCurveTo(0, cd.ry * 0.3, cd.rx * 0.25, cd.streakLen * 0.45);
+        ctx.stroke();
+      }
+
+      // Fresh specular gloss
+      if (weathering.glossiness > 0.22) {
+        ctx.globalAlpha = weathering.glossiness * 0.55 * cd.alpha;
+        ctx.fillStyle = colors.highlight;
+        ctx.beginPath();
+        ctx.ellipse(-cd.rx * 0.26, -cd.ry * 0.24, Math.max(1, cd.rx * 0.26), Math.max(0.8, cd.ry * 0.22), -0.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+  ctx.restore();
 }
 
 export function renderCombatStage(
@@ -291,6 +708,9 @@ export function renderCombatStage(
   ctx.lineTo(w, deckFrontY);
   ctx.stroke();
 
+  // 1.5 Low-Profile Tactical Cover Glass Barriers + Projected Structural Cover Blood Decals
+  renderTacticalCoverBarriersAndDecals(ctx, sim, deckBackY, w, elapsed, tacticalViewActive);
+
   // Ambient drifting light motes (Tactical View Rule 2: turned off when Tactical View is active)
   if (!tacticalViewActive) {
     for (let i = 0; i < sim.motes.length; i++) {
@@ -436,109 +856,63 @@ export function renderCombatStage(
   }
   ctx.restore();
 
-  // 2.5 Persistent & Slowly Flowing Greenish Floor Blood Puddles on the Sky-Bridge Deck
+  // 2.5 Persistent Multi-Turn Weathered Floor Blood, Scorch Rings, Melee Arcs & Movement Trails
   ctx.save();
   for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
     const fp = sim.floorBlood[i];
     if (!fp.active || fp.alpha <= 0.01) continue;
-
-    // Subtle slow undulating pulse as the viscous bio-blood creeps along the floor
-    const creepWave = Math.sin(elapsed * 1.8 + i * 0.9) * 0.6;
-    const rx = fp.rx + creepWave * 0.35;
-    const ry = fp.ry;
-
-    // Pass 1: Outer toxic green pool + secondary organic lobe + creeping tendrils
-    ctx.globalAlpha = 0.82 * fp.alpha;
-    ctx.fillStyle = fp.color;
-    ctx.beginPath();
-    ctx.ellipse(fp.x, fp.y, rx, ry, 0, 0, Math.PI * 2);
-    ctx.ellipse(
-      fp.x + fp.lobeOffsetX,
-      fp.y + fp.lobeOffsetY,
-      rx * fp.lobeScale,
-      ry * fp.lobeScale,
-      0,
-      0,
-      Math.PI * 2,
-    );
-    // Creeping viscous rivulet 1 (flowing toward front curb / side)
-    if (fp.tendrilLen1 > 1) {
-      const tx1 = fp.x + fp.tendrilOffsetX1 + fp.flowVx * 0.45;
-      const ty1 = fp.y + ry * 0.45 + fp.tendrilLen1 * 0.42;
-      ctx.ellipse(
-        (fp.x + fp.tendrilOffsetX1 + tx1) * 0.5,
-        (fp.y + ty1) * 0.5,
-        Math.max(2.2, rx * 0.16),
-        Math.max(1.6, fp.tendrilLen1 * 0.26),
-        0.18,
-        0,
-        Math.PI * 2,
-      );
-      ctx.ellipse(tx1, ty1, Math.max(2.6, rx * 0.2), Math.max(1.5, ry * 0.38), 0, 0, Math.PI * 2);
-    }
-    // Creeping viscous rivulet 2
-    if (fp.tendrilLen2 > 1) {
-      const tx2 = fp.x + fp.tendrilOffsetX2 + fp.flowVx * 0.3;
-      const ty2 = fp.y + ry * 0.4 + fp.tendrilLen2 * 0.38;
-      ctx.ellipse(
-        (fp.x + fp.tendrilOffsetX2 + tx2) * 0.5,
-        (fp.y + ty2) * 0.5,
-        Math.max(1.8, rx * 0.13),
-        Math.max(1.3, fp.tendrilLen2 * 0.22),
-        -0.15,
-        0,
-        Math.PI * 2,
-      );
-    }
-    ctx.fill();
-
-    // Pass 2: Coagulated dark-green viscous core
-    ctx.globalAlpha = 0.76 * fp.alpha;
-    ctx.fillStyle = fp.coreColor;
-    ctx.beginPath();
-    ctx.ellipse(fp.x, fp.y + 0.3, rx * 0.62, ry * 0.6, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Pass 3: Glossy wet toxic-lime specular sheen
-    ctx.globalAlpha = 0.52 * fp.alpha;
-    ctx.fillStyle = fp.highlightColor;
-    ctx.beginPath();
-    ctx.ellipse(
-      fp.x - rx * 0.24,
-      fp.y - ry * 0.26,
-      Math.max(1.6, rx * 0.28),
-      Math.max(0.8, ry * 0.24),
-      -0.12,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
+    renderFloorBloodDecal(ctx, fp, i, elapsed, tacticalViewActive);
   }
 
-  // 2.6 Thick Greenish Blood Sluggishly Dripping Over the Front Bridge Curb
+  // 2.55 Front Curb Wall Splatters
+  for (let i = 0; i < COVER_BLOOD_POOL_SIZE; i++) {
+    const cd = sim.coverBlood[i];
+    if (!cd.active || cd.surface !== 'front_curb' || cd.alpha <= 0.01) continue;
+    const profile = getBloodBiologyProfile(cd.owner);
+    const weathering = computeBloodWeatheringState(cd.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, cd.visualTurnAge);
+    const cy = deckFrontY + cd.offsetY;
+    ctx.save();
+    ctx.globalAlpha = 0.84 * cd.alpha;
+    ctx.fillStyle = colors.body;
+    ctx.beginPath();
+    ctx.ellipse(cd.x, cy, cd.rx * 0.8, Math.max(2, cd.ry * 0.55), 0, 0, Math.PI * 2);
+    ctx.fill();
+    if (weathering.glossiness > 0.22) {
+      ctx.globalAlpha = weathering.glossiness * 0.5 * cd.alpha;
+      ctx.fillStyle = colors.highlight;
+      ctx.beginPath();
+      ctx.ellipse(cd.x - cd.rx * 0.18, cy - 1, Math.max(1, cd.rx * 0.25), 1, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+
+  // 2.6 Thick Viscous Alien Blood Sluggishly Dripping Over the Front Bridge Curb (biology & turn weathered)
   for (let i = 0; i < EDGE_DRIP_POOL_SIZE; i++) {
     const drip = sim.edgeDrips[i];
     if (!drip.active || drip.alpha <= 0.01) continue;
 
+    const profile = getBloodBiologyProfile(drip.owner);
+    const weathering = computeBloodWeatheringState(drip.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, drip.visualTurnAge);
+
     const edgeY = deckFrontY;
-    const sway = Math.sin(drip.bulbPhase * 0.65 + i * 0.7) * 0.55;
+    const sway = Math.sin(drip.bulbPhase * 0.65 + i * 0.7) * 0.55 * (1 - weathering.dryness * 0.8);
     const tipX = drip.x + sway;
     const tipY = edgeY + drip.length;
     const baseW = drip.thickness;
-    // Surface-tension necking: narrows in the middle as the drip stretches close to maxLength
     const stretchRatio = Math.min(1, drip.length / Math.max(10, drip.maxLength));
     const neckW = Math.max(0.9, baseW * (0.48 - stretchRatio * 0.22));
     const bulbPulse = 1 + Math.sin(drip.bulbPhase) * 0.12 + stretchRatio * 0.28;
     const bulbRx = Math.max(1.5, baseW * 0.58 * bulbPulse);
     const bulbRy = Math.max(2.1, baseW * 0.82 * bulbPulse);
 
-    // Outer toxic green viscous streamer + curb meniscus + pendant bulb
+    // Outer biology-colored viscous streamer + curb meniscus + pendant bulb
     ctx.globalAlpha = 0.88 * drip.alpha;
-    ctx.fillStyle = drip.color;
+    ctx.fillStyle = colors.body;
     ctx.beginPath();
-    // Thick meniscus lip clinging along the bridge curb
     ctx.ellipse(drip.x, edgeY + 0.4, baseW * 1.35, Math.max(1.5, baseW * 0.42), 0, 0, Math.PI * 2);
-    // Tapered viscous column with Bezier surface-tension waist
     ctx.moveTo(drip.x - baseW * 0.82, edgeY);
     ctx.quadraticCurveTo(
       drip.x - neckW * 0.65,
@@ -556,14 +930,13 @@ export function renderCombatStage(
     ctx.closePath();
     ctx.fill();
 
-    // Swelling pendant drop at the bottom tip
     ctx.beginPath();
     ctx.ellipse(tipX, tipY, bulbRx, bulbRy, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Dark coagulated inner core inside the hanging streamer & bulb
+    // Coagulated inner core
     ctx.globalAlpha = 0.78 * drip.alpha;
-    ctx.fillStyle = drip.coreColor;
+    ctx.fillStyle = colors.core;
     ctx.beginPath();
     ctx.ellipse(drip.x, edgeY + 0.5, baseW * 0.8, Math.max(1, baseW * 0.25), 0, 0, Math.PI * 2);
     ctx.ellipse(
@@ -578,42 +951,53 @@ export function renderCombatStage(
     ctx.ellipse(tipX, tipY + 0.3, bulbRx * 0.62, bulbRy * 0.62, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Glossy toxic-lime wet specular glint on the hanging column and pendant drop
-    ctx.globalAlpha = 0.64 * drip.alpha;
-    ctx.fillStyle = drip.highlightColor;
-    ctx.beginPath();
-    ctx.ellipse(
-      drip.x - baseW * 0.22,
-      edgeY + Math.min(6, drip.length * 0.28),
-      Math.max(0.55, neckW * 0.26),
-      Math.max(1.1, Math.min(7, drip.length * 0.24)),
-      0,
-      0,
-      Math.PI * 2,
-    );
-    ctx.ellipse(
-      tipX - bulbRx * 0.26,
-      tipY - bulbRy * 0.22,
-      Math.max(0.65, bulbRx * 0.3),
-      Math.max(0.95, bulbRy * 0.34),
-      -0.12,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
+    // Subsurface / chitinous vein glow inside fresh edge drip
+    if (weathering.emissiveIntensity > 0.08 && profile.emissiveStrength > 0.2) {
+      ctx.globalAlpha = weathering.emissiveIntensity * profile.emissiveStrength * 0.58 * drip.alpha;
+      ctx.fillStyle = profile.hasSuspendedVeins ? colors.veinPrimary : colors.emissive;
+      ctx.beginPath();
+      ctx.ellipse(tipX, tipY, bulbRx * 0.4, bulbRy * 0.42, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Wet specular glint (dims as drip crusts over turns)
+    if (weathering.glossiness > 0.18) {
+      ctx.globalAlpha = weathering.glossiness * 0.68 * drip.alpha;
+      ctx.fillStyle = colors.highlight;
+      ctx.beginPath();
+      ctx.ellipse(
+        drip.x - baseW * 0.22,
+        edgeY + Math.min(6, drip.length * 0.28),
+        Math.max(0.55, neckW * 0.26),
+        Math.max(1.1, Math.min(7, drip.length * 0.24)),
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.ellipse(
+        tipX - bulbRx * 0.26,
+        tipY - bulbRy * 0.22,
+        Math.max(0.65, bulbRx * 0.3),
+        Math.max(0.95, bulbRy * 0.34),
+        -0.12,
+        0,
+        Math.PI * 2,
+      );
+      ctx.fill();
+    }
 
     // Detached heavy globule sluggishly falling into the chasm below the bridge
     if (drip.detachedActive && drip.detachedAlpha > 0.02) {
       const dr = drip.detachedRadius;
       const stretchY = Math.min(2.3, 1.25 + drip.detachedVy * 0.008);
       ctx.globalAlpha = 0.86 * drip.alpha * drip.detachedAlpha;
-      ctx.fillStyle = drip.color;
+      ctx.fillStyle = colors.body;
       ctx.beginPath();
       ctx.ellipse(tipX, drip.detachedY, dr * 0.82, dr * stretchY, 0, 0, Math.PI * 2);
       ctx.fill();
 
       ctx.globalAlpha = 0.68 * drip.alpha * drip.detachedAlpha;
-      ctx.fillStyle = drip.highlightColor;
+      ctx.fillStyle = colors.highlight;
       ctx.beginPath();
       ctx.ellipse(
         tipX - dr * 0.2,
@@ -1090,6 +1474,35 @@ export function renderCombatStage(
     ctx.ellipse(ex, enemyGroundY - farFootOffsetPx * 0.3, size * 0.34, 8.5, 0, 0, Math.PI * 2);
     ctx.stroke();
 
+    // Status Effect Visual: Bleeding / Shredded ground oozing droplets & micro-splatter tracker
+    const enemyBio = getBloodBiologyProfile(arch);
+    if (!isDead) {
+      const statusFlags = getEnemyStatusVisualFlags(enemy, sim.enemyInitialArmor.get(enemy.id));
+      if (statusFlags.isBleeding || statusFlags.isShredded) {
+        const bleedPulse = 0.65 + 0.35 * Math.sin(elapsed * 4.5 + idx * 1.7);
+        const dropCount = statusFlags.isSeverelyBleeding || statusFlags.isShredded ? 5 : 3;
+        ctx.save();
+        for (let b = 0; b < dropCount; b++) {
+          const ang = idx * 1.1 + b * ((Math.PI * 2) / dropCount) + 0.3;
+          const bx = ex + Math.cos(ang) * size * (0.18 + (b % 2) * 0.08);
+          const by = enemyGroundY - 1 + Math.sin(ang) * 5.2;
+          ctx.globalAlpha = (statusFlags.isSeverelyBleeding ? 0.85 : 0.65) * bleedPulse;
+          ctx.fillStyle = enemyBio.freshBody;
+          ctx.beginPath();
+          ctx.ellipse(bx, by, 3.6 + (b % 2) * 1.4, 1.4 + (b % 2) * 0.5, 0, 0, Math.PI * 2);
+          ctx.fill();
+          if (enemyBio.hasSuspendedVeins || enemyBio.emissiveStrength > 0.6) {
+            ctx.globalAlpha = 0.6 * bleedPulse;
+            ctx.fillStyle = enemyBio.hasSuspendedVeins ? enemyBio.veinPrimary : enemyBio.freshEmissive;
+            ctx.beginPath();
+            ctx.arc(bx, by, 1.1, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+        ctx.restore();
+      }
+    }
+
     // Time-Bomb Thermal Charge Windup Reticle (Pyre Stinger)
     const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
     if (!isDead && activeIntent?.kind === 'charge') {
@@ -1159,7 +1572,7 @@ export function renderCombatStage(
             ctx.fill();
           }
           if (!ea?.dead && stagger.bioFlashAlpha > 0.04) {
-            ctx.fillStyle = `rgba(132, 204, 22, ${stagger.bioFlashAlpha})`;
+            ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
             ctx.beginPath();
             ctx.ellipse(3, -size * 0.42, size * 0.28, size * 0.34, 0.2, 0, Math.PI * 2);
             ctx.fill();
@@ -1174,7 +1587,7 @@ export function renderCombatStage(
       ctx.scale(enemy.archetype === 'brute' ? -breathScaleX : breathScaleX, breathScaleY);
       ctx.drawImage(entry.canvas, -size * centerXRatio, -size * bottomRatio, size, size);
 
-      // Upper-torso stagger slice displacement & toxic green bio-wound flash on hit
+      // Upper-torso stagger slice displacement & biology-matched bio-wound flash on hit
       if (Math.abs(stagger.shearPx) > 0.5) {
         ctx.save();
         ctx.beginPath();
@@ -1194,7 +1607,7 @@ export function renderCombatStage(
           ctx.fill();
         }
         if (stagger.bioFlashAlpha > 0.04) {
-          ctx.fillStyle = `rgba(132, 204, 22, ${stagger.bioFlashAlpha})`;
+          ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
           ctx.beginPath();
           ctx.ellipse(4, -size * 0.46, size * 0.28, size * 0.36, 0.2, 0, Math.PI * 2);
           ctx.fill();
@@ -1742,14 +2155,14 @@ export function renderCombatStage(
     ctx.translate(d.x, d.y);
     ctx.rotate(angle);
 
-    // Outer arterial green droplet/jet
+    // Outer biology-matched droplet/jet
     ctx.fillStyle = d.color;
     ctx.beginPath();
     ctx.ellipse(0, 0, d.size * stretch, d.size * 0.62, 0, 0, Math.PI * 2);
     ctx.fill();
 
-    // Wet toxic lime core highlight
-    ctx.fillStyle = '#D9F99D';
+    // Wet specular core highlight matched to alien biochemistry
+    ctx.fillStyle = d.highlightColor;
     ctx.globalAlpha = alpha * 0.65;
     ctx.beginPath();
     ctx.ellipse(d.size * 0.2, -d.size * 0.12, d.size * stretch * 0.42, d.size * 0.25, 0, 0, Math.PI * 2);
@@ -1978,6 +2391,119 @@ export function renderCombatStage(
     ctx.fillText(ft.text, ft.x, clampedY);
   }
   ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // 10. Fourth-Wall Cyber-Visor Screen Blood Drops (screen-space outside camera shake/zoom; hidden in Tactical View)
+  if (!tacticalViewActive) {
+    renderScreenBloodDrops(ctx, sim, elapsed);
+  }
+}
+
+function renderScreenBloodDrops(
+  ctx: CanvasRenderingContext2D,
+  sim: CombatStageSim,
+  elapsed: number,
+): void {
+  const { w, h } = sim.size;
+  const dpr = sim.dpr;
+  let anyActive = false;
+  for (let i = 0; i < SCREEN_BLOOD_POOL_SIZE; i++) {
+    if (sim.screenBlood[i].active && sim.screenBlood[i].alpha > 0.01) {
+      anyActive = true;
+      break;
+    }
+  }
+  if (!anyActive) return;
+
+  ctx.save();
+  ctx.scale(dpr, dpr);
+
+  for (let i = 0; i < SCREEN_BLOOD_POOL_SIZE; i++) {
+    const sb = sim.screenBlood[i];
+    if (!sb.active || sb.alpha <= 0.01) continue;
+
+    const lifeNorm = Math.min(1, sb.age / Math.max(0.1, sb.lifespan));
+    const profile = getBloodBiologyProfile(sb.owner);
+    const pseudoTurnAge = lifeNorm * 1.8;
+    const weathering = computeBloodWeatheringState(pseudoTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, pseudoTurnAge);
+    const popScale = sb.age < 0.1 ? 0.55 + (sb.age / 0.1) * 0.45 : 1;
+    const r = sb.radius * popScale;
+    const ry = r * sb.stretchY;
+    const x = sb.nx * w;
+    const y = sb.ny * h + sb.slideOffsetPx;
+
+    ctx.save();
+    ctx.translate(x, y);
+
+    // 1. Sluggish glass runnel streak trailing behind the sliding bead
+    if (sb.streakLen > 1.2) {
+      ctx.globalAlpha = 0.42 * sb.alpha;
+      ctx.fillStyle = colors.body;
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.34, 0);
+      ctx.quadraticCurveTo(-r * 0.1, -sb.streakLen * 0.65, 0, -sb.streakLen);
+      ctx.quadraticCurveTo(r * 0.1, -sb.streakLen * 0.65, r * 0.34, 0);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    // 2. Refractive dark meniscus rim on visor glass
+    ctx.globalAlpha = 0.48 * sb.alpha;
+    ctx.fillStyle = colors.rimShadow;
+    ctx.beginPath();
+    ctx.ellipse(0.8, 0.9, r + 0.9, ry + 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 3. Main viscous bead + satellite impact droplet
+    ctx.globalAlpha = 0.86 * sb.alpha;
+    ctx.fillStyle = colors.body;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r, ry, 0, 0, Math.PI * 2);
+    ctx.ellipse(sb.satelliteDx, sb.satelliteDy, sb.satelliteR, sb.satelliteR * 1.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. Biology-grounded interior shader detail on the glass
+    if (profile.hasSuspendedVeins) {
+      const pulse = 0.75 + 0.25 * Math.sin(elapsed * 2.8 + sb.seed);
+      ctx.globalAlpha = 0.8 * weathering.emissiveIntensity * sb.alpha * pulse;
+      ctx.strokeStyle = colors.veinPrimary;
+      ctx.lineWidth = Math.max(0.8, r * 0.22);
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.45, -ry * 0.2);
+      ctx.quadraticCurveTo(0, ry * 0.32, r * 0.42, -ry * 0.15);
+      ctx.stroke();
+    } else if (profile.emissiveStrength > 0.35 && weathering.emissiveIntensity > 0.08) {
+      const pulse = 0.78 + 0.22 * Math.sin(elapsed * 2.6 + sb.seed);
+      ctx.globalAlpha = 0.45 * profile.emissiveStrength * weathering.emissiveIntensity * sb.alpha * pulse;
+      ctx.fillStyle = colors.emissive;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.48, ry * 0.48, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fresnel oil-slick rim iridescence for Sulfur/Cobalt & Apex Hive
+    if (profile.iridescence > 0.4 && weathering.iridescenceIntensity > 0.1) {
+      ctx.globalAlpha = 0.55 * profile.iridescence * weathering.iridescenceIntensity * sb.alpha;
+      ctx.strokeStyle = colors.iridescenceA;
+      ctx.lineWidth = 1.05;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.88, ry * 0.88, 0, Math.PI * 0.7, Math.PI * 1.7);
+      ctx.stroke();
+    }
+
+    // 5. Crisp wet visor specular catchlight
+    if (weathering.glossiness > 0.2) {
+      ctx.globalAlpha = 0.72 * weathering.glossiness * sb.alpha;
+      ctx.fillStyle = colors.highlight;
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.28, -ry * 0.28, Math.max(0.8, r * 0.28), Math.max(0.6, ry * 0.22), -0.3, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
 
   ctx.restore();
 }

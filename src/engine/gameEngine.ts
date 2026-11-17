@@ -15,7 +15,7 @@ import {
   getHeroSpec,
   rebuildMasterPool,
 } from './data';
-import { getDifficultyProfile } from './difficulty';
+import { getDifficultyProfile, getStageSecondaryTurnTarget } from './difficulty';
 import { generateSectorMap } from './mapGenerator';
 import { getCyberEventForNode } from './cyberEvents';
 import {
@@ -83,23 +83,62 @@ function resolveCombatVictoryTransition(
   screen: ScreenPhase;
   mapNodes: MapNode[];
   heroine: HeroineState;
+  combat: CombatState;
 } {
-  if (combat.nodeType === 'BOSS') {
-    const bossNanites = computeCombatNaniteReward(combat, run.mapNodes);
+  const tier = run.difficultyTier ?? 3;
+  const diff = getDifficultyProfile(tier);
+  let nextCombat = combat;
+  let nextHeroine = heroine;
+
+  if (diff.mandatoryBonusObjective && !combat.mandateBreachLootConfiscated) {
+    const turnTarget = getStageSecondaryTurnTarget(combat.nodeType, tier);
+    const startingHp = combat.startingHeroHp ?? heroine.hp;
+    const hpLost = Math.max(0, startingHp - heroine.hp);
+    const mandateMet = combat.turn <= turnTarget || hpLost === 0;
+    if (!mandateMet) {
+      const penaltyHp = 12;
+      const breachedHp = Math.max(0, heroine.hp - penaltyHp);
+      nextCombat = {
+        ...combat,
+        rewardCredits: 0,
+        rewardEquipmentChoices: [],
+        mandateBreachPenaltyHp: penaltyHp,
+        mandateBreachLootConfiscated: true,
+        phase: breachedHp <= 0 ? 'DEFEAT' : combat.phase,
+      };
+      nextHeroine = {
+        ...heroine,
+        hp: breachedHp,
+      };
+      if (breachedHp <= 0) {
+        return {
+          screen: 'gameover',
+          mapNodes: run.mapNodes,
+          heroine: nextHeroine,
+          combat: nextCombat,
+        };
+      }
+    }
+  }
+
+  if (nextCombat.nodeType === 'BOSS') {
+    const bossNanites = computeCombatNaniteReward(nextCombat, run.mapNodes);
     return {
       screen: 'victory',
-      mapNodes: markNodeCleared(run.mapNodes, combat.nodeId),
+      mapNodes: markNodeCleared(run.mapNodes, nextCombat.nodeId),
       heroine: {
-        ...heroine,
-        credits: heroine.credits + combat.rewardCredits,
-        nanites: (heroine.nanites ?? 0) + bossNanites,
+        ...nextHeroine,
+        credits: nextHeroine.credits + nextCombat.rewardCredits,
+        nanites: (nextHeroine.nanites ?? 0) + bossNanites,
       },
+      combat: nextCombat,
     };
   }
   return {
     screen: run.screen,
     mapNodes: run.mapNodes,
-    heroine,
+    heroine: nextHeroine,
+    combat: nextCombat,
   };
 }
 
@@ -1224,7 +1263,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
 
   const transition = !anyLivingEnemy
     ? resolveCombatVictoryTransition(run, updatedCombat, nextHeroine)
-    : { screen: run.screen, mapNodes: run.mapNodes, heroine: nextHeroine };
+    : { screen: run.screen, mapNodes: run.mapNodes, heroine: nextHeroine, combat: updatedCombat };
 
   const damageAdded = totalDamageDealt - combat.totalDamageDealt;
   const rewardedKills = nextEnemies.filter(
@@ -1237,7 +1276,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     screen: transition.screen,
     heroine: transition.heroine,
     mapNodes: transition.mapNodes,
-    combat: updatedCombat,
+    combat: transition.combat,
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
     turnsCompleted: !anyLivingEnemy ? run.turnsCompleted + 1 : run.turnsCompleted,
     score: run.score + damageAdded * 2 + scoreKillCount * 50,
@@ -1347,14 +1386,14 @@ export function executeOverdrive(run: RunState): RunState {
 
   const transition = !anyLiving
     ? resolveCombatVictoryTransition(run, updatedOdCombat, nextHeroine)
-    : { screen: run.screen, mapNodes: run.mapNodes, heroine: nextHeroine };
+    : { screen: run.screen, mapNodes: run.mapNodes, heroine: nextHeroine, combat: updatedOdCombat };
 
   return {
     ...run,
     screen: transition.screen,
     heroine: transition.heroine,
     mapNodes: transition.mapNodes,
-    combat: updatedOdCombat,
+    combat: transition.combat,
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
     score: run.score + 80 + defeatedNow * 50,
   };
@@ -1601,7 +1640,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       screen: transition.screen,
       heroine: transition.heroine,
       mapNodes: transition.mapNodes,
-      combat: victoryCombat,
+      combat: transition.combat,
       enemiesDefeated: run.enemiesDefeated + defeatedNow,
       turnsCompleted: run.turnsCompleted + 1,
       score: run.score + reflectedDamage * 2 + defeatedNow * 50,
@@ -2040,6 +2079,10 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     rewardCredits,
     rewardEquipmentChoices,
     director: createCombatDirector(node.type, node.layer, run.heroine, difficultyTier),
+    startingHeroHp: run.heroine.hp,
+    committedUndosUsed: 0,
+    battleResetsUsed: 0,
+    failedAttempts: 0,
   };
 
   const heroSpec = getHeroSpec(run.heroine.characterId);
@@ -2291,7 +2334,8 @@ export function resolveCyberEventChoice(run: RunState, choiceIndex: number): Run
 export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | null): RunState {
   if (!run.combat || run.combat.phase !== 'VICTORY') return run;
   const combat = run.combat;
-  const salvageBonus = chosenDefId === null ? 15 : 0;
+  const salvageBonus =
+    chosenDefId === null && !combat.mandateBreachLootConfiscated ? 15 : 0;
   const naniteReward = computeCombatNaniteReward(combat, run.mapNodes);
 
   const diff = getDifficultyProfile(run.difficultyTier ?? 3);
@@ -2398,13 +2442,15 @@ export function createInitialRun(
   characterId: CharacterId = 'kira',
   difficultyTier: DifficultyTier = 3,
 ): RunState {
-  const mapNodes = generateSectorMap(seed);
+  const diff = getDifficultyProfile(difficultyTier);
+  const mapNodes = generateSectorMap(seed, difficultyTier);
   const startingEq = createStartingEquipment(characterId);
   const heroSpec = getHeroSpec(characterId);
+  const scaledMaxHp = heroSpec.maxHp + diff.heroMaxHpDelta;
   const baseHeroine: HeroineState = {
     characterId,
-    hp: heroSpec.maxHp,
-    maxHp: heroSpec.maxHp,
+    hp: scaledMaxHp,
+    maxHp: scaledMaxHp,
     armor: heroSpec.startingArmor,
     shield: 0,
     overdrive: 0,

@@ -47,6 +47,7 @@ import {
   SECTOR_BOSS_TELEGRAPH,
   generateSectorMap,
   getAvailableNextNodes,
+  getBossTelegraphIntel,
   getConnectingPathNodeIds,
   getLaneClusterProfiles,
   getNodeEconomyMetrics,
@@ -55,7 +56,7 @@ import {
   getReconPreviewForNode,
   getTacticalRouteAdvice,
 } from './mapGenerator';
-import { getDifficultyProfile } from './difficulty';
+import { computeSmartScaledEnemyHp, getDifficultyProfile } from './difficulty';
 import { parseAndValidateRun, recordRunCompletion, loadBestRecord } from './persistence';
 import type { DifficultyTier, MapNode, RunState, Tile } from './types';
 
@@ -2229,43 +2230,50 @@ test('29. Duds + Implant salvage, UpCharge Chips capped at 9 board tiles, Hero A
   assert.equal(afterSecondPurge.heroine.credits, 70 - CLINIC_PURGE_COST);
 });
 
-test('30. 5-Tier Difficulty Matrix: sacred enemy HP/DMG math, par clocks, attrition recovery, Tier 1 skip, breather node, and persistence', () => {
+test('30. 5-Tier Difficulty Matrix: smart HP scaling, sacred chaff & enemy DMG, par clocks, attrition, Tier 5 mandatory mandate, and persistence', () => {
   const tiers: DifficultyTier[] = [1, 2, 3, 4, 5];
   const runsByTier = tiers.map((tier) => createInitialRun(777, 'kira', tier));
 
-  // 1. Verify Tier profiles and default run state
+  // 1. Verify Tier profiles, hero HP cushion on Tier 1-2, and strict undo/reset budgets
   assert.equal(runsByTier[0].difficultyTier, 1);
+  assert.equal(runsByTier[0].heroine.maxHp, 68); // 58 + 10 Story cushion
+  assert.equal(runsByTier[1].heroine.maxHp, 63); // 58 + 5 Casual cushion
   assert.equal(runsByTier[2].difficultyTier, 3);
+  assert.equal(runsByTier[2].heroine.maxHp, 58); // Exact Tactical baseline
   assert.equal(runsByTier[4].difficultyTier, 5);
+  assert.equal(runsByTier[4].heroine.maxHp, 58);
   assert.equal(getDifficultyProfile(1).maxCommittedUndosPerBattle, null);
+  assert.equal(getDifficultyProfile(1).failForwardAllowed, true);
   assert.equal(getDifficultyProfile(3).maxCommittedUndosPerBattle, 1);
+  assert.equal(getDifficultyProfile(3).failForwardAllowed, false);
   assert.equal(getDifficultyProfile(4).maxRunResets, 1);
   assert.equal(getDifficultyProfile(5).allowSwapUndoBeforeCommit, false);
   assert.equal(getDifficultyProfile(5).revealDropSlot, false);
   assert.equal(getDifficultyProfile(5).revealEnemyFutureCycle, false);
+  assert.equal(getDifficultyProfile(5).mandatoryBonusObjective, true);
 
-  // 2. Keep Unit Math Sacred: enemy HP & intent DMG per archetype stay identical across all 5 difficulty tiers
-  const tier3Layer0 = runsByTier[2].combat!.enemies;
+  // 2. Smart HP Scaling & Sacred Math:
+  //    - Enemy intent DMG stays 100% sacred across all 5 tiers
+  //    - Chaff (larva, 9 HP) stays sacred on Tiers 2-5 (softened to 8 on Tier 1)
+  //    - Non-chaff & Elite/Boss units scale smartly per tier without breaking shield/stagger breakpoints
   for (const run of runsByTier) {
     assert.ok(run.combat);
-    run.combat.enemies.forEach((enemy, idx) => {
-      assert.equal(
-        enemy.maxHp,
-        tier3Layer0[idx].maxHp,
-        `${enemy.archetype} Layer 0 maxHp must match Tier 3 baseline on tier ${run.difficultyTier}`,
-      );
+    const tier = run.difficultyTier!;
+    run.combat.enemies.forEach((enemy) => {
       assert.equal(
         enemy.intentCycle[0].value,
         ENEMY_TEMPLATES[enemy.archetype].intentCycle[0].value,
-        `${enemy.archetype} intent DMG must stay sacred on tier ${run.difficultyTier}`,
+        `${enemy.archetype} intent DMG must stay sacred on tier ${tier}`,
       );
+      if (enemy.archetype === 'larva') {
+        assert.equal(enemy.maxHp, tier === 1 ? 8 : 9);
+      }
     });
-    const l1Enemies = buildEnemiesForNode('COMBAT', 1, 777, 0, undefined, run.difficultyTier, false);
+    const l1Enemies = buildEnemiesForNode('COMBAT', 1, 777, 0, undefined, tier, false);
     for (const enemy of l1Enemies) {
       assert.equal(
         enemy.maxHp,
-        ENEMY_TEMPLATES[enemy.archetype].maxHp,
-        `${enemy.archetype} Layer 1 maxHp must equal ENEMY_TEMPLATES on tier ${run.difficultyTier}`,
+        computeSmartScaledEnemyHp(enemy.archetype, ENEMY_TEMPLATES[enemy.archetype].maxHp, 0, tier),
       );
       assert.equal(
         enemy.intentCycle[0].value,
@@ -2274,7 +2282,17 @@ test('30. 5-Tier Difficulty Matrix: sacred enemy HP/DMG math, par clocks, attrit
     }
   }
 
-  // 3. Par Turn Clocks & Sawtooth Breather scale spatial count without inflating unit stats
+  // Boss & Brute smart HP scaling + Boss Telegraph sync
+  const bossT1 = buildEnemiesForNode('BOSS', 4, 777, 0, undefined, 1, false);
+  const bossT3 = buildEnemiesForNode('BOSS', 4, 777, 0, undefined, 3, false);
+  const bossT5 = buildEnemiesForNode('BOSS', 4, 777, 0, undefined, 5, false);
+  assert.equal(bossT1[0].maxHp, 94);
+  assert.equal(bossT3[0].maxHp, 110);
+  assert.equal(bossT5[0].maxHp, 138);
+  assert.equal(bossT5.length, 2); // Boss + Skitter escort on Grandmaster
+  assert.equal(getBossTelegraphIntel('en', 5).hp, 138);
+
+  // 3. Par Turn Clocks & Sawtooth Breather scale spatial count + Tier 5 simultaneous hazards
   const enemiesT1 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 1, false);
   const enemiesT3 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 3, false);
   const enemiesT5 = buildEnemiesForNode('COMBAT', 2, 777, 1, undefined, 5, false);
@@ -2282,13 +2300,12 @@ test('30. 5-Tier Difficulty Matrix: sacred enemy HP/DMG math, par clocks, attrit
   assert.ok(enemiesT1.length <= 2);
   assert.ok(enemiesT5.length >= enemiesT3.length);
   assert.equal(breatherT5.length, 2);
-  const t3Layer2ByArch = new Map(enemiesT3.map((e) => [e.archetype, e.maxHp]));
   for (const e of [...enemiesT1, ...enemiesT3, ...enemiesT5]) {
-    if (t3Layer2ByArch.has(e.archetype)) {
-      assert.equal(e.maxHp, t3Layer2ByArch.get(e.archetype));
-    }
     assert.equal(e.intentCycle[0].value, ENEMY_TEMPLATES[e.archetype].intentCycle[0].value);
   }
+  const t3Hazards = runsByTier[2].mapNodes.filter((n) => n.modifier === 'overcharged_hazard').length;
+  const t5Hazards = runsByTier[4].mapNodes.filter((n) => n.modifier === 'overcharged_hazard').length;
+  assert.ok(t5Hazards >= t3Hazards);
 
   const parT1 = runsByTier[0].combat!.director!.parCaches[0].maxTurn;
   const parT2 = runsByTier[1].combat!.director!.parCaches[0].maxTurn;
@@ -2315,10 +2332,37 @@ test('30. 5-Tier Difficulty Matrix: sacred enemy HP/DMG math, par clocks, attrit
   const afterClaimT2 = claimCombatEquipmentReward(prepVictory(runsByTier[1], 20), null);
   const afterClaimT3 = claimCombatEquipmentReward(prepVictory(runsByTier[2], 20), null);
   assert.equal(afterClaimT1.heroine.hp, 60);
-  assert.equal(afterClaimT2.heroine.hp, 35); // 20 + floor(60 * 0.25)
+  assert.equal(afterClaimT2.heroine.hp, 35); // 20 + ceil(60 * 0.25)
   assert.equal(afterClaimT3.heroine.hp, 20);
 
-  // 5. Tier 1 Story Skip Encounter works on non-boss combat & refuses boss nodes
+  // 5. Tier 5 Grandmaster Mandatory Objective: failing Turn Cap & taking Hull DMG triggers -12 HP Breach & confiscates loot
+  const t5Base = runsByTier[4];
+  const t5LateCombat: RunState = {
+    ...t5Base,
+    heroine: { ...t5Base.heroine, hp: 30 },
+    combat: {
+      ...t5Base.combat!,
+      turn: 7, // Exceeds T5 Combat mandate <= 5
+      startingHeroHp: 58, // Lost 28 HP (> 0)
+      enemies: [{ ...t5Base.combat!.enemies[0], hp: 1, armor: 0, shieldPips: 0 }],
+      board: [
+        makeTile('t_atk_1', 'attack', 5),
+        makeTile('t_def_1', 'defense', 7),
+        makeTile('t_def_2', 'defense', 7),
+        makeTile('t_def_3', 'defense', 7),
+        makeTile('t_tech_1', 'tech', 2),
+        makeTile('t_tech_2', 'tech', 2),
+      ],
+    },
+  };
+  const t5MandateBreach = resolvePlayerColor(t5LateCombat, 'attack');
+  assert.equal(t5MandateBreach.combat?.mandateBreachLootConfiscated, true);
+  assert.equal(t5MandateBreach.combat?.mandateBreachPenaltyHp, 12);
+  assert.equal(t5MandateBreach.combat?.rewardCredits, 0);
+  assert.equal(t5MandateBreach.combat?.rewardEquipmentChoices.length, 0);
+  assert.equal(t5MandateBreach.heroine.hp, 18); // 30 - 12
+
+  // 6. Tier 1 Story Skip Encounter works on non-boss combat & refuses boss nodes
   const defeatNonBoss: RunState = {
     ...runsByTier[0],
     screen: 'gameover',
@@ -2336,7 +2380,7 @@ test('30. 5-Tier Difficulty Matrix: sacred enemy HP/DMG math, par clocks, attrit
   };
   assert.equal(skipCombatEncounter(defeatBoss).screen, 'gameover');
 
-  // 6. Sawtooth breather node present on generated Sector Map Layer 2 & persistence roundtrip
+  // 7. Sawtooth breather node present on generated Sector Map Layer 2 & persistence roundtrip
   assert.ok(runsByTier[2].mapNodes.some((n) => n.layer === 2 && n.isBreatherNode));
   const withReset: RunState = { ...runsByTier[3], runResetsUsed: 1 };
   const parsed = parseAndValidateRun(JSON.stringify(withReset));

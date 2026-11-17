@@ -1,4 +1,4 @@
-import { getDifficultyProfile } from './difficulty';
+import { computeSmartScaledEnemyHp, getDifficultyProfile } from './difficulty';
 import type {
   CharacterId,
   CyberImplant,
@@ -866,10 +866,17 @@ export function buildEnemiesForNode(
   return buildEncounterSpec(nodeType, layer, seed, lane, difficultyTier, isBreather).map((spec) => {
     const isOvercharged = modifier === 'overcharged_hazard';
     const tpl = ENEMY_TEMPLATES[spec.archetype];
+    const scaledHp = computeSmartScaledEnemyHp(
+      spec.archetype,
+      tpl.maxHp,
+      spec.hpBonus,
+      difficultyTier,
+    );
+    const overchargeBonus = isOvercharged ? Math.max(3, Math.round(tpl.maxHp * 0.25)) : 0;
     const baseUnit = createEnemyFromArchetype(
       spec.archetype,
       spec.idSuffix,
-      spec.hpBonus + (isOvercharged ? Math.max(3, Math.round(tpl.maxHp * 0.25)) : 0),
+      scaledHp - tpl.maxHp + overchargeBonus,
       spec.initialIntentIndex ?? 0,
     );
     if (isOvercharged) {

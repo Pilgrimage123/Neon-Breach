@@ -1,6 +1,7 @@
 import type { Language } from '../i18n/translations';
 import { getCyberEventForNode } from './cyberEvents';
 import { ENEMY_TEMPLATES, MAX_IMPLANTS, buildEnemiesForNode } from './data';
+import { computeSmartScaledEnemyHp } from './difficulty';
 import type {
   DifficultyTier,
   EnemyArchetype,
@@ -93,15 +94,38 @@ export const SECTOR_BOSS_TELEGRAPH: BossTelegraphIntel = {
     'Stockpile TECH Pierce, Armor Shred & Aegis Shielding at Cyber-Clinics and Events before Sector 05!',
 };
 
-export function getBossTelegraphIntel(lang: Language = 'en'): BossTelegraphIntel {
-  if (lang !== 'cs') return SECTOR_BOSS_TELEGRAPH;
-  const thresholdHp = Math.round(
-    ENEMY_TEMPLATES.boss.maxHp * ((ENEMY_TEMPLATES.boss.phaseGatePct ?? 50) / 100),
+export function getBossTelegraphIntel(
+  lang: Language = 'en',
+  difficultyTier: DifficultyTier = 3,
+): BossTelegraphIntel {
+  const bossHp = computeSmartScaledEnemyHp(
+    'boss',
+    ENEMY_TEMPLATES.boss.maxHp,
+    0,
+    difficultyTier,
   );
+  const thresholdHp = Math.round(
+    bossHp * ((ENEMY_TEMPLATES.boss.phaseGatePct ?? 50) / 100),
+  );
+  if (lang !== 'cs') {
+    if (difficultyTier === 3) return SECTOR_BOSS_TELEGRAPH;
+    return {
+      ...SECTOR_BOSS_TELEGRAPH,
+      hp: bossHp,
+      gimmicks: SECTOR_BOSS_TELEGRAPH.gimmicks.map((g) =>
+        g.id === 'phase_lock'
+          ? {
+              ...g,
+              description: `At ${thresholdHp} HP, all overflow damage is absorbed. Triggers emergency chitin shield with +${ENEMY_TEMPLATES.boss.startingArmor} Armor & Aegis Shield Pip.`,
+            }
+          : g,
+      ),
+    };
+  }
   return {
     name: 'Xenomorfní Matriarcha',
     classification: 'Vrcholná vládkyně roje · Finále Sektoru 05',
-    hp: ENEMY_TEMPLATES.boss.maxHp,
+    hp: bossHp,
     gimmicks: [
       {
         id: 'phase_lock',
@@ -127,7 +151,7 @@ export function getBossTelegraphIntel(lang: Language = 'en'): BossTelegraphIntel
   };
 }
 
-export function generateSectorMap(seed: number): MapNode[] {
+export function generateSectorMap(seed: number, difficultyTier: DifficultyTier = 3): MapNode[] {
   const nodes: MapNode[] = [];
   const isLegacyTestSeed = seed === 100 || seed === 101 || seed === 102 || seed === 505;
   const variant = isLegacyTestSeed
@@ -321,6 +345,21 @@ export function generateSectorMap(seed: number): MapNode[] {
       );
     if (breatherCandidate) {
       breatherCandidate.isBreatherNode = true;
+    }
+
+    // Tier 5 Grandmaster: stack an extra simultaneous Overcharged hazard on a non-breather Layer 2/3 Elite or Combat
+    if (difficultyTier === 5) {
+      const extraHazardPool = nodes.filter(
+        (n) =>
+          (n.layer === 2 || n.layer === 3) &&
+          (n.type === 'ELITE' || n.type === 'COMBAT') &&
+          !n.isBreatherNode &&
+          n.modifier !== 'overcharged_hazard',
+      );
+      if (extraHazardPool.length > 0) {
+        const extraIdx = Math.abs(seed * 37 + 13) % extraHazardPool.length;
+        extraHazardPool[extraIdx].modifier = 'overcharged_hazard';
+      }
     }
   }
 

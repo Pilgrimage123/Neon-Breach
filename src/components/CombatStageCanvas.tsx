@@ -57,6 +57,7 @@ import {
 import { ArmorCrestIcon, IntentIcon, ShieldPipIcon } from './combat/CombatIcons';
 import { EnemyIntelPanel } from './combat/EnemyIntelPanel';
 import {
+  addOrGrowFloorBlood,
   applyCombatCues,
   drainTriggerImpacts,
   spawnBolt,
@@ -369,6 +370,23 @@ export function CombatStageCanvas({
               alpha: 0.42,
             });
             if (activeSim.ghosts.length > 6) activeSim.ghosts.shift();
+          }
+          if (
+            activeSim.heroTrailCooldown <= 0 &&
+            (currentHeroine.corrode > 0 || currentHeroine.hp <= currentHeroine.maxHp * 0.5)
+          ) {
+            activeSim.heroTrailCooldown = 0.055;
+            addOrGrowFloorBlood(
+              activeSim,
+              heroX + (Math.random() - 0.5) * 10,
+              groundY + (Math.random() - 0.5) * 6,
+              2.2,
+              0,
+              {
+                owner: currentHeroine.corrode > 0 ? 'hero_corrode' : 'hero_blood',
+                shapeKind: 'trail_drop',
+              },
+            );
           }
         } else {
           activeSim.ghostSampleTimer = 0;

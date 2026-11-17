@@ -195,7 +195,10 @@ export function SectorMapView({
     () => getLaneClusterProfiles(run.mapNodes, run.heroine, lang),
     [run.mapNodes, run.heroine, lang],
   );
-  const bossTelegraph = useMemo(() => getBossTelegraphIntel(lang), [lang]);
+  const bossTelegraph = useMemo(
+    () => getBossTelegraphIntel(lang, run.difficultyTier ?? 3),
+    [lang, run.difficultyTier],
+  );
   const hasRecon =
     run.heroine.implants.includes('synapse_overclock') ||
     run.heroine.implants.includes('surge_resonator');

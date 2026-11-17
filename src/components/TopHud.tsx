@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CYBER_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
-import { getDifficultyProfile } from '../engine/difficulty';
+import { getDifficultyProfile, getStageSecondaryTurnTarget } from '../engine/difficulty';
 import type { CyberImplantId, DifficultyTier, RunState } from '../engine/types';
 import { CODEX_TRANSLATIONS } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
@@ -177,21 +177,51 @@ export function TopHud({
 
         {/* Zone 2: Core Play Controls (Undo · Reset · Loadout · Codex · Pause/Settings) */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {isCombat && (
-            <span
-              data-testid="tophud-tier-badge"
-              title={
-                undoResetHint ??
-                (lang === 'cs'
-                  ? getDifficultyProfile(run.difficultyTier as DifficultyTier).summaryCs
-                  : getDifficultyProfile(run.difficultyTier as DifficultyTier).summaryEn)
-              }
-              className="hidden md:inline-flex items-center rounded-md border border-white/15 bg-slate-900/90 px-1.5 py-1 font-mono-tabular text-[10px] font-bold text-slate-200 whitespace-nowrap"
-            >
-              T{run.difficultyTier ?? 3}
-              {undoResetHint ? ` · ${undoResetHint}` : ''}
-            </span>
-          )}
+          {isCombat && (() => {
+            const tier = (run.difficultyTier ?? 3) as DifficultyTier;
+            const diff = getDifficultyProfile(tier);
+            const combatState = run.combat;
+            const turnCap = combatState ? getStageSecondaryTurnTarget(combatState.nodeType, tier) : 5;
+            const hpLost = combatState
+              ? Math.max(0, (combatState.startingHeroHp ?? run.heroine.hp) - run.heroine.hp)
+              : 0;
+            const mandateOnTrack =
+              combatState ? combatState.turn <= turnCap || hpLost === 0 : true;
+            return (
+              <>
+                <span
+                  data-testid="tophud-tier-badge"
+                  title={
+                    undoResetHint ??
+                    (lang === 'cs' ? diff.summaryCs : diff.summaryEn)
+                  }
+                  className="hidden md:inline-flex items-center rounded-md border border-white/15 bg-slate-900/90 px-1.5 py-1 font-mono-tabular text-[10px] font-bold text-slate-200 whitespace-nowrap"
+                >
+                  T{tier}
+                  {undoResetHint ? ` · ${undoResetHint}` : ''}
+                </span>
+                {diff.mandatoryBonusObjective && combatState && (
+                  <span
+                    data-testid="tophud-mandate-badge"
+                    title={
+                      lang === 'cs'
+                        ? `Povinný mandát Velmistra: vyčisti do T${turnCap} nebo bez ztráty HP (-12 HP průlom & ztráta kořisti při nesplnění)`
+                        : `Grandmaster Mandatory Mandate: clear by T${turnCap} or 0 HP lost (-12 HP breach & loot confiscated on fail)`
+                    }
+                    className={`hidden lg:inline-flex items-center rounded-md border px-1.5 py-1 font-mono-tabular text-[10px] font-extrabold whitespace-nowrap ${
+                      mandateOnTrack
+                        ? 'border-emerald-400/50 bg-emerald-950/60 text-emerald-200'
+                        : 'border-rose-400/70 bg-rose-950/70 text-rose-200 animate-pulse'
+                    }`}
+                  >
+                    {lang === 'cs'
+                      ? `MANDÁT ≤T${turnCap}/0HP`
+                      : `MANDATE ≤T${turnCap}/0DMG`}
+                  </span>
+                )}
+              </>
+            );
+          })()}
 
           {isCombat && onUndoTurn && (
             <button
@@ -219,7 +249,15 @@ export function TopHud({
               data-testid="tophud-reset-btn"
               onClick={onResetEncounter}
               disabled={!canResetEncounter}
-              title={lang === 'cs' ? 'Restartovat střet od 1. tahu' : 'Reset encounter to Turn 1'}
+              title={
+                getDifficultyProfile((run.difficultyTier ?? 3) as DifficultyTier).maxRunResets === 0
+                  ? lang === 'cs'
+                    ? 'Vypnuto na obtížnosti Velmistr (Ironman)'
+                    : 'Disabled on Grandmaster (Ironman)'
+                  : lang === 'cs'
+                    ? 'Restartovat střet od 1. tahu'
+                    : 'Reset encounter to Turn 1'
+              }
               className="flex items-center gap-1 rounded-lg border border-white/20 bg-[#0E1015] px-2 py-1 font-mono-tabular text-xs font-bold text-[#F4F4F6] transition hover:border-amber-300 disabled:opacity-30 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer"
             >
               <span className="text-amber-300">⟲</span>
