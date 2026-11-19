@@ -79,10 +79,10 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
         <div>
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-baseline gap-2 min-w-0">
-              <div className="font-display text-xs sm:text-sm font-bold text-white truncate">
+              <div className="font-display text-[13px] sm:text-sm font-bold text-white truncate">
                 {meta?.name ?? def.id}
               </div>
-              <div className="font-mono-tabular text-[10px] sm:text-[11px] text-[#00F0FF] shrink-0">
+              <div className="font-mono-tabular text-[12px] sm:text-[13px] text-[#00F0FF] shrink-0">
                 {t.sizeLabel}: {def.size}
               </div>
             </div>
@@ -91,7 +91,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
                 type="button"
                 disabled={!canSwap}
                 onClick={() => onUnequip(item.instanceId)}
-                className="shrink-0 rounded-md border border-rose-400/55 bg-rose-500/20 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold text-rose-100 transition-colors hover:bg-rose-500/35 disabled:opacity-40 cursor-pointer"
+                className="shrink-0 rounded-md border border-rose-400/55 bg-rose-500/20 px-2 py-0.5 sm:px-2.5 sm:py-1 text-[12px] sm:text-[13px] font-bold text-rose-100 transition-colors hover:bg-rose-500/35 disabled:opacity-40 cursor-pointer"
               >
                 {t.unequipAction}
               </button>
@@ -101,7 +101,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
                   type="button"
                   disabled={!canSwap || !fits}
                   onClick={() => onEquip(item.instanceId)}
-                  className="chrome-btn-primary shrink-0 rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px] font-bold transition-all disabled:bg-none disabled:bg-slate-800 disabled:text-slate-400 disabled:border-white/10 disabled:shadow-none cursor-pointer"
+                  className="chrome-btn-primary shrink-0 rounded-md px-2 py-0.5 sm:px-2.5 sm:py-1 text-[12px] sm:text-[13px] font-bold transition-all disabled:bg-none disabled:bg-slate-800 disabled:text-slate-400 disabled:border-white/10 disabled:shadow-none cursor-pointer"
                 >
                   {fits ? t.equipAction : t.capacityFullWarning}
                 </button>
@@ -110,7 +110,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
                   disabled={!canSwap}
                   onClick={() => onScrap(item.instanceId)}
                   title={`${t.scrapAction} (+${Math.floor(def.price * 0.5)} ${t.creditsLabel})`}
-                  className="shrink-0 rounded-md border border-amber-300/45 bg-amber-500/15 px-1.5 py-0.5 sm:px-2 sm:py-1 font-mono-tabular text-[10px] sm:text-[11px] font-bold text-amber-200 transition-colors hover:bg-amber-500/30 disabled:opacity-40 cursor-pointer"
+                  className="shrink-0 rounded-md border border-amber-300/45 bg-amber-500/15 px-1.5 py-0.5 sm:px-2 sm:py-1 font-mono-tabular text-[12px] sm:text-[13px] font-bold text-amber-200 transition-colors hover:bg-amber-500/30 disabled:opacity-40 cursor-pointer"
                 >
                   {t.scrapAction} +{Math.floor(def.price * 0.5)} {t.creditsLabel}
                 </button>
@@ -118,7 +118,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
             )}
           </div>
 
-          <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]">
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[12px] sm:text-[13px]">
             {def.tiles.map((spec, idx) => (
               <span
                 key={`${item.instanceId}_t_${idx}`}
@@ -147,7 +147,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
       aria-labelledby="pool-modal-title"
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/70 p-2 sm:p-4 backdrop-blur-sm"
     >
-      <div className="chrome-panel-bright flex max-h-[94dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl p-3 sm:p-5">
+      <div className="chrome-panel-bright flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl p-3.5 sm:p-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5">
@@ -157,13 +157,13 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
               >
                 {t.poolModalTitle} ({run.masterPool.length})
               </h2>
-              <span className="text-[11px] sm:text-xs text-slate-200">
+              <span className="text-[12.5px] sm:text-[13px] text-slate-200">
                 {t.poolModalDesc
                   .replace('{name}', charMeta.name)
                   .replace('{capacity}', String(run.heroine.carryCapacity))}
               </span>
             </div>
-            <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[10px] sm:text-[11px] font-medium">
+            <div className="mt-0.5 flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-[12px] sm:text-[13px] font-medium">
               <span className="text-cyan-300">★ {charMeta.passive}</span>
               <span aria-hidden="true" className="text-slate-500">
                 ·
@@ -211,7 +211,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
           </div>
           <div className="flex items-center gap-2.5">
             {!canSwap && (
-              <span className="text-[10px] sm:text-[11px] font-medium text-[#FFC700]">
+              <span className="text-[12px] sm:text-[13px] font-medium text-[#FFC700]">
                 {t.combatSwapLocked}
               </span>
             )}
@@ -225,11 +225,11 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
           {/* Equipment Loadout Grid: Equipped vs Cargo */}
           <div className="grid grid-cols-1 gap-2.5 min-[540px]:grid-cols-2 sm:gap-4">
             <div>
-              <div className="mb-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#00F0FF]">
+              <div className="mb-1 text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-[#00F0FF]">
                 {t.equippedGearTitle} ({equippedItems.length})
               </div>
               {equippedItems.length === 0 ? (
-                <div className="chrome-pill rounded-xl p-2.5 text-xs text-slate-300">
+                <div className="chrome-pill rounded-xl p-2.5 text-[13px] text-slate-300">
                   {t.noEquippedGear}
                 </div>
               ) : (
@@ -240,11 +240,11 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
             </div>
 
             <div>
-              <div className="mb-1 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-slate-300">
+              <div className="mb-1 text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-slate-300">
                 {t.cargoStashTitle} ({stashItems.length})
               </div>
               {stashItems.length === 0 ? (
-                <div className="chrome-pill rounded-xl p-2.5 text-xs text-slate-300">
+                <div className="chrome-pill rounded-xl p-2.5 text-[13px] text-slate-300">
                   {t.noCargoStash}
                 </div>
               ) : (
@@ -257,8 +257,8 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
 
           {/* Active Master Tile Pool */}
           <div className="border-t border-white/15 pt-3">
-            <div className="flex flex-wrap items-center gap-3 text-xs font-mono-tabular">
-              <span className="font-sans text-[11px] font-bold uppercase tracking-wider text-slate-200">
+            <div className="flex flex-wrap items-center gap-3 text-[13px] font-mono-tabular">
+              <span className="font-sans text-[12.5px] font-bold uppercase tracking-wider text-slate-200">
                 {t.poolTotalLabel} ({run.masterPool.length})
               </span>
               <span className="font-bold text-rose-200">
@@ -290,16 +290,16 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
                   <div
                     key={tile.id}
                     title={detail}
-                    className="chrome-pill flex flex-col items-center justify-between rounded-lg p-1.5 sm:p-2 text-center"
+                    className="chrome-pill flex flex-col items-center justify-between rounded-lg p-2 text-center"
                   >
-                    <span className="font-mono-tabular text-[11px] font-bold text-white">
+                    <span className="font-mono-tabular text-[13px] font-bold text-white">
                       {shortLabel}
                     </span>
                     <TileGlyph type={tile.type} size={18} className="my-0.5 sm:my-1" />
-                    <span className="w-full truncate text-[10px] text-slate-200">
+                    <span className="w-full truncate text-[12px] text-slate-200">
                       {detail}
                     </span>
-                    <span className="w-full truncate text-[9px] text-slate-400">
+                    <span className="w-full truncate text-[11.5px] text-slate-400">
                       {sourceName}
                     </span>
                   </div>
@@ -310,11 +310,11 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
 
           {/* Cybernetic Implants */}
           <div className="border-t border-white/15 pt-3">
-            <div className="text-[11px] font-bold uppercase tracking-wider text-slate-200">
+            <div className="text-[12.5px] font-bold uppercase tracking-wider text-slate-200">
               {t.implantsTitle} ({run.heroine.implants.length}/{MAX_IMPLANTS})
             </div>
             {run.heroine.implants.length === 0 ? (
-              <div className="mt-1 text-xs text-slate-300">{t.noImplants}</div>
+              <div className="mt-1 text-[13px] text-slate-300">{t.noImplants}</div>
             ) : (
               <div className="mt-2 grid grid-cols-1 gap-2 min-[540px]:grid-cols-2">
                 {run.heroine.implants.map((id) => (
@@ -324,8 +324,8 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
                   >
                     <ImplantIcon id={id} size={22} className="shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#00F0FF]">{t.implants[id].name}</div>
-                      <div className="text-[11px] leading-snug text-slate-200">
+                      <div className="text-[13px] font-bold text-[#00F0FF]">{t.implants[id].name}</div>
+                      <div className="text-[12.5px] leading-snug text-slate-200">
                         {t.implants[id].desc}
                       </div>
                     </div>
@@ -435,10 +435,10 @@ export function PauseModal({
 
         {settings && (
           <div className="mt-4 border-t border-white/15 pt-3 text-left">
-            <div className="mb-2 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+            <div className="mb-2 text-[12px] font-bold uppercase tracking-wider text-cyan-300">
               {lang === 'cs' ? 'Zobrazení a ovládání' : 'Display & Controls'}
             </div>
-            <div className="grid grid-cols-2 gap-1.5 font-mono-tabular text-[11px]">
+            <div className="grid grid-cols-2 gap-1.5 font-mono-tabular text-[12.5px]">
               <button
                 type="button"
                 data-testid="tactical-view-toggle"
@@ -604,7 +604,7 @@ export function EndRunModal({
 
         <div className="mt-3 sm:mt-5 grid grid-cols-3 gap-2">
           <div className="chrome-pill rounded-xl p-2 sm:p-3">
-            <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-300">
+            <div className="text-[12px] sm:text-[13px] uppercase tracking-wider text-slate-300">
               {t.scoreLabel}
             </div>
             <div className="mt-0.5 font-mono-tabular text-base sm:text-lg font-bold text-[#FFC700]">
@@ -612,7 +612,7 @@ export function EndRunModal({
             </div>
           </div>
           <div className="chrome-pill rounded-xl p-2 sm:p-3">
-            <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-300">
+            <div className="text-[12px] sm:text-[13px] uppercase tracking-wider text-slate-300">
               {t.turnsLabel}
             </div>
             <div className="mt-0.5 font-mono-tabular text-base sm:text-lg font-bold text-[#00F0FF]">
@@ -620,7 +620,7 @@ export function EndRunModal({
             </div>
           </div>
           <div className="chrome-pill rounded-xl p-2 sm:p-3">
-            <div className="text-[10px] sm:text-[11px] uppercase tracking-wider text-slate-300">
+            <div className="text-[12px] sm:text-[13px] uppercase tracking-wider text-slate-300">
               {t.enemiesDefeatedLabel}
             </div>
             <div className="mt-0.5 font-mono-tabular text-base sm:text-lg font-bold text-rose-300">
@@ -629,7 +629,7 @@ export function EndRunModal({
           </div>
         </div>
 
-        <div className="mt-2.5 font-mono-tabular text-xs font-semibold text-amber-200">
+        <div className="mt-2.5 font-mono-tabular text-[13px] font-semibold text-amber-200">
           {t.bestScoreLabel}: {Math.max(score, bestScore)}
         </div>
 
@@ -637,7 +637,7 @@ export function EndRunModal({
           ((canRetryEncounter && (onFailForwardRetry || onRetryClean)) ||
             (canSkipEncounter && onSkipEncounter)) && (
           <div className="mt-3.5 flex flex-col gap-2 rounded-xl border border-cyan-300/35 bg-slate-900/75 p-2.5 text-left">
-            <div className="text-center font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-[#00F0FF]">
+            <div className="text-center font-mono-tabular text-[12px] font-bold uppercase tracking-wider text-[#00F0FF]">
               {lang === 'cs'
                 ? 'Druhá šance v tomto uzlu'
                 : 'Node Recovery Options'}

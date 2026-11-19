@@ -136,6 +136,17 @@ class SoundEngine {
     }
   }
 
+  public playDodgeWhoosh(): void {
+    this.triggerHaptic('select');
+    // Snappy upward vault air-slice
+    this.playTone(960, 340, 0.14, 'triangle', 0.06);
+    this.playTone(1380, 620, 0.11, 'sine', 0.04, 0.02);
+    // Neon power-slide synth skid shimmer
+    this.playTone(620, 980, 0.16, 'sine', 0.036, 0.16);
+    // Crisp 3-point landing deck tap
+    this.playTone(210, 88, 0.09, 'triangle', 0.045, 0.49);
+  }
+
   public playUpgrade(surge = false): void {
     this.triggerHaptic('commit');
     const notes = surge ? [523.25, 659.25, 783.99, 1046.5] : [523.25, 659.25, 783.99];

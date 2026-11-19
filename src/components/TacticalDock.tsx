@@ -229,12 +229,12 @@ export function TacticalDock({
   const renderTacticalIntelStrip = () => (
     <div
       data-testid="tactical-intel-strip"
-      className={`mb-1.5 flex items-center justify-between gap-2 rounded-lg border border-white/15 bg-slate-950/65 px-2.5 ${
-        isCompactLandscape ? 'min-h-[24px] py-0.5 text-[10px]' : 'min-h-[28px] py-1 text-[11px]'
+      className={`mb-1.5 flex flex-wrap items-center justify-between gap-x-2 gap-y-1 rounded-lg border border-white/15 bg-slate-950/65 px-2.5 ${
+        isCompactLandscape ? 'min-h-[26px] py-0.5 text-[11.5px]' : 'min-h-[30px] py-1 text-[13px]'
       }`}
     >
       {activePreview ? (
-        <div className="flex flex-1 flex-wrap items-center gap-x-2 gap-y-0.5 min-w-0">
+        <div className="flex min-w-[210px] flex-1 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span className={`font-display font-bold whitespace-nowrap ${TILE_THEME[activePreview.color].text}`}>
             {activePreview.color === 'attack'
               ? t.attackName
@@ -431,7 +431,7 @@ export function TacticalDock({
         </div>
       )}
 
-      <div className="flex items-center gap-1 shrink-0">
+      <div className="ml-auto flex items-center gap-1 shrink-0">
         {activePreview && selectedColor === activePreview.color && activePreview.tileCount > 0 && canPlay && (
           <button
             type="button"
@@ -440,7 +440,7 @@ export function TacticalDock({
               setInspectedTileId(null);
               onCommitColor(activePreview.color);
             }}
-            className="chrome-btn-primary tactical-hc-border rounded-md px-2 py-0.5 text-[10px] sm:text-[11px] font-bold transition-transform hover:scale-105 cursor-pointer whitespace-nowrap"
+            className="chrome-btn-primary tactical-hc-border rounded-md px-2 py-0.5 text-[12px] sm:text-[13px] font-bold transition-transform hover:scale-105 cursor-pointer whitespace-nowrap"
           >
             ✓ {t.resolveAction}
           </button>
@@ -468,7 +468,7 @@ export function TacticalDock({
                 ? 'Prohodí přední 2 nepřátele (0 AP). [R]'
                 : 'Swap front 2 enemies (0 AP). [R]'
             }
-            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
+            className={`chrome-pill rounded px-2 py-0.5 font-mono-tabular text-[12px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
               canSwapEnemies && canPlay
                 ? 'border-cyan-300/60 text-[#00F0FF] hover:border-white'
                 : 'text-slate-400'
@@ -494,7 +494,7 @@ export function TacticalDock({
                   ? 'Zobrazit optimální tah [?]'
                   : 'Show Optimal Turn Hint [?]'
             }
-            className={`chrome-pill rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
+            className={`chrome-pill rounded px-2 py-0.5 font-mono-tabular text-[12px] font-bold transition-colors cursor-pointer whitespace-nowrap disabled:opacity-35 ${
               activeHint
                 ? 'border-[#FFC700] bg-amber-950/80 text-[#FFC700]'
                 : 'text-amber-200 hover:border-amber-300'
@@ -510,7 +510,7 @@ export function TacticalDock({
           onClick={() => setDrawPopoverOpen((prev) => !prev)}
           aria-expanded={drawPopoverOpen}
           title={`${t.nextDrawLabel} (${combat?.drawPile.length ?? 0})`}
-          className={`chrome-pill rounded px-2 py-0.5 font-mono-tabular text-[10px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
+          className={`chrome-pill rounded px-2 py-0.5 font-mono-tabular text-[12px] font-bold transition-colors cursor-pointer whitespace-nowrap ${
             drawPopoverOpen
               ? 'border-[#00F0FF] bg-cyan-950/80 text-[#00F0FF]'
               : 'text-cyan-100 hover:border-cyan-300'
@@ -574,10 +574,10 @@ export function TacticalDock({
               onBlur={() => onHoverColor(null)}
               onClick={() => handleGroupActivate(color)}
               aria-pressed={selectedColor === color}
-              className={`relative flex flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150 ${
+              className={`relative flex flex-col items-center justify-center overflow-hidden rounded-lg border px-1 transition-all duration-150 ${
                 !canPlay || count === 0 ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer'
               } ${hcBorderClass} ${
-                isCompactLandscape ? 'py-1 min-h-[40px]' : 'py-1.5 min-h-[48px]'
+                isCompactLandscape ? 'py-1 min-h-[44px]' : 'py-1.5 min-h-[54px]'
               } ${
                 isGroupActive && count > 0
                   ? theme.activeRing
@@ -590,33 +590,33 @@ export function TacticalDock({
               <span
                 aria-hidden="true"
                 style={{ backgroundColor: pip.accentHex, color: '#020617' }}
-                className="absolute left-1 top-1 inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm border border-white font-mono-tabular text-[8px] font-black leading-none"
+                className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-sm border border-white font-mono-tabular text-[10px] font-black leading-none"
               >
                 {pip.symbol}
               </span>
               {isHintRecommended && (
                 <span
                   data-testid={`hint-badge-${color}`}
-                  className="absolute right-1 top-1 rounded bg-[#FFC700] px-1 font-mono-tabular text-[7px] font-black uppercase leading-tight text-slate-950"
+                  className="absolute right-1 top-1 rounded bg-[#FFC700] px-1 font-mono-tabular text-[9.5px] font-black uppercase leading-tight text-slate-950"
                 >
                   ★
                 </span>
               )}
-              <div className="flex items-center gap-1 font-mono-tabular text-[9px] sm:text-[10px] leading-none">
+              <div className="flex max-w-full items-center gap-1 pl-3.5 pr-1 font-mono-tabular text-[10.5px] sm:text-[12px] leading-none">
                 <span className="hidden sm:inline opacity-80">[{theme.shortcut}]</span>
-                <span className="font-bold text-slate-200">{label}</span>
-                <span className="font-bold text-white/90">×{count}</span>
+                <span className="truncate font-bold text-slate-200">{label}</span>
+                <span className="shrink-0 font-bold text-white/90">×{count}</span>
               </div>
               <span
                 data-testid={`action-trigger-math-${color}`}
-                className="mt-0.5 whitespace-nowrap font-mono-tabular text-xs sm:text-sm font-black tracking-tight text-[#F4F4F6] tactical-numeral-stroke leading-tight"
+                className="mt-0.5 max-w-full truncate whitespace-nowrap font-mono-tabular text-xs sm:text-sm font-black tracking-tight text-[#F4F4F6] tactical-numeral-stroke leading-tight"
               >
                 {summary.mathFormula}
               </span>
               {lod.showMicroBadges && (
                 <span
                   data-testid={`action-trigger-tag-${color}`}
-                  className={`mt-0.5 font-mono-tabular text-[8px] font-extrabold uppercase tracking-wider leading-tight truncate max-w-full ${outcomeColorClass}`}
+                  className={`mt-0.5 font-mono-tabular text-[10px] font-extrabold uppercase tracking-wider leading-tight truncate max-w-full ${outcomeColorClass}`}
                 >
                   {summary.outcomeTag
                     ? summary.outcomeTag
@@ -636,7 +636,7 @@ export function TacticalDock({
         title={`${charMeta.overdriveName}: ${charMeta.overdriveDesc}`}
         onClick={onOverdrive}
         className={`relative w-full rounded-lg border px-2 font-bold transition-all whitespace-nowrap truncate cursor-pointer ${
-          isCompactLandscape ? 'py-1 text-[10px]' : 'py-1.5 text-[11px]'
+          isCompactLandscape ? 'py-1 text-[12px]' : 'py-1.5 text-[13px]'
         } ${
           overdriveReady && canPlay
             ? 'border-white/80 bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] text-slate-950 shadow-[0_0_20px_rgba(255,199,0,0.5)] hover:brightness-110'
@@ -646,7 +646,7 @@ export function TacticalDock({
         {activeHint?.recommendedAction === 'overdrive' && (
           <span
             data-testid="hint-badge-overdrive"
-            className="mr-1 rounded bg-slate-950 px-1 font-mono-tabular text-[8px] font-black text-[#FFC700]"
+            className="mr-1 rounded bg-slate-950 px-1 font-mono-tabular text-[10px] font-black text-[#FFC700]"
           >
             ★ HINT
           </span>
@@ -661,7 +661,7 @@ export function TacticalDock({
     <div className="flex flex-col justify-center">
       <div
         className={`mb-1 flex items-center justify-between gap-2 px-0.5 font-mono-tabular ${
-          isCompactLandscape ? 'text-[9px]' : 'text-[10px] sm:text-[11px]'
+          isCompactLandscape ? 'text-[11px]' : 'text-[12px] sm:text-[13px]'
         } text-slate-200`}
       >
         <div className="flex items-center gap-1.5 min-w-0">
@@ -675,7 +675,7 @@ export function TacticalDock({
               }
               title={codexT.openTermHint}
               aria-label={`${t.surgeLabel}: ${codexT.openTermHint}`}
-              className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-cyan-300/45 bg-cyan-950/60 text-[9px] font-extrabold text-cyan-200 hover:border-cyan-200 hover:text-white cursor-pointer"
+              className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-cyan-300/45 bg-cyan-950/60 text-[11px] font-extrabold text-cyan-200 hover:border-cyan-200 hover:text-white cursor-pointer"
             >
               ?
             </button>
@@ -805,16 +805,16 @@ export function TacticalDock({
                       ? t.heldTag
                       : t.newTag
               }${isHexed ? ` · ${t.hexTag}` : ''}`}
-              className={`relative flex flex-col items-center justify-between rounded-lg border p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-150 ${
+              className={`relative flex flex-col items-center justify-between overflow-hidden rounded-lg border p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.35)] transition-all duration-150 ${
                 !canPlay || isJammed ? 'cursor-not-allowed' : 'cursor-pointer'
               } ${hcBorderClass} ${
                 lod.level === 'closeup'
-                  ? 'h-[72px] sm:h-[84px]'
+                  ? 'h-[76px] sm:h-[88px]'
                   : isCompactLandscape || isNarrowPortrait
-                    ? 'h-[56px] sm:h-[62px]'
+                    ? 'h-[60px] sm:h-[66px]'
                     : hudMinimized
-                      ? 'h-14 sm:h-16'
-                      : 'h-16 sm:h-[74px]'
+                      ? 'h-[60px] sm:h-[68px]'
+                      : 'h-[68px] sm:h-[78px]'
               } ${
                 isJammed
                   ? 'border-dashed border-lime-400/75 bg-slate-950/90'
@@ -830,12 +830,12 @@ export function TacticalDock({
               }`}
             >
               {/* Top Row: Double-Coding Corner Suit Pip + Special State Badge (HELD / JAM / SLAG / HEX) */}
-              <div className="flex w-full items-center justify-between px-0.5 leading-none">
-                <span className="flex items-center gap-0.5">
+              <div className="flex w-full items-center justify-between gap-0.5 px-0.5 leading-none">
+                <span className="flex min-w-0 flex-1 items-center gap-0.5">
                   <span
                     data-testid={`tile-pip-${tile.type}`}
                     style={{ backgroundColor: isBlight ? '#84CC16' : pip.accentHex, color: '#020617' }}
-                    className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[8px] font-black leading-none"
+                    className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[10px] font-black leading-none"
                   >
                     {isBlight ? '☣' : pip.symbol}
                   </span>
@@ -846,7 +846,7 @@ export function TacticalDock({
                         backgroundColor: getTileCornerPip(tile.secondaryType).accentHex,
                         color: '#020617',
                       }}
-                      className="inline-flex h-3.5 items-center justify-center rounded-sm border border-white/80 px-0.5 font-mono-tabular text-[7px] font-black leading-none"
+                      className="inline-flex h-4 shrink-0 items-center justify-center rounded-sm border border-white/80 px-0.5 font-mono-tabular text-[9px] font-black leading-none"
                       title={
                         lang === 'cs'
                           ? `Sloučený dílek: +${tile.secondaryValue} ${tile.secondaryType.toUpperCase()}`
@@ -858,7 +858,7 @@ export function TacticalDock({
                   )}
                   {lod.showMicroBadges && (isJammed || isBlight || tile.isHeldFromPrevTurn) && (
                     <span
-                      className={`font-mono-tabular text-[8px] font-bold uppercase tracking-wider leading-none ${
+                      className={`min-w-0 truncate font-mono-tabular text-[9px] min-[460px]:text-[10px] font-bold uppercase tracking-tight sm:tracking-wider leading-none ${
                         isJammed
                           ? 'text-lime-300'
                           : isBlight
@@ -871,38 +871,38 @@ export function TacticalDock({
                   )}
                 </span>
                 {isHexed ? (
-                  <span className="rounded bg-purple-500/35 px-1 font-mono-tabular text-[8px] font-black text-purple-200 leading-tight">
+                  <span className="shrink-0 rounded bg-purple-500/35 px-1 font-mono-tabular text-[10px] font-black text-purple-200 leading-tight">
                     ⬡
                   </span>
                 ) : tile.isHotPotato ? (
                   <span
                     data-testid={`hot-potato-badge-${tile.id}`}
-                    className="rounded bg-amber-500/35 px-1 font-mono-tabular text-[8px] font-black text-amber-200 leading-tight"
+                    className="shrink-0 rounded bg-amber-500/35 px-1 font-mono-tabular text-[10px] font-black text-amber-200 leading-tight"
                   >
                     💣8
                   </span>
                 ) : tile.isTemptation ? (
                   <span
                     data-testid={`temptation-badge-${tile.id}`}
-                    className="rounded bg-fuchsia-500/35 px-1 font-mono-tabular text-[8px] font-black text-fuchsia-200 leading-tight"
+                    className="shrink-0 rounded bg-fuchsia-500/35 px-1 font-mono-tabular text-[10px] font-black text-fuchsia-200 leading-tight"
                   >
                     ⚡+14
                   </span>
                 ) : tile.isContagion ? (
                   <span
                     data-testid={`contagion-badge-${tile.id}`}
-                    className="rounded bg-lime-500/35 px-1 font-mono-tabular text-[8px] font-black text-lime-200 leading-tight"
+                    className="shrink-0 rounded bg-lime-500/35 px-1 font-mono-tabular text-[10px] font-black text-lime-200 leading-tight"
                   >
                     🦠
                   </span>
                 ) : effective.flatBonus > 0 && !isJammed && !isBlight ? (
-                  <span className="font-mono-tabular text-[8px] sm:text-[9px] font-extrabold text-emerald-300 leading-none">
+                  <span className="shrink-0 font-mono-tabular text-[10px] sm:text-[11px] font-extrabold text-emerald-300 leading-none">
                     +{effective.flatBonus}
                   </span>
                 ) : null}
               </div>
 
-              <div className="flex flex-col items-center gap-1 my-auto">
+              <div className="flex w-full flex-col items-center gap-1 my-auto">
                 <TileGlyph
                   type={tile.type}
                   size={
@@ -916,10 +916,10 @@ export function TacticalDock({
                   }
                 />
                 <span
-                  className={`font-mono-tabular font-extrabold whitespace-nowrap leading-none tactical-numeral-stroke ${
+                  className={`max-w-full truncate font-mono-tabular font-extrabold whitespace-nowrap leading-none tactical-numeral-stroke ${
                     lod.level === 'overview' || lod.level === 'closeup'
                       ? 'text-sm sm:text-base'
-                      : 'text-xs sm:text-[13px]'
+                      : 'text-[10.5px] min-[460px]:text-xs sm:text-[13.5px]'
                   } ${
                     isJammed
                       ? 'line-through text-slate-400'
@@ -935,15 +935,15 @@ export function TacticalDock({
               </div>
 
               {isJammed || isBlight ? (
-                <span className="w-full truncate text-center text-[8px] sm:text-[9px] font-bold leading-none text-lime-300">
+                <span className="w-full truncate text-center text-[10px] sm:text-[11px] font-bold leading-none text-lime-300">
                   {bottomLabel}
                 </span>
               ) : isHexed ? (
-                <span className="w-full truncate text-center text-[8px] font-extrabold leading-none text-purple-200">
+                <span className="w-full truncate text-center text-[10px] font-extrabold leading-none text-purple-200">
                   {t.hexTag}
                 </span>
               ) : isDud || hasUpcharge ? (
-                <span className="w-full truncate text-center font-mono-tabular text-[8px] font-extrabold leading-none text-emerald-300">
+                <span className="w-full truncate text-center font-mono-tabular text-[10px] font-extrabold leading-none text-emerald-300">
                   {isDud && run.heroine.characterId === 'aurelia'
                     ? `+1 ${t.upchargeShort}`
                     : hasUpcharge
@@ -962,7 +962,7 @@ export function TacticalDock({
 
   const renderNextDrawPanel = () => (
     <div className="flex flex-col justify-between rounded-lg border border-white/15 bg-slate-950/50 p-1.5 sm:p-2">
-      <div className="flex items-center justify-between text-[10px] font-mono-tabular">
+      <div className="flex items-center justify-between text-[12px] font-mono-tabular">
         <span className="font-bold uppercase tracking-wider text-cyan-200">
           {t.nextDrawLabel}
         </span>
@@ -992,26 +992,26 @@ export function TacticalDock({
                 tile.isBlight
                   ? 'border-dashed border-[#84CC16]/80 bg-[#1B240E]/90'
                   : `${TILE_THEME[tile.type].border} bg-slate-950/80`
-              } px-0.5 ${hcBorderClass} ${isCompactLandscape ? 'h-10' : 'h-11 sm:h-12'}`}
+              } px-0.5 ${hcBorderClass} ${isCompactLandscape ? 'h-11' : 'h-12 sm:h-[54px]'}`}
             >
               <span
                 aria-hidden="true"
                 style={{ color: tile.isBlight ? '#84CC16' : pip.accentHex }}
-                className="absolute left-0.5 top-0.5 font-mono-tabular text-[7px] font-black leading-none"
+                className="absolute left-0.5 top-0.5 font-mono-tabular text-[9.5px] font-black leading-none"
               >
                 {tile.isBlight ? '☣' : pip.symbol}
               </span>
               {tile.isTopDecked && (
                 <span
                   data-testid={`top-decked-badge-${tile.id}`}
-                  className="absolute right-0.5 top-0.5 rounded bg-lime-500/40 px-0.5 font-mono-tabular text-[6px] font-black text-lime-200 leading-none"
+                  className="absolute right-0.5 top-0.5 rounded bg-lime-500/40 px-0.5 font-mono-tabular text-[8.5px] font-black text-lime-200 leading-none"
                 >
                   TOP
                 </span>
               )}
               <TileGlyph type={tile.type} size={13} />
               <span
-                className={`mt-0.5 w-full truncate text-center text-[8px] sm:text-[9px] font-mono-tabular font-bold leading-none ${
+                className={`mt-0.5 w-full truncate text-center text-[10px] sm:text-[11px] font-mono-tabular font-bold leading-none ${
                   tile.isBlight ? 'text-lime-300' : 'text-[#F4F4F6]'
                 }`}
               >
@@ -1045,13 +1045,13 @@ export function TacticalDock({
             <button
               type="button"
               onClick={() => setDrawPopoverOpen(false)}
-              className="chrome-pill rounded px-2 py-0.5 text-[10px] font-bold text-white cursor-pointer"
+              className="chrome-pill rounded px-2 py-0.5 text-[12px] font-bold text-white cursor-pointer"
             >
               ✕
             </button>
           </div>
           {renderNextDrawPanel()}
-          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-slate-300">
+          <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-slate-300">
             <span className="font-bold text-rose-200">
               {t.attackName} ({surgeThreshold}+):
             </span>{' '}
@@ -1066,7 +1066,7 @@ export function TacticalDock({
         </div>
       )}
 
-      <div className={`mx-auto ${hudMinimized ? 'max-w-4xl' : 'max-w-6xl'}`}>
+      <div className={`mx-auto ${hudMinimized ? 'max-w-5xl' : 'max-w-[1680px]'}`}>
         {renderTacticalIntelStrip()}
 
         {showHorizontalDock ? (

@@ -207,6 +207,7 @@ const AURELIA_MODE_DURATIONS: Record<HeroineAnimMode, number> = {
   dash_kick: 0.80,
   overdrive: 0.94,
   guard: 0.48,
+  dodge: 0.48,
   upgrade: 1.00,
   hit: 0.48,
   defeat: 1.12,
@@ -350,7 +351,7 @@ export function stepAureliaAnimState(
   else if (state.mode === 'idle2') seq = AURELIA_IDLE2_SEQ;
   else if (state.mode === 'dash_kick') seq = AURELIA_DASH_KICK_SEQ;
   else if (state.mode === 'overdrive') seq = AURELIA_OVERDRIVE_SEQ;
-  else if (state.mode === 'guard') seq = AURELIA_GUARD_SEQ;
+  else if (state.mode === 'guard' || state.mode === 'dodge') seq = AURELIA_GUARD_SEQ;
   else if (state.mode === 'upgrade') seq = AURELIA_UPGRADE_SEQ;
   else if (state.mode === 'hit') seq = state.lowHpHit ? AURELIA_HIT_LOW_HP_SEQ : AURELIA_HIT_NORMAL_SEQ;
   else if (state.mode === 'defeat') seq = AURELIA_DEFEAT_SEQ;

@@ -8,6 +8,7 @@ import type { BruteJuiceState } from '../../utils/bruteJuiceController';
 import type { SpitterJuiceState } from '../../utils/spitterJuiceController';
 import type { SpriteBounds } from '../../utils/spriteCutout';
 import { CombatActionSequencer, type SequencerFrameState } from './CombatActionSequencer';
+import type { ProjectileVisualProfile } from './combatStagingClassifier';
 import type { BloodOwnerKind, BloodShapeKind } from './mutantBlood';
 
 /**
@@ -21,7 +22,7 @@ export const BRIDGE_DECK_FRONT_IMG_Y = 0.840;
 
 export const PARTICLE_POOL_SIZE = 256;
 export const TEXT_POOL_SIZE = 24;
-export const BOLT_POOL_SIZE = 16;
+export const BOLT_POOL_SIZE = 32;
 export const BLOOD_DROP_POOL_SIZE = 320;
 export const FLOOR_BLOOD_POOL_SIZE = 240;
 export const COVER_BLOOD_POOL_SIZE = 128;
@@ -220,6 +221,7 @@ export interface PlasmaBolt {
   life: number;
   maxLife: number;
   color: string;
+  style: ProjectileVisualProfile;
   onImpact?: () => void;
 }
 
@@ -235,6 +237,7 @@ export interface AfterimageGhost {
   frameIndex: number;
   drawScale: number;
   alpha: number;
+  isDodge?: boolean;
 }
 
 export interface ActorAnim {
@@ -271,6 +274,7 @@ export interface CombatStageSim {
   kickWaveX: number;
   kickWaveY: number;
   shieldDomeTimer: number;
+  dodgeZoomTimer: number;
   upgradeBeamTimer: number;
   overdriveTimer: number;
   lastCueBatchKey: string;
@@ -544,6 +548,7 @@ export function createCombatStageSim(): CombatStageSim {
       life: 0,
       maxLife: 0.14,
       color: '#00E5FF',
+      style: 'pistol_bolt',
     });
   }
 
@@ -566,6 +571,7 @@ export function createCombatStageSim(): CombatStageSim {
     kickWaveX: 0,
     kickWaveY: 0,
     shieldDomeTimer: 0,
+    dodgeZoomTimer: 0,
     upgradeBeamTimer: 0,
     overdriveTimer: 0,
     lastCueBatchKey: '',
@@ -669,6 +675,7 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.slashArcTimer = 0;
   sim.kickWaveTimer = 0;
   sim.shieldDomeTimer = 0;
+  sim.dodgeZoomTimer = 0;
   sim.upgradeBeamTimer = 0;
   sim.overdriveTimer = 0;
   sim.lastCueBatchKey = '';
@@ -808,7 +815,8 @@ export function getStageLayoutMetrics(
   const effectiveDashTargetX = dashTargetX > heroBaseX ? dashTargetX : enemyBaseX;
   const dashDistance = Math.max(70, effectiveDashTargetX - heroBaseX - w * 0.11);
   const heroDrawScale = baseScale * rowScale;
-  const heroX = heroBaseX + xProgress * dashDistance;
+  const rawHeroX = heroBaseX + xProgress * dashDistance;
+  const heroX = xProgress < 0 ? Math.max(w * 0.08, rawHeroX) : rawHeroX;
   const heroY = groundY + yHopPx * baseScale;
   return {
     groundY,

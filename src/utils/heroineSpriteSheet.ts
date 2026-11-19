@@ -1,4 +1,4 @@
-import type { TileType } from '../engine/types';
+import type { CharacterId, TileType } from '../engine/types';
 import {
   type SequenceKeyframe,
   computeFrameTransitionState,
@@ -11,7 +11,7 @@ export const HEROINE_EMOTE_SHEET_WIDTH = 2095;
 export const HEROINE_EMOTE_SHEET_HEIGHT = 1007;
 export const HEROINE_CANONICAL_HEIGHT = 214;
 
-export type HeroineSheetSource = 'combat' | 'emote';
+export type HeroineSheetSource = 'combat' | 'emote' | 'dodge';
 
 export interface HeroineFrameDef {
   id: string;
@@ -131,9 +131,19 @@ export const HEROINE_EMOTE_FRAMES: readonly HeroineFrameDef[] = [
   { id: 'r8_f8', row: 8, col: 8, x: 1632, y: 761, w: 238, h: 230, anchorX: 125.58, bottomY: 226.71, rowScale: 1, sheet: 'emote' },
 ];
 
+export const HEROINE_DODGE_FRAMES: readonly HeroineFrameDef[] = [
+  // Row 9 (Dedicated resized transparent RGBA dodge poses, indices 72..75):
+  // 72: Vault takeoff -> 73: Wide neon slide -> 74: Deep power-slide -> 75: 3-point superhero landing
+  { id: 'dodge_vault', row: 9, col: 0, x: 0, y: 0, w: 193, h: 256, anchorX: 102, bottomY: 250, rowScale: 0.78, sheet: 'dodge' },
+  { id: 'dodge_slide_1', row: 9, col: 1, x: 0, y: 0, w: 215, h: 264, anchorX: 114, bottomY: 258, rowScale: 0.72, sheet: 'dodge' },
+  { id: 'dodge_slide_2', row: 9, col: 2, x: 0, y: 0, w: 210, h: 264, anchorX: 112, bottomY: 258, rowScale: 0.72, sheet: 'dodge' },
+  { id: 'dodge_land', row: 9, col: 3, x: 0, y: 0, w: 192, h: 248, anchorX: 96, bottomY: 243, rowScale: 0.70, sheet: 'dodge' },
+];
+
 export const HEROINE_SHEET_FRAMES: readonly HeroineFrameDef[] = [
   ...HEROINE_COMBAT_FRAMES,
   ...HEROINE_EMOTE_FRAMES,
+  ...HEROINE_DODGE_FRAMES,
 ];
 
 export type HeroineAnimMode =
@@ -144,10 +154,29 @@ export type HeroineAnimMode =
   | 'dash_kick'
   | 'overdrive'
   | 'guard'
+  | 'dodge'
   | 'upgrade'
   | 'hit'
   | 'defeat'
   | 'victory';
+
+/**
+ * Pure rule determining whether an incoming enemy attack triggers Kira's evasive dodge choreography.
+ * Plays exclusively for Kira when she survives an attack with zero HP damage AND zero Armor damage.
+ */
+export function shouldKiraDodgeAttack(params: {
+  charId: CharacterId;
+  isLethal: boolean;
+  hpDamage: number;
+  armorDamage: number;
+}): boolean {
+  return (
+    params.charId === 'kira' &&
+    !params.isLethal &&
+    params.hpDamage === 0 &&
+    params.armorDamage === 0
+  );
+}
 
 export interface HeroineAnimState {
   mode: HeroineAnimMode;
@@ -276,6 +305,16 @@ const GUARD_SEQ: readonly SequenceKeyframe[] = [
   { frameIndex: 0, until: 0.48, xProgress: 0, yHopPx: 0 },
 ];
 
+// DODGE (Row 9, frames 72..75): Snappy ~0.70s Vault Takeoff -> Wide Neon Slide -> Deep Power-Slide -> 3-Point Land -> Idle Recovery
+const DODGE_SEQ: readonly SequenceKeyframe[] = [
+  { frameIndex: 72, until: 0.08, xProgress: -0.09, yHopPx: -28, dashing: true },
+  { frameIndex: 72, until: 0.16, xProgress: -0.17, yHopPx: -18, dashing: true },
+  { frameIndex: 73, until: 0.33, xProgress: -0.24, yHopPx: -2, dashing: true },
+  { frameIndex: 74, until: 0.49, xProgress: -0.27, yHopPx: 0, dashing: true },
+  { frameIndex: 75, until: 0.64, xProgress: -0.09, yHopPx: 0, dashing: false },
+  { frameIndex: 0, until: 0.70, xProgress: 0, yHopPx: 0, dashing: false },
+];
+
 // USING TECH (Row 8, frames 63..71): Cyan/magenta holographic rings & floating AR screens
 const UPGRADE_SEQ: readonly SequenceKeyframe[] = [
   { frameIndex: 63, until: 0.09, xProgress: 0, yHopPx: 0 },
@@ -346,6 +385,7 @@ const MODE_DURATIONS: Record<HeroineAnimMode, number> = {
   dash_kick: 0.78,
   overdrive: 0.88,
   guard: 0.48,
+  dodge: 0.70,
   upgrade: 0.90,
   hit: 0.46,
   defeat: 1.10,
@@ -514,6 +554,7 @@ export function stepHeroineAnimState(
   else if (state.mode === 'dash_kick') seq = DASH_KICK_SEQ;
   else if (state.mode === 'overdrive') seq = OVERDRIVE_SEQ;
   else if (state.mode === 'guard') seq = GUARD_SEQ;
+  else if (state.mode === 'dodge') seq = DODGE_SEQ;
   else if (state.mode === 'upgrade') seq = UPGRADE_SEQ;
   else if (state.mode === 'hit') seq = state.lowHpHit ? HIT_LOW_HP_SEQ : HIT_NORMAL_SEQ;
   else if (state.mode === 'defeat') seq = DEFEAT_SEQ;
@@ -579,6 +620,30 @@ export function stepHeroineAnimState(
     }
   } else if (state.mode === 'hit') {
     tiltRad = Math.max(-0.04, Math.min(0, sampled.vx * 0.03));
+  } else if (state.mode === 'dodge') {
+    if (sampled.frameIndex === 72) {
+      // Airborne acrobatic vault stretch & nimble pitch
+      breathScaleY = 1.045;
+      breathScaleX = 0.965;
+      tiltRad = -0.04;
+    } else if (sampled.frameIndex === 73) {
+      // Wide neon slide horizontal velocity stretch
+      breathScaleY = 0.97;
+      breathScaleX = 1.035;
+      tiltRad = -0.025;
+    } else if (sampled.frameIndex === 74) {
+      // Deep power-slide low braking compression
+      breathScaleY = 0.955;
+      breathScaleX = 1.045;
+      tiltRad = 0.015;
+    } else if (sampled.frameIndex === 75) {
+      // 3-point superhero landing cushion squash with smooth elastic rebound
+      const uLand = Math.max(0, Math.min(1, (clampedElapsed - 0.49) / 0.15));
+      const cushion = Math.sin(uLand * Math.PI) * (1 - uLand * 0.42);
+      breathScaleY = 1 - cushion * 0.075;
+      breathScaleX = 1 + cushion * 0.065;
+      tiltRad = 0.01;
+    }
   } else if (state.mode === 'upgrade') {
     const u = clampedElapsed / Math.max(0.001, state.duration);
     const pulse = Math.sin(u * Math.PI);

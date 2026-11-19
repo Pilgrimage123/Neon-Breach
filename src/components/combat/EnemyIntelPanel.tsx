@@ -246,7 +246,7 @@ export function EnemyIntelPanel({
       data-testid="combat-detail-card"
       aria-label={`${meta.name} ${t.tacticalInfoButton}`}
       onClick={(e) => e.stopPropagation()}
-      className={`aaa-charcoal-surface pointer-events-auto absolute left-2 right-2 bottom-1.5 sm:bottom-2 z-30 mx-auto max-w-3xl max-h-[calc(100%-10px)] overflow-y-auto rounded-2xl border-2 ${
+      className={`aaa-charcoal-surface pointer-events-auto absolute left-2 right-2 bottom-1.5 sm:bottom-2 z-30 mx-auto max-w-4xl max-h-[calc(100%-10px)] overflow-y-auto rounded-2xl border-2 ${
         hasArmor
           ? 'border-[#FFC700]/75 shadow-[0_14px_40px_rgba(2,6,23,0.95)]'
           : 'border-cyan-300/75 shadow-[0_14px_40px_rgba(2,6,23,0.95)]'
@@ -264,18 +264,18 @@ export function EnemyIntelPanel({
                 type="button"
                 aria-label="Previous enemy"
                 onClick={() => handleCycleTarget(-1)}
-                className="chrome-pill flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+                className="chrome-pill flex h-7 w-7 items-center justify-center rounded text-[13px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
               >
                 ‹
               </button>
-              <span className="font-mono-tabular text-[11px] font-bold text-[#F4F4F6]">
+              <span className="font-mono-tabular text-[13px] font-bold text-[#F4F4F6]">
                 {currentLivingIdx + 1}/{livingEnemies.length}
               </span>
               <button
                 type="button"
                 aria-label="Next enemy"
                 onClick={() => handleCycleTarget(1)}
-                className="chrome-pill flex h-6 w-6 items-center justify-center rounded text-[11px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
+                className="chrome-pill flex h-7 w-7 items-center justify-center rounded text-[13px] font-bold text-cyan-200 hover:border-cyan-300 cursor-pointer"
               >
                 ›
               </button>
@@ -300,7 +300,7 @@ export function EnemyIntelPanel({
                 {enemy.archetype === 'brute' && (
                   <span
                     data-testid="enemy-intel-two-slot"
-                    className="rounded-md border border-[#FFC700]/65 bg-amber-500/20 px-1.5 py-0.5 font-mono-tabular text-[11px] font-black text-[#FFE066]"
+                    className="rounded-md border border-[#FFC700]/65 bg-amber-500/20 px-1.5 py-0.5 font-mono-tabular text-[12.5px] font-black text-[#FFE066]"
                   >
                     {lang === 'cs' ? '2× POZICE' : '2× SLOTS'}
                   </span>
@@ -393,7 +393,7 @@ export function EnemyIntelPanel({
                       onClick={() => onOpenGlossaryTerm('armor')}
                       title={codexT.openTermHint}
                       aria-label={`${t.armorLabel}: ${codexT.openTermHint}`}
-                      className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-amber-300/60 bg-amber-950/60 text-[10px] font-extrabold text-amber-200 hover:border-amber-200 hover:text-white cursor-pointer"
+                      className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border border-amber-300/60 bg-amber-950/60 text-[12px] font-extrabold text-amber-200 hover:border-amber-200 hover:text-white cursor-pointer"
                     >
                       ?
                     </button>
@@ -404,7 +404,7 @@ export function EnemyIntelPanel({
                       data-testid="enemy-intel-shield-pips"
                       onClick={() => onOpenGlossaryTerm?.('aegis_pip')}
                       title={codexT.openTermHint}
-                      className="ml-1 inline-flex items-center gap-0.5 rounded border border-sky-300/55 bg-sky-950/80 px-1.5 py-0.5 text-[10px] font-extrabold text-sky-200 hover:border-sky-200 cursor-pointer"
+                      className="ml-1 inline-flex items-center gap-0.5 rounded border border-sky-300/55 bg-sky-950/80 px-1.5 py-0.5 text-[12px] font-extrabold text-sky-200 hover:border-sky-200 cursor-pointer"
                     >
                       <ShieldPipIcon size={11} cracked={armorPreview.willCrackShieldPip} />
                       <span>
@@ -467,7 +467,7 @@ export function EnemyIntelPanel({
                         onClick={() => onOpenGlossaryTerm(PASSIVE_TO_GLOSSARY_TERM[enemy.passive])}
                         title={codexT.openTermHint}
                         aria-label={`${passiveInfo.name}: ${codexT.openTermHint}`}
-                        className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-cyan-300/60 bg-cyan-950/60 text-[10px] font-extrabold text-cyan-200 hover:border-cyan-200 hover:text-white cursor-pointer"
+                        className="inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border border-cyan-300/60 bg-cyan-950/60 text-[12px] font-extrabold text-cyan-200 hover:border-cyan-200 hover:text-white cursor-pointer"
                       >
                         ?
                       </button>
@@ -512,7 +512,7 @@ export function EnemyIntelPanel({
                     return (
                       <div
                         key={`${enemy.id}_cycle_${stepIdx}`}
-                        className={`flex items-center gap-1 rounded px-1.5 py-0.5 font-mono-tabular text-[11px] ${
+                        className={`flex items-center gap-1 rounded px-1.5 py-0.5 font-mono-tabular text-[13px] ${
                           isCurrent
                             ? 'border border-lime-300/80 bg-lime-400/20 font-bold text-white'
                             : 'border border-white/10 bg-slate-900/80 text-slate-300'

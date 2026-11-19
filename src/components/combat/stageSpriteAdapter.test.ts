@@ -283,3 +283,42 @@ test('deriveEnemyDeformAndUniforms composes Carapace Brute juice spline with pin
   assert.ok(uniforms.tintRgba[0] > 1.0);
 });
 
+test('deriveHeroineDeformAndUniforms suppresses enemy cut-in recoil_pose and hit flash during dodge', () => {
+  const res = deriveHeroineDeformAndUniforms({
+    mode: 'dodge',
+    breathScaleX: 1,
+    breathScaleY: 1,
+    tiltRad: -0.06,
+    frameBlendAlpha: 1,
+    flashTimer: 0.18,
+    corrode: 0,
+    hoveredColor: null,
+    elapsed: 1.5,
+    isProne: false,
+    cutIn: {
+      active: true,
+      role: 'target',
+      isMeleeClash: true,
+      drawPriority: 2,
+      clashSlideX: 0,
+      scaleX: 0.85,
+      scaleY: 1.15,
+      knockbackX: -32,
+      leanRad: -0.1,
+      poseOverride: 'recoil_pose',
+      tintRgba: [1, 0.3, 0.3, 1],
+      flashRgba: [1, 0.2, 0.2, 0.8],
+    },
+  });
+
+  // Feet stay pinned; head shear stays agile (<= 6px), not bent violently backward by recoil_pose (-18px)
+  assert.equal(res.deform.feet.dx, 0);
+  assert.ok(res.deform.head.dx > -8, `Expected agile dodge shear, got head.dx=${res.deform.head.dx}`);
+  // Enemy hit flash and red damage tint must be completely suppressed on a clean dodge
+  assert.equal(res.uniforms.flashRgba[3], 0);
+  assert.equal(res.uniforms.tintRgba[0], 1);
+  assert.equal(res.uniforms.tintRgba[1], 1);
+  assert.equal(res.uniforms.tintRgba[2], 1);
+});
+
+

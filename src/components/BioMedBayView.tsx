@@ -384,7 +384,7 @@ export function BioMedBayView({
       }`}
     >
       <div
-        className={`relative my-auto flex w-full max-w-7xl items-end justify-center ${
+        className={`relative my-auto flex w-full max-w-[1620px] items-end justify-center ${
           isCompactLandscape
             ? 'flex-row gap-2'
             : 'flex-col lg:flex-row gap-4 lg:gap-5'
@@ -422,14 +422,14 @@ export function BioMedBayView({
             }`}
           >
             <div className="flex flex-col text-left">
-              <span className="font-display text-xs font-bold tracking-wide text-pink-200 group-hover:text-pink-100">
+              <span className="font-display text-[13px] font-bold tracking-wide text-pink-200 group-hover:text-pink-100">
                 {t.medbayNurseName}
               </span>
-              <span className="font-mono-tabular text-[9px] uppercase tracking-wider text-emerald-300/90">
+              <span className="font-mono-tabular text-[11.5px] uppercase tracking-wider text-emerald-300/90">
                 {t.medbayNurseRole} · <span className="text-pink-300">BIO-MED AI</span>
               </span>
             </div>
-            <span className="font-mono-tabular text-[10px] font-bold text-pink-300/80 group-hover:text-pink-200">
+            <span className="font-mono-tabular text-[12px] font-bold text-pink-300/80 group-hover:text-pink-200">
               ⚡
             </span>
           </button>
@@ -458,12 +458,12 @@ export function BioMedBayView({
                   {t.medbaySubtitle.replace('{name}', charMeta.name)}
                 </h1>
                 {isFundedClinic && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lime-500/20 border border-lime-400/60 text-lime-300 font-mono-tabular text-[10px] font-bold uppercase tracking-wider">
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lime-500/20 border border-lime-400/60 text-lime-300 font-mono-tabular text-[12px] font-bold uppercase tracking-wider">
                     {t.bountyFundedClinicBadge}
                   </span>
                 )}
               </div>
-              <span className="text-xs font-mono-tabular font-bold text-slate-200">
+              <span className="text-[13px] font-mono-tabular font-bold text-slate-200">
                 ♥ {run.heroine.hp}/{run.heroine.maxHp} · ◈ {run.heroine.credits} · 💎 {nanites}
               </span>
             </div>
@@ -474,14 +474,14 @@ export function BioMedBayView({
               className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-pink-400/35 bg-gradient-to-r from-pink-950/45 via-slate-900/75 to-emerald-950/35 px-3 py-1.5 text-xs text-pink-100"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="shrink-0 font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-pink-300">
+                <span className="shrink-0 font-mono-tabular text-[12px] font-bold uppercase tracking-wider text-pink-300">
                   [{t.medbayNurseName}]:
                 </span>
-                <span className="truncate font-mono-tabular text-[11px] sm:text-xs text-slate-100">
+                <span className="truncate font-mono-tabular text-[12.5px] sm:text-[13px] text-slate-100">
                   “{nurseQuote}”
                 </span>
               </div>
-              <span className="shrink-0 font-mono-tabular text-[10px] font-bold text-emerald-300">
+              <span className="shrink-0 font-mono-tabular text-[12px] font-bold text-emerald-300">
                 {isFundedClinic
                   ? `✦ ${t.fundedClinicAllActionsNote}`
                   : isHighHp
@@ -517,12 +517,12 @@ export function BioMedBayView({
                   >
                     {t.medbayHealTitle}
                   </h2>
-                  <span className="font-mono-tabular text-[10px] font-bold text-emerald-300/80">[1]</span>
+                  <span className="font-mono-tabular text-[12px] font-bold text-emerald-300/85">[1]</span>
                 </div>
                 <div className="mt-1.5 font-mono-tabular text-sm font-black text-[#F4F4F6]">
                   ♥ {run.heroine.hp} → {healedHp} / {run.heroine.maxHp}
                 </div>
-                <p className="mt-0.5 text-[10px] text-slate-300">
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
                   {t.medbayHealDesc.replace('{name}', charMeta.name)}
                 </p>
               </div>
@@ -535,7 +535,7 @@ export function BioMedBayView({
                   triggerAction('heal');
                 }}
                 className={`mt-2 w-full rounded-lg bg-gradient-to-r from-[#10F5A0] to-[#6EE7B7] font-bold text-slate-950 shadow-[0_0_20px_rgba(16,245,160,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
-                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
                 {t.applyRepair}
@@ -555,20 +555,20 @@ export function BioMedBayView({
                 <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#00F0FF] ${
-                      isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
+                      isCompactLandscape ? 'text-xs' : 'text-[13px] sm:text-sm'
                     }`}
                   >
                     {t.medbayCalibrateTitle}
                   </h2>
-                  <span className="font-mono-tabular text-[10px] font-bold text-cyan-300/80">[2]</span>
+                  <span className="font-mono-tabular text-[12px] font-bold text-cyan-300/85">[2]</span>
                 </div>
                 <div className="mt-1.5 font-mono-tabular text-sm font-black text-[#F4F4F6]">
                   ♥ {run.heroine.maxHp} → {calibratedMaxHp} Max
                   {isFundedClinic && (
-                    <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
+                    <span className="ml-1 text-lime-300 text-[12px]">({t.fundedBonusHpTag})</span>
                   )}
                 </div>
-                <p className="mt-0.5 text-[10px] text-slate-300">
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
                   {t.medbayCalibrateDesc}
                 </p>
               </div>
@@ -581,7 +581,7 @@ export function BioMedBayView({
                   triggerAction('calibrate_max_hp');
                 }}
                 className={`chrome-btn-primary mt-2 w-full rounded-lg font-bold transition-all cursor-pointer ${
-                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
                 {t.applyCalibrate}
@@ -601,20 +601,20 @@ export function BioMedBayView({
                 <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#FFC700] ${
-                      isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
+                      isCompactLandscape ? 'text-xs' : 'text-[13px] sm:text-sm'
                     }`}
                   >
                     {t.medbaySalvageTitle}
                   </h2>
-                  <span className="font-mono-tabular text-[10px] font-bold text-amber-300/80">[3]</span>
+                  <span className="font-mono-tabular text-[12px] font-bold text-amber-300/85">[3]</span>
                 </div>
                 <div className="mt-1.5 font-mono-tabular text-sm font-black text-[#F4F4F6]">
                   ◈ {run.heroine.credits} → {run.heroine.credits + 35} CR
                   {isFundedClinic && (
-                    <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
+                    <span className="ml-1 text-lime-300 text-[12px]">({t.fundedBonusHpTag})</span>
                   )}
                 </div>
-                <p className="mt-0.5 text-[10px] text-slate-300">
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
                   {t.medbaySalvageDesc}
                 </p>
               </div>
@@ -627,7 +627,7 @@ export function BioMedBayView({
                   triggerAction('salvage_credits');
                 }}
                 className={`mt-2 w-full rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] font-bold text-slate-950 shadow-[0_0_20px_rgba(255,199,0,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
-                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
                 {t.applySalvage}
@@ -649,22 +649,22 @@ export function BioMedBayView({
                 <div className="flex items-center justify-between gap-1.5">
                   <h2
                     className={`font-display font-bold text-fuchsia-300 ${
-                      isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
+                      isCompactLandscape ? 'text-xs' : 'text-[13px] sm:text-sm'
                     }`}
                   >
                     {t.medbayOverclockTitle}
                   </h2>
-                  <span className="font-mono-tabular text-[10px] font-bold text-fuchsia-200 border border-fuchsia-400/40 rounded px-1.5 py-0.5">
+                  <span className="font-mono-tabular text-[12px] font-bold text-fuchsia-200 border border-fuchsia-400/40 rounded px-1.5 py-0.5">
                     {overclockStacks}/{MAX_OVERCLOCK_STACKS} · [4]
                   </span>
                 </div>
-                <div className="mt-1.5 font-mono-tabular text-xs font-black text-[#F4F4F6]">
+                <div className="mt-1.5 font-mono-tabular text-[13px] font-black text-[#F4F4F6]">
                   {lang === 'cs' ? '⚔+1 (×2) · ⚡+20% OD · Čištění' : '⚔+1 (×2) · ⚡+20% OD · Cleanse'}
                   {isFundedClinic && (
-                    <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
+                    <span className="ml-1 text-lime-300 text-[12px]">({t.fundedBonusHpTag})</span>
                   )}
                 </div>
-                <p className="mt-0.5 text-[10px] text-slate-300">
+                <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
                   {t.medbayOverclockDesc}
                 </p>
               </div>
@@ -678,7 +678,7 @@ export function BioMedBayView({
                   triggerAction('tile_overclock');
                 }}
                 className={`mt-2 w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all hover:brightness-110 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
-                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
                 {overclockMaxed ? (lang === 'cs' ? 'Max (2/2)' : 'Maxed (2/2)') : t.applyOverclock}
@@ -691,19 +691,19 @@ export function BioMedBayView({
             data-testid="medbay-smart-hearth-panel"
             className="flex flex-wrap items-center gap-1.5 rounded-xl border border-amber-400/35 bg-slate-950/65 px-2.5 py-2"
           >
-            <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-amber-300 shrink-0 mr-1">
+            <span className="font-mono-tabular text-[12px] font-bold uppercase tracking-wider text-amber-300 shrink-0 mr-1">
               🏡 {lang === 'cs' ? 'Rodinný Krb:' : 'Hearth:'}
             </span>
             <button
               type="button"
               data-testid="hearth-grandparents-btn"
               onClick={() => triggerAction('hearth_grandparents')}
-              className="chrome-pill flex-1 min-w-[160px] flex items-center justify-between gap-1.5 rounded-lg border border-amber-300/45 bg-amber-950/25 px-2.5 py-1.5 text-left hover:border-amber-300 cursor-pointer"
+              className="chrome-pill flex-1 min-w-[175px] flex items-center justify-between gap-1.5 rounded-lg border border-amber-300/45 bg-amber-950/25 px-2.5 py-1.5 text-left hover:border-amber-300 cursor-pointer"
             >
-              <span className="font-display text-[11px] font-bold text-amber-200 whitespace-nowrap">
+              <span className="font-display text-[13px] font-bold text-amber-200 whitespace-nowrap">
                 👵 {lang === 'cs' ? 'Prarodiče' : 'Grandparents'}
               </span>
-              <span className="font-mono-tabular text-[10px] font-bold text-[#F4F4F6] truncate">
+              <span className="font-mono-tabular text-[12px] font-bold text-[#F4F4F6] truncate">
                 {lang === 'cs' ? 'Vadný→★ · 💚+10 HP' : 'Dud→★ · 💚+10 HP'}
               </span>
             </button>
@@ -712,12 +712,12 @@ export function BioMedBayView({
               type="button"
               data-testid="hearth-spouse-btn"
               onClick={() => triggerAction('hearth_spouse')}
-              className="chrome-pill flex-1 min-w-[160px] flex items-center justify-between gap-1.5 rounded-lg border border-cyan-300/45 bg-cyan-950/25 px-2.5 py-1.5 text-left hover:border-cyan-300 cursor-pointer"
+              className="chrome-pill flex-1 min-w-[175px] flex items-center justify-between gap-1.5 rounded-lg border border-cyan-300/45 bg-cyan-950/25 px-2.5 py-1.5 text-left hover:border-cyan-300 cursor-pointer"
             >
-              <span className="font-display text-[11px] font-bold text-cyan-200 whitespace-nowrap">
+              <span className="font-display text-[13px] font-bold text-cyan-200 whitespace-nowrap">
                 💍 {lang === 'cs' ? 'Partner' : 'Spouse'}
               </span>
-              <span className="font-mono-tabular text-[10px] font-bold text-[#F4F4F6] truncate">
+              <span className="font-mono-tabular text-[12px] font-bold text-[#F4F4F6] truncate">
                 {lang === 'cs' ? 'ATK×DEF +3 · 💚+14 HP' : 'ATK×DEF +3 · 💚+14 HP'}
               </span>
             </button>
@@ -726,12 +726,12 @@ export function BioMedBayView({
               type="button"
               data-testid="hearth-kids-btn"
               onClick={() => triggerAction('hearth_kids')}
-              className="chrome-pill flex-1 min-w-[160px] flex items-center justify-between gap-1.5 rounded-lg border border-emerald-300/45 bg-emerald-950/25 px-2.5 py-1.5 text-left hover:border-emerald-300 cursor-pointer"
+              className="chrome-pill flex-1 min-w-[175px] flex items-center justify-between gap-1.5 rounded-lg border border-emerald-300/45 bg-emerald-950/25 px-2.5 py-1.5 text-left hover:border-emerald-300 cursor-pointer"
             >
-              <span className="font-display text-[11px] font-bold text-emerald-200 whitespace-nowrap">
+              <span className="font-display text-[13px] font-bold text-emerald-200 whitespace-nowrap">
                 🧒 {lang === 'cs' ? 'Děti' : 'The Kids'}
               </span>
-              <span className="font-mono-tabular text-[10px] font-bold text-[#F4F4F6] truncate">
+              <span className="font-mono-tabular text-[12px] font-bold text-[#F4F4F6] truncate">
                 💚+26 HP · ⚡+30% OD
               </span>
             </button>

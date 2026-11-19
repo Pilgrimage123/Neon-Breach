@@ -649,6 +649,38 @@ export function computeAutoFocusTarget(params: {
   return { zoom: 1, panX: 0, panY: 0 };
 }
 
+function resolveHeroCutInFrameIndex(
+  charId: CharacterId,
+  cutIn: ActorJuiceSnapshot,
+  seqPhase: SequencerFrameState['phase'] | undefined,
+  fallbackIndex: number,
+  heroMode?: string,
+): number {
+  if (charId === 'kira' && heroMode === 'dodge') return fallbackIndex;
+  if (!cutIn.active || cutIn.poseOverride === 'none') return fallbackIndex;
+  const isWindup = seqPhase === 'windup' || seqPhase === 'travel';
+  if (charId === 'aurelia') {
+    if (cutIn.poseOverride === 'attack_pose') return isWindup ? 13 : 14;
+    if (cutIn.poseOverride === 'brace_pose') return 28;
+    if (cutIn.poseOverride === 'recoil_pose') return 21;
+    return fallbackIndex;
+  }
+  if (charId === 'zuri') {
+    if (cutIn.poseOverride === 'attack_pose') return isWindup ? 19 : 20;
+    if (cutIn.poseOverride === 'brace_pose') return 46;
+    if (cutIn.poseOverride === 'recoil_pose') return 2;
+    return fallbackIndex;
+  }
+  // Kira (hybrid melee dash-kick + ranged cyber-pistol)
+  if (cutIn.poseOverride === 'attack_pose') {
+    if (cutIn.isMeleeClash) return isWindup ? 16 : 18;
+    return isWindup ? 9 : 10;
+  }
+  if (cutIn.poseOverride === 'brace_pose') return 22;
+  if (cutIn.poseOverride === 'recoil_pose') return 24;
+  return fallbackIndex;
+}
+
 export function renderCombatStage(
   ctx: CanvasRenderingContext2D,
   sim: CombatStageSim,
@@ -714,6 +746,26 @@ export function renderCombatStage(
     enemies,
     pendingDrops,
   );
+  const heroCutIn = getActorJuice('hero');
+  const isKiraDodging = charId === 'kira' && heroSample.state.mode === 'dodge';
+  const resolvedHeroFrameIndex = resolveHeroCutInFrameIndex(
+    charId,
+    heroCutIn,
+    seqFrame?.phase,
+    heroSample.frameIndex,
+    heroSample.state.mode,
+  );
+  const resolvedHeroFrame = sheetFrames[resolvedHeroFrameIndex] ?? heroFrame;
+  // Single Horizontal Transform Authority: never stack legacy dash xProgress on top of cut-in clashSlideX/knockbackX,
+  // keep 100% ranged heroines (Aurelia/Zuri) planted in formation, and let Kira's dodge slide drive her own horizontal arc.
+  const effectiveHeroXProgress = isKiraDodging
+    ? heroSample.xProgress
+    : heroCutIn.isMeleeClash || (heroCutIn.active && heroCutIn.role === 'target')
+      ? 0
+      : heroCutIn.active && charId === 'aurelia'
+        ? Math.max(-0.06, Math.min(0.06, heroSample.xProgress))
+        : heroSample.xProgress;
+
   const {
     groundY,
     heroBaseX,
@@ -729,11 +781,14 @@ export function renderCombatStage(
     h,
     effectiveSlotCount,
     sim.dashTargetX,
-    heroSample.xProgress,
+    effectiveHeroXProgress,
     heroSample.yHopPx,
-    heroFrame.rowScale,
+    resolvedHeroFrame.rowScale,
     canonicalHeight,
   );
+  const heroCutInDrawX = isKiraDodging
+    ? heroX
+    : heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
 
   ctx.save();
   ctx.scale(dpr, dpr);
@@ -780,17 +835,18 @@ export function renderCombatStage(
     Math.abs(camZoom - 1) > 0.004 ||
     Math.abs(camPanX) > 0.5 ||
     Math.abs(camPanY) > 0.5 ||
-    Math.abs(camRotRad) > 0.0004;
+    Math.abs(camRotRad) > 0.0004 ||
+    Math.abs(totalShakeX) > 0.05 ||
+    Math.abs(totalShakeY) > 0.05;
   if (hasCamTransform) {
-    ctx.translate(w * 0.5 + camPanX, h * 0.5 + camPanY);
+    ctx.translate(w * 0.5 + camPanX + totalShakeX, h * 0.5 + camPanY + totalShakeY);
     if (Math.abs(camRotRad) > 0.0004) {
       ctx.rotate(camRotRad);
     }
-    ctx.scale(camZoom, camZoom);
+    if (Math.abs(camZoom - 1) > 0.004) {
+      ctx.scale(camZoom, camZoom);
+    }
     ctx.translate(-w * 0.5, -h * 0.5);
-  }
-  if (Math.abs(totalShakeX) > 0.05 || Math.abs(totalShakeY) > 0.05) {
-    ctx.translate(totalShakeX, totalShakeY);
   }
 
   // If a separate foreground Canvas2D overlay is active (in hybrid WebGL2 mode), clear & sync its camera transform
@@ -802,15 +858,14 @@ export function renderCombatStage(
     fgCtx.imageSmoothingEnabled = true;
     fgCtx.imageSmoothingQuality = 'high';
     if (hasCamTransform) {
-      fgCtx.translate(w * 0.5 + camPanX, h * 0.5 + camPanY);
+      fgCtx.translate(w * 0.5 + camPanX + totalShakeX, h * 0.5 + camPanY + totalShakeY);
       if (Math.abs(camRotRad) > 0.0004) {
         fgCtx.rotate(camRotRad);
       }
-      fgCtx.scale(camZoom, camZoom);
+      if (Math.abs(camZoom - 1) > 0.004) {
+        fgCtx.scale(camZoom, camZoom);
+      }
       fgCtx.translate(-w * 0.5, -h * 0.5);
-    }
-    if (Math.abs(totalShakeX) > 0.05 || Math.abs(totalShakeY) > 0.05) {
-      fgCtx.translate(totalShakeX, totalShakeY);
     }
   }
 
@@ -924,17 +979,22 @@ export function renderCombatStage(
         : heroSample.frameIndex >= 31);
 
   const frontLivingIdxForDrones = enemies.findIndex((e) => e.hp > 0);
-  const droneTargetX =
+  const frontLivingIdForDrones =
+    frontLivingIdxForDrones >= 0 ? enemies[frontLivingIdxForDrones].id : null;
+  const baseDroneTargetX =
     frontLivingIdxForDrones >= 0
       ? enemyBaseX + (slotCenters[frontLivingIdxForDrones] ?? frontLivingIdxForDrones) * enemyStepX
       : sim.pendingShotTargetX;
+  const droneTargetX = frontLivingIdForDrones
+    ? sim.actionSequencer.getLiveActorX(frontLivingIdForDrones, baseDroneTargetX)
+    : baseDroneTargetX;
   const droneTargetMidY =
     groundY - (frontLivingIdxForDrones >= 0 && frontLivingIdxForDrones % 2 === 1 ? 6 : 0) - 88;
   const zuriDrones =
     charId === 'zuri'
       ? sampleZuriDroneFormation({
           animState: heroSample.state,
-          heroineX: heroX,
+          heroineX: heroCutInDrawX,
           heroineDrawBottomY: heroY,
           groundY,
           targetX: droneTargetX,
@@ -973,40 +1033,47 @@ export function renderCombatStage(
   ctx.rect(0, deckBackY, w, Math.max(12, deckFrontY - deckBackY + 4));
   ctx.clip();
 
+  const reflDimmerAlpha = tacticalViewActive ? 0 : seqFrame?.dimmerAlpha ?? 0;
+
   if (activeFrames && !isProne && !tacticalViewActive) {
-    const rawCanvas = activeFrames[heroSample.frameIndex];
-    const frameCanvas = rawCanvas || activeFrames[0];
-    const refFrame = rawCanvas ? heroFrame : defaultRefFrame;
+    const rawCanvas = activeFrames[resolvedHeroFrameIndex];
+    const frameCanvas = rawCanvas || activeFrames[charId === 'zuri' ? 8 : 0] || activeFrames[0];
+    const refFrame = rawCanvas ? resolvedHeroFrame : defaultRefFrame;
+    const refScale = (heroTargetHeight / canonicalHeight) * refFrame.rowScale;
+    const heroReflDim =
+      heroCutIn.role === 'bystander' && reflDimmerAlpha > 0.01
+        ? Math.max(0.25, 1 - reflDimmerAlpha * 0.85)
+        : 1;
     if (frameCanvas) {
       if (webglRenderer) {
         webglRenderer.drawSprite({
           id: 'refl:hero',
           primarySource: frameCanvas,
-          worldX: heroX,
+          worldX: heroCutInDrawX,
           worldY: groundY + 1,
-          widthPx: refFrame.w * heroDrawScale,
-          heightPx: refFrame.h * heroDrawScale,
-          anchorOffsetXPx: refFrame.anchorX * heroDrawScale,
-          anchorOffsetYPx: refFrame.bottomY * heroDrawScale,
+          widthPx: refFrame.w * refScale * heroCutIn.scaleX,
+          heightPx: refFrame.h * refScale,
+          anchorOffsetXPx: refFrame.anchorX * refScale * heroCutIn.scaleX,
+          anchorOffsetYPx: refFrame.bottomY * refScale,
           facingSign: 1,
-          verticalScaleSign: -0.32 * heroSample.breathScaleY,
+          verticalScaleSign: -0.32 * heroSample.breathScaleY * heroCutIn.scaleY,
           rotationRad: 0,
-          alpha: 0.13,
+          alpha: 0.13 * heroReflDim,
           isReflection: true,
           deform: createIdentityControlPoints(),
           uniforms: createDefaultShaderUniforms(),
         });
       } else {
         ctx.save();
-        ctx.globalAlpha = 0.13;
-        ctx.translate(heroX, groundY + 1);
-        ctx.scale(1, -0.32 * heroSample.breathScaleY);
+        ctx.globalAlpha = 0.13 * heroReflDim;
+        ctx.translate(heroCutInDrawX, groundY + 1);
+        ctx.scale(heroCutIn.scaleX, -0.32 * heroSample.breathScaleY * heroCutIn.scaleY);
         ctx.drawImage(
           frameCanvas,
-          -refFrame.anchorX * heroDrawScale,
-          -refFrame.bottomY * heroDrawScale,
-          refFrame.w * heroDrawScale,
-          refFrame.h * heroDrawScale,
+          -refFrame.anchorX * refScale,
+          -refFrame.bottomY * refScale,
+          refFrame.w * refScale,
+          refFrame.h * refScale,
         );
         ctx.restore();
       }
@@ -1158,6 +1225,29 @@ export function renderCombatStage(
       sample.pustuleGlowIntensity = juiceSample.pustuleGlowIntensity;
       sample.spitStreamProgress = Math.max(sample.spitStreamProgress, juiceSample.spitStreamProgress);
 
+      // Cut-In Presentation Pose Override & Facing Lock (outside Spitter Juice Lab)
+      const spitterCutIn = getActorJuice(enemy.id);
+      if (!ea?.dead && !spitterLabActive && spitterCutIn.active) {
+        juiceSample.facingScale = -1;
+        if (spitterCutIn.isMeleeClash) {
+          juiceSample.offsetX = 0;
+          sample.xOffsetRatio = 0;
+        }
+        if (spitterCutIn.poseOverride !== 'none') {
+          const overrideIdx =
+            spitterCutIn.poseOverride === 'attack_pose'
+              ? spitterCutIn.isMeleeClash
+                ? 9
+                : 6
+              : spitterCutIn.poseOverride === 'brace_pose'
+                ? 10
+                : 12;
+          sample.frameIndex = overrideIdx;
+          sample.frame = SPITTER_SHEET_FRAMES[overrideIdx] ?? sample.frame;
+          sample.frameBlendAlpha = 1;
+        }
+      }
+
       sim.spitterTransitions.set(enemy.id, sample.transitionState);
       spitterSamples.set(enemy.id, sample);
       spitterJuiceSamples.set(enemy.id, juiceSample);
@@ -1263,6 +1353,29 @@ export function renderCombatStage(
       sample.shellGlowIntensity = juiceSample.shellGlowIntensity;
       sample.shockwaveIntensity = Math.max(sample.shockwaveIntensity, juiceSample.shockwaveIntensity);
 
+      // Cut-In Presentation Pose Override & Facing Lock (outside Brute Juice Lab)
+      const bruteCutIn = getActorJuice(enemy.id);
+      if (!ea?.dead && !bruteLabActive && bruteCutIn.active) {
+        juiceSample.facingScale = -1;
+        if (bruteCutIn.isMeleeClash) {
+          juiceSample.offsetX = 0;
+          sample.xOffsetRatio = 0;
+        }
+        if (bruteCutIn.poseOverride !== 'none') {
+          const overrideIdx =
+            bruteCutIn.poseOverride === 'attack_pose'
+              ? ea?.bruteAttackKind === 'heavy' || heavyPrimed
+                ? 10
+                : 11
+              : bruteCutIn.poseOverride === 'brace_pose'
+                ? 7
+                : 12;
+          sample.frameIndex = overrideIdx;
+          sample.frame = BRUTE_SHEET_FRAMES[overrideIdx] ?? sample.frame;
+          sample.frameBlendAlpha = 1;
+        }
+      }
+
       sim.bruteTransitions.set(enemy.id, sample.transitionState);
       bruteSamples.set(enemy.id, sample);
       bruteJuiceSamples.set(enemy.id, juiceSample);
@@ -1274,9 +1387,10 @@ export function renderCombatStage(
     const enemy = enemies[idx];
     const arch = enemy.archetype;
     const ea = sim.enemyAnims.get(enemy.id);
+    const enemyCutIn = getActorJuice(enemy.id);
     const isDead = enemy.hp <= 0;
     const crawlerSample = isCrawlerArchetype(arch)
-      ? sampleCrawlerFrame(arch, ea, elapsed, idx)
+      ? sampleCrawlerFrame(arch, ea, elapsed, idx, enemyCutIn.poseOverride)
       : null;
     const stalkerSample = arch === 'stalker' ? stalkerSamples.get(enemy.id) : undefined;
     const spitterSample = arch === 'spitter' ? spitterSamples.get(enemy.id) : undefined;
@@ -1313,12 +1427,24 @@ export function renderCombatStage(
       (arch === 'stalker' && Boolean(stalkerSample)) ||
       (arch === 'spitter' && Boolean(spitterSample)) ||
       (arch === 'brute' && Boolean(bruteSample));
-    const lunge = ea && !hasCustomSheetMotion ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09) : 0;
+    const suppressNativeShift = enemyCutIn.isMeleeClash;
+    const suppressStaggerDx =
+      enemyCutIn.isMeleeClash || (enemyCutIn.active && enemyCutIn.role === 'target');
+    const lunge =
+      ea && !hasCustomSheetMotion && !suppressNativeShift
+        ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09)
+        : 0;
+    const cutInShiftX = enemyCutIn.active ? enemyCutIn.clashSlideX + enemyCutIn.knockbackX : 0;
+    const reflDimMul =
+      enemyCutIn.role === 'bystander' && reflDimmerAlpha > 0.01
+        ? Math.max(0.22, 1 - reflDimmerAlpha * 0.88)
+        : 1;
     const ex =
       enemyBaseX +
       (slotCenters[idx] ?? idx) * enemyStepX +
       lunge +
-      (hasCustomSheetMotion && ea?.dead ? 0 : stagger.dx);
+      (hasCustomSheetMotion && ea?.dead ? 0 : suppressStaggerDx ? 0 : stagger.dx) +
+      cutInShiftX;
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
     const breathScaleY =
@@ -1332,29 +1458,31 @@ export function renderCombatStage(
       if (!cCanvas) continue;
       const cf = crawlerSample.frame;
       const drawScale = size / CRAWLER_CANONICAL_HEIGHT;
+      const sx = breathScaleX * enemyCutIn.scaleX;
+      const sy = breathScaleY * enemyCutIn.scaleY;
       if (webglRenderer) {
         webglRenderer.drawSprite({
           id: `refl:enemy:${enemy.id}`,
           primarySource: cCanvas,
           worldX: ex,
           worldY: enemyGroundY + 1,
-          widthPx: cf.w * drawScale * breathScaleX,
+          widthPx: cf.w * drawScale * sx,
           heightPx: cf.h * drawScale,
-          anchorOffsetXPx: cf.anchorX * drawScale * breathScaleX,
+          anchorOffsetXPx: cf.anchorX * drawScale * sx,
           anchorOffsetYPx: cf.bottomY * drawScale,
           facingSign: 1,
-          verticalScaleSign: -0.3 * breathScaleY,
+          verticalScaleSign: -0.3 * sy,
           rotationRad: 0,
-          alpha: 0.12 * koAlpha,
+          alpha: 0.12 * koAlpha * reflDimMul,
           isReflection: true,
           deform: createIdentityControlPoints(),
           uniforms: createDefaultShaderUniforms(),
         });
       } else {
         ctx.save();
-        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
         ctx.translate(ex, enemyGroundY + 1);
-        ctx.scale(breathScaleX, -0.3 * breathScaleY);
+        ctx.scale(sx, -0.3 * sy);
         ctx.drawImage(
           cCanvas,
           -cf.anchorX * drawScale,
@@ -1372,9 +1500,10 @@ export function renderCombatStage(
       if (!sCanvas) continue;
       const sf = stalkerSample.frame;
       const drawScale = size / STALKER_CANONICAL_HEIGHT;
-      const rx = ex + stalkerSample.xOffsetRatio * size;
+      const rx = ex + (suppressNativeShift ? 0 : stalkerSample.xOffsetRatio * size);
+      const sx = breathScaleX * stalkerSample.breathScaleX * enemyCutIn.scaleX;
+      const sy = breathScaleY * stalkerSample.breathScaleY * enemyCutIn.scaleY;
       if (webglRenderer) {
-        const sx = breathScaleX * stalkerSample.breathScaleX;
         webglRenderer.drawSprite({
           id: `refl:enemy:${enemy.id}`,
           primarySource: sCanvas,
@@ -1385,21 +1514,18 @@ export function renderCombatStage(
           anchorOffsetXPx: sf.anchorX * drawScale * sx,
           anchorOffsetYPx: sf.bottomY * drawScale,
           facingSign: -1,
-          verticalScaleSign: -0.3 * breathScaleY * stalkerSample.breathScaleY,
+          verticalScaleSign: -0.3 * sy,
           rotationRad: 0,
-          alpha: 0.12 * koAlpha,
+          alpha: 0.12 * koAlpha * reflDimMul,
           isReflection: true,
           deform: createIdentityControlPoints(),
           uniforms: createDefaultShaderUniforms(),
         });
       } else {
         ctx.save();
-        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
         ctx.translate(rx, enemyGroundY + 1);
-        ctx.scale(
-          -breathScaleX * stalkerSample.breathScaleX,
-          -0.3 * breathScaleY * stalkerSample.breathScaleY,
-        );
+        ctx.scale(-sx, -0.3 * sy);
         ctx.drawImage(
           sCanvas,
           -sf.anchorX * drawScale,
@@ -1420,16 +1546,20 @@ export function renderCombatStage(
       const drawScale = size / SPITTER_CANONICAL_HEIGHT;
       const rx =
         ex +
-        (spitterJuice
-          ? spitterJuice.offsetX * drawScale
-          : spitterSample.xOffsetRatio * size);
+        (suppressNativeShift
+          ? 0
+          : spitterJuice
+            ? spitterJuice.offsetX * drawScale
+            : spitterSample.xOffsetRatio * size);
       const facing = spitterJuice ? spitterJuice.facingScale : -1;
-      const sx = spitterJuice
-        ? stagger.scaleXMul * spitterJuice.springScaleX
-        : breathScaleX * spitterSample.breathScaleX;
-      const sy = spitterJuice
-        ? stagger.scaleYMul * spitterJuice.springScaleY
-        : breathScaleY * spitterSample.breathScaleY;
+      const sx =
+        (spitterJuice
+          ? stagger.scaleXMul * spitterJuice.springScaleX
+          : breathScaleX * spitterSample.breathScaleX) * enemyCutIn.scaleX;
+      const sy =
+        (spitterJuice
+          ? stagger.scaleYMul * spitterJuice.springScaleY
+          : breathScaleY * spitterSample.breathScaleY) * enemyCutIn.scaleY;
       if (webglRenderer) {
         webglRenderer.drawSprite({
           id: `refl:enemy:${enemy.id}`,
@@ -1443,14 +1573,14 @@ export function renderCombatStage(
           facingSign: facing,
           verticalScaleSign: -0.3 * sy,
           rotationRad: 0,
-          alpha: 0.12 * koAlpha,
+          alpha: 0.12 * koAlpha * reflDimMul,
           isReflection: true,
           deform: createIdentityControlPoints(),
           uniforms: createDefaultShaderUniforms(),
         });
       } else {
         ctx.save();
-        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
         ctx.translate(rx, enemyGroundY + 1);
         ctx.scale(facing * sx, -0.3 * sy);
         ctx.drawImage(
@@ -1473,16 +1603,20 @@ export function renderCombatStage(
       const drawScale = size / BRUTE_CANONICAL_HEIGHT;
       const rx =
         ex +
-        (bruteJuice
-          ? bruteJuice.offsetX * drawScale
-          : bruteSample.xOffsetRatio * size);
+        (suppressNativeShift
+          ? 0
+          : bruteJuice
+            ? bruteJuice.offsetX * drawScale
+            : bruteSample.xOffsetRatio * size);
       const facing = bruteJuice ? bruteJuice.facingScale : -1;
-      const sx = bruteJuice
-        ? stagger.scaleXMul * bruteJuice.springScaleX
-        : breathScaleX * bruteSample.breathScaleX;
-      const sy = bruteJuice
-        ? stagger.scaleYMul * bruteJuice.springScaleY
-        : breathScaleY * bruteSample.breathScaleY;
+      const sx =
+        (bruteJuice
+          ? stagger.scaleXMul * bruteJuice.springScaleX
+          : breathScaleX * bruteSample.breathScaleX) * enemyCutIn.scaleX;
+      const sy =
+        (bruteJuice
+          ? stagger.scaleYMul * bruteJuice.springScaleY
+          : breathScaleY * bruteSample.breathScaleY) * enemyCutIn.scaleY;
       if (webglRenderer) {
         webglRenderer.drawSprite({
           id: `refl:enemy:${enemy.id}`,
@@ -1496,14 +1630,14 @@ export function renderCombatStage(
           facingSign: facing,
           verticalScaleSign: -0.3 * sy,
           rotationRad: 0,
-          alpha: 0.12 * koAlpha,
+          alpha: 0.12 * koAlpha * reflDimMul,
           isReflection: true,
           deform: createIdentityControlPoints(),
           uniforms: createDefaultShaderUniforms(),
         });
       } else {
         ctx.save();
-        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
         ctx.translate(rx, enemyGroundY + 1);
         ctx.scale(facing * sx, -0.3 * sy);
         ctx.drawImage(
@@ -1522,29 +1656,34 @@ export function renderCombatStage(
     if (!entry) continue;
 
     if (webglRenderer) {
+      const sx = breathScaleX * enemyCutIn.scaleX;
+      const sy = breathScaleY * enemyCutIn.scaleY;
       webglRenderer.drawSprite({
         id: `refl:enemy:${enemy.id}`,
         primarySource: entry.canvas,
         worldX: ex,
         worldY: enemyGroundY + 1,
-        widthPx: size * breathScaleX,
+        widthPx: size * sx,
         heightPx: size,
-        anchorOffsetXPx: size * entry.bounds.centerXRatio * breathScaleX,
+        anchorOffsetXPx: size * entry.bounds.centerXRatio * sx,
         anchorOffsetYPx: size * entry.bounds.bottomRatio,
         facingSign: enemy.archetype === 'brute' ? -1 : 1,
-        verticalScaleSign: -0.3 * breathScaleY,
+        verticalScaleSign: -0.3 * sy,
         rotationRad: -stagger.rot * 0.45,
-        alpha: 0.12 * koAlpha,
+        alpha: 0.12 * koAlpha * reflDimMul,
         isReflection: true,
         deform: createIdentityControlPoints(),
         uniforms: createDefaultShaderUniforms(),
       });
     } else {
       ctx.save();
-      ctx.globalAlpha = 0.12 * koAlpha;
+      ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
       ctx.translate(ex, enemyGroundY + 1);
       ctx.rotate(-stagger.rot * 0.45);
-      ctx.scale(enemy.archetype === 'brute' ? -breathScaleX : breathScaleX, -0.3 * breathScaleY);
+      ctx.scale(
+        (enemy.archetype === 'brute' ? -breathScaleX : breathScaleX) * enemyCutIn.scaleX,
+        -0.3 * breathScaleY * enemyCutIn.scaleY,
+      );
       ctx.drawImage(
         entry.canvas,
         -size * entry.bounds.centerXRatio,
@@ -1730,18 +1869,18 @@ export function renderCombatStage(
     baseCtx.restore();
   }
 
-  // 3. Heroine Contact Shadows, Preview Aura & Sprite
+  // 3. Heroine Contact Shadows, Preview Aura & Sprite (anchored to live heroCutInDrawX)
   const shadowRadiusX = isProne ? heroTargetHeight * 0.54 : heroTargetHeight * 0.32;
   ctx.fillStyle = 'rgba(3, 7, 18, 0.68)';
   ctx.beginPath();
-  ctx.ellipse(heroX, groundY - 1, shadowRadiusX, 8.5, 0, 0, Math.PI * 2);
+  ctx.ellipse(heroCutInDrawX, groundY - 1, shadowRadiusX, 8.5, 0, 0, Math.PI * 2);
   ctx.fill();
 
   if (!isProne && charId !== 'zuri' && heroSample.yHopPx >= -2) {
     ctx.fillStyle = 'rgba(2, 5, 14, 0.85)';
     ctx.beginPath();
     ctx.ellipse(
-      heroX - 18 * heroDrawScale,
+      heroCutInDrawX - 18 * heroDrawScale,
       groundY - 5 * heroDrawScale,
       14 * heroDrawScale,
       4.2 * heroDrawScale,
@@ -1753,7 +1892,7 @@ export function renderCombatStage(
 
     ctx.beginPath();
     ctx.ellipse(
-      heroX + 17 * heroDrawScale,
+      heroCutInDrawX + 17 * heroDrawScale,
       groundY + 0.5,
       15 * heroDrawScale,
       4.5 * heroDrawScale,
@@ -1766,7 +1905,7 @@ export function renderCombatStage(
     ctx.strokeStyle = 'rgba(0, 229, 255, 0.26)';
     ctx.lineWidth = 1.25;
     ctx.beginPath();
-    ctx.ellipse(heroX, groundY - 1, shadowRadiusX * 0.92, 6.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(heroCutInDrawX, groundY - 1, shadowRadiusX * 0.92, 6.5, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -1779,7 +1918,7 @@ export function renderCombatStage(
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.ellipse(
-      heroX,
+      heroCutInDrawX,
       groundY - 1,
       shadowRadiusX * (0.62 + (1 - altitudeFactor) * 0.4),
       5.5 * altitudeFactor,
@@ -1845,17 +1984,22 @@ export function renderCombatStage(
     ctx.fillRect(heroX - heroTargetHeight * 0.35, groundY - heroTargetHeight * 1.25, heroTargetHeight * 0.7, heroTargetHeight * 1.25);
   }
 
-  // Sprint & back-dash afterimages
+  // Sprint, dodge & back-dash cyan afterimages
   if (activeFrames && sim.ghosts.length > 0) {
     for (let i = 0; i < sim.ghosts.length; i++) {
       const g = sim.ghosts[i];
       const gf = sheetFrames[g.frameIndex] ?? defaultRefFrame;
       const gCanvas = activeFrames[g.frameIndex];
       if (!gCanvas) continue;
+      const isDodgeGhost = Boolean(g.isDodge) || isKiraDodging || gf.sheet === 'dodge';
+      const ghostAlpha = Math.min(0.85, g.alpha * (isDodgeGhost ? 0.82 : 0.45));
       if (webglRenderer) {
         const ghostUniforms = createDefaultShaderUniforms();
-        ghostUniforms.tintRgba = [0.65, 0.95, 1.0, 1.0];
-        ghostUniforms.uvDistortAmp = [0.004, 0.002];
+        ghostUniforms.tintRgba = isDodgeGhost ? [0.10, 0.96, 1.0, 1.0] : [0.65, 0.95, 1.0, 1.0];
+        if (isDodgeGhost) {
+          ghostUniforms.flashRgba = [0.0, 0.96, 1.0, 0.54];
+        }
+        ghostUniforms.uvDistortAmp = isDodgeGhost ? [0.005, 0.002] : [0.004, 0.002];
         ghostUniforms.uvDistortFreq = 18;
         ghostUniforms.uvDistortPhase = elapsed * 10 + i;
         webglRenderer.drawSprite({
@@ -1869,13 +2013,17 @@ export function renderCombatStage(
           anchorOffsetYPx: gf.bottomY * g.drawScale,
           facingSign: 1,
           rotationRad: 0,
-          alpha: g.alpha * 0.45,
+          alpha: ghostAlpha,
+          drawPriority: isDodgeGhost ? Math.max(1, heroCutIn.drawPriority) : undefined,
           deform: createIdentityControlPoints(),
           uniforms: ghostUniforms,
         });
       } else {
         ctx.save();
-        ctx.globalAlpha = g.alpha * 0.45;
+        ctx.globalAlpha = ghostAlpha;
+        if (isDodgeGhost) {
+          ctx.filter = 'drop-shadow(0 0 8px #00F0FF) brightness(1.3) saturate(1.4)';
+        }
         ctx.translate(g.x, g.y);
         ctx.drawImage(
           gCanvas,
@@ -1890,22 +2038,23 @@ export function renderCombatStage(
   }
 
   // Main Heroine Sprite (with sub-frame pose cross-blending & C1 micro-kinematics + cut-in presentation)
-  const heroCutIn = getActorJuice('hero');
-  const heroCutInDrawX = heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
   if (activeFrames) {
-    const rawCanvas = activeFrames[heroSample.frameIndex];
+    const rawCanvas = activeFrames[resolvedHeroFrameIndex];
     const frameCanvas = rawCanvas || activeFrames[charId === 'zuri' ? 8 : 0] || activeFrames[0];
-    const drawFrame = rawCanvas ? heroFrame : defaultRefFrame;
+    const drawFrame = rawCanvas ? resolvedHeroFrame : defaultRefFrame;
     const drawScale = (heroTargetHeight / canonicalHeight) * drawFrame.rowScale;
 
     if (frameCanvas) {
       const blendA = heroSample.frameBlendAlpha;
       const canCrossBlend =
+        (isKiraDodging || heroCutIn.poseOverride === 'none') &&
         !heroSample.isDashing &&
         blendA < 0.99 &&
-        heroSample.prevFrameIndex !== heroSample.frameIndex;
+        heroSample.prevFrameIndex !== resolvedHeroFrameIndex;
       const prevCanvas = canCrossBlend ? activeFrames[heroSample.prevFrameIndex] : null;
-      const heroTotalTiltRad = heroSample.tiltRad + heroCutIn.leanRad;
+      const heroTotalTiltRad = isKiraDodging
+        ? heroSample.tiltRad
+        : heroSample.tiltRad + heroCutIn.leanRad;
 
       if (webglRenderer) {
         const { deform, uniforms } = deriveHeroineDeformAndUniforms({
@@ -1940,14 +2089,20 @@ export function renderCombatStage(
         });
       } else {
         ctx.save();
-        if (heroCutIn.role === 'bystander' && dimmerAlpha > 0.01) {
+        if (!isKiraDodging && heroCutIn.role === 'bystander' && dimmerAlpha > 0.01) {
           ctx.globalAlpha = Math.max(0.24, 1 - dimmerAlpha * 0.92);
         }
         ctx.translate(heroCutInDrawX, heroY);
         if (Math.abs(heroTotalTiltRad) > 0.0005) {
           ctx.rotate(heroTotalTiltRad);
         }
-        ctx.scale(heroSample.breathScaleX * heroCutIn.scaleX, heroSample.breathScaleY * heroCutIn.scaleY);
+        const drawScaleX = isKiraDodging
+          ? heroSample.breathScaleX
+          : heroSample.breathScaleX * heroCutIn.scaleX;
+        const drawScaleY = isKiraDodging
+          ? heroSample.breathScaleY
+          : heroSample.breathScaleY * heroCutIn.scaleY;
+        ctx.scale(drawScaleX, drawScaleY);
 
         if (prevCanvas) {
           const pf = heroSample.prevFrame;
@@ -1972,14 +2127,16 @@ export function renderCombatStage(
         );
         ctx.globalAlpha = 1;
 
-        if (heroCutIn.flashRgba) {
-          drawCanvas2DCutInFlash(ctx, heroCutIn.flashRgba, heroTargetHeight * 0.36, -heroTargetHeight * 0.48);
-        } else if (sim.heroAnim.flashTimer > 0) {
-          ctx.globalCompositeOperation = 'lighter';
-          ctx.fillStyle = 'rgba(255, 160, 190, 0.38)';
-          ctx.beginPath();
-          ctx.arc(0, -heroTargetHeight * 0.48, heroTargetHeight * 0.34, 0, Math.PI * 2);
-          ctx.fill();
+        if (!isKiraDodging) {
+          if (heroCutIn.flashRgba) {
+            drawCanvas2DCutInFlash(ctx, heroCutIn.flashRgba, heroTargetHeight * 0.36, -heroTargetHeight * 0.48);
+          } else if (sim.heroAnim.flashTimer > 0) {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = 'rgba(255, 160, 190, 0.38)';
+            ctx.beginPath();
+            ctx.arc(0, -heroTargetHeight * 0.48, heroTargetHeight * 0.34, 0, Math.PI * 2);
+            ctx.fill();
+          }
         }
         ctx.restore();
       }
@@ -1988,10 +2145,14 @@ export function renderCombatStage(
 
   // 3.5 Zuri's Afrofuturist Tri-Drone Formation (Shield Walker, Bio-Med Rotor, Solar Hawk Gunship)
   if (zuriDrones && sim.zuriDroneFrames && heroine.hp > 0) {
-    const controllerX = heroX + (heroFrame.muzzleRel?.dx ?? 118) * heroDrawScale;
-    const controllerY = heroY + (heroFrame.muzzleRel?.dy ?? -162) * heroDrawScale;
+    const controllerX = heroCutInDrawX + (resolvedHeroFrame.muzzleRel?.dx ?? 118) * heroDrawScale;
+    const controllerY = heroY + (resolvedHeroFrame.muzzleRel?.dy ?? -162) * heroDrawScale;
     const droneOrder = [zuriDrones.med, zuriDrones.shield, zuriDrones.strike] as const;
     const droneCanvasIndices = [1, 0, 2] as const;
+    const droneBystanderMul =
+      heroCutIn.role === 'bystander' && dimmerAlpha > 0.01
+        ? Math.max(0.24, 1 - dimmerAlpha * 0.92)
+        : 1;
 
     for (let dIdx = 0; dIdx < droneOrder.length; dIdx++) {
       const pose = droneOrder[dIdx];
@@ -2021,15 +2182,15 @@ export function renderCombatStage(
       // Bio-Med Drone green nanite repair cone onto Zuri during TECH / Overdrive
       if (pose.id === 'med' && (heroSample.state.mode === 'upgrade' || heroSample.state.mode === 'overdrive')) {
         fgCtx.save();
-        const medBeamGrad = fgCtx.createLinearGradient(pose.x, pose.y, heroX, heroY - heroTargetHeight * 0.45);
+        const medBeamGrad = fgCtx.createLinearGradient(pose.x, pose.y, heroCutInDrawX, heroY - heroTargetHeight * 0.45);
         medBeamGrad.addColorStop(0, 'rgba(16, 185, 129, 0.44)');
         medBeamGrad.addColorStop(1, 'rgba(16, 185, 129, 0.03)');
         fgCtx.fillStyle = medBeamGrad;
         fgCtx.beginPath();
         fgCtx.moveTo(pose.x - 10 * baseScale, pose.y + 10 * baseScale);
         fgCtx.lineTo(pose.x + 10 * baseScale, pose.y + 10 * baseScale);
-        fgCtx.lineTo(heroX + 26 * baseScale, heroY - heroTargetHeight * 0.25);
-        fgCtx.lineTo(heroX - 26 * baseScale, heroY - heroTargetHeight * 0.25);
+        fgCtx.lineTo(heroCutInDrawX + 26 * baseScale, heroY - heroTargetHeight * 0.25);
+        fgCtx.lineTo(heroCutInDrawX - 26 * baseScale, heroY - heroTargetHeight * 0.25);
         fgCtx.closePath();
         fgCtx.fill();
         fgCtx.restore();
@@ -2047,6 +2208,10 @@ export function renderCombatStage(
 
       if (webglRenderer) {
         const droneUniforms = createDefaultShaderUniforms();
+        if (heroCutIn.role === 'bystander' && dimmerAlpha > 0.01) {
+          const dm = Math.max(0.28, 1 - dimmerAlpha * 0.85);
+          droneUniforms.tintRgba = [dm, dm, dm * 1.05, 1];
+        }
         if (pose.activeGlow > 0.65) {
           droneUniforms.flashRgba =
             pose.id === 'strike'
@@ -2067,11 +2232,13 @@ export function renderCombatStage(
           facingSign: 1,
           rotationRad: Math.abs(pose.tiltRad) > 0.001 ? pose.tiltRad : 0,
           alpha: 1,
+          drawPriority: heroCutIn.drawPriority,
           deform: createIdentityControlPoints(),
           uniforms: droneUniforms,
         });
       } else {
         ctx.save();
+        ctx.globalAlpha = droneBystanderMul;
         ctx.translate(pose.x, pose.y);
         if (Math.abs(pose.tiltRad) > 0.001) {
           ctx.rotate(pose.tiltRad);
@@ -2088,11 +2255,16 @@ export function renderCombatStage(
     }
   }
 
-  // Active Cyan Hexagonal Shield Dome (for Zuri, her Shield Walker Drone & DEFEND sprite already render native hex barriers, so keep procedural overlay subtle)
-  if ((heroine.shield > 0 || sim.shieldDomeTimer > 0) && heroine.hp > 0 && !(zuriDrones && heroSample.state.mode === 'guard')) {
+  // Active Cyan Hexagonal Shield Dome (suppressed during Kira's evasive dodge so no dome obscures her Vault/Slide/Land)
+  if (
+    (heroine.shield > 0 || sim.shieldDomeTimer > 0) &&
+    heroine.hp > 0 &&
+    !isKiraDodging &&
+    !(zuriDrones && heroSample.state.mode === 'guard')
+  ) {
     const rawPulse = sim.shieldDomeTimer > 0 ? 0.5 + 0.5 * (sim.shieldDomeTimer / 0.48) : 0.22;
     const pulse = zuriDrones ? rawPulse * 0.55 : rawPulse;
-    const domeCenterX = zuriDrones ? zuriDrones.shield.x + 16 * baseScale : heroX + 8;
+    const domeCenterX = zuriDrones ? zuriDrones.shield.x + 16 * baseScale : heroCutInDrawX + 8;
     fgCtx.save();
     fgCtx.translate(domeCenterX, groundY - heroTargetHeight * 0.48);
     fgCtx.strokeStyle = `rgba(0, 229, 255, ${pulse})`;
@@ -2172,7 +2344,7 @@ export function renderCombatStage(
     ctx.strokeRect(barX - 0.5, barY - 0.5, barW + 1, barH + 1);
 
     if (hasThreatOrHeal) {
-      ctx.font = '700 10px "JetBrains Mono", monospace';
+      ctx.font = '700 12px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       let label = '';
       let labelColor = '#FDA4AF';
@@ -2192,9 +2364,9 @@ export function renderCombatStage(
       if (label) {
         ctx.strokeStyle = 'rgba(2, 6, 23, 0.92)';
         ctx.lineWidth = 3;
-        ctx.strokeText(label, heroX, barY + barH + 11);
+        ctx.strokeText(label, heroX, barY + barH + 12);
         ctx.fillStyle = labelColor;
-        ctx.fillText(label, heroX, barY + barH + 11);
+        ctx.fillText(label, heroX, barY + barH + 12);
       }
     }
     ctx.restore();
@@ -2253,8 +2425,16 @@ export function renderCombatStage(
       (isStalker && Boolean(stalkerSample)) ||
       (isSpitter && Boolean(spitterSample)) ||
       (isBrute && Boolean(bruteSample));
+    // Single Horizontal Transform Authority: suppress duplicate native lunge/stagger/offsetX during cut-in clashes
+    const suppressNativeShift = enemyCutIn.isMeleeClash;
+    const suppressStaggerDx =
+      enemyCutIn.isMeleeClash || (enemyCutIn.active && enemyCutIn.role === 'target');
     const lunge =
-      ea && !(isStalker && stalkerSample) && !(isSpitter && spitterSample) && !(isBrute && bruteSample)
+      ea &&
+      !suppressNativeShift &&
+      !(isStalker && stalkerSample) &&
+      !(isSpitter && spitterSample) &&
+      !(isBrute && bruteSample)
         ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09)
         : 0;
     const cutInShiftX = enemyCutIn.active ? enemyCutIn.clashSlideX + enemyCutIn.knockbackX : 0;
@@ -2266,23 +2446,25 @@ export function renderCombatStage(
       enemyBaseX +
       (slotCenters[idx] ?? idx) * enemyStepX +
       lunge +
-      (hasSheetSample && ea?.dead ? 0 : stagger.dx);
+      (hasSheetSample && ea?.dead ? 0 : suppressStaggerDx ? 0 : stagger.dx);
     const spitterJuiceForPos = isSpitter ? spitterJuiceSamples.get(enemy.id) : undefined;
     const bruteJuiceForPos = isBrute ? bruteJuiceSamples.get(enemy.id) : undefined;
     const spriteX =
       ex +
       cutInShiftX +
-      (stalkerSample
-        ? stalkerSample.xOffsetRatio * size
-        : spitterJuiceForPos
-          ? spitterJuiceForPos.offsetX * (size / SPITTER_CANONICAL_HEIGHT)
-          : spitterSample
-            ? spitterSample.xOffsetRatio * size
-            : bruteJuiceForPos
-              ? bruteJuiceForPos.offsetX * (size / BRUTE_CANONICAL_HEIGHT)
-              : bruteSample
-                ? bruteSample.xOffsetRatio * size
-                : 0);
+      (suppressNativeShift
+        ? 0
+        : stalkerSample
+          ? stalkerSample.xOffsetRatio * size
+          : spitterJuiceForPos
+            ? spitterJuiceForPos.offsetX * (size / SPITTER_CANONICAL_HEIGHT)
+            : spitterSample
+              ? spitterSample.xOffsetRatio * size
+              : bruteJuiceForPos
+                ? bruteJuiceForPos.offsetX * (size / BRUTE_CANONICAL_HEIGHT)
+                : bruteSample
+                  ? bruteSample.xOffsetRatio * size
+                  : 0);
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
     const breathScaleY =
@@ -2448,6 +2630,7 @@ export function renderCombatStage(
             elapsed,
             tacticalViewActive,
             cutIn: enemyCutIn,
+            facingSign: 1,
           });
           webglRenderer.drawSprite({
             id: `enemy:${enemy.id}`,
@@ -2569,6 +2752,7 @@ export function renderCombatStage(
             elapsed,
             tacticalViewActive,
             cutIn: enemyCutIn,
+            facingSign: -1,
           });
           webglRenderer.drawSprite({
             id: `enemy:${enemy.id}`,
@@ -2755,6 +2939,7 @@ export function renderCombatStage(
             tacticalViewActive,
             spitterJuice,
             cutIn: enemyCutIn,
+            facingSign: juiceFacing,
           });
           webglRenderer.drawSprite({
             id: `enemy:${enemy.id}`,
@@ -2861,7 +3046,7 @@ export function renderCombatStage(
           const headDeformDy = spitterJuice ? spitterJuice.deform.head.dy * drawScale : 0;
           const mouthX = spitterWorldX + sf.mouthOriginRel.dx * drawScale * (-juiceFacing) + headDeformDx;
           const mouthY = enemyGroundY + hopY + sf.mouthOriginRel.dy * drawScale + headDeformDy;
-          const heroImpactX = heroX + 18 * baseScale;
+          const heroImpactX = heroCutInDrawX + 18 * baseScale;
           const heroImpactY = groundY - heroTargetHeight * 0.48;
           renderSpitterBileTorrent(fgCtx, sim, {
             mouthX,
@@ -3047,6 +3232,7 @@ export function renderCombatStage(
             tacticalViewActive,
             bruteJuice,
             cutIn: enemyCutIn,
+            facingSign: juiceFacing,
           });
           webglRenderer.drawSprite({
             id: `enemy:${enemy.id}`,
@@ -3149,6 +3335,9 @@ export function renderCombatStage(
       }
     } else if (entry) {
       const bossWorldX = ex + cutInShiftX;
+      const bossFacingSign = enemy.archetype === 'brute' ? -1 : 1;
+      const bossCutInBoost =
+        arch === 'boss' && enemyCutIn.poseOverride === 'attack_pose' ? 1.06 : 1;
       if (webglRenderer) {
         const { deform, uniforms } = deriveEnemyDeformAndUniforms({
           archetype: arch,
@@ -3157,8 +3346,8 @@ export function renderCombatStage(
           isDead,
           staggerShearPx: stagger.shearPx,
           staggerBioFlashAlpha: stagger.bioFlashAlpha,
-          breathScaleX,
-          breathScaleY,
+          breathScaleX: breathScaleX * bossCutInBoost,
+          breathScaleY: breathScaleY * bossCutInBoost,
           frameBlendAlpha: 1,
           bioEmissiveRgb,
           isPrimedOrCharging,
@@ -3167,6 +3356,7 @@ export function renderCombatStage(
           elapsed,
           tacticalViewActive,
           cutIn: enemyCutIn,
+          facingSign: bossFacingSign,
         });
         webglRenderer.drawSprite({
           id: `enemy:${enemy.id}`,
@@ -3177,7 +3367,7 @@ export function renderCombatStage(
           heightPx: size,
           anchorOffsetXPx: size * centerXRatio,
           anchorOffsetYPx: size * bottomRatio,
-          facingSign: enemy.archetype === 'brute' ? -1 : 1,
+          facingSign: bossFacingSign,
           rotationRad: stagger.rot + enemyCutIn.leanRad,
           alpha: koAlpha,
           drawPriority: enemyCutIn.drawPriority,
@@ -3190,8 +3380,8 @@ export function renderCombatStage(
         ctx.translate(bossWorldX, enemyGroundY + koOffsetY + stagger.dy);
         ctx.rotate(stagger.rot + enemyCutIn.leanRad);
         ctx.scale(
-          (enemy.archetype === 'brute' ? -breathScaleX : breathScaleX) * enemyCutIn.scaleX,
-          breathScaleY * enemyCutIn.scaleY,
+          bossFacingSign * breathScaleX * bossCutInBoost * enemyCutIn.scaleX,
+          breathScaleY * bossCutInBoost * enemyCutIn.scaleY,
         );
         ctx.drawImage(entry.canvas, -size * centerXRatio, -size * bottomRatio, size, size);
 
@@ -3382,9 +3572,9 @@ export function renderCombatStage(
         ctx.strokeRect(barX - 0.5, armorBarY - 0.5, barW + 1, armorBarH + 1);
 
         // Hexagonal/Shield Armor Crest Badge pinned to left of bars
-        const crestX = barX - 9;
+        const crestX = barX - 10.5;
         const crestY = barY + 0.5;
-        const crestR = 8.2;
+        const crestR = 9.6;
         ctx.save();
         ctx.beginPath();
         ctx.moveTo(crestX, crestY - crestR);
@@ -3400,7 +3590,7 @@ export function renderCombatStage(
         ctx.lineWidth = 1.4;
         ctx.stroke();
 
-        ctx.font = '700 9px "JetBrains Mono", monospace';
+        ctx.font = '700 11.5px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = willBreakArmor ? '#FF85B3' : armorAbsorbed > 0 ? '#FEF08A' : '#FFC700';
@@ -3476,7 +3666,7 @@ export function renderCombatStage(
       ctx.strokeRect(barX - 0.5, barY - 0.5, barW + 1, barH + 1);
 
       if (rawPreviewDmg > 0) {
-        ctx.font = '700 10px "JetBrains Mono", monospace';
+        ctx.font = '700 12px "JetBrains Mono", monospace';
         ctx.textAlign = 'center';
         let label = `-${previewHpLoss} HP`;
         let labelColor = '#FDA4AF';
@@ -4044,16 +4234,16 @@ export function renderCombatStage(
 
     if (!dropIntelHorizon.revealSlot) {
       const warnX = enemyBaseX + enemyStepX * 0.5;
-      const warnY = 26 + dIdx * 18;
+      const warnY = 26 + dIdx * 22;
       ctx.save();
-      ctx.font = '800 10px "JetBrains Mono", monospace';
+      ctx.font = '800 12px "JetBrains Mono", monospace';
       const label = `⚠ ORBITAL DROP · T-${drop.turnsUntilDrop}`;
-      const lw = ctx.measureText(label).width + 14;
+      const lw = ctx.measureText(label).width + 16;
       ctx.fillStyle = 'rgba(7, 14, 34, 0.88)';
       ctx.strokeStyle = `rgba(${beamColor}, 0.9)`;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.roundRect(warnX - lw * 0.5, warnY - 9, lw, 18, 5);
+      ctx.roundRect(warnX - lw * 0.5, warnY - 10.5, lw, 21, 5);
       ctx.fill();
       ctx.stroke();
       ctx.fillStyle = '#FEF08A';
@@ -4089,32 +4279,32 @@ export function renderCombatStage(
     ctx.setLineDash([]);
 
     // Holographic chevron diamond hovering in landing column
-    const bobY = dy - 56 + Math.sin(elapsed * 4 + dIdx) * 4;
+    const bobY = dy - 58 + Math.sin(elapsed * 4 + dIdx) * 4;
     ctx.fillStyle = 'rgba(7, 14, 34, 0.85)';
     ctx.strokeStyle = `rgba(${beamColor}, 0.92)`;
     ctx.lineWidth = 1.8;
     ctx.beginPath();
-    ctx.moveTo(dx, bobY - 16);
-    ctx.lineTo(dx + 16, bobY);
-    ctx.lineTo(dx, bobY + 16);
-    ctx.lineTo(dx - 16, bobY);
+    ctx.moveTo(dx, bobY - 19);
+    ctx.lineTo(dx + 19, bobY);
+    ctx.lineTo(dx, bobY + 19);
+    ctx.lineTo(dx - 19, bobY);
     ctx.closePath();
     ctx.fill();
     ctx.stroke();
 
-    ctx.font = '800 10px "JetBrains Mono", monospace';
+    ctx.font = '800 12px "JetBrains Mono", monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = drop.isZeroReward ? '#FDA4AF' : '#FEF08A';
     ctx.fillText(`T-${drop.turnsUntilDrop}`, dx, bobY + 0.5);
 
-    ctx.font = '700 9px "JetBrains Mono", monospace';
+    ctx.font = '700 11px "JetBrains Mono", monospace';
     ctx.strokeStyle = 'rgba(2, 6, 23, 0.95)';
     ctx.lineWidth = 3;
     const archTag = dropIntelHorizon.revealArchetype ? drop.archetype.toUpperCase() : '???';
-    ctx.strokeText(archTag, dx, dy + 14);
+    ctx.strokeText(archTag, dx, dy + 15);
     ctx.fillStyle = drop.isZeroReward ? '#FDA4AF' : '#FDBA74';
-    ctx.fillText(archTag, dx, dy + 14);
+    ctx.fillText(archTag, dx, dy + 15);
     ctx.restore();
   }
 
@@ -4150,27 +4340,97 @@ export function renderCombatStage(
   }
   ctx.restore();
 
-  // 5. Plasma Pistol Tracer Bolts (3-pass layered glow, zero CPU shadowBlur)
+  // 5. Styled Ranged Projectiles (Scattergun Pellets, Drone Plasma, Pistol Bolts, Acid Bile Globules, Stinger Darts)
   ctx.save();
   ctx.lineCap = 'round';
   for (let i = 0; i < BOLT_POOL_SIZE; i++) {
     const b = sim.bolts[i];
     if (!b.active) continue;
     const p = b.life / b.maxLife;
-    const tailP = Math.max(0, p - 0.42);
+    const style = b.style ?? 'pistol_bolt';
+
+    if (style === 'acid_bile') {
+      const tailP = Math.max(0, p - 0.34);
+      const tx = b.startX + (b.targetX - b.startX) * tailP;
+      const ty = b.startY + (b.targetY - b.startY) * tailP;
+      ctx.globalAlpha = 0.34;
+      ctx.strokeStyle = '#A3E635';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.92;
+      ctx.fillStyle = b.color || '#BEF264';
+      ctx.beginPath();
+      ctx.ellipse(b.x, b.y, 10.5, 6.2, Math.atan2(b.targetY - b.startY, b.targetX - b.startX), 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.globalAlpha = 0.98;
+      ctx.fillStyle = '#FEF08A';
+      ctx.beginPath();
+      ctx.arc(b.x, b.y, 3.8, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
+
+    if (style === 'stinger_dart') {
+      const tailP = Math.max(0, p - 0.38);
+      const tx = b.startX + (b.targetX - b.startX) * tailP;
+      const ty = b.startY + (b.targetY - b.startY) * tailP;
+      const ang = Math.atan2(b.targetY - b.startY, b.targetX - b.startX);
+
+      ctx.globalAlpha = 0.32;
+      ctx.strokeStyle = '#FB923C';
+      ctx.lineWidth = 9;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.95;
+      ctx.strokeStyle = b.color || '#F59E0B';
+      ctx.lineWidth = 3.6;
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(b.x, b.y);
+      ctx.stroke();
+
+      ctx.save();
+      ctx.translate(b.x, b.y);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#FEF3C7';
+      ctx.beginPath();
+      ctx.moveTo(11, 0);
+      ctx.lineTo(-4, -3.2);
+      ctx.lineTo(-1, 0);
+      ctx.lineTo(-4, 3.2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
+
+    const tailSpan = style === 'scattergun' ? 0.30 : style === 'drone_plasma' ? 0.48 : 0.42;
+    const outerWidth = style === 'scattergun' ? 10 : style === 'drone_plasma' ? 11 : 13;
+    const midWidth = style === 'scattergun' ? 4.8 : style === 'drone_plasma' ? 5.2 : 6.2;
+    const coreWidth = style === 'scattergun' ? 2.0 : 2.4;
+    const tailP = Math.max(0, p - tailSpan);
     const tx = b.startX + (b.targetX - b.startX) * tailP;
     const ty = b.startY + (b.targetY - b.startY) * tailP;
 
     ctx.globalAlpha = 0.28;
     ctx.strokeStyle = b.color;
-    ctx.lineWidth = 13;
+    ctx.lineWidth = outerWidth;
     ctx.beginPath();
     ctx.moveTo(tx, ty);
     ctx.lineTo(b.x, b.y);
     ctx.stroke();
 
     ctx.globalAlpha = 0.92;
-    ctx.lineWidth = 6.2;
+    ctx.lineWidth = midWidth;
     ctx.beginPath();
     ctx.moveTo(tx, ty);
     ctx.lineTo(b.x, b.y);
@@ -4178,7 +4438,7 @@ export function renderCombatStage(
 
     ctx.globalAlpha = 1;
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2.4;
+    ctx.lineWidth = coreWidth;
     ctx.beginPath();
     ctx.moveTo(tx, ty);
     ctx.lineTo(b.x, b.y);
@@ -4310,16 +4570,16 @@ export function renderCombatStage(
     ctx.save();
     // Heroine Overhead Tactical Badge
     if (heroine.hp > 0 && !isProne) {
-      const hPlaqueW = 104;
-      const hPlaqueH = 26;
+      const hPlaqueW = 122;
+      const hPlaqueH = 30;
       const hpx = Math.max(8, Math.round(heroX - hPlaqueW * 0.5));
-      const hpy = Math.max(38, Math.round(groundY - heroTargetHeight - 16));
+      const hpy = Math.max(38, Math.round(groundY - heroTargetHeight - 18));
       ctx.fillStyle = '#020617';
       ctx.fillRect(hpx - 2, hpy - 2, hPlaqueW + 4, hPlaqueH + 4);
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 2;
       ctx.strokeRect(hpx, hpy, hPlaqueW, hPlaqueH);
-      ctx.font = '800 11px "JetBrains Mono", monospace';
+      ctx.font = '800 13px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#FFFFFF';
@@ -4334,8 +4594,8 @@ export function renderCombatStage(
       const ex = enemyBaseX + (slotCenters[idx] ?? idx) * enemyStepX;
       const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
       const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-      const ePlaqueW = 114;
-      const ePlaqueH = 38;
+      const ePlaqueW = 136;
+      const ePlaqueH = 44;
       const epx = Math.max(8, Math.min(w - ePlaqueW - 8, Math.round(ex - ePlaqueW * 0.5)));
       const epy = Math.max(42, Math.round(enemyGroundY - baseEnemySize * 0.94));
 
@@ -4361,7 +4621,7 @@ export function renderCombatStage(
       ctx.lineWidth = 2;
       ctx.strokeRect(epx, epy, ePlaqueW, ePlaqueH);
 
-      ctx.font = '800 11px "JetBrains Mono", monospace';
+      ctx.font = '800 13px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillStyle = '#FFFFFF';
@@ -4370,10 +4630,10 @@ export function renderCombatStage(
       ctx.fillText(
         `${pipSymbol} ${enemy.hp}HP${armTxt}${pipTxt}`,
         epx + ePlaqueW * 0.5,
-        epy + 11,
+        epy + 13,
       );
 
-      ctx.font = '800 10px "JetBrains Mono", monospace';
+      ctx.font = '800 12px "JetBrains Mono", monospace';
       ctx.fillStyle =
         intent.kind === 'attack' || intent.kind === 'heavy'
           ? '#FDA4AF'
@@ -4391,7 +4651,7 @@ export function renderCombatStage(
               ? `● +${intent.value}A +${intent.secondaryValue}HP`
               : `● +${intent.value} ARM`
             : `◆ ${intentVal} DMG${corTag}${armTag}`;
-      ctx.fillText(intentTxt, epx + ePlaqueW * 0.5, epy + 26);
+      ctx.fillText(intentTxt, epx + ePlaqueW * 0.5, epy + 31);
     }
     ctx.restore();
   }

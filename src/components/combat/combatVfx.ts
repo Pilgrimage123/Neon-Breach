@@ -1,5 +1,7 @@
+import { soundEngine } from '../../audio/soundEngine';
 import type { AnimationCue, CombatState, EnemyArchetype, HeroineState } from '../../engine/types';
 import { triggerCharacterAnimation } from '../../utils/aureliaSpriteSheet';
+import { shouldKiraDodgeAttack } from '../../utils/heroineSpriteSheet';
 import type { CameraActorBounds } from './ActionCameraController';
 import {
   type CombatPresentationConfig,
@@ -8,6 +10,11 @@ import {
   computePackTempoScale,
 } from './combatPresentationConfig';
 import type { CutInActionKind, CutInStagingMode } from './CombatActionSequencer';
+import {
+  type ProjectileVisualProfile,
+  classifyEnemyAttackStaging,
+  classifyHeroAttackStaging,
+} from './combatStagingClassifier';
 import { computeEnemySlotLayout } from './combatEnemyUi';
 import {
   BLOOD_DROP_POOL_SIZE,
@@ -35,6 +42,53 @@ import {
   getEquippedDefIds,
   resolveWeaponDecalKind,
 } from './mutantBlood';
+
+export function triggerKiraDodgeVfx(
+  sim: CombatStageSim,
+  liveHeroX: number,
+  groundY: number,
+): void {
+  sim.heroState = triggerCharacterAnimation(sim.heroState, 'dodge', 'kira');
+  sim.shieldDomeTimer = 0;
+  sim.dodgeZoomTimer = 0.70;
+  sim.trauma = Math.min(1, sim.trauma + 0.05);
+  soundEngine.playDodgeWhoosh();
+
+  // Beat 1: Vault launch burst (electric cyan + neon magenta rim sparks)
+  spawnBurst(sim, liveHeroX + 6, groundY - 26, 14, '#00F0FF', 1, 1.02);
+  spawnBurst(sim, liveHeroX - 4, groundY - 46, 8, '#F472B6', 0, 0.85);
+  spawnFloatingText(sim, liveHeroX - 6, groundY - 156, 'MISS', '#00F0FF', 1.24);
+
+  // Beat 2: Wide neon power-slide deck sparks
+  sim.pendingImpacts.push({
+    triggerOn: 'delay',
+    delayRemaining: 0.18,
+    execute: () => {
+      spawnBurst(sim, liveHeroX - 18, groundY - 6, 12, '#00F0FF', 1, 0.92);
+      spawnBurst(sim, liveHeroX - 28, groundY - 3, 7, '#38BDF8', 0, 0.78);
+    },
+  });
+
+  // Beat 3: Deep slide braking skid sparks
+  sim.pendingImpacts.push({
+    triggerOn: 'delay',
+    delayRemaining: 0.35,
+    execute: () => {
+      spawnBurst(sim, liveHeroX - 30, groundY - 5, 11, '#00F0FF', 1, 0.88);
+      spawnBurst(sim, liveHeroX - 22, groundY - 4, 6, '#F472B6', 0, 0.72);
+    },
+  });
+
+  // Beat 4: 3-point superhero landing micro-shatter sparks
+  sim.pendingImpacts.push({
+    triggerOn: 'delay',
+    delayRemaining: 0.51,
+    execute: () => {
+      spawnBurst(sim, liveHeroX - 8, groundY - 3, 12, '#38BDF8', 1, 0.86);
+      spawnBurst(sim, liveHeroX + 4, groundY - 2, 6, '#FDE047', 1, 0.65);
+    },
+  });
+}
 
 export function spawnBurst(
   sim: CombatStageSim,
@@ -876,6 +930,8 @@ export function spawnBolt(
   ty: number,
   color: string,
   onImpact?: () => void,
+  style: ProjectileVisualProfile = 'pistol_bolt',
+  durationOverrideSec?: number,
 ): void {
   const b = sim.bolts[sim.boltCursor];
   sim.boltCursor = (sim.boltCursor + 1) % BOLT_POOL_SIZE;
@@ -888,9 +944,131 @@ export function spawnBolt(
   b.targetX = tx;
   b.targetY = ty;
   b.life = 0;
-  b.maxLife = Math.max(0.08, Math.min(0.13, dist / 4600));
+  b.maxLife =
+    durationOverrideSec !== undefined
+      ? Math.max(0.06, Math.min(0.45, durationOverrideSec))
+      : Math.max(0.08, Math.min(0.14, dist / 4400));
   b.color = color;
+  b.style = style;
   b.onImpact = onImpact;
+}
+
+/**
+ * Fires weapon- and archetype-specific foreground projectiles above the stage dimmer
+ * so every ranged character and enemy has an unmistakable silhouette in flight.
+ */
+export function spawnStyledProjectileVolley(
+  sim: CombatStageSim,
+  params: {
+    profile: ProjectileVisualProfile;
+    sx: number;
+    sy: number;
+    tx: number;
+    ty: number;
+    isCrit?: boolean;
+    isOverdrive?: boolean;
+    flightSec?: number;
+    onPrimaryImpact?: () => void;
+  },
+): void {
+  const {
+    profile,
+    sx,
+    sy,
+    tx,
+    ty,
+    isCrit = false,
+    isOverdrive = false,
+    flightSec,
+    onPrimaryImpact,
+  } = params;
+
+  if (profile === 'scattergun') {
+    // Aurelia twin-barrel plasma scattergun: wide multi-pellet golden-amber spread
+    const pellets = isOverdrive || isCrit ? [-16, -6, 4, 14, 22] : [-13, -4, 5, 14];
+    for (let i = 0; i < pellets.length; i++) {
+      const spreadY = pellets[i];
+      const color = i === 0 ? '#FFE066' : i % 2 === 1 ? '#FFC700' : '#FF6B35';
+      spawnBolt(
+        sim,
+        sx + (i % 2 === 0 ? 0 : -4),
+        sy + spreadY * 0.28,
+        tx + (i - 1.5) * 4,
+        ty + spreadY,
+        color,
+        i === 0 ? onPrimaryImpact : undefined,
+        'scattergun',
+        flightSec !== undefined ? flightSec * (0.94 + i * 0.03) : undefined,
+      );
+    }
+    spawnBurst(sim, sx, sy, isCrit ? 16 : 11, '#FFC700', 0, isCrit ? 1.15 : 0.95);
+    return;
+  }
+
+  if (profile === 'drone_plasma') {
+    // Zuri Solar Hawk Strike Drone: twin rotary magenta/gold plasma lances
+    spawnBolt(sim, sx, sy - 3.5, tx, ty - 4, '#FF2E7E', onPrimaryImpact, 'drone_plasma', flightSec);
+    spawnBolt(sim, sx - 5, sy + 4, tx, ty + 4, '#FFC700', undefined, 'drone_plasma', flightSec);
+    if (isCrit || isOverdrive) {
+      spawnBolt(sim, sx - 2, sy, tx, ty, '#00F0FF', undefined, 'drone_plasma', flightSec);
+    }
+    spawnBurst(sim, sx, sy, isCrit ? 14 : 9, '#FF2E7E', 1, isCrit ? 1.1 : 0.92);
+    return;
+  }
+
+  if (profile === 'acid_bile') {
+    // Bile Spitter pressurized neon-yellow/chartreuse bile glob stream
+    spawnBolt(sim, sx, sy, tx, ty, '#A3E635', onPrimaryImpact, 'acid_bile', flightSec);
+    spawnBolt(
+      sim,
+      sx + 6,
+      sy + 5,
+      tx + 4,
+      ty + 7,
+      '#FACC15',
+      undefined,
+      'acid_bile',
+      flightSec !== undefined ? flightSec * 1.08 : undefined,
+    );
+    spawnBurst(sim, sx - 6, sy, 12, '#FACC15', 2, 0.95);
+    return;
+  }
+
+  if (profile === 'stinger_dart') {
+    // Stinger charged barbed bio-venom dart volley
+    const darts = isCrit ? [-12, 0, 12] : [-8, 8];
+    for (let i = 0; i < darts.length; i++) {
+      const dy = darts[i];
+      const color = i === 1 ? '#FDBA74' : '#FB923C';
+      spawnBolt(
+        sim,
+        sx + i * 5,
+        sy + dy * 0.35,
+        tx,
+        ty + dy,
+        color,
+        i === 0 ? onPrimaryImpact : undefined,
+        'stinger_dart',
+        flightSec !== undefined ? flightSec * (0.94 + i * 0.04) : undefined,
+      );
+    }
+    spawnBurst(sim, sx - 4, sy, 14, '#FB923C', 1, 1.05);
+    return;
+  }
+
+  // Kira cyber-pistol plasma tracer bolt
+  spawnBolt(
+    sim,
+    sx,
+    sy,
+    tx,
+    ty,
+    isOverdrive || isCrit ? '#FFC700' : '#00F0FF',
+    onPrimaryImpact,
+    'pistol_bolt',
+    flightSec,
+  );
+  spawnBurst(sim, sx, sy, 8, '#FDE047', 0, 0.85);
 }
 
 export function drainTriggerImpacts(
@@ -1144,27 +1322,33 @@ export function applyCombatCues(
 
   let primaryAttackMode: 'dash_kick' | 'shoot' | null = null;
   let cutInStarted = false;
+  let kiraDodgeScheduled = false;
   if (primarySlashCue) {
     const pos = getEnemyPos(primarySlashCue.targetId);
     sim.pendingShotTargetX = pos.x;
     sim.pendingShotTargetY = pos.y;
     sim.dashTargetX = pos.x;
-    const useKick =
-      Boolean(primarySlashCue.surge) ||
-      (primarySlashCue.value ?? 0) >= 12 ||
-      sim.attackToggle % 2 === 1;
+
+    const targetIds = Array.from(
+      new Set(
+        slashCues
+          .map((c) => c.targetId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const heroClassification = classifyHeroAttackStaging({
+      charId,
+      isSurge: Boolean(primarySlashCue.surge),
+      damageValue: primarySlashCue.value ?? 0,
+      targetCount: Math.max(1, targetIds.length),
+      attackToggle: sim.attackToggle,
+      isOverdrive: false,
+    });
     sim.attackToggle += 1;
-    primaryAttackMode = useKick ? 'dash_kick' : 'shoot';
+    primaryAttackMode = heroClassification.heroAnimMode === 'dash_kick' ? 'dash_kick' : 'shoot';
     sim.heroState = triggerCharacterAnimation(sim.heroState, primaryAttackMode, charId);
 
     if (!tacticalViewActive && presCfg.enabled && !hasOverdrive) {
-      const targetIds = Array.from(
-        new Set(
-          slashCues
-            .map((c) => c.targetId)
-            .filter((id): id is string => Boolean(id)),
-        ),
-      );
       if (targetIds.length > 0) {
         cutInStarted = true;
         const isCrit =
@@ -1176,12 +1360,7 @@ export function applyCombatCues(
           : targetIds.length > 1
             ? 'aoe'
             : 'normal';
-        const stagingMode: CutInStagingMode =
-          primaryAttackMode === 'dash_kick'
-            ? 'melee'
-            : targetIds.length > 1
-              ? 'ranged_aoe'
-              : 'ranged_fast';
+        const stagingMode: CutInStagingMode = heroClassification.stagingMode;
         void sim.actionSequencer
           .playCutIn(
             {
@@ -1219,7 +1398,8 @@ export function applyCombatCues(
     const ea = ensureEnemyAnim(sim, enemyId);
     ea.dead = true;
     ea.koProgress = Math.max(0.01, ea.koProgress);
-    const pos = getEnemyPos(enemyId);
+    const basePos = getEnemyPos(enemyId);
+    const pos = { ...basePos, x: sim.actionSequencer.getLiveActorX(enemyId, basePos.x) };
     const arch = getEnemyArch(enemyId);
     const profile = getBloodBiologyProfile(arch);
     triggerEnemyHitStagger(sim, enemyId, pos, arch, weaponKind, 1.75, true, 1, plasmaColor);
@@ -1279,15 +1459,22 @@ export function applyCombatCues(
           triggerOn: 'kick',
           delayRemaining: 0,
           execute: () => {
+            const livePos = cue.targetId
+              ? { ...pos, x: sim.actionSequencer.getLiveActorX(cue.targetId, pos.x) }
+              : pos;
+            sim.pendingShotTargetX = livePos.x;
+            sim.pendingShotTargetY = livePos.y;
             sim.slashArcTimer = 0.28;
             sim.slashSurge = Boolean(cue.surge);
-            sim.hitstop = cue.surge ? 0.06 : 0.04;
+            if (!sim.actionSequencer.isActive()) {
+              sim.hitstop = cue.surge ? 0.06 : 0.04;
+            }
             sim.trauma = Math.min(1, sim.trauma + (cue.surge ? 0.68 : 0.46));
             if (cue.targetId) {
               triggerEnemyHitStagger(
                 sim,
                 cue.targetId,
-                pos,
+                livePos,
                 arch,
                 weaponKind,
                 cue.surge ? 1.65 : 1.35,
@@ -1296,9 +1483,9 @@ export function applyCombatCues(
                 plasmaColor,
               );
             }
-            spawnBurst(sim, pos.x, pos.y, cue.surge ? 26 : 16, '#FF3B7F', 1, cue.surge ? 1.25 : 1);
+            spawnBurst(sim, livePos.x, livePos.y, cue.surge ? 26 : 16, '#FF3B7F', 1, cue.surge ? 1.25 : 1);
             if (cue.value) {
-              spawnFloatingText(sim, pos.x, pos.y - 40, `-${cue.value}`, '#FF6B9E', cue.surge ? 1.3 : 1.05);
+              spawnFloatingText(sim, livePos.x, livePos.y - 40, `-${cue.value}`, '#FF6B9E', cue.surge ? 1.3 : 1.05);
             }
             if (cue.targetId && koIds.has(cue.targetId)) {
               triggerEnemyKo(cue.targetId, weaponKind, plasmaColor);
@@ -1312,7 +1499,9 @@ export function applyCombatCues(
           execute: () => {
             sim.slashArcTimer = 0.26;
             sim.slashSurge = Boolean(cue.surge);
-            sim.hitstop = cue.surge ? 0.048 : 0.028;
+            if (!sim.actionSequencer.isActive()) {
+              sim.hitstop = cue.surge ? 0.048 : 0.028;
+            }
             sim.trauma = Math.min(1, sim.trauma + (cue.surge ? 0.56 : 0.36));
             if (cue.targetId) {
               triggerEnemyHitStagger(
@@ -1390,12 +1579,18 @@ export function applyCombatCues(
       if (!tacticalViewActive && presCfg.enabled && !cutInStarted && livingOrKo.length > 0) {
         cutInStarted = true;
         const targetIds = livingOrKo.map((e) => e.id);
+        const odClassification = classifyHeroAttackStaging({
+          charId,
+          isOverdrive: true,
+          targetCount: targetIds.length,
+          attackToggle: sim.attackToggle,
+        });
         void sim.actionSequencer
           .playCutIn(
             {
               id: batchKey,
               actionKind: 'overdrive',
-              stagingMode: 'ranged_aoe',
+              stagingMode: odClassification.stagingMode,
               attackerId: 'hero',
               targetIds,
               allActorIds,
@@ -1422,10 +1617,13 @@ export function applyCombatCues(
         delayRemaining: 0,
         execute: () => {
           sim.overdriveTimer = 0.68;
-          sim.hitstop = 0.055;
+          if (!sim.actionSequencer.isActive()) {
+            sim.hitstop = 0.055;
+          }
           sim.trauma = 0.78;
           for (const enemy of livingOrKo) {
-            const pos = getEnemyPos(enemy.id);
+            const basePos = getEnemyPos(enemy.id);
+            const pos = { ...basePos, x: sim.actionSequencer.getLiveActorX(enemy.id, basePos.x) };
             triggerEnemyHitStagger(sim, enemy.id, pos, enemy.archetype, 'melee', 1.5, false, 1, '#FFC700');
             spawnBurst(sim, pos.x, pos.y, 18, '#FF3B7F', 1, 1.2);
           }
@@ -1438,7 +1636,8 @@ export function applyCombatCues(
         execute: () => {
           sim.trauma = Math.min(1, sim.trauma + 0.45);
           for (const enemy of livingOrKo) {
-            const pos = getEnemyPos(enemy.id);
+            const basePos = getEnemyPos(enemy.id);
+            const pos = { ...basePos, x: sim.actionSequencer.getLiveActorX(enemy.id, basePos.x) };
             triggerEnemyHitStagger(sim, enemy.id, pos, enemy.archetype, 'plasma', 1.55, false, 1, '#FFC700');
             spawnBurst(sim, pos.x, pos.y, 22, '#FFB800', 1, 1.25);
             spawnFloatingText(sim, pos.x, pos.y - 45, `-${cue.value ?? 22}`, '#FDE047', 1.35);
@@ -1451,7 +1650,8 @@ export function applyCombatCues(
         delayRemaining: 0,
         execute: () => {
           for (const enemy of livingOrKo) {
-            const pos = getEnemyPos(enemy.id);
+            const basePos = getEnemyPos(enemy.id);
+            const pos = { ...basePos, x: sim.actionSequencer.getLiveActorX(enemy.id, basePos.x) };
             if (koIds.has(enemy.id)) {
               triggerEnemyKo(enemy.id, 'plasma', '#FFC700');
             } else {
@@ -1465,6 +1665,7 @@ export function applyCombatCues(
       const attackerArch = attacker?.archetype ?? 'larva';
       const attackerPos = getEnemyPos(cue.targetId);
       const blocked = cue.blocked ?? 0;
+      const armorDamage = cue.armorDamage ?? 0;
       const hpDamage = cue.hpDamage ?? (cue.value ?? 0);
       const reflected = cue.reflectedDamage ?? 0;
       const isAcid = cue.kind === 'enemy_acid';
@@ -1542,7 +1743,39 @@ export function applyCombatCues(
       }
 
       const impactDelay = isAcid && attackerArch === 'spitter' ? 0.28 : 0.085;
-      const useCutInForEnemy = !tacticalViewActive && presCfg.enabled && Boolean(cue.targetId) && !cutInStarted;
+      const enemyClassification = classifyEnemyAttackStaging({
+        archetype: attackerArch,
+        cueKind: cue.kind,
+        clawRend: isSpitterClawRend,
+      });
+      const isStingerDart = enemyClassification.projectileProfile === 'stinger_dart';
+      const isSpitterBile = enemyClassification.projectileProfile === 'acid_bile';
+      const willKiraDodge = shouldKiraDodgeAttack({
+        charId,
+        isLethal,
+        hpDamage,
+        armorDamage,
+      });
+      if (willKiraDodge) {
+        kiraDodgeScheduled = true;
+        if (enemyClassification.projectileProfile) {
+          const spawnX = isSpitterBile ? attackerPos.x - 42 : attackerPos.x - 36;
+          const spawnY = isSpitterBile
+            ? attackerPos.groundY - 116
+            : attackerPos.groundY - 98;
+          spawnStyledProjectileVolley(sim, {
+            profile: enemyClassification.projectileProfile,
+            sx: spawnX,
+            sy: spawnY,
+            tx: heroX + 18,
+            ty: groundY - 90,
+            isCrit: false,
+            flightSec: Math.max(0.14, impactDelay),
+          });
+        }
+      }
+      const useCutInForEnemy =
+        !willKiraDodge && !tacticalViewActive && presCfg.enabled && Boolean(cue.targetId) && !cutInStarted;
       if (useCutInForEnemy && cue.targetId) {
         cutInStarted = true;
         const isCritEnemy =
@@ -1552,7 +1785,8 @@ export function applyCombatCues(
           isLethal ||
           hpDamage >= 12;
         const enemyActionKind: CutInActionKind = isCritEnemy ? 'crit' : 'normal';
-        const enemyStagingMode: CutInStagingMode = isAcid ? 'ranged_fast' : 'melee';
+        const enemyStagingMode: CutInStagingMode = enemyClassification.stagingMode;
+        const flightSec = Math.max(0.11, presCfg.rangedWhipPanSec * tempoScale);
         void sim.actionSequencer
           .playCutIn(
             {
@@ -1567,6 +1801,24 @@ export function applyCombatCues(
               tempoScale,
               waitForExternalImpact: false,
               replaceQueue: true,
+              onProjectileSpawn: enemyClassification.projectileProfile
+                ? () => {
+                    const projProfile = enemyClassification.projectileProfile!;
+                    const spawnX = isSpitterBile ? attackerPos.x - 42 : attackerPos.x - 36;
+                    const spawnY = isSpitterBile
+                      ? attackerPos.groundY - 116
+                      : attackerPos.groundY - 98;
+                    spawnStyledProjectileVolley(sim, {
+                      profile: projProfile,
+                      sx: spawnX,
+                      sy: spawnY,
+                      tx: heroX + 18,
+                      ty: groundY - 90,
+                      isCrit: isCritEnemy,
+                      flightSec,
+                    });
+                  }
+                : undefined,
               onImpactFrame: () => {
                 const runCutIn = drainTriggerImpacts(sim, 'cutin_impact');
                 if (runCutIn) runCutIn();
@@ -1588,89 +1840,121 @@ export function applyCombatCues(
         triggerOn: useCutInForEnemy ? 'cutin_impact' : 'delay',
         delayRemaining: useCutInForEnemy ? 0 : impactDelay,
         execute: () => {
+          const liveHeroX = sim.actionSequencer.getLiveActorX('hero', heroX);
+          const liveAttackerX = cue.targetId
+            ? sim.actionSequencer.getLiveActorX(cue.targetId, attackerPos.x)
+            : attackerPos.x;
+          const liveAttackerPos = { ...attackerPos, x: liveAttackerX };
+
           if (isStalkerAmbush) {
-            spawnBurst(sim, heroX + 20, groundY - 92, 16, '#FF2E7E', 1, 1.25);
+            spawnBurst(sim, liveHeroX + 20, groundY - 92, 16, '#FF2E7E', 1, 1.25);
+          }
+          if (isStingerDart) {
+            spawnBurst(sim, liveHeroX + 18, groundY - 92, 18, '#FB923C', 1, 1.18);
+            spawnBurst(sim, liveHeroX + 14, groundY - 88, 12, '#FDBA74', 0, 0.95);
           }
           if (isSpitterClawRend) {
-            spawnBurst(sim, heroX + 18, groundY - 92, 12, '#A3E635', 2, 0.95);
-            spawnBurst(sim, heroX + 14, groundY - 88, 10, '#C026D3', 1, 1.0);
+            spawnBurst(sim, liveHeroX + 18, groundY - 92, 12, '#A3E635', 2, 0.95);
+            spawnBurst(sim, liveHeroX + 14, groundY - 88, 10, '#C026D3', 1, 1.0);
             if (hpDamage > 0 && attacker && !koIds.has(attacker.id) && cue.textLabel) {
-              spawnBurst(sim, attackerPos.x - 4, attackerPos.groundY - 98, 14, '#A3E635', 1, 0.9);
-              spawnBurst(sim, attackerPos.x, attackerPos.groundY - 92, 8, '#FFC700', 1, 0.7);
-              spawnFloatingText(sim, attackerPos.x, attackerPos.y - 42, cue.textLabel, '#BEF264', 0.98);
+              spawnBurst(sim, liveAttackerX - 4, attackerPos.groundY - 98, 14, '#A3E635', 1, 0.9);
+              spawnBurst(sim, liveAttackerX, attackerPos.groundY - 92, 8, '#FFC700', 1, 0.7);
+              spawnFloatingText(sim, liveAttackerX, attackerPos.y - 42, cue.textLabel, '#BEF264', 0.98);
             }
           }
           if (!isLethal) {
-            if (hpDamage === 0) {
-              sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
-              sim.shieldDomeTimer = 0.46;
-              sim.trauma = Math.min(1, sim.trauma + 0.14);
-              spawnBurst(sim, heroX + 38, groundY - 95, 16, '#00E5FF', 1, 0.9);
+            if (willKiraDodge) {
+              triggerKiraDodgeVfx(sim, liveHeroX, groundY);
               if (isAcid) {
-                spawnBurst(sim, heroX + 36, groundY - 84, 16, '#FACC15', 2, 0.95);
-                spawnBurst(sim, heroX + 32, groundY - 82, 12, '#A3E635', 2, 0.85);
-                addOrGrowFloorBlood(sim, heroX + 28, groundY + 2, 3.6, 0, {
+                spawnBurst(sim, liveHeroX + 42, groundY - 34, 12, '#A3E635', 2, 0.8);
+                addOrGrowFloorBlood(sim, liveHeroX + 42, groundY + 2, 3.2, 0, {
                   owner: attackerArch,
                   shapeKind: 'scorch_ring',
                   plasmaColor: '#FACC15',
                 });
               }
-              spawnFloatingText(sim, heroX, groundY - 145, 'BLOCKED', '#38BDF8', 0.95);
+            } else if (hpDamage === 0) {
+              sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
+              sim.shieldDomeTimer = 0.46;
+              sim.trauma = Math.min(1, sim.trauma + 0.14);
+              spawnBurst(sim, liveHeroX + 38, groundY - 95, 16, '#00E5FF', 1, 0.9);
+              if (isAcid) {
+                spawnBurst(sim, liveHeroX + 36, groundY - 84, 16, '#FACC15', 2, 0.95);
+                spawnBurst(sim, liveHeroX + 32, groundY - 82, 12, '#A3E635', 2, 0.85);
+                addOrGrowFloorBlood(sim, liveHeroX + 28, groundY + 2, 3.6, 0, {
+                  owner: attackerArch,
+                  shapeKind: 'scorch_ring',
+                  plasmaColor: '#FACC15',
+                });
+              }
+              spawnFloatingText(sim, liveHeroX, groundY - 145, 'BLOCKED', '#38BDF8', 0.95);
             } else {
               if (blocked > 0) {
                 sim.shieldDomeTimer = 0.25;
-                spawnBurst(sim, heroX + 32, groundY - 95, 10, '#00E5FF', 1, 0.85);
+                spawnBurst(sim, liveHeroX + 32, groundY - 95, 10, '#00E5FF', 1, 0.85);
               }
               sim.heroState = triggerCharacterAnimation(sim.heroState, 'hit', charId, { lowHpHit: lowHp });
               sim.heroAnim.flashTimer = 0.085;
               sim.trauma = Math.min(1, sim.trauma + (isBruteHeavy ? 0.54 : isStalkerAmbush ? 0.48 : 0.35));
               spawnBurst(
                 sim,
-                heroX + (isAcid ? 14 : 0),
+                liveHeroX + (isAcid ? 14 : 0),
                 groundY - 85,
-                isBruteHeavy || isStalkerAmbush || isAcid ? 22 : 14,
-                isAcid ? '#FACC15' : isBruteHeavy ? '#FB923C' : isStalkerAmbush ? '#FF2E7E' : '#FB7185',
+                isBruteHeavy || isStalkerAmbush || isAcid || isStingerDart ? 22 : 14,
+                isAcid
+                  ? '#FACC15'
+                  : isBruteHeavy || isStingerDart
+                    ? '#FB923C'
+                    : isStalkerAmbush
+                      ? '#FF2E7E'
+                      : '#FB7185',
                 isAcid ? 2 : 0,
-                isBruteHeavy || isAcid ? 1.08 : 0.9,
+                isBruteHeavy || isAcid || isStingerDart ? 1.08 : 0.9,
               );
               if (isAcid) {
-                spawnBurst(sim, heroX + 18, groundY - 88, 16, '#A3E635', 2, 0.98);
-                spawnBurst(sim, heroX + 16, groundY - 84, 10, '#FEF08A', 0, 0.88);
+                spawnBurst(sim, liveHeroX + 18, groundY - 88, 16, '#A3E635', 2, 0.98);
+                spawnBurst(sim, liveHeroX + 16, groundY - 84, 10, '#FEF08A', 0, 0.88);
               }
               if (isBruteHeavy) {
-                spawnBurst(sim, heroX + 24, groundY - 12, 14, '#FACC15', 1, 1.0);
-                const smashX = attackerPos.x - 44;
+                spawnBurst(sim, liveHeroX + 24, groundY - 12, 14, '#FACC15', 1, 1.0);
+                const smashX = liveAttackerX - 44;
                 addGroundFissure(sim, smashX, attackerPos.groundY + 1, 1.1, 1.0);
                 spawnBruteKineticShards(sim, smashX, attackerPos.groundY - 10, attackerPos.groundY + 2, 16, 'seismic', -1);
               }
               spawnAlienBloodImpact(
                 sim,
-                heroX + (isAcid ? 12 : 0),
+                liveHeroX + (isAcid ? 12 : 0),
                 groundY - 78,
                 groundY,
                 isAcid ? 'spitter' : 'hero_blood',
-                isAcid ? 'plasma' : 'melee',
-                isBruteHeavy ? 1.05 : isStalkerAmbush || isAcid ? 0.95 : 0.75,
+                isAcid || isStingerDart ? 'plasma' : 'melee',
+                isBruteHeavy ? 1.05 : isStalkerAmbush || isAcid || isStingerDart ? 0.95 : 0.75,
                 false,
                 -1,
-                isAcid ? '#FACC15' : '#FB7185',
+                isAcid ? '#FACC15' : isStingerDart ? '#FB923C' : '#FB7185',
               );
               spawnFloatingText(
                 sim,
-                heroX,
+                liveHeroX,
                 groundY - 140,
-                isStalkerAmbush ? `AMBUSH -${hpDamage}` : `-${hpDamage}`,
-                isAcid ? '#FACC15' : isBruteHeavy ? '#FB923C' : isStalkerAmbush ? '#FF2E7E' : '#FDA4AF',
-                isBruteHeavy || isStalkerAmbush ? 1.15 : 1.0,
+                isStalkerAmbush ? `AMBUSH -${hpDamage}` : isStingerDart ? `STING -${hpDamage}` : `-${hpDamage}`,
+                isAcid
+                  ? '#FACC15'
+                  : isBruteHeavy || isStingerDart
+                    ? '#FB923C'
+                    : isStalkerAmbush
+                      ? '#FF2E7E'
+                      : '#FDA4AF',
+                isBruteHeavy || isStalkerAmbush || isStingerDart ? 1.15 : 1.0,
               );
             }
           } else {
             sim.heroAnim.flashTimer = 0.1;
             sim.trauma = Math.min(1, sim.trauma + 0.55);
-            spawnBurst(sim, heroX, groundY - 80, 22, isAcid ? '#FACC15' : '#FB7185', isAcid ? 2 : 0, 1.05);
+            spawnBurst(sim, liveHeroX, groundY - 80, 22, isAcid ? '#FACC15' : '#FB7185', isAcid ? 2 : 0, 1.05);
             spawnAlienBloodImpact(
               sim,
-              heroX,
+              liveHeroX,
               groundY - 74,
               groundY,
               isAcid ? 'spitter' : 'hero_blood',
@@ -1681,7 +1965,7 @@ export function applyCombatCues(
               isAcid ? '#FACC15' : '#FB7185',
             );
             if (hpDamage > 0) {
-              spawnFloatingText(sim, heroX, groundY - 140, `-${hpDamage}`, '#FB7185', 1.15);
+              spawnFloatingText(sim, liveHeroX, groundY - 140, `-${hpDamage}`, '#FB7185', 1.15);
             }
           }
 
@@ -1690,7 +1974,7 @@ export function applyCombatCues(
             triggerEnemyHitStagger(
               sim,
               targetId,
-              attackerPos,
+              liveAttackerPos,
               attackerArch,
               'plasma',
               1.1,
@@ -1698,8 +1982,8 @@ export function applyCombatCues(
               1,
               '#00F0FF',
             );
-            spawnBurst(sim, attackerPos.x, attackerPos.y, 12, '#00E5FF', 1, 0.9);
-            spawnFloatingText(sim, attackerPos.x, attackerPos.y - 40, `-${reflected}`, '#38BDF8', 0.95);
+            spawnBurst(sim, liveAttackerX, attackerPos.y, 12, '#00E5FF', 1, 0.9);
+            spawnFloatingText(sim, liveAttackerX, attackerPos.y - 40, `-${reflected}`, '#38BDF8', 0.95);
             if (koIds.has(targetId)) triggerEnemyKo(targetId, 'plasma', '#00F0FF');
           }
         },
@@ -1802,7 +2086,17 @@ export function applyCombatCues(
     } else if (cue.kind === 'enemy_retaliate') {
       const stalkerPos = getEnemyPos(cue.targetId);
       const retHpDmg = cue.hpDamage ?? (cue.value ?? 3);
+      const retArmorDmg = cue.armorDamage ?? 0;
       const retBlocked = cue.blocked ?? 0;
+      const willKiraDodgeRet = shouldKiraDodgeAttack({
+        charId,
+        isLethal: heroine.hp <= 0,
+        hpDamage: retHpDmg,
+        armorDamage: retArmorDmg,
+      });
+      if (willKiraDodgeRet) {
+        kiraDodgeScheduled = true;
+      }
       if (cue.targetId) {
         const ea = ensureEnemyAnim(sim, cue.targetId);
         ea.bristleKind = 'retaliate';
@@ -1838,8 +2132,8 @@ export function applyCombatCues(
                 );
                 return;
               }
-              sim.trauma = Math.min(1, sim.trauma + 0.28);
               if (retHpDmg > 0) {
+                sim.trauma = Math.min(1, sim.trauma + 0.28);
                 sim.heroAnim.flashTimer = 0.08;
                 spawnBurst(sim, heroX, groundY - 85, 14, '#FB7185', 1, 0.95);
                 spawnAlienBloodImpact(
@@ -1861,7 +2155,10 @@ export function applyCombatCues(
                   '#FDA4AF',
                   1.0,
                 );
+              } else if (willKiraDodgeRet) {
+                triggerKiraDodgeVfx(sim, heroX, groundY);
               } else if (retBlocked > 0) {
+                sim.trauma = Math.min(1, sim.trauma + 0.16);
                 sim.shieldDomeTimer = 0.32;
                 spawnBurst(sim, heroX + 34, groundY - 92, 12, '#00E5FF', 1, 0.85);
                 spawnFloatingText(sim, heroX, groundY - 135, 'SPIKE BLOCKED', '#38BDF8', 0.95);
@@ -2029,8 +2326,9 @@ export function applyCombatCues(
 
   if (!cutInStarted) {
     const cueKinds = cues.map((c) => c.kind);
-    sim.batchMicroTimerRemaining =
+    const baseBeatSec =
       computeNonCutInBeatMs(cueKinds, livingEnemyCount, presCfg.adaptivePackSpeedup) / 1000;
+    sim.batchMicroTimerRemaining = kiraDodgeScheduled ? Math.max(baseBeatSec, 0.86) : baseBeatSec;
   }
 }
 
@@ -2059,6 +2357,24 @@ export function stepCombatSimulation(
   sim.cameraPanX = seqFrame.cameraPanX;
   sim.cameraPanY = seqFrame.cameraPanY;
   sim.cameraRotRad = seqFrame.cameraRotRad;
+
+  if (sim.dodgeZoomTimer > 0 && !options?.tacticalViewActive && !options?.reducedMotion) {
+    const dodgeU = Math.max(0, Math.min(1, 1 - sim.dodgeZoomTimer / 0.70));
+    const dodgePulse = Math.sin(dodgeU * Math.PI);
+    const zoomBoost = seqFrame.active ? 0.045 * dodgePulse : 0.08 * dodgePulse;
+    const nextZoom = Math.min(1.32, sim.cameraZoom + zoomBoost);
+    const heroFocusPanX = seqFrame.active ? 0 : sim.size.w * 0.075 * dodgePulse;
+    const heroFocusPanY = seqFrame.active ? 0 : -sim.size.h * 0.025 * dodgePulse;
+    sim.cameraZoom = nextZoom;
+    sim.cameraPanX += heroFocusPanX;
+    sim.cameraPanY += heroFocusPanY;
+    sim.lastSeqFrame = {
+      ...seqFrame,
+      cameraZoom: sim.cameraZoom,
+      cameraPanX: sim.cameraPanX,
+      cameraPanY: sim.cameraPanY,
+    };
+  }
 
   if (!seqFrame.active) {
     for (let i = sim.pendingImpacts.length - 1; i >= 0; i--) {
@@ -2098,6 +2414,7 @@ export function stepCombatSimulation(
   sim.slashArcTimer = Math.max(0, sim.slashArcTimer - simDt);
   sim.kickWaveTimer = Math.max(0, sim.kickWaveTimer - simDt);
   sim.shieldDomeTimer = Math.max(0, sim.shieldDomeTimer - simDt);
+  sim.dodgeZoomTimer = Math.max(0, sim.dodgeZoomTimer - simDt);
   sim.upgradeBeamTimer = Math.max(0, sim.upgradeBeamTimer - simDt);
   sim.overdriveTimer = Math.max(0, sim.overdriveTimer - simDt);
   if (sim.heroTrailCooldown > 0) {
@@ -2431,7 +2748,8 @@ export function stepCombatSimulation(
   }
 
   for (let i = sim.ghosts.length - 1; i >= 0; i--) {
-    sim.ghosts[i].alpha -= simDt * 4.5;
+    const decayRate = sim.ghosts[i].isDodge ? 2.05 : 4.5;
+    sim.ghosts[i].alpha -= simDt * decayRate;
     if (sim.ghosts[i].alpha <= 0.02) {
       sim.ghosts.splice(i, 1);
     }

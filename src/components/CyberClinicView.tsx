@@ -101,7 +101,7 @@ export function CyberClinicView({
       }`}
     >
       <div
-        className={`chrome-glass flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl ${
+        className={`chrome-glass flex max-h-full w-full max-w-[1620px] flex-col overflow-hidden rounded-2xl ${
           isCompactLandscape ? 'p-2.5' : 'p-4 sm:p-5 md:p-6'
         }`}
       >
@@ -119,15 +119,15 @@ export function CyberClinicView({
               {t.clinicTitle}
             </h1>
             {isFlashSale && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider animate-pulse shrink-0">
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono-tabular text-[12px] sm:text-xs font-bold uppercase tracking-wider animate-pulse shrink-0">
                 {t.bountyFlashSaleBadge}
               </span>
             )}
-            <p className="text-[11px] sm:text-sm text-slate-200 truncate min-w-0">
+            <p className="text-[12.5px] sm:text-sm text-slate-200 truncate min-w-0">
               {t.clinicSubtitle.replace('{name}', charCode)}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 font-mono-tabular text-[11px] sm:text-sm shrink-0">
+          <div className="flex items-center gap-1.5 font-mono-tabular text-[12.5px] sm:text-sm shrink-0">
             <span className="font-bold text-[#FFC700]">
               {run.heroine.credits} {t.creditsLabel}
             </span>
@@ -138,7 +138,7 @@ export function CyberClinicView({
               <button
                 type="button"
                 onClick={onOpenPool}
-                className="chrome-pill rounded-lg px-2 py-0.5 text-[11px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
+                className="chrome-pill rounded-lg px-2 py-0.5 text-[12.5px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
                 title={t.inspectPool}
               >
                 ▣ {t.capacityLabel}: {equippedWeight}/{run.heroine.carryCapacity}
@@ -152,7 +152,7 @@ export function CyberClinicView({
               <button
                 type="button"
                 onClick={() => setPendingImplant(null)}
-                className="chrome-pill rounded-lg px-2 py-0.5 font-sans text-[11px] font-semibold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer"
+                className="chrome-pill rounded-lg px-2 py-0.5 font-sans text-[12.5px] font-semibold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer"
               >
                 ← {lang === 'cs' ? 'Zpět' : 'Back'}
               </button>
@@ -160,7 +160,7 @@ export function CyberClinicView({
             <button
               type="button"
               onClick={onSkip}
-              className="chrome-pill ml-1 rounded-lg px-2.5 py-0.5 sm:px-3 sm:py-1 font-sans text-[11px] sm:text-xs font-semibold text-slate-100 hover:border-cyan-300 hover:text-white cursor-pointer"
+              className="chrome-pill ml-1 rounded-lg px-2.5 py-0.5 sm:px-3 sm:py-1 font-sans text-[12.5px] sm:text-xs font-semibold text-slate-100 hover:border-cyan-300 hover:text-white cursor-pointer"
             >
               {t.skipClinic} →
             </button>
@@ -185,15 +185,15 @@ export function CyberClinicView({
             <div>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-rose-300">
+                  <span className="truncate text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-rose-300">
                     {t.clinicPurgeTitle} · {CLINIC_PURGE_COST} {t.creditsLabel}
                   </span>
-                  <span className="hidden sm:inline font-mono-tabular text-[10px] text-slate-400">
+                  <span className="hidden sm:inline font-mono-tabular text-[12px] text-slate-300">
                     ({t.clinicPurgeDesc})
                   </span>
                 </div>
                 {run.clinicPurgeUsed && (
-                  <span className="font-mono-tabular text-[10px] font-bold text-emerald-300">
+                  <span className="font-mono-tabular text-[12px] font-bold text-emerald-300">
                     ✓ {t.purgedDoneLabel}
                   </span>
                 )}
@@ -216,7 +216,7 @@ export function CyberClinicView({
                         data-testid={`clinic-purge-tile-${tile.id}`}
                         disabled={!canPurge}
                         onClick={() => onPurgeInnateTile(tile.id)}
-                        className={`chrome-pill flex items-center gap-1.5 rounded-lg border px-2 py-0.5 font-mono-tabular text-[10px] sm:text-[11px] font-bold transition hover:brightness-125 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed ${colorClass}`}
+                        className={`chrome-pill flex items-center gap-1.5 rounded-lg border px-2 py-0.5 font-mono-tabular text-[12px] sm:text-[13px] font-bold transition hover:brightness-125 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed ${colorClass}`}
                       >
                         <span>
                           {tile.type === 'attack' ? '◆' : tile.type === 'defense' ? '●' : '▲'}
@@ -238,7 +238,7 @@ export function CyberClinicView({
                               ? 'Akademie: 6+ síla, +1⚡, +1 sousedním'
                               : 'Prodigy: 6+ stat, +1⚡, +1 adjacent'
                           }
-                          className="chrome-pill rounded-lg border border-emerald-400/60 bg-emerald-950/40 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-emerald-200 hover:border-emerald-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                          className="chrome-pill rounded-lg border border-emerald-400/60 bg-emerald-950/40 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-emerald-200 hover:border-emerald-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                         >
                           ★ {isCs ? 'Akademie' : 'Prodigy'} ({charterCost} CR)
                         </button>
@@ -255,20 +255,20 @@ export function CyberClinicView({
                 data-testid="clinic-dynasty-biotech-panel"
                 className="rounded-xl border border-cyan-400/35 bg-slate-950/55 px-2.5 py-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5"
               >
-                <span className="text-[10px] font-mono-tabular font-bold uppercase tracking-wider text-cyan-300 shrink-0">
+                <span className="text-[12px] font-mono-tabular font-bold uppercase tracking-wider text-cyan-300 shrink-0">
                   🧬 {isCs ? 'Biotech:' : 'Biotech:'}
                 </span>
 
                 {/* Stork Nursery Incubation Pod */}
                 {onIncubateTile && (
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="font-mono-tabular text-[10px] text-slate-300 font-bold">
+                    <span className="font-mono-tabular text-[12px] text-slate-300 font-bold">
                       🌱 3n→2× ({storkCost} CR):
                     </span>
                     {run.heroine.incubatingTile ? (
                       <span
                         data-testid="incubating-pod-status"
-                        className="rounded-md border border-emerald-400/60 bg-emerald-950/45 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-emerald-200"
+                        className="rounded-md border border-emerald-400/60 bg-emerald-950/45 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-emerald-200"
                       >
                         🌱 {formatTileShortLabel(run.heroine.incubatingTile.tile, lang)} ·{' '}
                         {run.heroine.incubatingTile.nodesRemaining}n
@@ -281,7 +281,7 @@ export function CyberClinicView({
                           data-testid={`clinic-incubate-${tile.id}`}
                           disabled={!canIncubate}
                           onClick={() => onIncubateTile(tile.id)}
-                          className="chrome-pill rounded-lg border border-cyan-400/55 bg-cyan-950/40 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-200 hover:border-cyan-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                          className="chrome-pill rounded-lg border border-cyan-400/55 bg-cyan-950/40 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-cyan-200 hover:border-cyan-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                         >
                           🌱 {formatTileShortLabel(tile, lang)}
                         </button>
@@ -293,7 +293,7 @@ export function CyberClinicView({
                 {/* Gene-Splice Pedigree Marriage */}
                 {onMarryBloodline && (
                   <div className="flex flex-wrap items-center gap-1">
-                    <span className="font-mono-tabular text-[10px] text-slate-300 font-bold">
+                    <span className="font-mono-tabular text-[12px] text-slate-300 font-bold">
                       ♥ +2/+1⚡ ({pedigreeCost} CR):
                     </span>
                     {(
@@ -313,7 +313,7 @@ export function CyberClinicView({
                           data-testid={`clinic-marry-${p}-${s}`}
                           disabled={!canMarry || isMarried}
                           onClick={() => onMarryBloodline(p, s)}
-                          className={`chrome-pill rounded-lg border px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold transition cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+                          className={`chrome-pill rounded-lg border px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold transition cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
                             isMarried
                               ? 'border-amber-400 bg-amber-950/60 text-amber-200'
                               : 'border-fuchsia-400/55 bg-fuchsia-950/35 text-fuchsia-200 hover:border-fuchsia-300'
@@ -329,7 +329,7 @@ export function CyberClinicView({
                 {run.heroine.bloodlineCrest && (
                   <span
                     data-testid="active-bloodline-crest-badge"
-                    className="rounded-md border border-amber-400/60 bg-amber-950/50 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-amber-200"
+                    className="rounded-md border border-amber-400/60 bg-amber-950/50 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-amber-200"
                   >
                     ♥ {run.heroine.bloodlineCrest.primary.toUpperCase()}⇄
                     {run.heroine.bloodlineCrest.secondary.toUpperCase()}
@@ -342,7 +342,7 @@ export function CyberClinicView({
                     data-testid="clinic-fablab-splice-btn"
                     disabled={run.masterPool.length <= 4}
                     onClick={() => onSpliceTiles(innateTiles[0].id, innateTiles[1].id)}
-                    className="chrome-pill ml-auto rounded-lg border border-indigo-400/60 bg-indigo-950/45 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-indigo-200 hover:border-indigo-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                    className="chrome-pill ml-auto rounded-lg border border-indigo-400/60 bg-indigo-950/45 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-indigo-200 hover:border-indigo-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                   >
                     ⚒ {isCs ? 'FabLab 2→1 (0 CR)' : 'FabLab 2→1 (0 CR)'}
                   </button>
@@ -359,7 +359,7 @@ export function CyberClinicView({
           >
             {!pendingImplant ? (
               <>
-                <div className="truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#00F0FF]">
+                <div className="truncate text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-[#00F0FF]">
                   {t.clinicSelectPrompt}
                 </div>
                 <div
@@ -396,14 +396,14 @@ export function CyberClinicView({
                             }`}
                           >
                             <div className="flex items-center gap-1.5">
-                              <span className="rounded bg-slate-900/90 border border-white/15 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-200">
+                              <span className="rounded bg-slate-900/90 border border-white/15 px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold text-cyan-200">
                                 [{idx + 1}]
                               </span>
                               <ImplantIcon id={id} size={isCompactLandscape ? 20 : 24} />
                             </div>
                             {!isCompactLandscape && (
                               <span
-                                className={`text-xs font-bold ${
+                                className={`text-[13px] font-bold ${
                                   isRare ? 'text-[#FFC700]' : 'text-[#00F0FF]'
                                 }`}
                               >
@@ -415,14 +415,14 @@ export function CyberClinicView({
                             <div className="flex items-center gap-1.5">
                               <h2
                                 className={`font-display font-bold text-white truncate ${
-                                  isCompactLandscape ? 'mt-0 text-xs' : 'mt-1.5 text-sm sm:text-base'
+                                  isCompactLandscape ? 'mt-0 text-[13px]' : 'mt-1.5 text-sm sm:text-base'
                                 }`}
                               >
                                 {meta.name}
                               </h2>
                               {isCompactLandscape && (
                                 <span
-                                  className={`text-[9px] font-bold shrink-0 ${
+                                  className={`text-[11.5px] font-bold shrink-0 ${
                                     isRare ? 'text-[#FFC700]' : 'text-[#00F0FF]'
                                   }`}
                                 >
@@ -430,14 +430,14 @@ export function CyberClinicView({
                                 </span>
                               )}
                             </div>
-                            <p className="mt-0.5 font-mono-tabular text-[10px] sm:text-[11px] leading-tight text-slate-200">
+                            <p className="mt-0.5 font-mono-tabular text-[12px] sm:text-[13px] leading-snug text-slate-200">
                               {meta.desc}
                             </p>
                           </div>
                         </div>
                         <div
-                          className={`text-[10px] sm:text-[11px] font-bold text-[#00F0FF] shrink-0 whitespace-nowrap ${
-                            isCompactLandscape ? '' : 'mt-2 text-xs'
+                          className={`text-[12px] sm:text-[13px] font-bold text-[#00F0FF] shrink-0 whitespace-nowrap ${
+                            isCompactLandscape ? '' : 'mt-2'
                           }`}
                         >
                           {t.installImplant} →
@@ -449,7 +449,7 @@ export function CyberClinicView({
               </>
             ) : (
               <div>
-                <div className="text-xs sm:text-sm font-bold text-[#FFC700]">
+                <div className="text-[13px] sm:text-sm font-bold text-[#FFC700]">
                   {t.clinicReplacePrompt}
                 </div>
                 <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
@@ -461,15 +461,15 @@ export function CyberClinicView({
                         key={existingId}
                         type="button"
                         onClick={() => onInstall(pendingImplant, existingId)}
-                        className="chrome-pill flex items-start gap-2 rounded-xl border-rose-400/55 p-2 text-left transition-all hover:border-rose-300 cursor-pointer"
+                        className="chrome-pill flex items-start gap-2 rounded-xl border-rose-400/55 p-2.5 text-left transition-all hover:border-rose-300 cursor-pointer"
                       >
                         <ImplantIcon id={existingId} size={20} className="shrink-0" />
                         <div className="min-w-0">
-                          <div className="font-display text-xs font-bold text-white">
+                          <div className="font-display text-[13px] font-bold text-white">
                             {meta.name}
                           </div>
-                          <div className="mt-0.5 text-[10px] text-slate-200">{meta.desc}</div>
-                          <div className="mt-0.5 text-[10px] font-bold text-rose-300">
+                          <div className="mt-0.5 text-[12px] text-slate-200">{meta.desc}</div>
+                          <div className="mt-0.5 text-[12px] font-bold text-rose-300">
                             {t.replaceSlot} →
                           </div>
                         </div>

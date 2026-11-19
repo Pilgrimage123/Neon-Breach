@@ -441,7 +441,7 @@ Every action runs through a deterministic 6-state machine (`'idle' | 'windup' | 
 2. **Rotation-Aware Camera Bounds Clamping (`computeMinZoomForRotation` & `clampPanForRotationBounds`):** Tilting the viewport by `θ` expands its axis-aligned world bounding extents to `W·cos|θ| + H·sin|θ|` and `W·sin|θ| + H·cos|θ|`. `ActionCameraController.step()` enforces minimum overscan zoom AND clamps both base `(panX, panY)` and combined `(panX + shakeOffsetX, panY + shakeOffsetY)` against the backdrop bleed rect (`BACKDROP_BLEED_X = 32`, `BACKDROP_BLEED_Y = 16`), mathematically preventing unrendered black corners even under `3.4°` tilt + maximum trauma shake.
 3. **Never-Static Hold Phase:** Continuous `+5%–10%` inward zoom creep (`zoomHoldEnd = zoom * (1 + holdZoomCreepPct)`) paired with `holdDriftX = holdDriftTargetX * p` keeps dramatic clashes alive instead of looking frozen after Hit-Stop ends.
 4. **Hit-Stop Time Isolation (`rawDt` vs. `simDt`):** During `impact_freeze`, `SequencerFrameState.simDt === 0` freezes world sprite animation clocks while unscaled wall `rawDt` drives camera shake, particle sparks, floating numbers, speed lines, and the strict per-frame white-flash countdown.
-5. **Serialized Queue & Guaranteed Cleanup:** `CombatActionSequencer.enqueueCutIn(...)` serializes overlapping combat actions in a FIFO queue so concurrent turn triggers never stomp each other's camera transforms or dimmer alpha. Passing `replaceQueue: true` (used by Keys `1–4` debug hotkeys and fresh combat batches) cleanly flushes pending entries via `cleanupActiveState()`, guaranteeing `dimmerAlpha = 0`, `worldUiAlpha = 1`, `drawPriority = 2`, and `poseOverride = 'none'` on completion, interruption, or Tactical View toggle.
+5. **Serialized Queue & Guaranteed Cleanup:** `CombatActionSequencer.enqueueCutIn(...)` serializes overlapping combat actions in a FIFO queue so concurrent turn triggers never stomp each other's camera transforms or dimmer alpha. Passing `replaceQueue: true` (used by Keys `1–4` debug hotkeys and fresh combat batches) cleanly flushes pending entries via `cleanupActiveState()`, and `invokeSafely(...)` isolates external VFX/audio callbacks (`onWindupStart`, `onProjectileSpawn`, `onImpactFrame`, `onImpactTarget`) inside `try/catch` guards—guaranteeing `dimmerAlpha = 0`, `worldUiAlpha = 1`, `drawPriority = 2`, and `poseOverride = 'none'` on completion, interruption, exception, or Tactical View toggle.
 
 ---
 
@@ -457,7 +457,7 @@ All five presentation modules live under `src/components/combat/` with zero DOM 
    * `clampPanForRotationBounds(panX, panY, zoom, rotationRad, viewportW, viewportH, bleedX, bleedY)`
    * `computeFocusFrame(...)` (Melee clash framing), `computeShooterLeadFrame(...)` (Ranged Beat 1 shooter + lead room), `computeAoeCentroidFrame(...)` (Ranged AoE Beat 2 wider centroid `[1.22×, 1.30×]`, `≥ 1.0×`)
    * `addTrauma(amount, kickDirX, kickDirY, viewportW, shakeMaxVw)` & `step(rawDt, input)` (supports `directPose` for exact `EaseOutExpo` / linear creep / `EaseInOutCubic`, plus combined `pan + shake` rotation-aware overscan clamp)
-   * `applyToCanvas2D(ctx, w, h)` & column-major `buildWebGLViewProjMatrix(w, h)` (`a = z·cosR`, `b = -z·sinR`, `c = z·sinR`, `d = z·cosR`)
+   * `applyToCanvas2D(ctx, w, h)` & column-major `buildWebGLViewProjMatrix(w, h)` (`a = z·cosR`, `b = -z·sinR`, `c = z·sinR`, `d = z·cosR`) — both `baseCtx`, `WebGL2CharacterStageRenderer`, and `fgCtx` apply screen-space `pan + shake` prior to `rotate → scale → translate(-cx, -cy)` so shadows, sprites, and foreground projectiles remain pixel-locked under crit zoom + trauma shake.
 4. **`SpriteJuiceFeedbackHandler.ts`:**
    * `beginWindup({ attackerId, targetIds, allActorIds, strikeDirX, isMelee, clashSlideDistPx, rangedLungePx })`
    * `triggerAttackerPunch(...)`, `triggerTargetImpact(...)` (per-target for `30ms–50ms` AoE cascade), `triggerImpact(...)`, `beginReset()`, `finish()`
@@ -465,7 +465,7 @@ All five presentation modules live under `src/components/combat/` with zero DOM 
 5. **`CombatActionSequencer.ts`:**
    * `enqueueCutIn(request, config, viewportW, viewportH)` & `playCutIn(request, config, viewportW, viewportH)`
    * `triggerImpactNow()`, `reset()`, `step(rawDt, viewportW, viewportH, options)` returning `SequencerFrameState` (including `stagingMode` and `worldUiAlpha`)
-   * `renderCutInForegroundVfx(ctx, frame, viewportW, viewportH)` — renders the radial crit vignette pulse, 28 `'lighter'` speed lines, and 2-frame `'difference'` invert flash
+   * `renderCutInForegroundVfx(ctx, frame, viewportW, viewportH, elapsed)` — renders the radial crit vignette pulse, 28 `'lighter'` speed lines, and 2-frame `'difference'` invert flash
 
 #### Reference Tuning Defaults (`combatPresentationConfig.ts`)
 ```ts
@@ -536,18 +536,28 @@ export function computeMinZoomForRotation(
 
 ---
 
-### 11.5 Sprite Sheet Pose Overrides, Combat VFX Routing & Turn Handshake
+### 11.5 Heroine & Enemy Staging Matrix, Nose-to-Nose Clashes & Single Horizontal Authority
 
-1. **Static Keyframe Pose Swaps:**
-   * **`crawlerSpriteSheet.ts` (`sampleCrawlerFrame`):** Snaps `larva`, `skitter`, and `stinger` directly to frame `4` (`attack_pose`), `1` (`brace_pose`), or `9` (`recoil_pose`) whenever alive.
-   * **`stalkerSpriteSheet.ts` (`sampleStalkerFrame`):** Maps `attack_pose → frame 6` (`spineGlowIntensity = 0.92`, `tiltRad = -0.06`), `brace_pose → frame 11`, and `recoil_pose → frame 12` with crisp non-blended transition (`frameBlendAlpha = 1`).
-   * **`stageSpriteAdapter.ts`:** Applies `cutIn.scaleX`, `cutIn.scaleY`, `cutIn.tintRgba`, prioritizes `cutIn.flashRgba`, and layers 4-control-point anatomical spline bend offsets (`pelvis`, `waist`, `head`) onto the heroine and non-juice enemies.
-2. **Explicit Melee / Ranged / AoE Routing (`combatVfx.ts`):**
-   * `hero_slash`: Routes `dash_kick` → `stagingMode: 'melee'`, multi-target ranged → `'ranged_aoe'`, single-target gunfire → `'ranged_fast'`, auto-promoting `actionKind: 'crit'` on surge, KO, or `>= 18` damage.
-   * `hero_overdrive`: Routes to `actionKind: 'overdrive'`, `stagingMode: 'ranged_aoe'` across all living targets.
-   * `enemy_attack` / `enemy_acid`: Routes `enemy_acid` (Bile Spitter spit) → `stagingMode: 'ranged_fast'`; all melee enemy attacks → `stagingMode: 'melee'`.
-   * All live batch dispatches pass `replaceQueue: true` and resolve `sim.onBatchComplete(batchKey)` on Phase D completion to drive `App.tsx`'s enemy turn stepper.
-3. **World-Space HUD Fade (`combatRenderer.ts`):** Reads `worldUiAlpha = tacticalViewActive ? 1 : (seqFrame?.worldUiAlpha ?? 1)` and fades both Hero and Enemy on-stage lifebars, armor crests, shield pips, threat labels, and death skulls smoothly out during focal cut-ins and back in on Phase D reset.
+1. **Explicit Melee vs. Ranged Staging Classifier (`combatStagingClassifier.ts`):**
+   * **Heroines (`classifyHeroAttackStaging`):**
+     * **Aurelia:** **100% Ranged (`scattergun`)** — fires wide amber/cyan plasma scattergun pellet bursts from formation (`ranged_fast` single, `ranged_aoe` multi/Overdrive); never slides into melee.
+     * **Zuri:** **100% Ranged (`drone_plasma`)** — stays aloft in formation while her foreground-promoted Tri-Drone formation fires twin rotary magenta/gold plasma volleys (`ranged_fast` single, `ranged_aoe` multi/Overdrive).
+     * **Kira:** **Hybrid Melee / Ranged** — alternates **in-your-face nose-to-nose melee Dash-Kicks** (`melee` on Surge or even attack toggle) with **Two-Beat Ranged Cyber-Pistol shots** (`pistol_bolt`, `ranged_fast` / `ranged_aoe`).
+   * **Enemies (`classifyEnemyAttackStaging`):**
+     * **Bile Spitter (`enemy_acid`):** Two-Beat Ranged (`ranged_fast`, `acid_bile` corrosive globules + pressurized bile torrent).
+     * **Bile Spitter (`clawRend`):** In-your-face nose-to-nose Melee clash (`melee`, frame `9`).
+     * **Pyre Stinger:** Two-Beat Ranged (`ranged_fast`, `stinger_dart` glowing chitin dart volley).
+     * **Spore Mite (`larva`), Acid Skitter (`skitter`), Spine Stalker (`stalker`), Carapace Brute (`brute`), Brood Queen (`boss`):** In-your-face nose-to-nose Melee clashes (`melee`).
+2. **Slot-Invariant Nose-to-Nose Contact Gap (`computeNoseToNoseMeleeSlides`):**
+   * Pulls Attacker & Target toward center stage to an exact contact separation (`meleeClashGapVw = 12.5%` of viewport width, configurable `8%–22%` in Action Camera Lab) regardless of starting slot (Slots 1–5), keeping the attacker strictly on their attack side with foreground scale emphasis (`meleeForegroundScale = 1.07×`) and tight `1.52×` normal / `1.80×` crit zoom.
+   * **Single Horizontal Transform Authority:** During melee cut-ins, legacy per-archetype horizontal shifts (`heroSample.xProgress`, enemy `lunge`, `stalkerSample.xOffsetRatio`, `spitterJuice.offsetX`, `bruteJuice.offsetX`, `stagger.dx`) are suppressed so `clashSlideX + knockbackX` is the sole horizontal authority—preventing double-slide overshoot, snap-back jitter, or detached reflections/shadows/popups.
+3. **Static Keyframe Pose Swaps & Facing-Aware Spline Bend:**
+   * **Heroines (`combatRenderer.ts` `resolveHeroCutInFrameIndex`):** Locks iconic poses during Wind-up, Hit-Stop, and Hold (Kira melee `16→18` High Plasma Kick / pistol `9→10` / guard `22` / recoil `24`; Aurelia `13→14` Scattergun / guard `28` / recoil `21`; Zuri `19→20` Drone Command / guard `46` / recoil `2`).
+   * **Enemies:** `crawlerSpriteSheet.ts` (`4 / 1 / 9`), `stalkerSpriteSheet.ts` (`6 / 11 / 12`), Spitter (`9` melee / `6` ranged / `10` brace / `12` recoil, facing locked `-1`), Brute (`10` heavy / `11` melee / `7` brace / `12` recoil, facing locked `-1`), and Boss (`1.06×` clash emphasis).
+   * **Facing-Aware Spine Bend (`stageSpriteAdapter.ts`):** `deriveEnemyDeformAndUniforms` computes `fwdSign = facingSign < 0 ? 1 : -1` so both native left-facing sprites (`larva`, `skitter`, `stinger`, `boss`, `facingSign = +1`) and mirrored right-facing sprites (`stalker`, `spitter`, `brute`, `facingSign = -1`) consistently bend **LEFT toward the heroine on attack** and **RIGHT away on recoil/stagger**.
+4. **Smooth Zero-Overshoot Knockback & World-Space HUD Fade:**
+   * `SpriteJuiceFeedbackHandler` drives knockback via an `EaseOutExpo` punch-out (`0.095s`) into a weighty settle (`0.58×` peak) with critically damped scale springs (`c = 26`), eliminating 1-frame snap teleports and rubber-band bounce-back.
+   * `worldUiAlpha` fades Hero and Enemy on-stage lifebars, armor crests, shield pips, threat labels, and death skulls smoothly out during focal cut-ins and back in on Phase D reset.
 
 ---
 
@@ -558,14 +568,14 @@ Matching the **Bile Spitter Juice Lab** and **Carapace Brute Juice Lab** drawers
 #### Keys `1–4` Hotkey & Trigger Contract
 | Key | Trigger (`fireCameraTrigger`) | Staging Mode | Framing & Projectile Behavior | Hit-Stop, Zoom, Tilt & Screen FX |
 | :--- | :--- | :--- | :--- | :--- |
-| **`1`** | **`melee_normal`** (`1 · Melee Hit`) | `'melee'` | Attacker & front enemy slide `34%` toward midpoint via `EaseOutExpo` | `120ms` Hit-Stop, `1.40× → +8%` Hold creep, `-2.0°` tilt, `3f` white→crimson flash, `-14` popup |
-| **`2`** | **`melee_crit`** (`2 · Melee Crit`) | `'melee'` | Center-stage melee clash at deep Crit zoom | `250ms` Hit-Stop, `1.72× → +8%` Hold creep, `-3.4°` tilt, `2.2% VW` shake, 2f invert flash + vignette + 28 speed lines, `CRIT -28!` |
-| **`3`** | **`ranged_single`** (`3 · Ranged Shot`) | `'ranged_fast'` | **Beat 1 (`0.24s`):** `1.40×` shooter close-up + `6% VW` lead room; `onProjectileSpawn` fires cyan plasma bolt above dimmer.<br>**Beat 2 (`0.13s`):** `EaseOutExpo` whip-pan to target | `120ms` Hit-Stop on bolt arrival, in-slot `8%` lunge & recoil, `3f` white→crimson flash, `-16` popup |
-| **`4`** | **`ranged_aoe`** (`4 · Ranged AoE`) | `'ranged_aoe'` | **Beat 1 (`0.24s`):** Shooter close-up + multi-bolt volley spawn.<br>**Beat 2 (`0.13s`):** Whip-pan to multi-target centroid at clamped `1.22×–1.30×` | `160ms` Hit-Stop, **`40ms` L→R cascaded** target flashes, knockbacks, crimson bursts, and staggered `-16 / -18 / -20` popups |
+| **`1`** | **`melee_normal`** (`1 · Melee Hit`) | `'melee'` | Attacker & front enemy pull to exact nose-to-nose contact gap (`12.5% VW`) via `EaseOutExpo` | `120ms` Hit-Stop, `1.52× → +8%` Hold creep, `-2.2°` tilt, `3f` white→crimson flash, live-anchored `-14` popup |
+| **`2`** | **`melee_crit`** (`2 · Melee Crit`) | `'melee'` | Nose-to-nose center-stage melee clash at deep Crit zoom | `250ms` Hit-Stop, `1.80× → +8%` Hold creep, `-3.5°` tilt, `2.2% VW` shake, 2f invert flash + vignette + 28 speed lines, `CRIT -28!` |
+| **`3`** | **`ranged_single`** (`3 · Ranged Shot`) | `'ranged_fast'` | **Beat 1 (`0.24s`):** `1.42×` shooter close-up + `6% VW` lead room; `onProjectileSpawn` fires heroine's styled weapon volley (`scattergun` / `drone_plasma` / `pistol_bolt`).<br>**Beat 2 (`0.13s`):** `EaseOutExpo` whip-pan to target | `120ms` Hit-Stop on arrival, in-slot `8%` lunge & recoil, `3f` white→crimson flash, `-16` popup |
+| **`4`** | **`ranged_aoe`** (`4 · Ranged AoE`) | `'ranged_aoe'` | **Beat 1 (`0.24s`):** Shooter close-up + styled multi-target volley.<br>**Beat 2 (`0.13s`):** Whip-pan to multi-target centroid at clamped `1.22×–1.30×` | `160ms` Hit-Stop, **`40ms` L→R cascaded** target flashes, knockbacks, crimson bursts, and staggered `-16 / -18 / -20` popups |
 
 #### Drawer Controls & Scoped Key Guard
 1. **Header Row:** Cyan badge (`◎ Action Camera Lab`), cross-lab pills (`⬡ Spitter`, `■ Brute`), `Reset` (`data-testid="camera-lab-reset-btn"` — restores `DEFAULT_COMBAT_PRESENTATION_CONFIG` and calls `actionSequencer.reset()`), and `✕` Close (`data-testid="camera-lab-close-btn"`).
-2. **Designer Sliders & Flags:** `Wind-up (s)`, `Hit-Stop Norm (ms)`, `Hit-Stop Crit (ms)`, `Zoom Norm / Crit`, `Hold Creep (%)`, `Dutch Tilt Crit (°)`, `Shake Crit (% VW)`, `Knockback (% VW)`, `AoE Cascade (ms)`, `Stage Dimmer`, plus checkboxes for `Adaptive Pack`, `Crit Flash`, and `Hide HUD` (`hideWorldUiDuringCutIn`).
+2. **Designer Sliders & Flags:** `Wind-up (s)`, `Hit-Stop Norm (ms)`, `Hit-Stop Crit (ms)`, `Zoom Norm / Crit`, `Hold Creep (%)`, **`Clash Gap (% VW)`** (`8%–22%`), `Dutch Tilt Crit (°)`, `Shake Crit (% VW)`, `Knockback (% VW)`, `AoE Cascade (ms)`, `Stage Dimmer`, plus checkboxes for `Adaptive Pack`, `Crit Flash`, and `Hide HUD` (`hideWorldUiDuringCutIn`).
 3. **Scoped Key Listener (`CombatStageCanvas.tsx`):** Capture-phase `window.addEventListener('keydown', onKeyDown, true)` active only while `cameraLabOpen === true`, ignoring `<input>` / `<textarea>` focus targets and calling `e.preventDefault(); e.stopPropagation();` for `'1' | '2' | '3' | '4'`.
 
 ---
@@ -582,9 +592,15 @@ npx tsx --test src/components/combat/combatPresentation.test.ts
 2. **Melee, Shooter Lead & AoE Centroid Framing:** Confirms Melee midpoint framing, Beat 1 shooter directional lead room, and AoE centroid clamping within `[1.22×, 1.30×]` (`≥ 1.0×`).
 3. **Rotation-Aware Overscan Corner Invariant:** Transforms all 4 viewport corners through the inverse camera matrix under `3.4°` Dutch tilt + extreme pan + maximum trauma shake and asserts every corner remains inside `[-16, W+16] × [-8, H+8]`.
 4. **Viewport-Relative Shake Scaling & Safety Overrides:** Confirms shake pixels scale proportionally across `640px` vs. `1920px` viewports, and verifies `reducedMotion` and `tacticalViewActive` overrides.
-5. **Melee Clash Slide vs. Ranged In-Slot Lunge & 3-Frame White Flash:** Verifies `34%` midpoint slide vs. `8%` in-slot lunge, 3-frame `#FFFFFF → #FF2E7E` countdown during Hit-Stop, Hold drift apart, and clean `finish()` reset.
+5. **Melee Clash Slide vs. Ranged In-Slot Lunge & 3-Frame White Flash:** Verifies midpoint slide vs. `8%` in-slot lunge, 3-frame `#FFFFFF → #FF2E7E` countdown during Hit-Stop, Hold drift apart, and clean `finish()` reset.
 6. **Melee Crit Full Timeline:** Verifies `windup` → `impact_freeze` (`simDt = 0`, `worldUiAlpha = 0`, invert flash, speed lines) → `followthrough` (`+8%` inward zoom creep) → `reset` (`worldUiAlpha = 1`).
 7. **Two-Beat Ranged Fast & Ranged Lobbed:** Verifies `onProjectileSpawn` firing once at Beat 1 → Beat 2, rapid `EaseOutExpo` whip-pan, and live `getProjectileX()` camera tracking.
 8. **Ranged AoE Left-to-Right Cascade:** Supplies out-of-order targets and verifies `onImpactTarget` fires strictly left-to-right at `~40ms` intervals with clamped wider zoom.
 9. **Serialized FIFO Queue & Guaranteed Cleanup:** Confirms overlapping `enqueueCutIn` calls execute sequentially without stomping and `tacticalViewActive` immediately cleans up camera, dimmer, and HUD state.
 10. **Static Cut-In Pose Overrides:** Confirms exact `attack_pose`, `brace_pose`, and `recoil_pose` frame indices for `crawlerSpriteSheet.ts` and `stalkerSpriteSheet.ts`.
+11. **Callback Exception Isolation & Guaranteed Cleanup:** Throws errors inside `onWindupStart`, `onProjectileSpawn`, `onImpactFrame`, and `onImpactTarget` and asserts the sequencer still completes Phase D cleanly.
+12. **Hero & Enemy Staging Classifiers:** Confirms Aurelia/Zuri are 100% ranged (`scattergun` / `drone_plasma`), Kira is hybrid melee/pistol, Spitter acid & Stinger darts are ranged, and all other enemy archetypes use melee clashes.
+13. **Slot-Invariant Nose-to-Nose Slides (Slots 1–5):** Asserts exact contact gap without crossing for both hero-vs-enemy and enemy-vs-hero melee attacks across all 5 enemy slots.
+14. **Zero-Overshoot Smooth Knockback:** Asserts `knockbackX` begins smoothly at `0px` and never reverses negative across 45 frames.
+15. **Left/Right Facing-Aware Spine Bend:** Verifies both native left-facing (`larva`, `facingSign = +1`) and mirrored right-facing (`stalker`, `facingSign = -1`) enemies bend toward the heroine (screen left) on `attack_pose` and away (screen right) on `recoil_pose`.
+

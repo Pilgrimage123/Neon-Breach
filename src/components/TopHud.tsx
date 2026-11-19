@@ -67,15 +67,15 @@ export function TopHud({
           : 'mx-2 mt-1 px-2.5 py-1 sm:mx-3 sm:mt-1.5 sm:px-3.5 sm:py-1.5'
       }`}
     >
-      <div className="flex items-center justify-between gap-2 sm:gap-3">
+      <div className="flex items-center justify-between gap-1.5 sm:gap-3">
         {/* Zone 1: Brand + Core Metadata (Turn/Map · Stars · HP/Credits · Implants) */}
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
           <span
             className={`font-display font-extrabold tracking-wider text-[#F4F4F6] whitespace-nowrap shrink-0 ${
-              isCompactLandscape ? 'text-xs' : 'text-sm sm:text-base'
+              isCompactLandscape ? 'text-xs' : 'text-[13px] min-[430px]:text-sm sm:text-base'
             }`}
           >
-            NEON<span className="text-cyan-300">BREACH</span>
+            NEON<span className="hidden min-[430px]:inline text-cyan-300">BREACH</span>
           </span>
 
           <span aria-hidden="true" className="text-slate-500 shrink-0">
@@ -85,12 +85,12 @@ export function TopHud({
           {isCombat && combat ? (
             <div
               data-testid="tophud-turn-counter"
-              className="flex items-baseline gap-1.5 font-mono-tabular whitespace-nowrap shrink-0"
+              className="flex items-baseline gap-1 sm:gap-1.5 font-mono-tabular whitespace-nowrap shrink-0"
             >
-              <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300">
+              <span className="text-[11.5px] min-[430px]:text-[13px] font-bold uppercase tracking-wider text-cyan-300">
                 {t.turnsLabel}
               </span>
-              <span className="tactical-numeral-stroke text-lg sm:text-xl font-black text-[#F4F4F6] leading-none">
+              <span className="tactical-numeral-stroke text-base min-[430px]:text-lg sm:text-xl font-black text-[#F4F4F6] leading-none">
                 {combat.turn}
               </span>
             </div>
@@ -195,7 +195,7 @@ export function TopHud({
                     undoResetHint ??
                     (lang === 'cs' ? diff.summaryCs : diff.summaryEn)
                   }
-                  className="hidden md:inline-flex items-center rounded-md border border-white/15 bg-slate-900/90 px-1.5 py-1 font-mono-tabular text-[10px] font-bold text-slate-200 whitespace-nowrap"
+                  className="hidden md:inline-flex items-center rounded-md border border-white/15 bg-slate-900/90 px-2 py-1 font-mono-tabular text-[12px] font-bold text-slate-200 whitespace-nowrap"
                 >
                   T{tier}
                   {undoResetHint ? ` · ${undoResetHint}` : ''}
@@ -208,7 +208,7 @@ export function TopHud({
                         ? `Povinný mandát Velmistra: vyčisti do T${turnCap} nebo bez ztráty HP (-12 HP průlom & ztráta kořisti při nesplnění)`
                         : `Grandmaster Mandatory Mandate: clear by T${turnCap} or 0 HP lost (-12 HP breach & loot confiscated on fail)`
                     }
-                    className={`hidden lg:inline-flex items-center rounded-md border px-1.5 py-1 font-mono-tabular text-[10px] font-extrabold whitespace-nowrap ${
+                    className={`hidden lg:inline-flex items-center rounded-md border px-2 py-1 font-mono-tabular text-[12px] font-extrabold whitespace-nowrap ${
                       mandateOnTrack
                         ? 'border-emerald-400/50 bg-emerald-950/60 text-emerald-200'
                         : 'border-rose-400/70 bg-rose-950/70 text-rose-200 animate-pulse'
@@ -269,7 +269,7 @@ export function TopHud({
             type="button"
             data-testid="tophud-pool-button"
             onClick={onOpenPool}
-            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 font-mono-tabular text-[11px] font-bold text-cyan-200 hover:border-cyan-300 whitespace-nowrap shrink-0 cursor-pointer"
+            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 font-mono-tabular text-[12px] sm:text-[13px] font-bold text-cyan-200 hover:border-cyan-300 whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span>▣</span>
             <span className="hidden lg:inline">{t.inspectPool}</span>
@@ -283,7 +283,7 @@ export function TopHud({
             data-testid="tophud-codex-button"
             onClick={onOpenCodex}
             aria-label={codexT.codexButtonLabel}
-            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 text-[11px] font-bold text-cyan-200 transition hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 py-1 text-[12px] sm:text-[13px] font-bold text-cyan-200 transition hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span className="font-mono-tabular text-cyan-300">?</span>
             <span className="hidden lg:inline">{codexT.codexButtonLabel}</span>
@@ -295,7 +295,7 @@ export function TopHud({
             onClick={onOpenPause}
             aria-label={t.pauseTitle}
             title={lang === 'cs' ? 'Pauza a nastavení (Esc)' : 'Pause & Settings (Esc)'}
-            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2.5 py-1 font-mono-tabular text-[11px] font-bold text-slate-200 hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+            className="flex items-center gap-1 rounded-lg border border-white/15 bg-[#0E1015] px-2 sm:px-2.5 py-1 font-mono-tabular text-[12px] sm:text-[13px] font-bold text-slate-200 hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             <span>⚙</span>
             <span className="text-slate-400">·</span>
@@ -327,7 +327,7 @@ export function TopHud({
           <button
             type="button"
             onClick={() => setInspectImplantId(null)}
-            className="chrome-pill shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-bold text-slate-200 hover:border-cyan-300 cursor-pointer"
+            className="chrome-pill shrink-0 rounded-lg px-2 py-0.5 text-[12px] font-bold text-slate-200 hover:border-cyan-300 cursor-pointer"
           >
             ✕
           </button>

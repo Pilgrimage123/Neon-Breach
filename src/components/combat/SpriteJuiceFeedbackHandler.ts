@@ -5,6 +5,7 @@ export type CutInPoseOverride = 'none' | 'attack_pose' | 'brace_pose' | 'recoil_
 
 export interface ActorJuiceSnapshot {
   active: boolean;
+  isMeleeClash: boolean;
   role: CutInActorRole;
   drawPriority: number;
   poseOverride: CutInPoseOverride;
@@ -30,10 +31,12 @@ interface InternalActorJuice {
   clashSlideStartX: number;
   clashSlideTargetX: number;
   clashSlideX: number;
-  /** Knockback impulse + spring return */
+  /** Knockback impulse + smooth EaseOutExpo punch-out (zero negative overshoot) */
   knockbackX: number;
-  knockbackTargetX: number;
-  knockbackVelX: number;
+  knockbackStartX: number;
+  knockbackPeakX: number;
+  knockbackAgeSec: number;
+  knockbackActive: boolean;
   /** Continuous slow drift apart during Phase C Hold */
   holdDriftTargetX: number;
   holdDriftX: number;
@@ -42,6 +45,7 @@ interface InternalActorJuice {
   resetStartKnockbackX: number;
   resetStartLeanRad: number;
   /** Foot-anchored squash & stretch spring */
+  baseScaleTarget: number;
   scaleX: number;
   scaleY: number;
   scaleVelX: number;
@@ -56,6 +60,7 @@ const NEUTRAL_TINT: [number, number, number, number] = [1, 1, 1, 1];
 
 export const NEUTRAL_ACTOR_JUICE_SNAPSHOT: ActorJuiceSnapshot = {
   active: false,
+  isMeleeClash: false,
   role: 'bystander',
   drawPriority: 2,
   poseOverride: 'none',
@@ -74,8 +79,14 @@ export interface BeginWindupParams {
   allActorIds: readonly string[];
   strikeDirX: number;
   isMelee: boolean;
-  /** Pixel gap between attacker and target midpoint for Melee 25%-40% clash slide */
+  /** Legacy symmetric pixel slide fallback for melee clash */
   clashSlideDistPx: number;
+  /** Explicit nose-to-nose signed slide delta for the melee attacker */
+  attackerSlideOverridePx?: number;
+  /** Explicit nose-to-nose signed slide deltas per melee target ID */
+  targetSlideOverridesPx?: ReadonlyMap<string, number>;
+  /** Subtle foreground scale boost for melee combatants (default 1.07x) */
+  meleeForegroundScale?: number;
   /** Subtle in-slot forward lunge for Ranged attacks (5%-10% of actor width) */
   rangedLungePx: number;
 }
@@ -100,6 +111,7 @@ export interface TriggerTargetImpactParams {
 export class SpriteJuiceFeedbackHandler {
   private actors = new Map<string, InternalActorJuice>();
   private cutInActive = false;
+  private activeIsMelee = false;
 
   private ensureActor(actorId: string): InternalActorJuice {
     let entry = this.actors.get(actorId);
@@ -111,13 +123,16 @@ export class SpriteJuiceFeedbackHandler {
         clashSlideTargetX: 0,
         clashSlideX: 0,
         knockbackX: 0,
-        knockbackTargetX: 0,
-        knockbackVelX: 0,
+        knockbackStartX: 0,
+        knockbackPeakX: 0,
+        knockbackAgeSec: 0,
+        knockbackActive: false,
         holdDriftTargetX: 0,
         holdDriftX: 0,
         resetStartSlideX: 0,
         resetStartKnockbackX: 0,
         resetStartLeanRad: 0,
+        baseScaleTarget: 1,
         scaleX: 1,
         scaleY: 1,
         scaleVelX: 0,
@@ -135,6 +150,7 @@ export class SpriteJuiceFeedbackHandler {
   public reset(): void {
     this.actors.clear();
     this.cutInActive = false;
+    this.activeIsMelee = false;
   }
 
   public beginWindup(params: BeginWindupParams): void {
@@ -145,18 +161,25 @@ export class SpriteJuiceFeedbackHandler {
       strikeDirX,
       isMelee,
       clashSlideDistPx,
+      attackerSlideOverridePx,
+      targetSlideOverridesPx,
+      meleeForegroundScale = 1.07,
       rangedLungePx,
     } = params;
 
     this.cutInActive = true;
+    this.activeIsMelee = isMelee;
     const targetSet = new Set(targetIds);
+    const fgScale = isMelee ? Math.max(1.0, Math.min(1.16, meleeForegroundScale)) : 1.0;
 
     for (const id of allActorIds) {
       const a = this.ensureActor(id);
       a.clashSlideStartX = a.clashSlideX;
       a.knockbackX = 0;
-      a.knockbackTargetX = 0;
-      a.knockbackVelX = 0;
+      a.knockbackStartX = 0;
+      a.knockbackPeakX = 0;
+      a.knockbackAgeSec = 0;
+      a.knockbackActive = false;
       a.holdDriftTargetX = 0;
       a.holdDriftX = 0;
       a.whiteFlashFramesLeft = 0;
@@ -167,34 +190,41 @@ export class SpriteJuiceFeedbackHandler {
       if (id === attackerId) {
         a.role = 'attacker';
         a.poseOverride = 'attack_pose';
+        a.baseScaleTarget = fgScale;
         if (isMelee) {
-          // Physically slide attacker 25%-40% closer to the midpoint so melee clashes in the center third
-          a.clashSlideTargetX = strikeDirX * clashSlideDistPx;
-          a.leanTargetRad = strikeDirX * 0.07;
+          a.clashSlideTargetX =
+            attackerSlideOverridePx !== undefined
+              ? attackerSlideOverridePx
+              : strikeDirX * clashSlideDistPx;
+          a.leanTargetRad = strikeDirX * 0.085;
         } else {
           // Ranged: stay in formation slot with only a subtle 5%-10% forward aim/fire lunge
           a.clashSlideTargetX = strikeDirX * rangedLungePx;
           a.leanTargetRad = strikeDirX * 0.04;
         }
-        a.scaleX = 0.95;
-        a.scaleY = 1.06;
+        a.scaleX = 0.95 * fgScale;
+        a.scaleY = 1.06 * fgScale;
       } else if (targetSet.has(id)) {
         a.role = 'target';
         a.poseOverride = 'brace_pose';
+        a.baseScaleTarget = fgScale;
         if (isMelee) {
-          // Slide melee defender symmetrically toward the shared midpoint
-          a.clashSlideTargetX = -strikeDirX * clashSlideDistPx;
-          a.leanTargetRad = -strikeDirX * 0.05;
+          a.clashSlideTargetX =
+            targetSlideOverridesPx && targetSlideOverridesPx.has(id)
+              ? (targetSlideOverridesPx.get(id) ?? -strikeDirX * clashSlideDistPx)
+              : -strikeDirX * clashSlideDistPx;
+          a.leanTargetRad = -strikeDirX * 0.06;
         } else {
           // Ranged target remains anchored in its formation slot until impact
           a.clashSlideTargetX = 0;
           a.leanTargetRad = 0;
         }
-        a.scaleX = 1.04;
-        a.scaleY = 0.96;
+        a.scaleX = 1.04 * fgScale;
+        a.scaleY = 0.96 * fgScale;
       } else {
         a.role = 'bystander';
         a.poseOverride = 'none';
+        a.baseScaleTarget = 1;
         a.clashSlideTargetX = 0;
         a.leanTargetRad = 0;
         a.scaleX = 1;
@@ -218,14 +248,14 @@ export class SpriteJuiceFeedbackHandler {
     const atk = this.ensureActor(attackerId);
     atk.role = 'attacker';
     atk.poseOverride = 'attack_pose';
-    atk.leanTargetRad = strikeDirX * (isCrit ? 0.14 : 0.09);
-    atk.leanRad = atk.leanTargetRad;
-    atk.scaleX = attackerScalePunch;
-    atk.scaleY = 1 / Math.max(0.72, Math.sqrt(attackerScalePunch));
+    atk.leanTargetRad = strikeDirX * (isCrit ? 0.13 : 0.085);
+    const baseS = atk.baseScaleTarget || 1;
+    atk.scaleX = attackerScalePunch * baseS;
+    atk.scaleY = (1 / Math.max(0.76, Math.sqrt(attackerScalePunch))) * baseS;
     atk.scaleVelX = 0;
     atk.scaleVelY = 0;
     // Slight recoil drift away from the clash point during Phase C Hold (Melee only)
-    atk.holdDriftTargetX = isMelee ? -strikeDirX * holdDriftPx * 0.65 : 0;
+    atk.holdDriftTargetX = isMelee ? -strikeDirX * holdDriftPx * 0.55 : 0;
   }
 
   /**
@@ -247,15 +277,18 @@ export class SpriteJuiceFeedbackHandler {
     const tgt = this.ensureActor(targetId);
     tgt.role = 'target';
     tgt.poseOverride = 'recoil_pose';
-    tgt.knockbackTargetX = strikeDirX * knockbackPx;
-    tgt.knockbackX = strikeDirX * knockbackPx * 0.78;
-    tgt.knockbackVelX = strikeDirX * knockbackPx * (isCrit ? 3.2 : 2.4);
-    tgt.holdDriftTargetX = strikeDirX * holdDriftPx * (isMelee ? 1.0 : 0.75);
-    tgt.leanTargetRad = strikeDirX * (isCrit ? 0.19 : 0.13);
-    tgt.leanRad = tgt.leanTargetRad;
-    // Sharp horizontal compression / vertical stretch around feet pivot on contact
-    tgt.scaleX = 0.84;
-    tgt.scaleY = 1.18;
+    // Smooth EaseOutExpo knockback punch-out (crisp initial jolt, zero 1-frame teleport, zero bounce-back)
+    tgt.knockbackPeakX = strikeDirX * knockbackPx;
+    tgt.knockbackStartX = tgt.knockbackX + strikeDirX * knockbackPx * 0.22;
+    tgt.knockbackX = tgt.knockbackStartX;
+    tgt.knockbackAgeSec = 0;
+    tgt.knockbackActive = true;
+    tgt.holdDriftTargetX = strikeDirX * holdDriftPx * (isMelee ? 0.9 : 0.7);
+    tgt.leanTargetRad = strikeDirX * (isCrit ? 0.17 : 0.12);
+    // Crisp horizontal compression / vertical stretch around feet pivot on contact
+    const baseS = tgt.baseScaleTarget || 1;
+    tgt.scaleX = 0.87 * baseS;
+    tgt.scaleY = 1.14 * baseS;
     tgt.scaleVelX = 0;
     tgt.scaleVelY = 0;
     tgt.whiteFlashFramesLeft = Math.max(2, Math.round(whiteFlashFrames));
@@ -303,24 +336,30 @@ export class SpriteJuiceFeedbackHandler {
       a.resetStartSlideX = a.clashSlideX + a.holdDriftX;
       a.resetStartKnockbackX = a.knockbackX;
       a.resetStartLeanRad = a.leanRad;
+      a.baseScaleTarget = 1;
       a.clashSlideTargetX = 0;
       a.holdDriftTargetX = 0;
-      a.knockbackTargetX = 0;
+      a.knockbackPeakX = 0;
+      a.knockbackActive = false;
       a.leanTargetRad = 0;
     });
   }
 
   public finish(): void {
     this.cutInActive = false;
+    this.activeIsMelee = false;
     this.actors.forEach((a) => {
       a.role = 'bystander';
       a.poseOverride = 'none';
+      a.baseScaleTarget = 1;
       a.clashSlideStartX = 0;
       a.clashSlideTargetX = 0;
       a.clashSlideX = 0;
       a.knockbackX = 0;
-      a.knockbackTargetX = 0;
-      a.knockbackVelX = 0;
+      a.knockbackStartX = 0;
+      a.knockbackPeakX = 0;
+      a.knockbackAgeSec = 0;
+      a.knockbackActive = false;
       a.holdDriftTargetX = 0;
       a.holdDriftX = 0;
       a.scaleX = 1;
@@ -346,9 +385,9 @@ export class SpriteJuiceFeedbackHandler {
     phaseProgress = 1,
   ): void {
     const dt = Math.max(0, Math.min(0.1, rawDt));
-    const leanRate = 1 - Math.exp(-16 * dt);
+    const leanRate = 1 - Math.exp(-22 * dt);
     const k = 260;
-    const c = 18;
+    const c = 26;
 
     const p = clamp01(phaseProgress);
     const windupEase = easeOutExpo(p);
@@ -372,14 +411,15 @@ export class SpriteJuiceFeedbackHandler {
         a.clashSlideX = a.resetStartSlideX * inv;
         a.holdDriftX = 0;
         a.knockbackX = a.resetStartKnockbackX * inv;
-        a.knockbackVelX = 0;
+        a.knockbackActive = false;
         a.leanRad = a.resetStartLeanRad * inv;
         if (p >= 0.45) {
           a.poseOverride = 'none';
         }
       } else if (isHitStopped) {
-        // Hold crisp frozen pose & impact peak during Hit-Stop freeze
-        a.clashSlideX += (a.clashSlideTargetX - a.clashSlideX) * Math.min(1, 1 - Math.exp(-10 * dt));
+        // Hold crisp frozen pose & impact peak during Hit-Stop freeze while letting lean converge smoothly
+        a.clashSlideX += (a.clashSlideTargetX - a.clashSlideX) * Math.min(1, 1 - Math.exp(-16 * dt));
+        a.leanRad += (a.leanTargetRad - a.leanRad) * leanRate;
         return;
       } else {
         // Travel / Follow-through Hold
@@ -391,20 +431,26 @@ export class SpriteJuiceFeedbackHandler {
           a.holdDriftX = a.holdDriftTargetX * p;
         }
 
-        // Elastic/damped knockback pulse settling smoothly toward target rest offset
-        const kbAcc = -180 * a.knockbackX - 18 * a.knockbackVelX;
-        a.knockbackVelX += kbAcc * dt;
-        a.knockbackX += a.knockbackVelX * dt;
-        if (Math.abs(a.knockbackX) < 0.15 && Math.abs(a.knockbackVelX) < 1) {
-          a.knockbackX = 0;
-          a.knockbackVelX = 0;
+        // Smooth EaseOutExpo knockback impulse followed by weighty friction settle (zero negative overshoot)
+        if (a.knockbackActive) {
+          a.knockbackAgeSec += dt;
+          const punchDur = 0.095;
+          if (a.knockbackAgeSec <= punchDur) {
+            const kEase = easeOutExpo(clamp01(a.knockbackAgeSec / punchDur));
+            a.knockbackX = a.knockbackStartX + (a.knockbackPeakX - a.knockbackStartX) * kEase;
+          } else {
+            const settleTarget = a.knockbackPeakX * 0.58;
+            const settleRate = 1 - Math.exp(-5.2 * dt);
+            a.knockbackX += (settleTarget - a.knockbackX) * settleRate;
+          }
         }
       }
 
       if (!isHitStopped) {
-        // Spring scaleX & scaleY back to 1.0 (elastic recovery from 1.25x punch)
-        const ax = k * (1 - a.scaleX) - c * a.scaleVelX;
-        const ay = k * (1 - a.scaleY) - c * a.scaleVelY;
+        // Critically-damped spring scaleX & scaleY back to baseScaleTarget (zero bouncy wobble)
+        const targetS = phase === 'reset' ? 1 : a.baseScaleTarget;
+        const ax = k * (targetS - a.scaleX) - c * a.scaleVelX;
+        const ay = k * (targetS - a.scaleY) - c * a.scaleVelY;
         a.scaleVelX += ax * dt;
         a.scaleVelY += ay * dt;
         a.scaleX += a.scaleVelX * dt;
@@ -425,6 +471,7 @@ export class SpriteJuiceFeedbackHandler {
       return {
         ...NEUTRAL_ACTOR_JUICE_SNAPSHOT,
         active: true,
+        isMeleeClash: false,
         drawPriority: 1,
         tintRgba: [d * 0.86, d * 0.9, Math.min(1, d * 1.06), 1],
       };
@@ -448,6 +495,7 @@ export class SpriteJuiceFeedbackHandler {
 
     return {
       active: this.cutInActive,
+      isMeleeClash: this.cutInActive && this.activeIsMelee && a.role !== 'bystander',
       role: a.role,
       drawPriority,
       poseOverride: a.poseOverride,

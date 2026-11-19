@@ -13,6 +13,7 @@ import {
   easeOutExpo,
   lerp,
 } from './combatPresentationMath';
+import { computeNoseToNoseMeleeSlides } from './combatStagingClassifier';
 import {
   type ActorJuiceSnapshot,
   NEUTRAL_ACTOR_JUICE_SNAPSHOT,
@@ -127,6 +128,9 @@ export class CombatActionSequencer {
   private holdZoomEnd = 1;
   private startRotRad = 0;
   private targetRotRad = 0;
+  private impactCamStart: CameraFocusFrame = { zoom: 1, panX: 0, panY: 0 };
+  private impactRotStart = 0;
+  private impactSnapElapsed = 0;
 
   private impactOriginX = 0;
   private impactOriginY = 0;
@@ -170,6 +174,15 @@ export class CombatActionSequencer {
   }
 
   /**
+   * Returns an actor's live world X including any active cut-in clash slide or knockback,
+   * so impact sparks, shockwaves, blood sprays, and damage popups erupt right at contact.
+   */
+  public getLiveActorX(actorId: string, baseX: number): number {
+    const snap = this.getActorJuice(actorId);
+    return snap.active ? baseX + snap.clashSlideX + snap.knockbackX : baseX;
+  }
+
+  /**
    * Guaranteed cleanup teardown: restores idle poses, sorting priority, dimmer alpha,
    * world-space HUD visibility, neutral camera transform, and resolves pending promises.
    */
@@ -203,10 +216,22 @@ export class CombatActionSequencer {
     this.holdZoomEnd = 1;
     this.startRotRad = 0;
     this.targetRotRad = 0;
+    this.impactCamStart = { zoom: 1, panX: 0, panY: 0 };
+    this.impactRotStart = 0;
+    this.impactSnapElapsed = 0;
     this.impactFiredForRequest = false;
     this.projectileSpawnFired = false;
     this.pendingCascades.length = 0;
     this.juice.finish();
+  }
+
+  private invokeSafely(fn?: () => void): void {
+    if (!fn) return;
+    try {
+      fn();
+    } catch {
+      // Isolate caller VFX/audio errors so Phase D cleanup and camera reset always complete.
+    }
   }
 
   /**
@@ -220,11 +245,12 @@ export class CombatActionSequencer {
     viewportH = 380,
   ): Promise<void> {
     if (!config.enabled) {
-      request.onWindupStart?.();
-      request.onProjectileSpawn?.();
-      request.onImpactFrame?.();
+      this.invokeSafely(request.onWindupStart);
+      this.invokeSafely(request.onProjectileSpawn);
+      this.invokeSafely(request.onImpactFrame);
       for (let i = 0; i < request.targetIds.length; i++) {
-        request.onImpactTarget?.(request.targetIds[i], i);
+        const tid = request.targetIds[i];
+        this.invokeSafely(() => request.onImpactTarget?.(tid, i));
       }
       return Promise.resolve();
     }
@@ -323,7 +349,6 @@ export class CombatActionSequencer {
     this.startRotRad = this.camera.rotationRad;
 
     const gapPx = Math.abs(primaryTarget.x - request.attackerBounds.x);
-    // Melee: physically slide both Attacker & Target 25%-40% closer to midpoint
     const slideRatio = Math.max(0.25, Math.min(0.4, config.meleeClashSlideRatio));
     const meleeSlideEachPx = isMelee ? gapPx * 0.5 * slideRatio : 0;
     // Ranged: stay in formation slot with only a 5%-10% forward lunge
@@ -332,15 +357,30 @@ export class CombatActionSequencer {
       request.attackerBounds.widthPx * Math.max(0.05, Math.min(0.1, config.rangedSlotLungeRatio)),
     );
 
+    let attackerSlideOverridePx: number | undefined;
+    let targetSlideOverridesPx: Map<string, number> | undefined;
+
     if (isMelee) {
-      // Frame the shifted clash midpoint so Attacker & Target fill the center third tightly
+      // Pull Attacker & Target(s) into a tight nose-to-nose Darkest Dungeon center-stage clash
+      const meleePlan = computeNoseToNoseMeleeSlides({
+        attackerBounds: request.attackerBounds,
+        targetBounds: sortedTargets,
+        viewportW: this.viewportW,
+        clashGapVw: config.meleeClashGapVw,
+        strikeDirX: this.strikeDirX,
+      });
+      attackerSlideOverridePx = meleePlan.attackerSlideX;
+      targetSlideOverridesPx = meleePlan.targetSlidesX;
+      this.impactOriginX = meleePlan.contactMidX;
+      this.impactOriginY = meleePlan.contactMidY;
+
       const shiftedAttacker: CameraActorBounds = {
         ...request.attackerBounds,
-        x: request.attackerBounds.x + this.strikeDirX * meleeSlideEachPx,
+        x: request.attackerBounds.x + meleePlan.attackerSlideX,
       };
       const shiftedTargets: CameraActorBounds[] = sortedTargets.map((t) => ({
         ...t,
-        x: t.x - this.strikeDirX * meleeSlideEachPx,
+        x: t.x + (meleePlan.targetSlidesX.get(t.id) ?? 0),
       }));
       const desiredZoom = isCrit ? config.zoomCrit : config.zoomNormal;
       const focus = this.camera.computeFocusFrame(
@@ -348,8 +388,8 @@ export class CombatActionSequencer {
         this.viewportW,
         this.viewportH,
         desiredZoom,
-        Math.min(desiredZoom, 1.35),
-        1.9,
+        Math.min(desiredZoom, 1.48),
+        1.92,
         impactRotRad,
       );
       this.camGoalFrame = focus;
@@ -384,7 +424,7 @@ export class CombatActionSequencer {
           this.viewportW,
           this.viewportH,
           desiredTargetZoom,
-          Math.min(desiredTargetZoom, 1.35),
+          Math.min(desiredTargetZoom, 1.38),
           1.9,
           impactRotRad,
         );
@@ -399,10 +439,13 @@ export class CombatActionSequencer {
       strikeDirX: this.strikeDirX,
       isMelee,
       clashSlideDistPx: meleeSlideEachPx,
+      attackerSlideOverridePx,
+      targetSlideOverridesPx,
+      meleeForegroundScale: config.meleeForegroundScale,
       rangedLungePx,
     });
 
-    request.onWindupStart?.();
+    this.invokeSafely(request.onWindupStart);
   }
 
   /**
@@ -424,7 +467,7 @@ export class CombatActionSequencer {
     if (!this.activeRequest || this.phase !== 'windup') return;
     if (!this.projectileSpawnFired) {
       this.projectileSpawnFired = true;
-      this.activeRequest.onProjectileSpawn?.();
+      this.invokeSafely(this.activeRequest.onProjectileSpawn);
     }
 
     this.phase = 'travel';
@@ -447,13 +490,20 @@ export class CombatActionSequencer {
     const isAoe = this.stagingMode === 'ranged_aoe' || req.actionKind === 'aoe' || req.targetIds.length > 1;
     const isMelee = this.stagingMode === 'melee';
 
-    // Snap camera onto Beat 2 target/centroid frame if we arrived early from an external projectile collision
-    this.camStartFrame = { ...this.beat2TargetFrame };
+    // Smoothly catch up from current live camera pose to Beat 2 frame (eliminates 1-frame camera teleports on early impact)
+    this.impactCamStart = {
+      zoom: this.camera.zoom,
+      panX: this.camera.panX,
+      panY: this.camera.panY,
+    };
+    this.impactRotStart = this.camera.rotationRad;
+    this.impactSnapElapsed = 0;
+    this.camStartFrame = { ...this.impactCamStart };
     this.camGoalFrame = { ...this.beat2TargetFrame };
     this.holdZoomStart = this.beat2TargetFrame.zoom;
     this.holdZoomEnd = Math.min(
       2.05,
-      this.holdZoomStart * (1 + Math.max(0.05, Math.min(0.12, cfg.holdZoomCreepPct))),
+      this.holdZoomStart * (1 + Math.max(0, Math.min(0.15, cfg.holdZoomCreepPct))),
     );
 
     const tiltDeg = isCrit ? cfg.dutchDegCrit : cfg.dutchDegNormal;
@@ -511,7 +561,7 @@ export class CombatActionSequencer {
 
     const cascadeStepSec =
       orderedTargetIds.length > 1 && isAoe
-        ? Math.max(0.03, Math.min(0.05, cfg.aoeCascadeStepMs / 1000))
+        ? Math.max(0.015, Math.min(0.12, cfg.aoeCascadeStepMs / 1000))
         : 0;
 
     this.pendingCascades.length = 0;
@@ -527,7 +577,7 @@ export class CombatActionSequencer {
           isCrit,
           isMelee,
         });
-        req.onImpactTarget?.(tid, i);
+        this.invokeSafely(() => req.onImpactTarget?.(tid, i));
       } else {
         this.pendingCascades.push({
           targetId: tid,
@@ -537,7 +587,7 @@ export class CombatActionSequencer {
       }
     }
 
-    req.onImpactFrame?.();
+    this.invokeSafely(req.onImpactFrame);
   }
 
   private advancePendingCascades(rawDt: number): void {
@@ -564,7 +614,7 @@ export class CombatActionSequencer {
           isCrit,
           isMelee,
         });
-        req.onImpactTarget?.(item.targetId, item.index);
+        this.invokeSafely(() => req.onImpactTarget?.(item.targetId, item.index));
       }
     }
   }
@@ -712,6 +762,7 @@ export class CombatActionSequencer {
       }
     } else if (this.phase === 'impact_freeze') {
       this.advancePendingCascades(dt);
+      this.impactSnapElapsed += dt;
       this.hitstopRemaining = Math.max(0, this.hitstopRemaining - dt);
       if (this.hitstopRemaining > 0) {
         isHitStopped = true;
@@ -720,12 +771,13 @@ export class CombatActionSequencer {
         this.phase = 'followthrough';
         this.phaseElapsed = 0;
       }
+      const catchUpEase = easeOutExpo(clamp01(this.impactSnapElapsed / 0.065));
       this.dimmerAlpha = cfg.dimmerAlpha;
       this.worldUiAlpha = cfg.hideWorldUiDuringCutIn ? 0 : 1;
-      desiredZoom = this.holdZoomStart;
-      desiredPanX = this.beat2TargetFrame.panX;
-      desiredPanY = this.beat2TargetFrame.panY;
-      desiredRot = this.targetRotRad;
+      desiredZoom = lerp(this.impactCamStart.zoom, this.holdZoomStart, catchUpEase);
+      desiredPanX = lerp(this.impactCamStart.panX, this.beat2TargetFrame.panX, catchUpEase);
+      desiredPanY = lerp(this.impactCamStart.panY, this.beat2TargetFrame.panY, catchUpEase);
+      desiredRot = lerp(this.impactRotStart, this.targetRotRad, catchUpEase);
       directPose = true;
     } else if (this.phase === 'followthrough' && this.activeRequest) {
       this.advancePendingCascades(dt);

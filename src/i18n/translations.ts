@@ -3,12 +3,29 @@ import type { CharacterId, EnemyPassiveKind } from '../engine/types';
 export type Language = 'en' | 'cs';
 
 export interface TranslationPack {
-  gameSubtitle: string;
   startRun: string;
   continueRun: string;
   newRun: string;
   selectOperativeLabel: string;
   controlsHint: string;
+  howToPlay: {
+    title: string;
+    badge: string;
+    goal: string;
+    step1Title: string;
+    step1Desc: string;
+    step2Title: string;
+    attackLabel: string;
+    attackDesc: string;
+    defenseLabel: string;
+    defenseDesc: string;
+    techLabel: string;
+    techDesc: string;
+    step3Title: string;
+    step3Desc: string;
+    step4Title: string;
+    step4Desc: string;
+  };
   hpLabel: string;
   shieldLabel: string;
   creditsLabel: string;
@@ -294,12 +311,29 @@ export interface TranslationPack {
 
 export const TRANSLATIONS: Record<Language, TranslationPack> = {
   en: {
-    gameSubtitle: 'Resolve 1 tile type per turn · Combine AI Skill Chips & TECH boosts · Purge the sky-bridge',
     startRun: 'Start Run',
     continueRun: 'Continue Run',
     newRun: 'New Run',
     selectOperativeLabel: 'Select Operative',
-    controlsHint: '1/2/3 Select Type · Space Overdrive · F Fullscreen · P Pause · M Mute · L Language',
+    controlsHint: 'F Fullscreen · P Pause · M Mute · L Language',
+    howToPlay: {
+      title: 'How to Play',
+      badge: 'Beginner Guide',
+      goal: 'Clear the sector map to the Hive Boss by choosing 1 tile color each turn from your 6-tile tactical rack.',
+      step1Title: '1. Pick 1 Color per Turn',
+      step1Desc: 'Press [1], [2], [3] or click a color button to activate ALL matching tiles on the board at once. Unplayed tiles stay held for the next turn.',
+      step2Title: '2. Three Tile Types',
+      attackLabel: '◆ Attack (Red)',
+      attackDesc: 'Deals damage to the front enemy (and breaks shields).',
+      defenseLabel: '● Defense (Cyan)',
+      defenseDesc: 'Builds temporary Shield to absorb incoming attacks, or heals HP.',
+      techLabel: '▲ TECH (Gold)',
+      techDesc: 'Boosts your next attack, shreds armor, and charges Overdrive fast.',
+      step3Title: '3. Stack Surge & Overdrive',
+      step3Desc: 'Hold tiles across turns to trigger 4+ Stack Surge (+40% power). When Overdrive hits 100%, press [Space] for a free ultimate action!',
+      step4Title: '4. Push & Sector Route',
+      step4Desc: 'Use [R] once per turn to swap the front two enemies. Between fights, pick your route across Clinics, Dealers, and Med-Bays on the Sector Map.',
+    },
     hpLabel: 'HP',
     shieldLabel: 'Shield',
     creditsLabel: 'CR',
@@ -787,12 +821,29 @@ export const TRANSLATIONS: Record<Language, TranslationPack> = {
     },
   },
   cs: {
-    gameSubtitle: 'Aktivuj 1 typ dlaždic za tah · Skládej AI čipy dovedností a TECH efekty · Očisti nebeský most',
     startRun: 'Spustit misi',
     continueRun: 'Pokračovat v misi',
     newRun: 'Nová mise',
     selectOperativeLabel: 'Výběr operativky',
-    controlsHint: '1/2/3 Vyber typ · Mezerník Overdrive · F Celá obrazovka · P Pauza · M Zvuk · L Jazyk',
+    controlsHint: 'F Celá obrazovka · P Pauza · M Zvuk · L Jazyk',
+    howToPlay: {
+      title: 'Jak hrát',
+      badge: 'Průvodce pro začátečníky',
+      goal: 'Probojuj se mapou sektoru až k Bossovi: každé kolo vybereš ze 6 dlaždic na liště právě 1 barvu, která se celá aktivuje.',
+      step1Title: '1. Aktivuj 1 barvu za tah',
+      step1Desc: 'Stiskni [1], [2], [3] nebo klikni na barvu a spustíš VŠECHNY dlaždice té barvy najednou. Nepoužité dlaždice zůstávají držené do příštího tahu.',
+      step2Title: '2. Tři barvy dlaždic',
+      attackLabel: '◆ Útok (Červená)',
+      attackDesc: 'Zasáhne předního nepřítele a proráží štíty.',
+      defenseLabel: '● Obrana (Tyrkysová)',
+      defenseDesc: 'Přidá štít proti nepřátelskému útoku nebo doplní zdraví.',
+      techLabel: '▲ TECH (Zlatá)',
+      techDesc: 'Posílí další útok, naruší brnění a rychle nabíjí Overdrive.',
+      step3Title: '3. Combo vlna (4+) a Overdrive',
+      step3Desc: 'Šetři stejnou barvu přes tahy: 4+ dlaždic spustí vlnu (+40 % síly). Při 100 % Overdrive stiskni [Mezerník] pro ultimátní akci zdarma!',
+      step4Title: '4. Posun [R] a mapa sektoru',
+      step4Desc: 'Klávesou [R] můžeš 1× za tah prohodit přední dva nepřátele. Mezi boji si na mapě sektoru volíš trasu přes kliniky, čipy a ošetřovny.',
+    },
     hpLabel: 'Zdraví',
     shieldLabel: 'Štít',
     creditsLabel: 'CR',

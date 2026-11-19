@@ -475,4 +475,45 @@ test('Nurse sprite sheet frames clean black background while keeping uniform, me
   }
 });
 
+test('All 5 resized 960x541 Title logo frames remove outer and enclosed ring checkerboard while keeping XENO-PURGE PROTOCOL letters opaque', () => {
+  const framePaths = [
+    'public/assets/aistudio/Neon_Breach__Z__iv__o_i_mutantky_e73032c9.png',
+    'public/assets/aistudio/Neonov__ko_i___kyberpunkov__hrdinka_11d2aafc.png',
+    'public/assets/aistudio/Neonov__kyberpunkov__dvojice_mutantky_c41a2fcd.png',
+    'public/assets/aistudio/Neon_polibek_proti_xenomutantovi_a842b0d3.png',
+    'public/assets/aistudio/Neonov__chaos__Xeno-breach_protokol_cac953eb.png',
+  ];
 
+  for (const relPath of framePaths) {
+    const logo = decodePngRgba(relPath);
+    assert.equal(logo.width, 960, `${relPath} width must be resized to 960`);
+    assert.equal(logo.height, 541, `${relPath} height must be resized to 541`);
+
+    cleanWhiteBackgroundData(logo.data, logo.width, logo.height, {
+      removeInteriorWhite: true,
+      minPocketArea: 32,
+      defringeStrength: 0.82,
+      unmixLightGlow: true,
+    });
+
+    // Outer corner & enclosed ring gap checkerboard are transparent
+    assert.equal(logo.data[(6 * logo.width + 6) * 4 + 3], 0, `${relPath} outer corner must be transparent`);
+    assert.equal(logo.data[(175 * logo.width + 445) * 4 + 3], 0, `${relPath} enclosed ring gap must be transparent`);
+    assert.equal(logo.data[(165 * logo.width + 410) * 4 + 3], 0, `${relPath} enclosed ring left gap must be transparent`);
+
+    // XENO-PURGE PROTOCOL white lettering remains opaque
+    let brightLetterPixels = 0;
+    for (let y = 414; y <= 437; y++) {
+      for (let x = 258; x <= 660; x++) {
+        const p = (y * logo.width + x) * 4;
+        if (logo.data[p + 3] > 200 && logo.data[p] > 230 && logo.data[p + 1] > 230 && logo.data[p + 2] > 230) {
+          brightLetterPixels++;
+        }
+      }
+    }
+    assert.ok(
+      brightLetterPixels > 550,
+      `${relPath} expected preserved XENO-PURGE lettering, got ${brightLetterPixels}`,
+    );
+  }
+});

@@ -1496,6 +1496,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
         targetId: frontEnemy.id,
         value: enemySim.retaliateDamage,
         blocked: retBlocked,
+        armorDamage: absRet.blockedByArmor,
         hpDamage: retHpDmg,
       });
     }
@@ -2082,6 +2083,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
         targetId: enemy.id,
         value: incoming,
         blocked,
+        armorDamage: abs.blockedByArmor,
         hpDamage,
         reflectedDamage,
         textLabel: jammedTile ? 'TILE JAMMED' : undefined,
@@ -2103,6 +2105,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
         targetId: enemy.id,
         value: incoming,
         blocked,
+        armorDamage: abs.blockedByArmor,
         hpDamage,
         reflectedDamage,
         clawRend: intent.clawRend,

@@ -142,7 +142,7 @@ function isNearWhitePixel(data: Uint8ClampedArray, idx: number, maxChroma: numbe
   const b = data[p + 2];
   const maxC = r > g ? (r > b ? r : b) : g > b ? g : b;
   const minC = r < g ? (r < b ? r : b) : g < b ? g : b;
-  return minC > 224 && maxC - minC < maxChroma;
+  return (minC > 224 && maxC - minC < maxChroma) || (minC >= 216 && maxC - minC <= 8);
 }
 
 export function cleanWhiteBackgroundData(
@@ -317,6 +317,8 @@ export function cleanWhiteBackgroundData(
       let cTail = 0;
       let borderCount = 0;
       let vibrantGlowBorderCount = 0;
+      let checkerGrayCount = 0;
+      let checkerWhiteCount = 0;
       interiorVisited[startIdx] = 1;
       queue[cTail++] = startIdx;
 
@@ -344,6 +346,16 @@ export function cleanWhiteBackgroundData(
 
       while (cHead < cTail) {
         const cur = queue[cHead++];
+        const cp = cur * 4;
+        const cr = data[cp];
+        const cg = data[cp + 1];
+        const cb = data[cp + 2];
+        const cMax = cr > cg ? (cr > cb ? cr : cb) : cg > cb ? cg : cb;
+        const cMin = cr < cg ? (cr < cb ? cr : cb) : cg < cb ? cg : cb;
+        if (cMax - cMin <= 6) {
+          if (cMin >= 216 && cMax <= 243) checkerGrayCount++;
+          else if (cMin >= 247) checkerWhiteCount++;
+        }
         const x = cur % w;
         const y = (cur - x) / w;
         if (x > 0) inspectBoundaryNeighbor(cur - 1);
@@ -352,8 +364,11 @@ export function cleanWhiteBackgroundData(
         if (y < h - 1) inspectBoundaryNeighbor(cur + w);
       }
 
+      const isTwoToneCheckerboard = checkerGrayCount >= 12 && checkerWhiteCount >= 12;
       const isVibrantNeonEmblem =
-        borderCount > 0 && vibrantGlowBorderCount / borderCount >= 0.35;
+        !isTwoToneCheckerboard &&
+        borderCount > 0 &&
+        vibrantGlowBorderCount / borderCount >= 0.35;
 
       if (cTail >= minPocketArea && !isVibrantNeonEmblem) {
         for (let i = 0; i < cTail; i++) {

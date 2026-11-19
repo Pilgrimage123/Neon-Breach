@@ -73,7 +73,7 @@ export function TacticalLoupeOverlay({
     loupeHeight,
   );
 
-  const lang = payload.lang ?? 'en';
+  const lang = payload.lang ?? 'cs';
   const streamlinedBody = enforceEightWordRule(payload.detailLine || payload.subtitle);
 
   return (

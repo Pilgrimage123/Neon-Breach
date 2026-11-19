@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HEROINE_COMBAT_FRAMES,
+  HEROINE_DODGE_FRAMES,
   HEROINE_EMOTE_FRAMES,
   HEROINE_EMOTE_SHEET_HEIGHT,
   HEROINE_EMOTE_SHEET_WIDTH,
@@ -11,34 +12,58 @@ import {
   HEROINE_SHEET_HEIGHT,
   HEROINE_SHEET_WIDTH,
   createInitialHeroineAnimState,
+  shouldKiraDodgeAttack,
   stepHeroineAnimState,
   triggerHeroineAnimation,
 } from './heroineSpriteSheet';
 
-function readPngDimensions(relPath: string): { width: number; height: number } {
+const DODGE_PNG_PATHS = [
+  'public/assets/aistudio/Kyberpunkov__akrobatka_v_neonov_m_vzletu_536da17e.png',
+  'public/assets/aistudio/Kyberpunkov__skluzavka_s_n_pisem_MISS_6b70b5b2.png',
+  'public/assets/aistudio/Kyberpunkov__tane_nice_s_neonov_mi_akcenty_b7bd6a64.png',
+  'public/assets/aistudio/Neonov__kyberpunkov__p_ist_vac__p_za_9eb78846.png',
+] as const;
+
+function readPngHeader(relPath: string): { width: number; height: number; colorType: number; bytes: number } {
   const buf = fs.readFileSync(path.resolve(process.cwd(), relPath));
   return {
     width: buf.readUInt32BE(16),
     height: buf.readUInt32BE(20),
+    colorType: buf[25],
+    bytes: buf.byteLength,
   };
 }
 
-test('all 72 sprite sheet frames (36 combat + 36 emote) lie cleanly inside sheet bounds without intra-sheet overlap', () => {
+test('all 76 sprite sheet frames (36 combat + 36 emote + 4 resized RGBA dodge) lie cleanly inside bounds', () => {
   assert.equal(HEROINE_COMBAT_FRAMES.length, 36);
   assert.equal(HEROINE_EMOTE_FRAMES.length, 36);
-  assert.equal(HEROINE_SHEET_FRAMES.length, 72);
+  assert.equal(HEROINE_DODGE_FRAMES.length, 4);
+  assert.equal(HEROINE_SHEET_FRAMES.length, 76);
 
-  const combatDims = readPngDimensions('public/assets/aistudio/image_99454af5.png');
+  const combatDims = readPngHeader('public/assets/aistudio/image_99454af5.png');
   assert.equal(combatDims.width, HEROINE_SHEET_WIDTH);
   assert.equal(combatDims.height, HEROINE_SHEET_HEIGHT);
 
-  const emoteDims = readPngDimensions(
+  const emoteDims = readPngHeader(
     'public/assets/aistudio/Kyberpunkov__hrdinka__neonov__sprite_animace_4403eebd.png',
   );
   assert.equal(emoteDims.width, HEROINE_EMOTE_SHEET_WIDTH);
   assert.equal(emoteDims.height, HEROINE_EMOTE_SHEET_HEIGHT);
 
-  for (const frame of HEROINE_SHEET_FRAMES) {
+  // Verify each resized Kira dodge PNG is compact (< 200 KB), RGBA (colorType 6), and matches frame dimensions
+  assert.equal(DODGE_PNG_PATHS.length, HEROINE_DODGE_FRAMES.length);
+  HEROINE_DODGE_FRAMES.forEach((frame, idx) => {
+    const hdr = readPngHeader(DODGE_PNG_PATHS[idx]);
+    assert.equal(hdr.width, frame.w, `${frame.id} width mismatch`);
+    assert.equal(hdr.height, frame.h, `${frame.id} height mismatch`);
+    assert.equal(hdr.colorType, 6, `${frame.id} must be RGBA (colorType 6)`);
+    assert.ok(hdr.bytes < 200_000, `${frame.id} should be resized below 200 KB, got ${hdr.bytes}`);
+    assert.ok(frame.anchorX > 0 && frame.anchorX < frame.w, `${frame.id} invalid anchorX`);
+    assert.ok(frame.bottomY > 0 && frame.bottomY <= frame.h, `${frame.id} invalid bottomY`);
+    assert.ok(frame.rowScale >= 0.65 && frame.rowScale <= 0.85, `${frame.id} invalid dodge rowScale`);
+  });
+
+  for (const frame of [...HEROINE_COMBAT_FRAMES, ...HEROINE_EMOTE_FRAMES]) {
     const maxW = frame.sheet === 'emote' ? HEROINE_EMOTE_SHEET_WIDTH : HEROINE_SHEET_WIDTH;
     const maxH = frame.sheet === 'emote' ? HEROINE_EMOTE_SHEET_HEIGHT : HEROINE_SHEET_HEIGHT;
     assert.ok(frame.x >= 0 && frame.y >= 0, `${frame.id} has negative origin`);
@@ -271,7 +296,7 @@ test('USING TECH (upgrade) plays all 9 holographic tech frames (63..71) and VICT
 
 test('all standing poses across combat and emote sheets normalize to uniform 214px height and cross-blend smoothly', () => {
   // Upscaled frames (Rows 1, 2, 3, 4, 7, 8) are normalized directly to canonical 214px resolution (rowScale === 1.0)
-  for (const frame of HEROINE_SHEET_FRAMES) {
+  for (const frame of [...HEROINE_COMBAT_FRAMES, ...HEROINE_EMOTE_FRAMES]) {
     assert.ok(
       frame.rowScale >= 1.0 && frame.rowScale <= 1.05,
       `${frame.id} rowScale=${frame.rowScale} indicates un-upscaled low-resolution sprite`,
@@ -319,5 +344,72 @@ test('all standing poses across combat and emote sheets normalize to uniform 214
     totalTime: 1.06,
   });
   assert.equal(hoverStep2.frameBlendAlpha, 1);
+});
+
+test('dodge choreography traverses Vault (72) -> Slide 1 (73) -> Deep Slide 2 (74) -> 3-Point Land (75) -> Idle in 0.70s', () => {
+  let state = triggerHeroineAnimation(createInitialHeroineAnimState(), 'dodge');
+  assert.equal(state.duration, 0.70);
+
+  const ctx = { isDead: false, isVictory: false, hoveredColor: null, totalTime: 1.0 };
+  const order: number[] = [];
+  let minYHop = 0;
+  let minXProgress = 0;
+  let sawDashDuringSlide = false;
+  let sawLandingCushionSquash = false;
+
+  for (let i = 0; i < 45; i++) {
+    const sample = stepHeroineAnimState(state, 0.02, ctx);
+    state = sample.state;
+    if (order[order.length - 1] !== sample.frameIndex) {
+      order.push(sample.frameIndex);
+    }
+    if (sample.yHopPx < minYHop) minYHop = sample.yHopPx;
+    if (sample.xProgress < minXProgress) minXProgress = sample.xProgress;
+    if ((sample.frameIndex === 72 || sample.frameIndex === 73 || sample.frameIndex === 74) && sample.isDashing) {
+      sawDashDuringSlide = true;
+    }
+    if (sample.frameIndex === 75 && !sample.isDashing && sample.breathScaleY < 0.99 && sample.breathScaleX > 1.01) {
+      sawLandingCushionSquash = true;
+    }
+    if (state.mode === 'idle') break;
+  }
+
+  assert.deepEqual(order, [72, 73, 74, 75, 0]);
+  assert.ok(minYHop <= -20, `Vault takeoff should lift Kira upward, got minYHop=${minYHop}`);
+  assert.ok(minXProgress <= -0.14, `Power-slide should sweep backward cleanly, got minXProgress=${minXProgress}`);
+  assert.equal(sawDashDuringSlide, true);
+  assert.equal(sawLandingCushionSquash, true);
+  assert.equal(state.mode, 'idle');
+});
+
+test('shouldKiraDodgeAttack triggers exclusively for Kira when taking 0 HP damage AND 0 Armor damage', () => {
+  assert.equal(
+    shouldKiraDodgeAttack({ charId: 'kira', isLethal: false, hpDamage: 0, armorDamage: 0 }),
+    true,
+  );
+  // Armor took damage (even though HP damage is 0) -> must NOT dodge (plays guard/BLOCKED)
+  assert.equal(
+    shouldKiraDodgeAttack({ charId: 'kira', isLethal: false, hpDamage: 0, armorDamage: 3 }),
+    false,
+  );
+  // HP took damage -> must NOT dodge
+  assert.equal(
+    shouldKiraDodgeAttack({ charId: 'kira', isLethal: false, hpDamage: 4, armorDamage: 0 }),
+    false,
+  );
+  // Lethal -> must NOT dodge
+  assert.equal(
+    shouldKiraDodgeAttack({ charId: 'kira', isLethal: true, hpDamage: 0, armorDamage: 0 }),
+    false,
+  );
+  // Non-Kira heroines never play Kira's dodge
+  assert.equal(
+    shouldKiraDodgeAttack({ charId: 'aurelia', isLethal: false, hpDamage: 0, armorDamage: 0 }),
+    false,
+  );
+  assert.equal(
+    shouldKiraDodgeAttack({ charId: 'zuri', isLethal: false, hpDamage: 0, armorDamage: 0 }),
+    false,
+  );
 });
 

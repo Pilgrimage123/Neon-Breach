@@ -51,14 +51,14 @@ export function CyberEventView({
       }`}
     >
       <div
-        className={`chrome-glass my-auto w-full max-w-4xl rounded-2xl border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.2)] ${
+        className={`chrome-glass my-auto w-full max-w-[1560px] rounded-2xl border border-purple-500/40 shadow-[0_0_40px_rgba(168,85,247,0.2)] ${
           isCompactLandscape ? 'p-3' : 'p-4 sm:p-6'
         }`}
       >
         {/* Streamlined Single-Row Header + Dynasty Relay Switcher */}
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex flex-wrap items-baseline gap-2 min-w-0">
-            <span className="font-mono-tabular text-xs font-bold uppercase tracking-wider text-purple-300">
+            <span className="font-mono-tabular text-[13px] font-bold uppercase tracking-wider text-purple-300">
               ❓ {t.eventViewTitle}
             </span>
             <span aria-hidden="true" className="text-slate-500">
@@ -71,7 +71,7 @@ export function CyberEventView({
             >
               {event.title}
             </h1>
-            <span className="text-xs font-mono-tabular text-slate-300">
+            <span className="text-[13px] font-mono-tabular text-slate-300">
               — {event.story}
             </span>
           </div>
@@ -87,7 +87,7 @@ export function CyberEventView({
                     type="button"
                     data-testid={`event-channel-${tpl.id}`}
                     onClick={() => onSwitchEvent(tpl.id)}
-                    className={`rounded-md border px-2 py-0.5 font-mono-tabular text-[10px] font-bold transition-all cursor-pointer ${
+                    className={`rounded-md border px-2 py-0.5 font-mono-tabular text-[12px] font-bold transition-all cursor-pointer ${
                       isActive
                         ? 'border-fuchsia-300 bg-fuchsia-500/30 text-white'
                         : 'border-purple-400/35 bg-slate-900/70 text-purple-200 hover:border-purple-300'
@@ -136,13 +136,13 @@ export function CyberEventView({
                     >
                       {choice.label}
                     </h2>
-                    <span className="shrink-0 rounded border border-purple-300/40 bg-purple-950/60 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-purple-200">
+                    <span className="shrink-0 rounded border border-purple-300/40 bg-purple-950/60 px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold text-purple-200">
                       [{idx + 1}]
                     </span>
                   </div>
 
                   {/* Direct Math-Over-Prose Formula */}
-                  <div className="mt-2 font-mono-tabular text-xs sm:text-sm font-bold text-[#F4F4F6] leading-snug">
+                  <div className="mt-2 font-mono-tabular text-[13px] sm:text-sm font-bold text-[#F4F4F6] leading-snug">
                     {choice.description}
                   </div>
 
@@ -150,7 +150,7 @@ export function CyberEventView({
                   {(choice.rewardScionHouse ||
                     choice.rewardFreeImplant ||
                     (choice.rewardHeirloomStacks ?? 0) > 0) && (
-                    <div className="mt-2 flex flex-wrap gap-1.5 font-mono-tabular text-[10px]">
+                    <div className="mt-2 flex flex-wrap gap-1.5 font-mono-tabular text-[12px]">
                       {choice.rewardScionHouse && (
                         <span className="px-1.5 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 text-pink-200 font-bold">
                           ⚜ {choice.rewardScionHouse === 'house_solaris' ? 'SCION SOLARIS' : 'SCION VALKYR'}

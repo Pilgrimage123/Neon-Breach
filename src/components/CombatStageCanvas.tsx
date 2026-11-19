@@ -93,11 +93,13 @@ import {
   addOrGrowFloorBlood,
   applyCombatCues,
   drainTriggerImpacts,
-  spawnBolt,
   spawnBurst,
   spawnFloatingText,
+  spawnStyledProjectileVolley,
   stepCombatSimulation,
+  triggerKiraDodgeVfx,
 } from './combat/combatVfx';
+import type { ProjectileVisualProfile } from './combat/combatStagingClassifier';
 import { getEnemyRolePip } from '../utils/accessibilityAndScale';
 import { enforceEightWordRule } from '../utils/spatialMinimalistUi';
 import { formatDiscretePipMath } from '../utils/tacticalSandboxAndHints';
@@ -184,7 +186,7 @@ export function CombatStageCanvas({
     DEFAULT_COMBAT_PRESENTATION_CONFIG,
   );
   const [lastCameraTrigger, setLastCameraTrigger] = useState<
-    'idle' | 'melee_normal' | 'melee_crit' | 'ranged_single' | 'ranged_aoe'
+    'idle' | 'melee_normal' | 'melee_crit' | 'ranged_single' | 'ranged_aoe' | 'kira_dodge'
   >('idle');
   const [reducedMotion, setReducedMotion] = useState<boolean>(() =>
     typeof window !== 'undefined'
@@ -425,7 +427,7 @@ export function CombatStageCanvas({
   };
 
   const fireCameraTrigger = (
-    kind: 'melee_normal' | 'melee_crit' | 'ranged_single' | 'ranged_aoe',
+    kind: 'melee_normal' | 'melee_crit' | 'ranged_single' | 'ranged_aoe' | 'kira_dodge',
   ) => {
     const sim = simRef.current;
     if (!sim) return;
@@ -440,6 +442,15 @@ export function CombatStageCanvas({
     );
     const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, effectiveSlotCount);
     const heroX = w < 460 ? w * 0.19 : w * 0.22;
+
+    if (kind === 'kira_dodge') {
+      sim.actionSequencer.reset();
+      triggerKiraDodgeVfx(sim, heroX, groundY);
+      setLastCameraTrigger('kira_dodge');
+      sim.needsRedraw = true;
+      requestDrawRef.current();
+      return;
+    }
 
     const buildBounds = (actorId: string): CameraActorBounds => {
       if (actorId === 'hero') {
@@ -543,36 +554,59 @@ export function CombatStageCanvas({
         waitForExternalImpact: false,
         replaceQueue: true,
         onWindupStart: () => {
-          sim.heroState = triggerCharacterAnimation(
-            sim.heroState,
-            isRanged ? 'shoot' : 'dash_kick',
-            heroCur.characterId ?? 'kira',
-          );
+          const activeChar = heroCur.characterId ?? 'kira';
+          // Aurelia and Zuri are 100% ranged; Kira uses melee dash_kick for melee triggers and pistol shoot for ranged
+          const animMode = isRanged || activeChar !== 'kira' ? 'shoot' : 'dash_kick';
+          sim.heroState = triggerCharacterAnimation(sim.heroState, animMode, activeChar);
         },
         onProjectileSpawn: isRanged
           ? () => {
-              const muzzleX = heroBounds.x + heroBounds.widthPx * 0.48;
-              const muzzleY = heroBounds.groundY - heroBounds.heightPx * 0.56;
-              for (const tb of targetBounds) {
-                spawnBolt(
-                  sim,
-                  muzzleX,
-                  muzzleY,
-                  tb.x,
-                  tb.groundY - tb.heightPx * 0.46,
-                  isAoe ? '#FF2E7E' : '#00F0FF',
-                );
+              const activeChar = heroCur.characterId ?? 'kira';
+              const profile: ProjectileVisualProfile =
+                activeChar === 'aurelia'
+                  ? 'scattergun'
+                  : activeChar === 'zuri'
+                    ? 'drone_plasma'
+                    : 'pistol_bolt';
+              const muzzleX =
+                heroBounds.x +
+                heroBounds.widthPx *
+                  (activeChar === 'zuri' ? 0.85 : activeChar === 'aurelia' ? 0.68 : 0.62);
+              const muzzleY =
+                heroBounds.groundY -
+                heroBounds.heightPx *
+                  (activeChar === 'zuri' ? 0.78 : activeChar === 'aurelia' ? 0.66 : 0.72);
+              for (let i = 0; i < targetBounds.length; i++) {
+                const tb = targetBounds[i];
+                spawnStyledProjectileVolley(sim, {
+                  profile,
+                  sx: muzzleX,
+                  sy: muzzleY,
+                  tx: tb.x,
+                  ty: tb.groundY - tb.heightPx * 0.46,
+                  isCrit,
+                  isOverdrive: isAoe,
+                });
               }
-              spawnBurst(sim, muzzleX, muzzleY, isAoe ? 14 : 10, '#00F0FF', 1, 0.9);
+              spawnBurst(
+                sim,
+                muzzleX,
+                muzzleY,
+                isAoe ? 14 : 10,
+                activeChar === 'aurelia' ? '#FFC700' : activeChar === 'zuri' ? '#FF2E7E' : '#00F0FF',
+                1,
+                0.9,
+              );
             }
           : undefined,
         onImpactTarget: (targetId, idx) => {
           const tb = boundsById.get(targetId);
           if (!tb) return;
+          const liveX = sim.actionSequencer.getLiveActorX(targetId, tb.x);
           const hitY = tb.groundY - tb.heightPx * 0.45;
           spawnBurst(
             sim,
-            tb.x,
+            liveX,
             hitY,
             isCrit ? 26 : isAoe ? 18 : 14,
             isCrit ? '#FFE066' : isAoe ? '#FF2E7E' : '#00F0FF',
@@ -581,7 +615,7 @@ export function CombatStageCanvas({
           );
           spawnFloatingText(
             sim,
-            tb.x,
+            liveX,
             hitY - 34,
             isCrit ? 'CRIT -28!' : isAoe ? `-${16 + idx * 2}` : isRanged ? '-16' : '-14',
             isCrit ? '#FFE066' : isAoe ? '#FF6B9E' : '#38BDF8',
@@ -619,12 +653,13 @@ export function CombatStageCanvas({
     };
     const cameraKeyMap: Record<
       string,
-      'melee_normal' | 'melee_crit' | 'ranged_single' | 'ranged_aoe'
+      'melee_normal' | 'melee_crit' | 'ranged_single' | 'ranged_aoe' | 'kira_dodge'
     > = {
       '1': 'melee_normal',
       '2': 'melee_crit',
       '3': 'ranged_single',
       '4': 'ranged_aoe',
+      '5': 'kira_dodge',
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -763,22 +798,34 @@ export function CombatStageCanvas({
           currentCombat.enemies,
           currentCombat.director?.pendingReinforcements,
         );
+        const heroCutIn = activeSim.actionSequencer.getActorJuice('hero');
+        const isKiraDodging = charId === 'kira' && heroSample.state.mode === 'dodge';
+        const effectiveHeroXProgress = isKiraDodging
+          ? heroSample.xProgress
+          : heroCutIn.isMeleeClash || (heroCutIn.active && heroCutIn.role === 'target')
+            ? 0
+            : heroCutIn.active && charId === 'aurelia'
+              ? Math.max(-0.06, Math.min(0.06, heroSample.xProgress))
+              : heroSample.xProgress;
         const { groundY, baseScale, heroX, heroY, heroDrawScale } = getStageLayoutMetrics(
           activeSim.size.w,
           activeSim.size.h,
           effectiveSlotCount,
           activeSim.dashTargetX,
-          heroSample.xProgress,
+          effectiveHeroXProgress,
           heroSample.yHopPx,
           heroFrame.rowScale,
           canonicalHeight,
         );
+        const heroLiveX = isKiraDodging
+          ? heroX
+          : heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
 
         const zuriDrones =
           charId === 'zuri'
             ? sampleZuriDroneFormation({
                 animState: heroSample.state,
-                heroineX: heroX,
+                heroineX: heroLiveX,
                 heroineDrawBottomY: heroY,
                 groundY,
                 targetX: activeSim.pendingShotTargetX,
@@ -789,18 +836,23 @@ export function CombatStageCanvas({
               })
             : null;
 
-        if (heroSample.isDashing) {
+        if (heroSample.isDashing && (!heroCutIn.isMeleeClash || isKiraDodging)) {
+          const needsInitialDodgeGhost =
+            isKiraDodging && !activeSim.ghosts.some((g) => g.isDodge);
           activeSim.ghostSampleTimer += simDt;
-          if (activeSim.ghostSampleTimer >= 0.028) {
+          const ghostInterval = isKiraDodging ? 0.030 : 0.028;
+          if (needsInitialDodgeGhost || activeSim.ghostSampleTimer >= ghostInterval) {
             activeSim.ghostSampleTimer = 0;
             activeSim.ghosts.push({
-              x: heroX,
+              x: heroLiveX,
               y: heroY,
               frameIndex: heroSample.frameIndex,
               drawScale: heroDrawScale,
-              alpha: 0.42,
+              alpha: isKiraDodging ? 0.78 : 0.42,
+              isDodge: isKiraDodging,
             });
-            if (activeSim.ghosts.length > 6) activeSim.ghosts.shift();
+            const maxGhosts = isKiraDodging ? 8 : 6;
+            if (activeSim.ghosts.length > maxGhosts) activeSim.ghosts.shift();
           }
           if (
             activeSim.heroTrailCooldown <= 0 &&
@@ -809,7 +861,7 @@ export function CombatStageCanvas({
             activeSim.heroTrailCooldown = 0.055;
             addOrGrowFloorBlood(
               activeSim,
-              heroX + (Math.random() - 0.5) * 10,
+              heroLiveX + (Math.random() - 0.5) * 10,
               groundY + (Math.random() - 0.5) * 6,
               2.2,
               0,
@@ -823,14 +875,18 @@ export function CombatStageCanvas({
           activeSim.ghostSampleTimer = 0;
         }
 
-        if (heroSample.shouldEmitShot && (heroFrame.muzzleRel || zuriDrones)) {
+        // Avoid double-emitting projectiles/kick bursts when Action Camera Lab owns spawning (pendingImpacts empty)
+        const isLabOwnedCutIn =
+          activeSim.actionSequencer.isActive() && activeSim.pendingImpacts.length === 0;
+
+        if (!isLabOwnedCutIn && heroSample.shouldEmitShot && (heroFrame.muzzleRel || zuriDrones)) {
           const mx = zuriDrones
             ? zuriDrones.strike.muzzleX
-            : heroX + (heroFrame.muzzleRel?.dx ?? 120) * heroDrawScale;
+            : heroLiveX + (heroFrame.muzzleRel?.dx ?? 120) * heroDrawScale;
           const my = zuriDrones
             ? zuriDrones.strike.muzzleY
             : heroY + (heroFrame.muzzleRel?.dy ?? -140) * heroDrawScale;
-          const boltColor = heroSample.state.mode === 'overdrive' ? '#FFC700' : '#00F0FF';
+          const isOverdrive = heroSample.state.mode === 'overdrive';
           const triggerKey = heroSample.state.emittedShots === 1 ? 'shot1' : 'shot2';
           const baseImpact = drainTriggerImpacts(activeSim, triggerKey);
           const onImpact =
@@ -840,75 +896,50 @@ export function CombatStageCanvas({
                   if (baseImpact) baseImpact();
                 }
               : baseImpact;
-          if (charId === 'zuri' && zuriDrones) {
-            // Strike Gunship Drone fires twin rotary gatling plasma streams
-            spawnBolt(
-              activeSim,
-              mx,
-              my - 3,
-              activeSim.pendingShotTargetX,
-              activeSim.pendingShotTargetY - 4,
-              '#FF2E7E',
-              onImpact,
-            );
-            spawnBolt(
-              activeSim,
-              mx - 4,
-              my + 4,
-              activeSim.pendingShotTargetX,
-              activeSim.pendingShotTargetY + 4,
-              '#FFC700',
-              undefined,
-            );
-            if (heroSample.state.mode === 'overdrive') {
-              // Shield Walker Drone also fires an Aegis pulse beam during Overdrive
-              spawnBolt(
-                activeSim,
-                zuriDrones.shield.muzzleX,
-                zuriDrones.shield.muzzleY,
-                activeSim.pendingShotTargetX,
-                activeSim.pendingShotTargetY,
-                '#00F0FF',
-                undefined,
-              );
-            }
-            spawnBurst(activeSim, mx, my, 9, '#FFC700', 0, 0.95, 0, 0.28, 0.28, 2, 3.8);
-          } else if (charId === 'aurelia') {
-            spawnBolt(
-              activeSim,
-              mx,
-              my - 3.5,
-              activeSim.pendingShotTargetX,
-              activeSim.pendingShotTargetY - 5,
-              boltColor,
-              onImpact,
-            );
-            spawnBolt(
-              activeSim,
-              mx - 3,
-              my + 4.5,
-              activeSim.pendingShotTargetX,
-              activeSim.pendingShotTargetY + 4,
-              heroSample.state.mode === 'overdrive' ? '#FFE066' : '#FF2E7E',
-              undefined,
-            );
-            spawnBurst(activeSim, mx, my, 8, '#FFC700', 0, 0.9, 0, 0.28, 0.28, 2, 3.8);
-          } else {
-            spawnBolt(
-              activeSim,
-              mx,
-              my,
-              activeSim.pendingShotTargetX,
-              activeSim.pendingShotTargetY,
-              boltColor,
-              onImpact,
-            );
-            spawnBurst(activeSim, mx, my, 6, '#FDE047', 0, 0.75, 0, 0.28, 0.28, 2, 3.5);
+          const profile: ProjectileVisualProfile =
+            charId === 'zuri'
+              ? 'drone_plasma'
+              : charId === 'aurelia'
+                ? 'scattergun'
+                : 'pistol_bolt';
+          spawnStyledProjectileVolley(activeSim, {
+            profile,
+            sx: mx,
+            sy: my,
+            tx: activeSim.pendingShotTargetX,
+            ty: activeSim.pendingShotTargetY,
+            isOverdrive,
+            onPrimaryImpact: onImpact,
+          });
+          if (charId === 'zuri' && zuriDrones && isOverdrive) {
+            // Shield Walker Drone also fires an Aegis pulse stream during Overdrive
+            spawnStyledProjectileVolley(activeSim, {
+              profile: 'pistol_bolt',
+              sx: zuriDrones.shield.muzzleX,
+              sy: zuriDrones.shield.muzzleY,
+              tx: activeSim.pendingShotTargetX,
+              ty: activeSim.pendingShotTargetY,
+              isOverdrive: true,
+            });
           }
+          spawnBurst(
+            activeSim,
+            mx,
+            my,
+            charId === 'zuri' ? 9 : charId === 'aurelia' ? 8 : 6,
+            charId === 'kira' ? '#FDE047' : '#FFC700',
+            0,
+            charId === 'kira' ? 0.75 : 0.92,
+            0,
+            0.28,
+            0.28,
+            2,
+            3.8,
+          );
           if (charId !== 'zuri') {
             spawnBurst(
               activeSim,
-              heroX + 26 * heroDrawScale,
+              heroLiveX + 26 * heroDrawScale,
               heroY - 145 * heroDrawScale,
               3,
               '#FBBF24',
@@ -923,11 +954,11 @@ export function CombatStageCanvas({
           }
         }
 
-        if (heroSample.shouldEmitKickImpact && (heroFrame.kickTipRel || zuriDrones)) {
+        if (!isLabOwnedCutIn && heroSample.shouldEmitKickImpact && (heroFrame.kickTipRel || zuriDrones)) {
           // When Zuri commands a dive-bomb strike, the impact happens at the Strike Drone's target position
           const kx = zuriDrones
             ? zuriDrones.strike.muzzleX
-            : heroX + (heroFrame.kickTipRel?.dx ?? 150) * heroDrawScale;
+            : heroLiveX + (heroFrame.kickTipRel?.dx ?? 150) * heroDrawScale;
           const ky = zuriDrones
             ? zuriDrones.strike.muzzleY
             : heroY + (heroFrame.kickTipRel?.dy ?? -120) * heroDrawScale;
@@ -1420,7 +1451,7 @@ export function CombatStageCanvas({
 
       {/* Ultra-Sleek Chrome-Visor Stage Telemetry Overlays (no backdrop-blur over Canvas2D) */}
       <div
-        className={`pointer-events-none absolute inset-x-0 z-10 mx-auto flex max-w-6xl flex-wrap md:flex-nowrap items-start justify-between gap-1.5 px-2 sm:px-4 ${
+        className={`pointer-events-none absolute inset-x-0 z-10 mx-auto flex max-w-[1680px] flex-wrap md:flex-nowrap items-start justify-between gap-1.5 px-2 sm:px-4 ${
           isCompactLandscape ? 'top-1' : 'top-1.5 sm:top-2'
         }`}
       >
@@ -1435,8 +1466,8 @@ export function CombatStageCanvas({
           aria-label={`${charMeta.code} ${heroine.hp}/${heroine.maxHp} ${t.hpLabel}`}
           className={`pointer-events-auto text-left rounded-lg transition-all duration-200 shrink-0 cursor-pointer ${hcBorderClass} ${
             isCompactLandscape
-              ? 'w-[126px] sm:w-[152px] px-2 py-1'
-              : 'w-[132px] sm:w-52 px-2 py-1 sm:px-2.5 sm:py-1.5'
+              ? 'w-[132px] sm:w-[164px] px-2 py-1'
+              : 'w-[138px] sm:w-56 px-2 py-1 sm:px-2.5 sm:py-1.5'
           } ${
             kiraThreat.willDie
               ? 'chrome-pill border-[#FF2E7E] ring-1 ring-[#FF2E7E]/80 shadow-[0_0_16px_rgba(255,46,126,0.45)]'
@@ -1445,11 +1476,11 @@ export function CombatStageCanvas({
                 : 'chrome-pill border-cyan-200/35'
           }`}
         >
-          <div className="flex items-center justify-between gap-1 text-[10px] sm:text-[11px]">
+          <div className="flex items-center justify-between gap-1 text-[11.5px] sm:text-[13px]">
             <span className="flex items-center gap-1 chrome-text-shimmer font-display font-bold tracking-wider whitespace-nowrap">
               <span
                 aria-hidden="true"
-                className="inline-flex h-3.5 w-3.5 items-center justify-center rounded-sm bg-[#00F0FF] text-[8px] font-black text-slate-950"
+                className="inline-flex h-4 w-4 items-center justify-center rounded-sm bg-[#00F0FF] text-[10px] font-black text-slate-950"
               >
                 ●
               </span>
@@ -1516,7 +1547,7 @@ export function CombatStageCanvas({
             )}
           </div>
 
-          <div className="mt-0.5 flex flex-wrap items-center justify-between gap-1 text-[9px] sm:text-[10px] font-mono-tabular">
+          <div className="mt-0.5 flex flex-wrap items-center justify-between gap-1 text-[11px] sm:text-[12px] font-mono-tabular">
             <div className="flex flex-wrap items-center gap-1">
               {((heroine.armor ?? 0) > 0 ||
                 (kiraThreat.armorAfterEnemies ?? 0) !== (heroine.armor ?? 0)) && (
@@ -1602,7 +1633,7 @@ export function CombatStageCanvas({
             className="pointer-events-auto order-3 w-full md:order-none md:w-auto flex justify-center"
           >
             <div
-              className={`aaa-charcoal-surface flex max-w-full flex-col gap-1 rounded-lg border bg-[#181A20]/90 px-2.5 py-1 text-[10px] font-mono-tabular ${
+              className={`aaa-charcoal-surface flex max-w-full flex-col gap-1 rounded-lg border bg-[#181A20]/90 px-2.5 py-1 text-[12px] font-mono-tabular ${
                 director.heatStage === 'overtime'
                   ? 'border-[#FF2E7E]/85'
                   : director.heatStage === 'medium'
@@ -1631,7 +1662,7 @@ export function CombatStageCanvas({
                     <span
                       key={`par_${cache.tier}`}
                       data-intact={cache.intact ? 'true' : 'false'}
-                      className={`text-[10px] font-bold leading-none whitespace-nowrap ${
+                      className={`text-[12px] font-bold leading-none whitespace-nowrap ${
                         cache.intact ? 'text-[#FFE066]' : 'text-slate-500 line-through'
                       }`}
                     >
@@ -1659,7 +1690,7 @@ export function CombatStageCanvas({
                 </div>
 
                 {/* Live WebGL2 / Canvas2D Renderer Adapter Switch + 4x6 Mesh Debug Wireframe Toggle */}
-                <div className="flex items-center gap-1 border-l border-white/15 pl-1.5">
+                <div className="hidden sm:flex items-center gap-1 border-l border-white/15 pl-1.5">
                   <button
                     type="button"
                     data-testid="renderer-mode-toggle"
@@ -1671,7 +1702,7 @@ export function CombatStageCanvas({
                         ? 'Active: Raw WebGL2 Deformable MeshSprite + Unified GLSL 300 es Shader (Click to switch to Canvas2D fallback)'
                         : 'Active: Legacy Canvas2D Flat Quad Renderer (Click to switch to WebGL2 MeshSprite)'
                     }
-                    className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase transition-colors cursor-pointer ${
+                    className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase transition-colors cursor-pointer ${
                       rendererMode === 'webgl2'
                         ? 'bg-[#00F0FF]/20 text-[#00F0FF] ring-1 ring-[#00F0FF]/50 hover:bg-[#00F0FF]/30'
                         : 'bg-slate-800 text-slate-300 ring-1 ring-white/20 hover:bg-slate-700'
@@ -1686,7 +1717,7 @@ export function CombatStageCanvas({
                       aria-pressed={debugMeshWireframe}
                       onClick={() => setDebugMeshWireframe((prev) => !prev)}
                       title="Toggle 4×6 subdivided mesh wireframe & 4 anatomical control points (Feet, Pelvis, Waist, Head)"
-                      className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase transition-colors cursor-pointer ${
+                      className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase transition-colors cursor-pointer ${
                         debugMeshWireframe
                           ? 'bg-[#FFC700] text-slate-950 ring-1 ring-[#FFC700]'
                           : 'bg-slate-900/90 text-cyan-200/80 ring-1 ring-cyan-300/30 hover:text-white'
@@ -1710,7 +1741,7 @@ export function CombatStageCanvas({
                       });
                     }}
                     title="Open Bile Spitter 4-Layer Procedural Juice Lab & Keys 1–6 Test Harness"
-                    className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
+                    className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
                       spitterLabOpen
                         ? 'bg-lime-400 text-slate-950 ring-1 ring-lime-300 shadow-[0_0_10px_rgba(163,230,53,0.5)]'
                         : 'bg-slate-900/90 text-lime-300/90 ring-1 ring-lime-400/35 hover:text-white'
@@ -1733,7 +1764,7 @@ export function CombatStageCanvas({
                       });
                     }}
                     title="Open Carapace Brute 4-Layer Procedural Juice Lab & Keys 1–6 Test Harness"
-                    className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
+                    className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
                       bruteLabOpen
                         ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]'
                         : 'bg-slate-900/90 text-amber-300/90 ring-1 ring-amber-400/35 hover:text-white'
@@ -1756,7 +1787,7 @@ export function CombatStageCanvas({
                       });
                     }}
                     title="Open Action Camera & Cut-In Lab (Keys 1–3 Test Triggers)"
-                    className={`rounded px-1.5 py-0.5 text-[9px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
+                    className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
                       cameraLabOpen
                         ? 'bg-cyan-300 text-slate-950 ring-1 ring-cyan-200 shadow-[0_0_10px_rgba(0,240,255,0.5)]'
                         : 'bg-slate-900/90 text-cyan-200/90 ring-1 ring-cyan-400/35 hover:text-white'
@@ -1868,17 +1899,17 @@ export function CombatStageCanvas({
                 className={`relative pointer-events-auto text-left rounded-lg transition-all duration-200 cursor-pointer ${!isDead ? hcBorderClass : ''} ${
                   isCompactLandscape
                     ? hasUltraDenseEnemyRow
-                      ? 'w-[90px] sm:w-[106px] lg:w-[116px] xl:w-[126px] px-1 py-0.5'
+                      ? 'w-[96px] sm:w-[116px] lg:w-[132px] xl:w-[148px] px-1 py-0.5'
                       : hasDenseEnemyRow
-                        ? 'w-[110px] sm:w-[136px] lg:w-44 px-1.5 py-1'
-                        : 'w-[126px] sm:w-[150px] lg:w-48 px-2 py-1'
+                        ? 'w-[114px] sm:w-[144px] lg:w-48 px-1.5 py-1'
+                        : 'w-[130px] sm:w-[162px] lg:w-52 px-2 py-1'
                     : hasUltraDenseEnemyRow
-                      ? 'w-[92px] sm:w-[110px] lg:w-[118px] xl:w-[128px] px-1.5 py-1'
+                      ? 'w-[96px] sm:w-[118px] lg:w-[136px] xl:w-[152px] px-1.5 py-1'
                       : hasDenseEnemyRow
-                        ? 'w-[108px] sm:w-40 lg:w-48 px-1.5 py-1 sm:px-2 sm:py-1.5'
+                        ? 'w-[112px] sm:w-44 lg:w-52 px-1.5 py-1 sm:px-2 sm:py-1.5'
                         : getEnemySlotSpan(enemy.archetype) > 1
-                          ? 'w-[166px] sm:w-48 lg:w-56 px-2 py-1 sm:px-2.5 sm:py-1.5'
-                          : 'w-[120px] sm:w-44 lg:w-52 px-2 py-1 sm:px-2.5 sm:py-1.5'
+                          ? 'w-[168px] sm:w-52 lg:w-60 px-2 py-1 sm:px-2.5 sm:py-1.5'
+                          : 'w-[126px] sm:w-48 lg:w-56 px-2 py-1 sm:px-2.5 sm:py-1.5'
                 } ${
                   isDead
                     ? 'border border-white/10 bg-slate-950/55 opacity-35'
@@ -1891,12 +1922,12 @@ export function CombatStageCanvas({
                           : 'chrome-pill border-cyan-200/35'
                 } ${inspectedTarget === enemy.id && !isDead ? 'ring-1 ring-[#00F0FF]' : ''}`}
               >
-                <div className="flex items-center justify-between gap-1 text-[10px] sm:text-[11px]">
+                <div className="flex items-center justify-between gap-1 text-[11.5px] sm:text-[13px]">
                   <span className="flex items-center gap-1 font-display font-bold text-white truncate">
                     <span
                       data-testid={`enemy-role-pip-${enemy.id}`}
                       style={{ backgroundColor: rolePip.accentHex, color: '#020617' }}
-                      className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[8px] font-black leading-none"
+                      className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[10px] font-black leading-none"
                     >
                       {rolePip.symbol}
                     </span>
@@ -1904,7 +1935,7 @@ export function CombatStageCanvas({
                     {getEnemySlotSpan(enemy.archetype) > 1 && (
                       <span
                         data-testid={`enemy-two-slot-${enemy.id}`}
-                        className="shrink-0 rounded bg-amber-400/20 px-1 text-[8px] font-mono-tabular font-extrabold text-amber-200 ring-1 ring-amber-400/40"
+                        className="shrink-0 rounded bg-amber-400/20 px-1 text-[10px] font-mono-tabular font-extrabold text-amber-200 ring-1 ring-amber-400/40"
                       >
                         {getEnemySlotSpan(enemy.archetype)}×
                       </span>
@@ -1936,7 +1967,7 @@ export function CombatStageCanvas({
                     {pipMathMode && !isDead && (
                       <span
                         data-testid={`enemy-pip-math-${enemy.id}`}
-                        className="ml-0.5 rounded bg-slate-950/90 px-1 text-[8px] font-extrabold text-[#FFC700]"
+                        className="ml-0.5 rounded bg-slate-950/90 px-1 text-[10px] font-extrabold text-[#FFC700]"
                       >
                         {formatDiscretePipMath(projectedHp).compactLabel}
                       </span>
@@ -1950,7 +1981,7 @@ export function CombatStageCanvas({
                     data-testid={`enemy-armor-display-${enemy.id}`}
                     className="mt-1 flex items-center gap-1.5"
                   >
-                    <div className="flex items-center gap-0.5 shrink-0 font-mono-tabular text-[10px] font-extrabold leading-none">
+                    <div className="flex items-center gap-0.5 shrink-0 font-mono-tabular text-[12px] font-extrabold leading-none">
                       <ArmorCrestIcon size={12} broken={willBreakArmor} />
                       <span
                         className={
@@ -2026,7 +2057,7 @@ export function CombatStageCanvas({
                 </div>
 
                 {/* Nameless Icon + Numeric Intent Row */}
-                <div className="mt-0.5 flex items-center justify-between gap-1 text-[9px] sm:text-[10px] font-mono-tabular">
+                <div className="mt-0.5 flex items-center justify-between gap-1 text-[11px] sm:text-[12px] font-mono-tabular">
                   {!isDead ? (
                     <span
                       className={`flex items-center gap-1 font-bold truncate ${
@@ -2050,54 +2081,54 @@ export function CombatStageCanvas({
                       enemy.staggered ? (
                         <span
                           data-testid={`enemy-staggered-${enemy.id}`}
-                          className="rounded bg-cyan-500/25 px-1 text-[8px] font-extrabold text-cyan-200"
+                          className="rounded bg-cyan-500/25 px-1 text-[10px] font-extrabold text-cyan-200"
                         >
                           {t.staggeredTag}
                         </span>
                       ) : enemy.weaponBroken ? (
                         <span
                           data-testid={`enemy-weapon-broken-${enemy.id}`}
-                          className="rounded bg-cyan-500/25 px-1 text-[8px] font-extrabold text-cyan-200"
+                          className="rounded bg-cyan-500/25 px-1 text-[10px] font-extrabold text-cyan-200"
                         >
                           🔨 -3
                         </span>
                       ) : enemy.desperationEnraged ? (
                         <span
                           data-testid={`enemy-desperation-${enemy.id}`}
-                          className="rounded bg-rose-500/35 px-1 text-[8px] font-extrabold text-rose-100"
+                          className="rounded bg-rose-500/35 px-1 text-[10px] font-extrabold text-rose-100"
                         >
                           🔥 +3
                         </span>
                       ) : enemy.isMercyTarget ? (
                         <span
                           data-testid={`enemy-mercy-${enemy.id}`}
-                          className="rounded bg-emerald-500/30 px-1 text-[8px] font-extrabold text-emerald-200"
+                          className="rounded bg-emerald-500/30 px-1 text-[10px] font-extrabold text-emerald-200"
                         >
                           🕊 MERCY
                         </span>
                       ) : enemy.enragedAlone ? (
                         <span
                           data-testid={`enemy-enraged-alone-${enemy.id}`}
-                          className="rounded bg-rose-500/35 px-1 text-[8px] font-extrabold text-rose-100"
+                          className="rounded bg-rose-500/35 px-1 text-[10px] font-extrabold text-rose-100"
                         >
                           {t.enragedAloneTag}
                         </span>
                       ) : enemy.sosCharging ? (
-                        <span className="rounded bg-amber-400/25 px-1 text-[8px] font-extrabold text-amber-200">
+                        <span className="rounded bg-amber-400/25 px-1 text-[10px] font-extrabold text-amber-200">
                           {t.sosFlareBadgeLabel}
                         </span>
                       ) : enrageBonus > 0 ? (
-                        <span className="rounded bg-rose-500/25 px-1 text-[8px] font-extrabold text-rose-200">
+                        <span className="rounded bg-rose-500/25 px-1 text-[10px] font-extrabold text-rose-200">
                           +{enrageBonus}
                         </span>
                       ) : enemy.isZeroReward ? (
-                        <span className="rounded bg-slate-700/70 px-1 text-[8px] font-bold text-slate-300">
+                        <span className="rounded bg-slate-700/70 px-1 text-[10px] font-bold text-slate-300">
                           {t.zeroRewardBadgeLabel}
                         </span>
                       ) : null
                     )}
                     {hasShieldPips && (
-                      <span className="shrink-0 text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-sky-300">
+                      <span className="shrink-0 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-sky-300">
                         {willCrackShieldPip ? `${enemy.shieldPips}→${remainingShieldPips}` : enemy.shieldPips}
                       </span>
                     )}
@@ -2105,7 +2136,7 @@ export function CombatStageCanvas({
                 </div>
 
                 {rawPreviewDmg > 0 && !isDead && (
-                  <div className="mt-0.5 flex items-center justify-between gap-1 font-mono-tabular text-[9px] sm:text-[10px] font-bold">
+                  <div className="mt-0.5 flex items-center justify-between gap-1 font-mono-tabular text-[11px] sm:text-[12px] font-bold">
                     <span
                       className={
                         willDie
@@ -2127,24 +2158,24 @@ export function CombatStageCanvas({
                     </span>
                     <div className="flex items-center gap-1 shrink-0">
                       {willDie ? (
-                        <span className="rounded bg-[#FF2E7E] px-1 text-[8px] font-extrabold uppercase tracking-wider text-white">
+                        <span className="rounded bg-[#FF2E7E] px-1 text-[10px] font-extrabold uppercase tracking-wider text-white">
                           ☠ {t.lethalLabel}
                         </span>
                       ) : willStagger ? (
                         <span
                           data-testid={`enemy-will-stagger-${enemy.id}`}
-                          className="rounded bg-cyan-500/30 px-1 text-[8px] font-extrabold uppercase text-cyan-200 animate-pulse"
+                          className="rounded bg-cyan-500/30 px-1 text-[10px] font-extrabold uppercase text-cyan-200 animate-pulse"
                         >
                           {t.staggerPreviewLabel}
                         </span>
                       ) : willTriggerPhaseGate ? (
-                        <span className="rounded bg-lime-400/20 px-1 text-[8px] font-extrabold uppercase text-lime-300">
+                        <span className="rounded bg-lime-400/20 px-1 text-[10px] font-extrabold uppercase text-lime-300">
                           {t.phaseGateLabel}
                         </span>
                       ) : willBreakArmor ? (
                         <span className="text-[#FFC700] uppercase">{t.armorBreakLabel}</span>
                       ) : chainedBurstDmg > 0 ? (
-                        <span className="rounded bg-lime-400/20 px-1 text-[8px] font-extrabold uppercase text-lime-300">
+                        <span className="rounded bg-lime-400/20 px-1 text-[10px] font-extrabold uppercase text-lime-300">
                           💥-{chainedBurstDmg}
                         </span>
                       ) : null}
@@ -2155,7 +2186,7 @@ export function CombatStageCanvas({
                 {reactiveBark && !isDead && !willDie && (
                   <div
                     data-testid={`enemy-reactive-bark-${enemy.id}`}
-                    className="mt-0.5 truncate rounded bg-amber-500/20 px-1 py-0.5 text-center font-mono-tabular text-[8px] font-extrabold text-[#FFC700]"
+                    className="mt-0.5 truncate rounded bg-amber-500/20 px-1 py-0.5 text-center font-mono-tabular text-[10px] font-extrabold text-[#FFC700]"
                   >
                     {reactiveBark}
                   </div>
@@ -2182,20 +2213,20 @@ export function CombatStageCanvas({
                 aria-label={`${t.inboundDropLabel}: ${dropName} T-${drop.turnsUntilDrop} (${t.dropZeroDmgRule})`}
                 className={`pointer-events-auto text-left rounded-lg border border-dashed transition-all duration-200 cursor-pointer bg-[#071127]/90 ${
                   isCompactLandscape
-                    ? 'w-[110px] sm:w-[134px] px-1.5 py-1'
-                    : 'w-[108px] sm:w-40 lg:w-44 px-1.5 py-1 sm:px-2 sm:py-1.5'
+                    ? 'w-[116px] sm:w-[144px] px-1.5 py-1'
+                    : 'w-[114px] sm:w-44 lg:w-48 px-1.5 py-1 sm:px-2 sm:py-1.5'
                 } ${
                   isUrgent
                     ? 'border-[#FFC700]/85 shadow-[0_0_12px_rgba(255,199,0,0.3)]'
                     : 'border-cyan-300/75 shadow-[0_0_10px_rgba(0,240,255,0.2)]'
                 } ${inspectedTarget === dropInspectKey ? 'ring-1 ring-[#00F0FF]' : ''}`}
               >
-                <div className="flex items-center justify-between gap-1 text-[9px] sm:text-[10px]">
+                <div className="flex items-center justify-between gap-1 text-[11px] sm:text-[12px]">
                   <span className="font-display font-bold text-cyan-100 truncate">
                     {dropName}
                   </span>
                   <span
-                    className={`shrink-0 rounded px-1 py-0.5 font-mono-tabular text-[9px] font-extrabold ${
+                    className={`shrink-0 rounded px-1 py-0.5 font-mono-tabular text-[11px] font-extrabold ${
                       isUrgent
                         ? 'bg-[#FFC700] text-slate-950'
                         : 'bg-[#00F0FF]/20 text-[#00F0FF]'
@@ -2204,7 +2235,7 @@ export function CombatStageCanvas({
                     T-{drop.turnsUntilDrop}
                   </span>
                 </div>
-                <div className="mt-0.5 flex items-center justify-between gap-1 font-mono-tabular text-[8px] sm:text-[9px]">
+                <div className="mt-0.5 flex items-center justify-between gap-1 font-mono-tabular text-[10px] sm:text-[11px]">
                   <span className="font-bold uppercase tracking-wider text-amber-200 truncate">
                     {formatDropReasonLabel(drop.reason, t)}
                   </span>
@@ -2212,7 +2243,7 @@ export function CombatStageCanvas({
                     <span className="shrink-0 text-slate-400">{t.zeroRewardBadgeLabel}</span>
                   )}
                 </div>
-                <div className="mt-0.5 truncate font-mono-tabular text-[8px] text-cyan-200/90">
+                <div className="mt-0.5 truncate font-mono-tabular text-[10px] text-cyan-200/90">
                   {t.dropZeroDmgRule}
                 </div>
               </button>
@@ -2317,24 +2348,24 @@ export function CombatStageCanvas({
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="rounded bg-[#FFC700] px-1.5 py-0.5 font-mono-tabular text-[10px] font-extrabold text-slate-950">
+                <span className="rounded bg-[#FFC700] px-1.5 py-0.5 font-mono-tabular text-[12px] font-extrabold text-slate-950">
                   T-{inspectedDrop.turnsUntilDrop}
                 </span>
                 <span className="font-display text-sm font-bold text-white">
                   {diff.revealDropArchetype ? t.enemies[inspectedDrop.archetype].name : '???'}
                 </span>
-                <span className="font-mono-tabular text-[10px] font-bold uppercase text-cyan-300">
+                <span className="font-mono-tabular text-[12px] font-bold uppercase text-cyan-300">
                   {formatDropReasonLabel(inspectedDrop.reason, t)}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-200">
+              <p className="text-[13px] text-slate-200">
                 {diff.revealDropArchetype
                   ? t.enemies[inspectedDrop.archetype].bioNote
                   : lang === 'cs'
                     ? 'Archetyp výsadku je na této obtížnosti utajen do dopadu.'
                     : 'Drop archetype is encrypted on this difficulty tier until touchdown.'}
               </p>
-              <div className="flex flex-wrap items-center gap-2 font-mono-tabular text-[10px]">
+              <div className="flex flex-wrap items-center gap-2 font-mono-tabular text-[12px]">
                 <span className="rounded border border-cyan-300/40 bg-cyan-950/60 px-1.5 py-0.5 font-bold text-cyan-200">
                   {t.dropZeroDmgRule}
                 </span>
@@ -2351,7 +2382,7 @@ export function CombatStageCanvas({
             <button
               type="button"
               onClick={() => setInspectedTarget(null)}
-              className="chrome-pill shrink-0 rounded px-2.5 py-1 text-[10px] font-bold text-white cursor-pointer"
+              className="chrome-pill shrink-0 rounded px-2.5 py-1 text-[12px] font-bold text-white cursor-pointer"
             >
               {t.closeLabel}
             </button>
@@ -2856,6 +2887,7 @@ export function CombatStageCanvas({
                 { key: '2', id: 'melee_crit', label: '2 · Melee Crit' },
                 { key: '3', id: 'ranged_single', label: '3 · Ranged Shot' },
                 { key: '4', id: 'ranged_aoe', label: '4 · Ranged AoE' },
+                { key: '5', id: 'kira_dodge', label: '5 · Kira Dodge' },
               ] as const
             ).map((btn) => {
               const active = lastCameraTrigger === btn.id;
@@ -2989,6 +3021,29 @@ export function CombatStageCanvas({
                 />
                 <span className="w-11 text-right font-bold text-cyan-200">
                   +{Math.round(presentationConfig.holdZoomCreepPct * 100)}%
+                </span>
+              </div>
+            </label>
+
+            <label className="flex items-center justify-between gap-2">
+              <span className="text-slate-300">Clash Gap (% VW)</span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  type="range"
+                  min={8}
+                  max={22}
+                  step={0.5}
+                  value={Number((presentationConfig.meleeClashGapVw * 100).toFixed(1))}
+                  onChange={(e) =>
+                    setPresentationConfig((c) => ({
+                      ...c,
+                      meleeClashGapVw: Number(e.target.value) / 100,
+                    }))
+                  }
+                  className="h-1 w-24 accent-cyan-300"
+                />
+                <span className="w-11 text-right font-bold text-cyan-200">
+                  {(presentationConfig.meleeClashGapVw * 100).toFixed(1)}%
                 </span>
               </div>
             </label>

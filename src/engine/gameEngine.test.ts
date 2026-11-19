@@ -2644,6 +2644,58 @@ test('31. Extended 12-Stage / 32-Node Grand Metropolis Sector Map, Pro-Family Dy
   assert.equal(eliteCombatRun.combat?.cradleObjective?.liberated, false);
 });
 
+test('32. executeEnemyTurn emits armorDamage=0 on full Shield block (Kira dodge) and armorDamage>0 when Armor absorbs hit', () => {
+  const baseRun = createInitialRun(912345, 'kira', 1, false);
+  const firstNode = baseRun.mapNodes.find((n) => n.type === 'COMBAT')!;
+  const started = baseRun.combat ? baseRun : startNodeEncounter(baseRun, firstNode.id);
+  assert.ok(started.combat);
+
+  const striker = {
+    ...started.combat.enemies[0],
+    hp: 20,
+    maxHp: 20,
+    shield: 0,
+    armor: 0,
+    intentIndex: 0,
+    intentCycle: [{ kind: 'attack' as const, value: 6, label: 'Slash' }],
+  };
+
+  // Case A: Shield >= 6 absorbs all damage -> hpDamage === 0 && armorDamage === 0
+  const shieldedRun: RunState = {
+    ...started,
+    heroine: { ...started.heroine, hp: 30, maxHp: 30, shield: 10, armor: 5 },
+    combat: {
+      ...started.combat,
+      phase: 'PLAYER_RESOLVED',
+      enemies: [striker],
+    },
+  };
+  const afterShieldBlock = executeEnemyTurn(shieldedRun);
+  const shieldCue = afterShieldBlock.combat?.lastCues.find((c) => c.kind === 'enemy_attack');
+  assert.ok(shieldCue, 'Expected enemy_attack cue on full shield block');
+  assert.equal(shieldCue.hpDamage, 0);
+  assert.equal(shieldCue.armorDamage, 0);
+  assert.equal(afterShieldBlock.heroine.armor, 5, 'Armor remains untouched when Shield absorbs full hit');
+
+  // Case B: Shield === 0, Armor >= 6 absorbs hit -> hpDamage === 0 && armorDamage === 6 (NOT a dodge)
+  const armoredRun: RunState = {
+    ...started,
+    heroine: { ...started.heroine, hp: 30, maxHp: 30, shield: 0, armor: 8 },
+    combat: {
+      ...started.combat,
+      phase: 'PLAYER_RESOLVED',
+      enemies: [striker],
+    },
+  };
+  const afterArmorBlock = executeEnemyTurn(armoredRun);
+  const armorCue = afterArmorBlock.combat?.lastCues.find((c) => c.kind === 'enemy_attack');
+  assert.ok(armorCue, 'Expected enemy_attack cue on armor block');
+  assert.equal(armorCue.hpDamage, 0);
+  assert.equal(armorCue.armorDamage, 6);
+  assert.equal(afterArmorBlock.heroine.armor, 2, 'Armor decreases by absorbed damage');
+});
+
+
 
 
 

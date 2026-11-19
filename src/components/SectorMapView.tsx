@@ -566,17 +566,17 @@ export function SectorMapView({
                 <span
                   data-testid={`map-node-pip-${node.id}`}
                   style={{ backgroundColor: nodePip.accentHex, color: '#020617' }}
-                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[9px] font-black leading-none"
+                  className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[11px] font-black leading-none"
                 >
                   {nodePip.symbol}
                 </span>
                 <NodeEmblem type={node.type} />
-                <span className={`font-display text-[11px] sm:text-xs font-bold leading-tight truncate ${style.accent}`}>
+                <span className={`font-display text-[12.5px] sm:text-[13px] font-bold leading-tight truncate ${style.accent}`}>
                   {t.nodes[node.type]}
                 </span>
               </div>
               <span
-                className={`shrink-0 font-mono-tabular text-[8px] font-bold uppercase tracking-wider ${
+                className={`shrink-0 font-mono-tabular text-[10px] font-bold uppercase tracking-wider ${
                   isRecommended
                     ? 'text-[#FFC700]'
                     : isAvailable
@@ -594,12 +594,12 @@ export function SectorMapView({
               </span>
             </div>
 
-            <div className="flex w-full items-center justify-between gap-1.5 text-[9px] font-mono-tabular min-w-0">
+            <div className="flex w-full items-center justify-between gap-1.5 text-[11px] font-mono-tabular min-w-0">
               <div className="flex items-center gap-1 min-w-0">
                 <span className="truncate font-sans text-slate-200/95">{squadNames}</span>
                 {econ.tensionHpPct !== 0 && (
                   <span
-                    className={`shrink-0 px-1 py-0.2 rounded text-[7.5px] font-bold ${
+                    className={`shrink-0 px-1 py-0.2 rounded text-[9.5px] font-bold ${
                       econ.tensionHpPct > 20
                         ? 'bg-rose-500/25 text-rose-300'
                         : econ.tensionHpPct > 0
@@ -656,17 +656,17 @@ export function SectorMapView({
                 <span
                   data-testid={`map-node-pip-${node.id}`}
                   style={{ backgroundColor: nodePip.accentHex, color: '#020617' }}
-                  className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[9px] font-black leading-none"
+                  className="inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-sm border border-white font-mono-tabular text-[11px] font-black leading-none"
                 >
                   {nodePip.symbol}
                 </span>
                 <NodeEmblem type={node.type} />
-                <span className="font-mono-tabular text-[9px] sm:text-[10px] font-semibold tracking-wider text-slate-300 truncate">
+                <span className="font-mono-tabular text-[11px] sm:text-[12px] font-semibold tracking-wider text-slate-300 truncate">
                   {intel.sectorCode}
                 </span>
               </div>
               <span
-                className={`shrink-0 font-mono-tabular text-[9px] sm:text-[10px] font-bold uppercase tracking-wider ${
+                className={`shrink-0 font-mono-tabular text-[11px] sm:text-[12px] font-bold uppercase tracking-wider ${
                   isRecommended
                     ? 'text-[#FFC700]'
                     : isAvailable
@@ -686,15 +686,15 @@ export function SectorMapView({
 
             {/* Middle Row: Node Title & Squad / Facility Subtitle */}
             <div className="my-0.5 min-w-0">
-              <div className="flex items-center gap-1 min-w-0 flex-wrap sm:flex-wrap">
-                <div className={`font-display text-[11px] sm:text-xs font-bold leading-tight truncate ${style.accent}`}>
+              <div className="flex flex-col gap-1 min-w-0">
+                <div className={`font-display text-[13px] sm:text-[13.5px] font-bold leading-tight line-clamp-2 ${style.accent}`}>
                   {t.nodes[node.type]}
                 </div>
-                <div className="flex items-center gap-1 min-w-0 flex-nowrap sm:flex-wrap overflow-hidden">
+                <div className="flex max-w-full items-center gap-1 min-w-0 flex-wrap overflow-hidden">
                   {/* Dynasty & Civic-Tech District Badge */}
                   {node.districtBadge && DISTRICT_BADGE_LABELS[node.districtBadge] && (
                     <span
-                      className={`shrink-0 whitespace-nowrap px-1 py-0.2 rounded border text-[6.5px] sm:text-[7px] font-bold font-mono-tabular leading-tight ${DISTRICT_BADGE_LABELS[node.districtBadge].colorClass}`}
+                      className={`max-w-full truncate px-1 py-0.2 rounded border text-[9px] sm:text-[9.5px] font-bold font-mono-tabular leading-tight ${DISTRICT_BADGE_LABELS[node.districtBadge].colorClass}`}
                     >
                       {lang === 'cs'
                         ? DISTRICT_BADGE_LABELS[node.districtBadge].cs
@@ -703,40 +703,40 @@ export function SectorMapView({
                   )}
                   {/* Hot-Spot Bounty Modifier Badges */}
                   {node.modifier === 'golden_bounty' && (
-                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                    <span className="max-w-full truncate px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
                       {t.bountyGoldenBadge}
                     </span>
                   )}
                   {node.modifier === 'double_credits' && (
-                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                    <span className="max-w-full truncate px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
                       {t.bountyDoubleBadge}
                     </span>
                   )}
                   {node.modifier === 'nanite_cache' && (
-                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-cyan-400/25 border border-cyan-300/60 text-cyan-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                    <span className="max-w-full truncate px-1 py-0.2 rounded bg-cyan-400/25 border border-cyan-300/60 text-cyan-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
                       {t.bountyNaniteBadge}
                     </span>
                   )}
                   {/* Dynamic Modifiers */}
                   {node.modifier === 'overcharged_hazard' && (
-                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-rose-500/25 border border-rose-400/60 text-rose-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                    <span className="max-w-full truncate px-1 py-0.2 rounded bg-rose-500/25 border border-rose-400/60 text-rose-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
                       {t.bountyOverchargedBadge}
                     </span>
                   )}
                   {node.modifier === 'flash_sale' && (
-                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight animate-pulse">
+                    <span className="max-w-full truncate px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight animate-pulse">
                       {t.bountyFlashSaleBadge}
                     </span>
                   )}
                   {node.modifier === 'funded_clinic' && (
-                    <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
+                    <span className="max-w-full truncate px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
                       {t.bountyFundedClinicBadge}
                     </span>
                   )}
                   {/* Smart Shop Badges */}
                   {(node.type === 'CHIP_DEALER' || node.type === 'CYBER_CLINIC') && (
                     <span
-                      className={`shrink-0 whitespace-nowrap px-1 py-0.2 rounded text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight border ${
+                      className={`max-w-full truncate px-1 py-0.2 rounded text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight border ${
                         run.heroine.credits >= minShopCredits
                           ? 'bg-emerald-400/20 border-emerald-400/50 text-emerald-300'
                           : 'bg-amber-400/20 border-amber-400/50 text-amber-300'
@@ -749,19 +749,19 @@ export function SectorMapView({
                   )}
                 </div>
               </div>
-              <p className="mt-0.5 line-clamp-1 text-[9px] sm:text-[10.5px] leading-tight sm:leading-snug text-slate-200/90">
-                {squadNames}
+              <p className="mt-1 line-clamp-2 text-[11px] sm:text-[12px] leading-tight sm:leading-snug text-slate-200/95">
+                {squadNames.replace(/\*\*/g, '')}
               </p>
             </div>
 
             {/* Bottom Row: Threat HP / Status + Reward Metadata */}
-            <div className="flex w-full items-center justify-between gap-1.5 border-t border-white/15 pt-0.5 sm:pt-1 text-[8.5px] sm:text-[9.5px] font-mono-tabular min-w-0">
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="whitespace-nowrap font-bold text-white">{bottomMetric}</span>
+            <div className="flex w-full items-center justify-between gap-1 border-t border-white/15 pt-0.5 sm:pt-1 text-[10.5px] sm:text-[11.5px] font-mono-tabular min-w-0">
+              <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
+                <span className="truncate font-bold text-white">{bottomMetric}</span>
                 {econ.tensionHpPct !== 0 && (
                   <span
                     title={econ.opportunityCost}
-                    className={`px-1 py-0.2 rounded text-[7px] sm:text-[7.5px] font-bold shrink-0 ${
+                    className={`px-1 py-0.2 rounded text-[9.5px] sm:text-[10px] font-bold shrink-0 ${
                       econ.tensionHpPct > 20
                         ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                         : econ.tensionHpPct > 0
@@ -773,9 +773,11 @@ export function SectorMapView({
                   </span>
                 )}
               </div>
-              <span className={`min-w-0 flex-1 truncate text-right font-semibold ${style.accent}`}>
-                {getRewardLabel(node.type)}
-              </span>
+              {totalCols <= 8 && (
+                <span className={`min-w-0 truncate text-right font-semibold ${style.accent}`}>
+                  {getRewardLabel(node.type)}
+                </span>
+              )}
             </div>
           </>
         )}
@@ -820,7 +822,9 @@ export function SectorMapView({
   };
 
   const needsHorizontalPan =
-    totalCols > 7 || isNarrowPortrait || effectiveWidth < (totalCols > 5 ? 920 : 560);
+    totalCols > 7
+      ? effectiveWidth < 1640
+      : isNarrowPortrait || effectiveWidth < (totalCols > 5 ? 920 : 560);
   const gridColsClass =
     totalCols === 12
       ? 'grid-cols-12'
@@ -844,11 +848,11 @@ export function SectorMapView({
   return (
     <main
       className={`cyber-vista-bg relative flex flex-1 min-h-0 flex-col justify-between overflow-hidden ${
-        isCompactLandscape ? 'px-2.5 py-1' : 'px-3 py-2 sm:px-5 sm:py-3'
+        isCompactLandscape ? 'px-2 py-1' : 'px-2 py-2 sm:px-4 sm:py-2.5 lg:px-5'
       }`}
     >
       <div
-        className={`mx-auto flex w-full max-w-[1440px] flex-1 min-h-0 flex-col justify-between ${
+        className={`flex w-full flex-1 min-h-0 flex-col justify-between ${
           isCompactLandscape ? 'gap-1' : 'gap-2 sm:gap-2.5'
         }`}
       >
@@ -886,7 +890,7 @@ export function SectorMapView({
             {run.heroine.incubatingTile && (
               <span
                 data-testid="map-stork-pod-badge"
-                className="px-2 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 font-mono-tabular text-[10px] font-bold text-pink-200 whitespace-nowrap"
+                className="px-2 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 font-mono-tabular text-[12px] font-bold text-pink-200 whitespace-nowrap"
               >
                 🍼 {lang === 'cs' ? 'Čapí kapsle' : 'Stork Pod'}: {run.heroine.incubatingTile.nodesRemaining}n
               </span>
@@ -894,7 +898,7 @@ export function SectorMapView({
             {run.heroine.bloodlineCrest && (
               <span
                 data-testid="map-bloodline-badge"
-                className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 font-mono-tabular text-[10px] font-bold text-cyan-200 whitespace-nowrap uppercase"
+                className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 font-mono-tabular text-[12px] font-bold text-cyan-200 whitespace-nowrap uppercase"
               >
                 ⚜ {run.heroine.bloodlineCrest.primary.slice(0, 3)}×{run.heroine.bloodlineCrest.secondary.slice(0, 3)} +{run.heroine.bloodlineCrest.bonusValue}
               </span>
@@ -902,7 +906,7 @@ export function SectorMapView({
             {run.heroine.nannyBotInstalled && (
               <span
                 data-testid="map-nannybot-badge"
-                className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/50 font-mono-tabular text-[10px] font-bold text-emerald-200 whitespace-nowrap"
+                className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/50 font-mono-tabular text-[12px] font-bold text-emerald-200 whitespace-nowrap"
               >
                 🤖 {run.heroine.nannyBotInstalled.replace('_nanny', '').toUpperCase()}
               </span>
@@ -910,7 +914,7 @@ export function SectorMapView({
             {(run.heroine.heirloomStacks ?? 0) > 0 && (
               <span
                 data-testid="map-heirloom-badge"
-                className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 font-mono-tabular text-[10px] font-bold text-amber-200 whitespace-nowrap"
+                className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 font-mono-tabular text-[12px] font-bold text-amber-200 whitespace-nowrap"
               >
                 🗡 {lang === 'cs' ? 'Dědictví' : 'Heirloom'} +{run.heroine.heirloomStacks}
               </span>
@@ -930,7 +934,7 @@ export function SectorMapView({
                     ? 'Založit Rodinnou usedlost na další vrstvě (+5 HP ihned, +12 CR a +5 HP při vstupu)'
                     : 'Charter a Family Estate on the next stage (+5 HP now, +12 CR & +5 HP on entry)'
                 }
-                className="chrome-pill rounded-lg border-emerald-400/50 px-2 py-1 font-mono-tabular text-[10px] font-bold text-emerald-200 hover:border-emerald-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+                className="chrome-pill rounded-lg border-emerald-400/50 px-2.5 py-1 font-mono-tabular text-[12px] font-bold text-emerald-200 hover:border-emerald-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
               >
                 🏡 {estateAlreadyChartered
                   ? lang === 'cs'
@@ -954,7 +958,7 @@ export function SectorMapView({
                     ? 'Expresní Mag-Lev linka: přemostí o 2 vrstvy vpřed (+25 CR, -2 Koroze, +1 krok Čapí inkubace)'
                     : 'Mag-Lev Express Line: bridge 2 stages ahead (+25 CR, -2 Corrode, +1 Stork Pod step)'
                 }
-                className="chrome-pill rounded-lg border-sky-400/55 px-2 py-1 font-mono-tabular text-[10px] font-bold text-sky-200 hover:border-sky-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+                className="chrome-pill rounded-lg border-sky-400/55 px-2.5 py-1 font-mono-tabular text-[12px] font-bold text-sky-200 hover:border-sky-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
               >
                 🚄 {run.heroine.maglevUsed
                   ? lang === 'cs'
@@ -970,7 +974,7 @@ export function SectorMapView({
               type="button"
               onClick={onOpenLoadout}
               className={`chrome-pill flex items-center gap-1.5 rounded-lg font-mono-tabular transition-colors hover:border-cyan-300 cursor-pointer shrink-0 ${
-                isCompactLandscape ? 'px-2 py-0.5 text-[10px]' : 'px-3 py-1 text-xs'
+                isCompactLandscape ? 'px-2 py-0.5 text-[12px]' : 'px-3 py-1 text-[13px]'
               }`}
             >
               <span>
@@ -1020,21 +1024,21 @@ export function SectorMapView({
                       <div className="flex items-center gap-1.5">
                         <span
                           style={{ color: dist.accentColor }}
-                          className="font-mono-tabular text-[9px] font-black uppercase tracking-wider shrink-0"
+                          className="font-mono-tabular text-[11px] font-black uppercase tracking-wider shrink-0"
                         >
                           {dist.code}
                         </span>
-                        <span className="font-display text-[10px] sm:text-[11px] font-bold truncate">
+                        <span className="font-display text-[12.5px] sm:text-[13.5px] font-bold truncate">
                           {dist.title}
                         </span>
                       </div>
                       {!isCompactLandscape && (
-                        <div className="font-mono-tabular text-[8.5px] text-slate-400 truncate">
+                        <div className="font-mono-tabular text-[11px] text-slate-300 truncate">
                           {dist.subtitle}
                         </div>
                       )}
                     </div>
-                    <span className="font-mono-tabular text-[9px] font-bold text-cyan-300 shrink-0">
+                    <span className="font-mono-tabular text-[11px] font-bold text-cyan-300 shrink-0">
                       S{String(dist.startLayer + 1).padStart(2, '0')}–S{String(dist.endLayer + 1).padStart(2, '0')}
                     </span>
                   </button>
@@ -1069,15 +1073,15 @@ export function SectorMapView({
                 <div
                   className={`flex items-center justify-center rounded-md border border-cyan-500/30 bg-slate-950/60 font-mono-tabular uppercase tracking-wider text-cyan-300 font-bold shrink-0 ${
                     isCompactLandscape
-                      ? 'w-24 px-1.5 py-0.5 text-[8px]'
-                      : 'w-24 sm:w-28 px-2 py-0.5 text-[9px] sm:text-[10px]'
+                      ? 'w-28 px-1.5 py-0.5 text-[10px]'
+                      : 'w-28 sm:w-36 lg:w-44 px-2 py-0.5 text-[11px] sm:text-[12px]'
                   }`}
                 >
                   {t.laneShortPrefix} · {t.yieldLabel}
                 </div>
                 <div
                   className={`grid flex-1 ${gridColsClass} ${
-                    isCompactLandscape ? 'gap-1.5' : totalCols > 5 ? 'gap-2 sm:gap-2.5' : 'gap-3 sm:gap-7'
+                    isCompactLandscape ? 'gap-1.5' : totalCols > 5 ? 'gap-2 sm:gap-2.5' : 'gap-3 sm:gap-5 lg:gap-7'
                   }`}
                 >
                   {layerIndices.map((layerIdx) => {
@@ -1091,8 +1095,8 @@ export function SectorMapView({
                         key={`header_${layerIdx}`}
                         className={`flex items-center justify-between rounded-md border ${
                           isCompactLandscape
-                            ? 'px-1.5 py-0.5 text-[8.5px]'
-                            : 'px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9.5px] sm:text-[10.5px]'
+                            ? 'px-1.5 py-0.5 text-[10.5px]'
+                            : 'px-2 py-1 text-[11.5px] sm:text-[12.5px]'
                         } font-mono-tabular uppercase tracking-wider ${
                           isNextLayer
                             ? 'border-[#00F0FF]/65 bg-cyan-500/20 text-white font-bold shadow-[0_0_14px_rgba(0,240,255,0.2)]'
@@ -1106,7 +1110,7 @@ export function SectorMapView({
                         <span className="truncate">
                           {t.layerLabel} {String(layerIdx + 1).padStart(2, '0')} {hasEstate ? '🏡' : ''}
                         </span>
-                        <span className="text-[8px] sm:text-[9px] opacity-80 shrink-0">
+                        <span className="text-[10.5px] sm:text-[11px] opacity-85 shrink-0">
                           {((layerIdx + 1) * 0.5).toFixed(1)}KM
                         </span>
                       </div>
@@ -1125,8 +1129,8 @@ export function SectorMapView({
                 <div
                   className={`grid grid-rows-3 shrink-0 ${
                     isCompactLandscape
-                      ? 'w-24 gap-y-1'
-                      : 'w-24 sm:w-28 gap-y-1.5 sm:gap-y-2'
+                      ? 'w-28 gap-y-1'
+                      : 'w-28 sm:w-36 lg:w-44 gap-y-1.5 sm:gap-y-2'
                   }`}
                 >
                   {laneProfiles.map((profile) => {
@@ -1154,18 +1158,18 @@ export function SectorMapView({
                         key={`lane_rail_${profile.lane}`}
                         title={archDesc}
                         className={`flex flex-col justify-center rounded-lg border border-cyan-500/25 bg-cyan-950/30 shadow-[inset_0_1px_0_rgba(255,255,255,0.14)] min-h-0 overflow-hidden ${
-                          isCompactLandscape ? 'px-1.5 py-0.5' : 'px-2 py-1'
+                          isCompactLandscape ? 'px-1.5 py-0.5' : 'px-2.5 py-1.5'
                         }`}
                       >
                         <div className="flex items-center gap-1 min-w-0">
-                          <span className={`font-mono-tabular text-[8px] sm:text-[9px] font-black shrink-0 ${laneColor}`}>
+                          <span className={`font-mono-tabular text-[10.5px] sm:text-[11.5px] font-black shrink-0 ${laneColor}`}>
                             0{profile.lane + 1}
                           </span>
-                          <span className="font-mono-tabular text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-cyan-200 truncate">
+                          <span className="font-mono-tabular text-[10.5px] sm:text-[11.5px] font-bold uppercase tracking-wider text-cyan-200 truncate">
                             {archLabel}
                           </span>
                         </div>
-                        <div className="mt-0.5 flex items-center gap-1 font-mono-tabular text-[8px] sm:text-[9px] font-semibold truncate">
+                        <div className="mt-0.5 flex items-center gap-1 font-mono-tabular text-[10.5px] sm:text-[11.5px] font-semibold truncate">
                           <span className="text-rose-300">-{profile.totalTensionHpEst} HP</span>
                           <span className="text-slate-500">·</span>
                           <span className="text-amber-300">+{profile.totalRunYieldCredits} CR</span>
@@ -1358,30 +1362,30 @@ export function SectorMapView({
                 isCompactLandscape ? 'px-2.5 py-1' : 'px-3.5 py-2 sm:px-4'
               }`}
             >
-              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-[10px] sm:text-xs">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-[12px] sm:text-[13px]">
                 <span className="font-mono-tabular font-bold text-[#00F0FF]">
                   {intelByNodeId.get(briefingNode.id)?.sectorCode}
                 </span>
                 <span aria-hidden="true" className="text-slate-500">
                   ·
                 </span>
-                <span className="font-display text-xs sm:text-sm font-bold text-white">
+                <span className="font-display text-sm sm:text-base font-bold text-white">
                   {t.nodes[briefingNode.type]}
                 </span>
                 {briefingNode.districtBadge && DISTRICT_BADGE_LABELS[briefingNode.districtBadge] && (
                   <span
-                    className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold ${DISTRICT_BADGE_LABELS[briefingNode.districtBadge].colorClass}`}
+                    className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold ${DISTRICT_BADGE_LABELS[briefingNode.districtBadge].colorClass}`}
                   >
                     {lang === 'cs'
                       ? DISTRICT_BADGE_LABELS[briefingNode.districtBadge].cs
                       : DISTRICT_BADGE_LABELS[briefingNode.districtBadge].en}
                   </span>
                 )}
-                <span className="rounded bg-slate-900/80 border border-white/10 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-[#FFC700]">
+                <span className="rounded bg-slate-900/80 border border-white/10 px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold text-[#FFC700]">
                   {getRewardLabel(briefingNode.type)}
                 </span>
                 <span
-                  className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold ${
+                  className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold ${
                     briefingEconomy.tensionHpPct > 20
                       ? 'border-rose-400/40 bg-rose-950/50 text-rose-300'
                       : briefingEconomy.tensionHpPct < 0
@@ -1396,19 +1400,19 @@ export function SectorMapView({
                       : `+${briefingEconomy.runYieldCredits} CR`}
                 </span>
                 {intelByNodeId.get(briefingNode.id)?.threatTraits?.[0] && (
-                  <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold text-rose-200">
+                  <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-rose-200">
                     {intelByNodeId.get(briefingNode.id)?.threatTraits?.[0]}
                   </span>
                 )}
                 {consecutiveCombat >= 2 && (
-                  <span className="rounded bg-amber-500/20 border border-amber-400/45 px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold text-amber-200">
+                  <span className="rounded bg-amber-500/20 border border-amber-400/45 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-amber-200">
                     ⚡ +{Math.min(50, consecutiveCombat * 10)}% CR
                   </span>
                 )}
                 {hasRecon && reconDetail && (
                   <span
                     title={reconDetail}
-                    className="rounded bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold text-cyan-200 truncate max-w-[260px]"
+                    className="rounded bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-cyan-200 truncate max-w-[300px]"
                   >
                     ✦ {reconDetail}
                   </span>

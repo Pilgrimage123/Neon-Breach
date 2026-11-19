@@ -45,8 +45,12 @@ export interface CombatPresentationConfig {
   /** Viewport-relative trauma shake amplitude (fraction of viewport width; 1.5%-2.5% for crits) */
   shakeNormalVw: number;
   shakeCritVw: number;
-  /** Melee center-stage slide ratio: fraction of inter-actor gap closed (0.25-0.40) */
+  /** Melee center-stage slide ratio (legacy fallback; nose-to-nose gap uses meleeClashGapVw) */
   meleeClashSlideRatio: number;
+  /** Target nose-to-nose center-to-center melee clash gap as a fraction of viewport width (0.08-0.22) */
+  meleeClashGapVw: number;
+  /** Subtle dramatic foreground scale boost for melee combatants during clash windup/hold (e.g. 1.07x) */
+  meleeForegroundScale: number;
   /** Ranged subtle in-slot forward lunge / recoil ratio relative to actor width (0.05-0.10) */
   rangedSlotLungeRatio: number;
   /** Viewport-relative target knockback (fraction of viewport width; 4%-6%) */
@@ -54,7 +58,7 @@ export interface CombatPresentationConfig {
   knockbackCritVw: number;
   /** Subtle viewport-relative drift apart during Phase C Hold */
   holdDriftApartVw: number;
-  /** Procedural attacker scale punch apex (e.g. 1.25x -> 1.0x) */
+  /** Procedural attacker scale punch apex (e.g. 1.28x -> 1.0x) */
   attackerScalePunch: number;
   /** Left-to-right AoE hit ripple stagger per target (milliseconds, 30ms-50ms) */
   aoeCascadeStepMs: number;
@@ -79,15 +83,15 @@ export const DEFAULT_COMBAT_PRESENTATION_CONFIG: CombatPresentationConfig = {
   hitstopAoeSec: 0.16,
   hitstopCritSec: 0.25,
   whiteFlashFrames: 3,
-  zoomNormal: 1.40,
-  zoomCrit: 1.72,
-  zoomRangedShooter: 1.40,
+  zoomNormal: 1.52,
+  zoomCrit: 1.80,
+  zoomRangedShooter: 1.42,
   zoomAoeMin: 1.22,
   zoomAoeMax: 1.30,
   holdZoomCreepPct: 0.08,
   rangedLeadRoomVw: 0.06,
-  dutchDegNormal: 2.0,
-  dutchDegCrit: 3.4,
+  dutchDegNormal: 2.2,
+  dutchDegCrit: 3.5,
   dimmerAlpha: 0.75,
   shakeTraumaNormal: 0.45,
   shakeTraumaCrit: 0.85,
@@ -95,11 +99,13 @@ export const DEFAULT_COMBAT_PRESENTATION_CONFIG: CombatPresentationConfig = {
   shakeNormalVw: 0.011,
   shakeCritVw: 0.022,
   meleeClashSlideRatio: 0.34,
+  meleeClashGapVw: 0.125,
+  meleeForegroundScale: 1.07,
   rangedSlotLungeRatio: 0.08,
   knockbackNormalVw: 0.045,
   knockbackCritVw: 0.060,
   holdDriftApartVw: 0.014,
-  attackerScalePunch: 1.25,
+  attackerScalePunch: 1.28,
   aoeCascadeStepMs: 40,
   hideWorldUiDuringCutIn: true,
   critSpeedLinesEnabled: true,

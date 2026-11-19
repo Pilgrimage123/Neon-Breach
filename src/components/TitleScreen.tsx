@@ -16,6 +16,7 @@ import { AURELIA_SHEET_FRAMES } from '../utils/aureliaSpriteSheet';
 import { HEROINE_COMBAT_FRAMES } from '../utils/heroineSpriteSheet';
 import { ZURI_SHEET_FRAMES } from '../utils/zuriSpriteSheet';
 import type { CodexTab } from './CodexModal';
+import { TitleEmblemStage } from './TitleEmblemStage';
 
 interface TitleScreenProps {
   lang: Language;
@@ -111,7 +112,7 @@ function OperativePortrait({
       ref={canvasRef}
       width={68}
       height={84}
-      className={`${compact ? 'h-[52px] w-[42px]' : 'h-[60px] w-[48px] sm:h-[64px] sm:w-[52px]'} shrink-0 rounded-lg border transition-all duration-200 ${
+      className={`${compact ? 'h-[48px] w-[38px]' : 'h-[60px] w-[48px] sm:h-[64px] sm:w-[52px]'} shrink-0 rounded-lg border transition-all duration-200 ${
         !ready ? 'opacity-0' : active ? 'opacity-100' : 'opacity-80'
       } ${
         active
@@ -150,6 +151,17 @@ export function TitleScreen({
 }: TitleScreenProps) {
   const [bgReady, setBgReady] = useState<boolean>(() => Boolean(getPreloadedTitleBg()));
   const [bgFailed, setBgFailed] = useState(false);
+  const [difficultyOpen, setDifficultyOpen] = useState(false);
+  const [howToPlayOpen, setHowToPlayOpen] = useState(false);
+  const [dropdownRect, setDropdownRect] = useState<{
+    left: number;
+    width: number;
+    top: number;
+    maxHeight: number;
+    openUpward: boolean;
+  } | null>(null);
+  const difficultyTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const difficultyMenuRef = useRef<HTMLDivElement | null>(null);
   const t = TRANSLATIONS[lang];
   const codexT = CODEX_TRANSLATIONS[lang];
 
@@ -169,6 +181,79 @@ export function TitleScreen({
       cancelled = true;
     };
   }, [selectedCharacter]);
+
+  useEffect(() => {
+    if (!difficultyOpen) return;
+
+    const updatePosition = () => {
+      const trigger = difficultyTriggerRef.current;
+      if (!trigger) return;
+      const rect = trigger.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      const spaceBelow = vh - rect.bottom - 44;
+      const spaceAbove = rect.top - 44;
+      const openUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
+      const availableHeight = Math.max(150, Math.min(310, openUpward ? spaceAbove : spaceBelow));
+      const desiredWidth = Math.min(vw - 24, Math.max(rect.width, 320));
+      const clampedLeft = Math.max(12, Math.min(rect.left, vw - desiredWidth - 12));
+      setDropdownRect({
+        left: clampedLeft,
+        width: desiredWidth,
+        top: openUpward ? rect.top - 6 : rect.bottom + 6,
+        maxHeight: availableHeight,
+        openUpward,
+      });
+    };
+
+    updatePosition();
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null;
+      if (
+        target &&
+        !difficultyTriggerRef.current?.contains(target) &&
+        !difficultyMenuRef.current?.contains(target)
+      ) {
+        setDifficultyOpen(false);
+      }
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setDifficultyOpen(false);
+        difficultyTriggerRef.current?.focus();
+      }
+    };
+
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+    document.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+      document.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [difficultyOpen]);
+
+  useEffect(() => {
+    if (!howToPlayOpen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        setHowToPlayOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown, true);
+    };
+  }, [howToPlayOpen]);
 
   const renderOperativeCards = (compactCards: boolean) => (
     <div
@@ -193,8 +278,8 @@ export function TitleScreen({
             aria-checked={isSelected}
             data-testid={`select-character-${charId}`}
             onClick={() => onSelectCharacter(charId)}
-            className={`chrome-pill flex items-center gap-2.5 rounded-xl ${
-              compactCards ? 'p-2' : 'p-2.5 sm:p-3'
+            className={`chrome-pill flex items-center overflow-hidden rounded-xl ${
+              compactCards ? 'gap-1.5 p-1.5' : 'gap-2.5 p-2.5 sm:p-3'
             } text-left transition-all cursor-pointer ${
               isSelected
                 ? isAurelia
@@ -207,9 +292,11 @@ export function TitleScreen({
           >
             <OperativePortrait characterId={charId} active={isSelected} compact={compactCards} />
             <div className="min-w-0 flex-1 space-y-0.5">
-              <div className="flex items-baseline justify-between gap-2">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-1.5 gap-y-0.5">
                 <span
-                  className={`font-display text-xs sm:text-sm font-extrabold tracking-wider whitespace-nowrap shrink-0 ${
+                  className={`font-display font-extrabold whitespace-nowrap shrink-0 ${
+                    compactCards ? 'text-[11.5px] tracking-normal' : 'text-[13px] sm:text-sm tracking-wider'
+                  } ${
                     isAurelia
                       ? 'text-[#FFC700]'
                       : isZuri
@@ -219,15 +306,25 @@ export function TitleScreen({
                 >
                   {meta.code}
                 </span>
-                <span className="font-mono-tabular text-[11px] font-bold text-amber-200 whitespace-nowrap shrink-0">
+                <span
+                  className={`font-mono-tabular font-bold text-amber-200 whitespace-nowrap shrink-0 ${
+                    compactCards ? 'text-[10.5px]' : 'text-[12px] sm:text-[12.5px]'
+                  }`}
+                >
                   {spec.maxHp} HP · {spec.carryCapacity}W
                 </span>
               </div>
-              <div className="text-[11px] sm:text-xs font-bold leading-snug text-[#F4F4F6] truncate">
+              <div
+                className={`${
+                  compactCards ? 'text-[11.5px]' : 'text-[12.5px] sm:text-[13px]'
+                } font-bold leading-snug text-[#F4F4F6] truncate`}
+              >
                 {meta.title}
               </div>
               <div
-                className={`text-[10.5px] font-semibold leading-snug truncate ${
+                className={`${
+                  compactCards ? 'text-[11px]' : 'text-[12px] sm:text-[12.5px]'
+                } font-semibold leading-snug truncate ${
                   isAurelia
                     ? 'text-amber-300'
                     : isZuri
@@ -246,55 +343,238 @@ export function TitleScreen({
 
   const activeDifficulty = DIFFICULTY_TIERS[selectedDifficultyTier] ?? DIFFICULTY_TIERS[3];
 
-  const renderDifficultySelector = (compact: boolean) => (
-    <div className={compact ? 'mt-2' : 'mt-3'}>
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-amber-200/90">
-          {lang === 'cs' ? 'Taktická obtížnost (1–5)' : 'Puzzle Difficulty Tier (1–5)'}
-        </span>
-        <span className="font-mono-tabular text-[10px] font-semibold text-cyan-200 truncate">
-          {lang === 'cs' ? activeDifficulty.labelCs : activeDifficulty.labelEn}
-        </span>
-      </div>
-      <div
-        role="radiogroup"
-        aria-label={lang === 'cs' ? 'Obtížnost' : 'Puzzle Difficulty Tier'}
-        className="grid grid-cols-5 gap-1"
+  const getTierAccent = (tier: DifficultyTier) => {
+    if (tier === 5) {
+      return {
+        dot: 'bg-[#FF2E7E] shadow-[0_0_8px_rgba(255,46,126,0.85)]',
+        border: 'border-[#FF2E7E]/70 ring-1 ring-[#FF2E7E]/65 bg-rose-950/55',
+        badge: 'text-[#FF7EB3]',
+      };
+    }
+    if (tier === 4) {
+      return {
+        dot: 'bg-[#FFC700] shadow-[0_0_8px_rgba(255,199,0,0.8)]',
+        border: 'border-[#FFC700]/70 ring-1 ring-[#FFC700]/65 bg-amber-950/50',
+        badge: 'text-[#FFE066]',
+      };
+    }
+    if (tier === 3) {
+      return {
+        dot: 'bg-[#00F0FF] shadow-[0_0_8px_rgba(0,240,255,0.8)]',
+        border: 'border-[#00F0FF]/70 ring-1 ring-[#00F0FF]/65 bg-cyan-950/50',
+        badge: 'text-[#67E8F9]',
+      };
+    }
+    return {
+      dot: 'bg-[#38BDF8] shadow-[0_0_8px_rgba(56,189,248,0.7)]',
+      border: 'border-[#38BDF8]/65 ring-1 ring-[#38BDF8]/55 bg-sky-950/45',
+      badge: 'text-sky-300',
+    };
+  };
+
+  const activeAccent = getTierAccent(selectedDifficultyTier);
+
+  const renderDifficultyDropdown = (compact: boolean) => (
+    <div className={compact ? 'mt-2' : 'mt-3.5'}>
+      <button
+        ref={difficultyTriggerRef}
+        type="button"
+        data-testid="difficulty-dropdown-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={difficultyOpen}
+        aria-controls="difficulty-dropdown-menu"
+        aria-label={`${lang === 'cs' ? 'Obtížnost' : 'Difficulty'}: ${
+          lang === 'cs' ? activeDifficulty.labelCs : activeDifficulty.labelEn
+        }`}
+        onClick={() => setDifficultyOpen((prev) => !prev)}
+        className={`chrome-pill group flex w-full items-center justify-between gap-3 rounded-xl ${
+          compact ? 'px-3 py-1.5' : 'px-3.5 py-2.5'
+        } text-left transition-all duration-150 cursor-pointer ${
+          difficultyOpen
+            ? activeAccent.border
+            : 'border-white/20 hover:border-cyan-300/60 hover:bg-slate-900/75'
+        }`}
       >
-        {([1, 2, 3, 4, 5] as const).map((tier) => {
-          const prof = DIFFICULTY_TIERS[tier];
-          const active = selectedDifficultyTier === tier;
-          return (
-            <button
-              key={`diff_tier_${tier}`}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              data-testid={`select-difficulty-${tier}`}
-              onClick={() => onSelectDifficultyTier(tier)}
-              className={`chrome-pill rounded-lg px-1.5 py-1 text-center font-mono-tabular text-[10px] font-bold transition-all cursor-pointer ${
-                active
-                  ? tier === 5
-                    ? 'border-[#FF2E7E] bg-rose-950/60 text-white ring-1 ring-[#FF2E7E]'
-                    : tier >= 4
-                      ? 'border-[#FFC700] bg-amber-950/50 text-white ring-1 ring-[#FFC700]'
-                      : 'border-[#00F0FF] bg-cyan-950/50 text-white ring-1 ring-[#00F0FF]'
-                  : 'border-white/15 text-slate-300 opacity-80 hover:opacity-100'
-              }`}
-            >
-              {lang === 'cs' ? prof.labelCs : prof.labelEn}
-            </button>
-          );
-        })}
-      </div>
-      <p className="mt-1 text-[10px] leading-snug text-slate-200/90">
-        {lang === 'cs' ? activeDifficulty.summaryCs : activeDifficulty.summaryEn}
-      </p>
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className={`h-2.5 w-2.5 shrink-0 rotate-45 rounded-[2px] ${activeAccent.dot}`}
+          />
+          <span className="text-[11.5px] sm:text-[12px] font-bold uppercase tracking-widest text-amber-200/90 whitespace-nowrap shrink-0">
+            {lang === 'cs' ? 'Obtížnost' : 'Difficulty'}
+          </span>
+          <span aria-hidden="true" className="text-slate-500">
+            ·
+          </span>
+          <span
+            className={`font-mono-tabular text-[12.5px] sm:text-[13px] font-extrabold whitespace-nowrap shrink-0 ${activeAccent.badge}`}
+          >
+            {lang === 'cs' ? activeDifficulty.labelCs : activeDifficulty.labelEn}
+          </span>
+          {!compact && (
+            <span className="hidden sm:inline truncate text-[12px] text-slate-300/90">
+              — {lang === 'cs' ? activeDifficulty.summaryCs : activeDifficulty.summaryEn}
+            </span>
+          )}
+        </div>
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={`shrink-0 text-cyan-200 transition-transform duration-200 ${
+            difficultyOpen ? 'rotate-180 text-white' : 'group-hover:text-white'
+          }`}
+        >
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
     </div>
   );
 
+  const renderHowToPlayModal = () => {
+    if (!howToPlayOpen) return null;
+    const h = t.howToPlay;
+    return (
+      <div
+        data-title-overlay-open="true"
+        className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/78 p-3 sm:p-6 backdrop-blur-sm"
+        onClick={() => setHowToPlayOpen(false)}
+      >
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="how-to-play-dialog-title"
+          data-testid="frontpage-how-to-play"
+          onClick={(e) => e.stopPropagation()}
+          className="chrome-panel-bright relative flex max-h-[min(90dvh,720px)] w-full max-w-[780px] flex-col overflow-hidden rounded-2xl p-4 sm:p-6 text-slate-100"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/15 pb-3">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h2
+                id="how-to-play-dialog-title"
+                className="font-display text-base sm:text-lg font-extrabold uppercase tracking-wider text-[#00F0FF]"
+              >
+                {h.title}
+              </h2>
+              <span className="rounded-md border border-amber-300/45 bg-amber-950/50 px-2 py-0.5 font-mono-tabular text-[11.5px] font-bold uppercase tracking-wider text-[#FFE066]">
+                {h.badge}
+              </span>
+            </div>
+            <button
+              type="button"
+              data-testid="close-how-to-play-button"
+              onClick={() => setHowToPlayOpen(false)}
+              aria-label={t.closeLabel}
+              className="chrome-pill flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-200 transition-colors hover:border-cyan-300 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 cursor-pointer"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.4"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+              <span>{t.closeLabel}</span>
+            </button>
+          </div>
+
+          <div className="mt-3 overflow-y-auto pr-1">
+            <p className="text-[13px] sm:text-sm leading-relaxed text-slate-100/95">
+              {h.goal}
+            </p>
+            <div className="mt-3 grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              <div className="rounded-xl border border-white/12 bg-slate-900/70 p-3">
+                <div className="font-display text-[13px] sm:text-sm font-bold text-cyan-200">
+                  {h.step1Title}
+                </div>
+                <p className="mt-1 text-[12.5px] leading-snug text-slate-200/90">
+                  {h.step1Desc}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-slate-900/70 p-3">
+                <div className="font-display text-[13px] sm:text-sm font-bold text-cyan-200">
+                  {h.step2Title}
+                </div>
+                <ul className="mt-1 space-y-1 text-[12.5px] leading-snug text-slate-200/95">
+                  <li>
+                    <span className="font-bold text-[#FF6B9D]">{h.attackLabel}:</span> {h.attackDesc}
+                  </li>
+                  <li>
+                    <span className="font-bold text-[#38BDF8]">{h.defenseLabel}:</span> {h.defenseDesc}
+                  </li>
+                  <li>
+                    <span className="font-bold text-[#FFC700]">{h.techLabel}:</span> {h.techDesc}
+                  </li>
+                </ul>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-slate-900/70 p-3">
+                <div className="font-display text-[13px] sm:text-sm font-bold text-amber-200">
+                  {h.step3Title}
+                </div>
+                <p className="mt-1 text-[12.5px] leading-snug text-slate-200/90">
+                  {h.step3Desc}
+                </p>
+              </div>
+              <div className="rounded-xl border border-white/12 bg-slate-900/70 p-3">
+                <div className="font-display text-[13px] sm:text-sm font-bold text-emerald-200">
+                  {h.step4Title}
+                </div>
+                <p className="mt-1 text-[12.5px] leading-snug text-slate-200/90">
+                  {h.step4Desc}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderHowToPlayButton = (compactBtn: boolean) => (
+    <button
+      type="button"
+      data-testid="title-how-to-play-button"
+      aria-haspopup="dialog"
+      aria-expanded={howToPlayOpen}
+      onClick={() => setHowToPlayOpen(true)}
+      className={`chrome-pill flex items-center gap-1.5 rounded-lg ${
+        compactBtn ? 'px-3.5 py-1.5 text-xs' : 'px-4 py-2 sm:px-5 sm:py-2.5 text-sm'
+      } font-semibold text-cyan-100 transition-colors hover:border-cyan-300 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 whitespace-nowrap shrink-0 cursor-pointer`}
+    >
+      <svg
+        width="15"
+        height="15"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+        className="text-[#00F0FF]"
+      >
+        <circle cx="12" cy="12" r="10" />
+        <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+        <path d="M12 17h.01" />
+      </svg>
+      <span>{t.howToPlay.title}</span>
+    </button>
+  );
+
   const renderPrimaryActions = (compactBtn: boolean) => (
-    <div className={`${compactBtn ? 'mt-2.5' : 'mt-3 sm:mt-4'} flex flex-wrap items-center gap-2.5`}>
+    <div className={`${compactBtn ? 'mt-2.5' : 'mt-3.5 sm:mt-4'} flex flex-wrap items-center gap-2.5`}>
       {hasSavedRun ? (
         <>
           <button
@@ -331,6 +611,7 @@ export function TitleScreen({
           {t.startRun}
         </button>
       )}
+      {renderHowToPlayButton(compactBtn)}
     </div>
   );
 
@@ -351,12 +632,12 @@ export function TitleScreen({
         />
       )}
 
-      {/* Measured left-weighted twilight-chrome scrim for crisp WCAG AA contrast while keeping right vista radiant */}
+      {/* Balanced atmospheric vignette scrim that frames the radiant key-art while keeping the logo & dock high-contrast */}
       <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'linear-gradient(90deg, rgba(8,15,36,0.88) 0%, rgba(11,22,50,0.68) 48%, rgba(14,165,233,0.12) 100%)',
+            'radial-gradient(ellipse at 50% 42%, rgba(8,15,36,0.44) 0%, rgba(9,18,44,0.72) 68%, rgba(6,11,28,0.88) 100%)',
         }}
       />
 
@@ -420,75 +701,22 @@ export function TitleScreen({
         </button>
       </div>
 
-      {/* Main Title Card */}
+      {/* Main Title Stage */}
       <section
         className={`relative z-10 my-auto flex w-full flex-col ${
           isCompactLandscape
             ? 'items-center px-3'
-            : 'max-w-6xl items-start px-3.5 sm:px-6 md:px-10'
+            : 'mx-auto max-w-[1040px] items-center px-3 sm:px-6 md:px-10'
         }`}
       >
         {isCompactLandscape ? (
-          <div className="chrome-glass grid w-full max-w-[1040px] max-h-[calc(100%-8px)] grid-cols-[minmax(0,0.68fr)_minmax(0,1.7fr)] items-center gap-3 overflow-y-auto rounded-2xl p-3">
-            {/* Left Column: Wordmark, Subtitle, Score, CTA */}
-            <div className="flex flex-col items-start min-w-0">
-              <svg
-                viewBox="0 0 560 132"
-                className="w-full max-w-[270px] select-none"
-                role="img"
-                aria-label="NEON BREACH"
-              >
-                <defs>
-                  <linearGradient id="nbChromeText" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#FFFFFF" />
-                    <stop offset="48%" stopColor="#E0F2FE" />
-                    <stop offset="52%" stopColor="#7DD3FC" />
-                    <stop offset="100%" stopColor="#FFFFFF" />
-                  </linearGradient>
-                  <linearGradient id="nbBladeGrad" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%" stopColor="#00F0FF" />
-                    <stop offset="52%" stopColor="#FF2E7E" />
-                    <stop offset="100%" stopColor="#FFC700" />
-                  </linearGradient>
-                </defs>
-                <path
-                  d="M8 22L28 12L44 36L24 58L8 22Z"
-                  fill="#0B1636"
-                  stroke="#00F0FF"
-                  strokeWidth="2.5"
-                />
-                <path d="M16 42L46 14" stroke="#FF2E7E" strokeWidth="3.5" strokeLinecap="round" />
-                <path d="M8 104H468L492 92" stroke="url(#nbBladeGrad)" strokeWidth="2.5" fill="none" />
-                <text
-                  x="56"
-                  y="64"
-                  fill="url(#nbChromeText)"
-                  fontFamily="'Chakra Petch', system-ui, sans-serif"
-                  fontWeight="700"
-                  fontSize="56"
-                  letterSpacing="3"
-                >
-                  NEON BREACH
-                </text>
-                <text
-                  x="58"
-                  y="93"
-                  fill="#00F0FF"
-                  fontFamily="'Chakra Petch', system-ui, sans-serif"
-                  fontWeight="700"
-                  fontSize="17"
-                  letterSpacing="4.5"
-                >
-                  XENO-PURGE PROTOCOL
-                </text>
-              </svg>
-
-              <p className="mt-1 text-[11px] leading-snug text-slate-100/95">
-                {t.gameSubtitle}
-              </p>
+          <div className="chrome-glass grid w-full max-w-[1040px] max-h-[calc(100%-8px)] grid-cols-[minmax(0,0.84fr)_minmax(0,1.56fr)] items-center gap-3 overflow-y-auto rounded-2xl p-3">
+            {/* Left Column: Animated Cutout Emblem, Score, CTA + How to Play */}
+            <div className="flex flex-col items-center min-w-0">
+              <TitleEmblemStage compact className="w-full max-w-[325px] max-h-[205px]" />
 
               {bestScore > 0 && (
-                <div className="mt-1.5 flex items-center gap-2 text-[11px] font-mono-tabular font-semibold text-[#FFC700]">
+                <div className="mt-1 flex items-center gap-2 text-[12px] font-mono-tabular font-semibold text-[#FFC700]">
                   <span>
                     {t.bestScoreLabel}: {bestScore}
                   </span>
@@ -502,10 +730,10 @@ export function TitleScreen({
               {renderPrimaryActions(true)}
             </div>
 
-            {/* Right Column: Horizontal 3-Operative Roster */}
+            {/* Right Column: Horizontal 3-Operative Roster + Difficulty Dropdown */}
             <div className="min-w-0">
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-200/90">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="text-[12px] font-bold uppercase tracking-widest text-cyan-200/90">
                   {t.selectOperativeLabel}
                 </span>
                 {onOpenCodex && (
@@ -514,7 +742,7 @@ export function TitleScreen({
                       type="button"
                       data-testid="title-open-hero-dossier"
                       onClick={() => onOpenCodex('heroes', selectedCharacter)}
-                      className="chrome-pill rounded-md px-2 py-0.5 text-[10px] font-bold text-[#00F0FF] transition-colors hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+                      className="chrome-pill rounded-md px-2 py-0.5 text-[12px] font-bold text-[#00F0FF] transition-colors hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
                     >
                       {codexT.inspectHeroDossierBtn}
                     </button>
@@ -522,7 +750,7 @@ export function TitleScreen({
                       type="button"
                       data-testid="title-open-glossary"
                       onClick={() => onOpenCodex('glossary', selectedCharacter)}
-                      className="chrome-pill rounded-md px-2 py-0.5 text-[10px] font-bold text-[#FFC700] transition-colors hover:border-amber-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+                      className="chrome-pill rounded-md px-2 py-0.5 text-[12px] font-bold text-[#FFC700] transition-colors hover:border-amber-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
                     >
                       {codexT.viewGlossaryBtn}
                     </button>
@@ -530,119 +758,183 @@ export function TitleScreen({
                 )}
               </div>
               {renderOperativeCards(true)}
-              {renderDifficultySelector(true)}
+              {renderDifficultyDropdown(true)}
             </div>
           </div>
         ) : (
-          <div
-            className={`chrome-glass w-full max-w-[1060px] rounded-2xl ${
-              isNarrowPortrait ? 'max-h-[calc(100dvh-92px)] overflow-y-auto p-3.5' : 'p-5 sm:p-6'
-            }`}
-          >
-            {/* Custom Inline SVG NEON BREACH Liquid-Chrome Title Lockup */}
-            <svg
-              viewBox="0 0 560 132"
-              className={`w-full select-none ${isNarrowPortrait ? 'max-w-[290px]' : 'max-w-[430px]'}`}
-              role="img"
-              aria-label="NEON BREACH"
-            >
-              <defs>
-                <linearGradient id="nbChromeText" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#FFFFFF" />
-                  <stop offset="48%" stopColor="#E0F2FE" />
-                  <stop offset="52%" stopColor="#7DD3FC" />
-                  <stop offset="100%" stopColor="#FFFFFF" />
-                </linearGradient>
-                <linearGradient id="nbBladeGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0%" stopColor="#00F0FF" />
-                  <stop offset="52%" stopColor="#FF2E7E" />
-                  <stop offset="100%" stopColor="#FFC700" />
-                </linearGradient>
-              </defs>
-              <path
-                d="M8 22L28 12L44 36L24 58L8 22Z"
-                fill="#0B1636"
-                stroke="#00F0FF"
-                strokeWidth="2.5"
+          <div className="flex w-full max-w-[1060px] flex-col items-center">
+            {/* Oversized Animated Floating Key-Art Emblem (Click-Triggered 5-Pose Sequence) */}
+            <div className="relative z-20 flex w-full justify-center pointer-events-none">
+              <TitleEmblemStage
+                className={
+                  isNarrowPortrait
+                    ? 'w-[104%] max-w-[392px] max-h-[32dvh]'
+                    : 'h-[clamp(250px,47dvh,455px)] w-auto max-w-[92vw]'
+                }
               />
-              <path d="M16 42L46 14" stroke="#FF2E7E" strokeWidth="3.5" strokeLinecap="round" />
-              <path d="M8 104H468L492 92" stroke="url(#nbBladeGrad)" strokeWidth="2.5" fill="none" />
-              <text
-                x="56"
-                y="64"
-                fill="url(#nbChromeText)"
-                fontFamily="'Chakra Petch', system-ui, sans-serif"
-                fontWeight="700"
-                fontSize="56"
-                letterSpacing="3"
-              >
-                NEON BREACH
-              </text>
-              <text
-                x="58"
-                y="93"
-                fill="#00F0FF"
-                fontFamily="'Chakra Petch', system-ui, sans-serif"
-                fontWeight="700"
-                fontSize="17"
-                letterSpacing="4.5"
-              >
-                XENO-PURGE PROTOCOL
-              </text>
-            </svg>
-
-            <p className="mt-1 max-w-md text-xs sm:text-sm leading-relaxed text-slate-100/95">
-              {t.gameSubtitle}
-            </p>
-
-            {/* Playable Operative Selector (KIRA-09 vs AURELIA-07 vs ZURI-03) */}
-            <div className={isNarrowPortrait ? 'mt-2.5' : 'mt-3.5'}>
-              <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-widest text-cyan-200/90">
-                  {t.selectOperativeLabel}
-                </span>
-                {onOpenCodex && (
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      type="button"
-                      data-testid="title-open-hero-dossier"
-                      onClick={() => onOpenCodex('heroes', selectedCharacter)}
-                      className="chrome-pill rounded-md px-2.5 py-1 text-[11px] font-bold text-[#00F0FF] transition-colors hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
-                    >
-                      {codexT.inspectHeroDossierBtn}
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="title-open-glossary"
-                      onClick={() => onOpenCodex('glossary', selectedCharacter)}
-                      className="chrome-pill rounded-md px-2.5 py-1 text-[11px] font-bold text-[#FFC700] transition-colors hover:border-amber-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
-                    >
-                      {codexT.viewGlossaryBtn}
-                    </button>
-                  </div>
-                )}
-              </div>
-              {renderOperativeCards(false)}
             </div>
 
-            {renderDifficultySelector(false)}
+            {/* Grounded Command Console with 2x Deeper Split-Header Cradle */}
+            <div
+              className={`chrome-glass relative z-10 w-full rounded-2xl ${
+                isNarrowPortrait
+                  ? '-mt-7 max-h-[calc(100dvh-230px)] overflow-y-auto px-3 pb-3 pt-8'
+                  : '-mt-11 sm:-mt-13 md:-mt-14 max-h-[calc(100dvh-310px)] overflow-y-auto px-5 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5'
+              }`}
+            >
+              {/* Sculpted Center Cradle Glow Highlight Beneath Plunging Emblem Crest */}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 top-0 h-[2px] w-[40%] -translate-x-1/2 rounded-full opacity-85"
+                style={{
+                  background:
+                    'linear-gradient(90deg, rgba(0,240,255,0) 0%, rgba(0,240,255,0.85) 35%, rgba(255,46,126,0.9) 65%, rgba(255,46,126,0) 100%)',
+                }}
+              />
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute left-1/2 top-0 h-14 w-[46%] -translate-x-1/2 rounded-b-full"
+                style={{
+                  background:
+                    'radial-gradient(ellipse at 50% 0%, rgba(0,240,255,0.16) 0%, rgba(255,46,126,0.08) 48%, rgba(0,0,0,0) 100%)',
+                }}
+              />
 
-            {bestScore > 0 && (
-              <div className="mt-2.5 flex items-center gap-2.5 text-xs font-mono-tabular font-semibold text-[#FFC700]">
-                <span>
-                  {t.bestScoreLabel}: {bestScore}
-                </span>
-                <span aria-hidden="true">·</span>
-                <span>
-                  {t.sectorsClearedLabel}: {sectorsCleared}
-                </span>
+              <div className="relative min-w-0">
+                {/* Split Header Flanking the Plunging Badge Base */}
+                <div>
+                  <div
+                    className={`relative z-30 flex justify-between gap-2 ${
+                      isNarrowPortrait
+                        ? 'mb-2 flex-wrap items-center'
+                        : 'mb-3 sm:mb-3.5 min-h-[42px] sm:min-h-[48px] items-end'
+                    }`}
+                  >
+                    <span className="pb-0.5 text-[12px] sm:text-[12.5px] font-bold uppercase tracking-widest text-cyan-200/95 whitespace-nowrap">
+                      {t.selectOperativeLabel}
+                    </span>
+                    {onOpenCodex && (
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          data-testid="title-open-hero-dossier"
+                          onClick={() => onOpenCodex('heroes', selectedCharacter)}
+                          className="chrome-pill rounded-md px-2.5 py-1 text-[12px] sm:text-[12.5px] font-bold text-[#00F0FF] transition-colors hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+                        >
+                          {codexT.inspectHeroDossierBtn}
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="title-open-glossary"
+                          onClick={() => onOpenCodex('glossary', selectedCharacter)}
+                          className="chrome-pill rounded-md px-2.5 py-1 text-[12px] sm:text-[12.5px] font-bold text-[#FFC700] transition-colors hover:border-amber-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+                        >
+                          {codexT.viewGlossaryBtn}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="relative z-20">{renderOperativeCards(false)}</div>
+                </div>
+
+                {renderDifficultyDropdown(false)}
+
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  {renderPrimaryActions(false)}
+
+                  {bestScore > 0 && (
+                    <div className="mt-3.5 sm:mt-4 flex items-center gap-2.5 text-[13px] font-mono-tabular font-semibold text-[#FFC700]">
+                      <span>
+                        {t.bestScoreLabel}: {bestScore}
+                      </span>
+                      <span aria-hidden="true">·</span>
+                      <span>
+                        {t.sectorsClearedLabel}: {sectorsCleared}
+                      </span>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-
-            {renderPrimaryActions(false)}
+            </div>
           </div>
         )}
       </section>
+
+      {/* Stylish Roll-Down Difficulty Menu */}
+      {difficultyOpen && dropdownRect && (
+        <div
+          ref={difficultyMenuRef}
+          id="difficulty-dropdown-menu"
+          role="listbox"
+          aria-label={lang === 'cs' ? 'Obtížnost' : 'Difficulty'}
+          data-testid="difficulty-dropdown-menu"
+          data-title-overlay-open="true"
+          style={{
+            position: 'fixed',
+            left: `${dropdownRect.left}px`,
+            width: `${dropdownRect.width}px`,
+            maxHeight: `${dropdownRect.maxHeight}px`,
+            ...(dropdownRect.openUpward
+              ? { bottom: `${window.innerHeight - dropdownRect.top}px` }
+              : { top: `${dropdownRect.top}px` }),
+          }}
+          className="z-40 overflow-y-auto rounded-xl border border-cyan-300/45 bg-[#09132c]/96 p-1.5 shadow-[0_18px_48px_rgba(2,6,23,0.88),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl"
+        >
+          <div className="space-y-1">
+            {([1, 2, 3, 4, 5] as const).map((tier) => {
+              const prof = DIFFICULTY_TIERS[tier];
+              const active = selectedDifficultyTier === tier;
+              const accent = getTierAccent(tier);
+              return (
+                <button
+                  key={`diff_tier_${tier}`}
+                  type="button"
+                  role="option"
+                  aria-selected={active}
+                  data-testid={`select-difficulty-${tier}`}
+                  onClick={() => {
+                    onSelectDifficultyTier(tier);
+                    setDifficultyOpen(false);
+                    difficultyTriggerRef.current?.focus();
+                  }}
+                  className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-1.5 text-left transition-all cursor-pointer ${
+                    active
+                      ? accent.border
+                      : 'border-transparent hover:border-white/20 hover:bg-slate-900/80'
+                  }`}
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`mt-1.5 h-2 w-2 shrink-0 rotate-45 rounded-[2px] ${accent.dot}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span
+                        className={`font-mono-tabular text-[12.5px] sm:text-[13px] font-extrabold ${
+                          active ? accent.badge : 'text-slate-100'
+                        }`}
+                      >
+                        {lang === 'cs' ? prof.labelCs : prof.labelEn}
+                      </span>
+                      {active && (
+                        <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-cyan-200">
+                          {lang === 'cs' ? 'Vybráno' : 'Active'}
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-[11.5px] sm:text-[12px] leading-snug text-slate-300/95">
+                      {lang === 'cs' ? prof.summaryCs : prof.summaryEn}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* How to Play Modal Dialog */}
+      {renderHowToPlayModal()}
 
       {/* Flat, borderless single-line control hint in bottom safe margin */}
       <footer
@@ -650,7 +942,7 @@ export function TitleScreen({
           isCompactLandscape ? 'px-4 pb-2' : 'px-4 pb-3 sm:px-6 sm:pb-4 md:px-12'
         }`}
       >
-        <p className={`${isCompactLandscape ? 'text-[10px]' : 'text-[11px] sm:text-xs'} font-medium tracking-wide text-slate-200/90 drop-shadow`}>
+        <p className={`${isCompactLandscape ? 'text-[12px]' : 'text-[12.5px] sm:text-[13px]'} font-medium tracking-wide text-slate-200/90 drop-shadow`}>
           {t.controlsHint}
         </p>
       </footer>

@@ -459,6 +459,7 @@ const ZURI_MODE_DURATIONS: Record<HeroineAnimMode, number> = {
   dash_kick: 0.86,
   overdrive: 1.08,
   guard: 0.77,
+  dodge: 0.77,
   upgrade: 0.90,
   hit: 0.52,
   defeat: 1.28,
@@ -619,7 +620,7 @@ export function stepZuriAnimState(
   else if (state.mode === 'idle2') seq = ZURI_IDLE2_SEQ;
   else if (state.mode === 'dash_kick') seq = ZURI_DASH_KICK_SEQ;
   else if (state.mode === 'overdrive') seq = ZURI_OVERDRIVE_SEQ;
-  else if (state.mode === 'guard') seq = ZURI_GUARD_SEQ;
+  else if (state.mode === 'guard' || state.mode === 'dodge') seq = ZURI_GUARD_SEQ;
   else if (state.mode === 'upgrade') seq = ZURI_UPGRADE_SEQ;
   else if (state.mode === 'hit') seq = state.lowHpHit ? ZURI_HIT_LOW_HP_SEQ : ZURI_HIT_NORMAL_SEQ;
   else if (state.mode === 'defeat') seq = ZURI_DEFEAT_SEQ;

@@ -143,7 +143,10 @@ function blurActiveElement(): void {
 export default function App() {
   const viewport = useViewportMetrics();
   const fullscreen = useFullscreen();
-  const [lang, setLang] = useState<Language>('en');
+  const [lang, setLang] = useState<Language>('cs');
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
   const [muted, setMuted] = useState<boolean>(() => soundEngine.isMuted());
   const [hudMinimized, setHudMinimized] = useState<boolean>(false);
   const [showTitle, setShowTitle] = useState<boolean>(() => !isAutostartEnabled());
@@ -1293,7 +1296,11 @@ export default function App() {
           }
           return;
         }
-        if ((e.key === 'Enter' || e.key === ' ') && !isInteractiveFocused(e.target)) {
+        if (
+          (e.key === 'Enter' || e.key === ' ') &&
+          !isInteractiveFocused(e.target) &&
+          !document.querySelector('[data-title-overlay-open="true"]')
+        ) {
           e.preventDefault();
           if (savedRunSnapshot) handleContinueRun();
           else handleStartNewRun();
@@ -1862,7 +1869,7 @@ export default function App() {
                                       ))}
                                     </div>
                                   </div>
-                                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] sm:text-xs font-bold">
+                                  <div className="mt-2 flex items-center justify-between gap-2 text-[12.5px] sm:text-[13px] font-bold">
                                     <span className={fitsEquip ? 'text-[#00F0FF]' : 'text-amber-300'}>
                                       {fitsEquip
                                         ? `✓ ${lang === 'cs' ? 'Vybavit hned' : 'Auto-Equip'}`
@@ -1882,7 +1889,7 @@ export default function App() {
                       <button
                         type="button"
                         onClick={() => handleClaimCombatReward(null)}
-                        className="chrome-pill rounded-lg px-4 py-1.5 sm:px-5 sm:py-2.5 text-xs font-bold text-white transition-colors hover:border-[#FFC700] cursor-pointer"
+                        className="chrome-pill rounded-lg px-4 py-1.5 sm:px-5 sm:py-2.5 text-[13px] sm:text-sm font-bold text-white transition-colors hover:border-[#FFC700] cursor-pointer"
                       >
                         {combat.rewardEquipmentChoices.length > 0
                           ? t.salvageForCredits

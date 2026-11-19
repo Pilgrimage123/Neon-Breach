@@ -181,10 +181,10 @@ function TileSpecRow({
     >
       <TileGlyph type={spec.type} size={16} className="shrink-0" />
       <div className="min-w-0 flex-1">
-        <div className="font-mono-tabular text-[11px] font-bold text-white leading-tight">
+        <div className="font-mono-tabular text-[13px] font-bold text-white leading-tight">
           {shortLabel}
         </div>
-        <div className="text-[10px] leading-snug text-slate-200 truncate" title={detailText}>
+        <div className="text-[12px] leading-snug text-slate-200 truncate" title={detailText}>
           {detailText}
         </div>
       </div>
@@ -272,7 +272,7 @@ export function CodexModal({
       }}
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/75 p-2 sm:p-4 backdrop-blur-sm"
     >
-      <div className="chrome-panel-bright flex max-h-[94dvh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl p-3 sm:p-5">
+      <div className="chrome-panel-bright flex max-h-[94dvh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl p-3.5 sm:p-5">
         {/* Top Header */}
         <div className="flex items-start justify-between gap-3 border-b border-white/15 pb-3 shrink-0">
           <div className="min-w-0">
@@ -282,7 +282,7 @@ export function CodexModal({
             >
               {codexT.codexTitle}
             </h2>
-            <p className="mt-0.5 text-[11px] sm:text-xs text-slate-200 leading-snug">
+            <p className="mt-0.5 text-[12.5px] sm:text-[13px] text-slate-200 leading-snug">
               {codexT.codexSubtitle}
             </p>
           </div>
@@ -364,10 +364,10 @@ export function CodexModal({
                   >
                     <CodexHeroPortrait characterId={charId} active={isCurrent} />
                     <div>
-                      <div className="font-display text-xs font-bold leading-tight">
+                      <div className="font-display text-[13px] font-bold leading-tight">
                         {charLabel.code}
                       </div>
-                      <div className="text-[10px] text-slate-200 leading-tight">
+                      <div className="text-[12px] text-slate-200 leading-tight">
                         {charLabel.title}
                       </div>
                     </div>
@@ -392,18 +392,18 @@ export function CodexModal({
                     <h3 className={`font-display text-base sm:text-lg font-bold ${heroAccentText}`}>
                       {heroMeta.code} · {heroMeta.name}
                     </h3>
-                    <span className="text-xs font-semibold text-slate-200">
+                    <span className="text-[13px] font-semibold text-slate-200">
                       {heroMeta.title} · {heroCodex.roleTag}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-100">
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-slate-100">
                     {heroCodex.playstyleLead}
                   </p>
 
                   {/* Base Chassis Metrics */}
                   <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                     <div className="rounded-lg border border-white/12 bg-slate-950/65 px-2.5 py-1.5">
-                      <div className="text-[10px] font-semibold text-slate-300">
+                      <div className="text-[12px] font-semibold text-slate-300">
                         {codexT.baseStatsLabels.hp}
                       </div>
                       <div className="font-mono-tabular text-sm font-bold text-rose-200">
@@ -411,7 +411,7 @@ export function CodexModal({
                       </div>
                     </div>
                     <div className="rounded-lg border border-white/12 bg-slate-950/65 px-2.5 py-1.5">
-                      <div className="text-[10px] font-semibold text-slate-300">
+                      <div className="text-[12px] font-semibold text-slate-300">
                         {codexT.baseStatsLabels.credits}
                       </div>
                       <div className="font-mono-tabular text-sm font-bold text-[#FFC700]">
@@ -419,7 +419,7 @@ export function CodexModal({
                       </div>
                     </div>
                     <div className="rounded-lg border border-white/12 bg-slate-950/65 px-2.5 py-1.5">
-                      <div className="text-[10px] font-semibold text-slate-300">
+                      <div className="text-[12px] font-semibold text-slate-300">
                         {codexT.baseStatsLabels.capacity}
                       </div>
                       <div className="font-mono-tabular text-sm font-bold text-[#00F0FF]">
@@ -427,10 +427,10 @@ export function CodexModal({
                       </div>
                     </div>
                     <div className="rounded-lg border border-white/12 bg-slate-950/65 px-2.5 py-1.5">
-                      <div className="text-[10px] font-semibold text-slate-300">
+                      <div className="text-[12px] font-semibold text-slate-300">
                         {codexT.baseStatsLabels.startingPool}
                       </div>
-                      <div className="font-mono-tabular text-xs font-bold text-white leading-5">
+                      <div className="font-mono-tabular text-[13px] font-bold text-white leading-5">
                         {heroProfile.startingPoolCounts.attack}A · {heroProfile.startingPoolCounts.defense}D · {heroProfile.startingPoolCounts.tech}T
                       </div>
                     </div>
@@ -439,7 +439,7 @@ export function CodexModal({
 
                 {/* Passive Powers */}
                 <section className="chrome-pill rounded-xl p-3.5">
-                  <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-wider text-cyan-200">
+                  <h4 className="font-display text-[13px] sm:text-sm font-bold uppercase tracking-wider text-cyan-200">
                     {codexT.passivePowersHeader}
                   </h4>
                   <div className="mt-2.5 space-y-2.5">
@@ -449,14 +449,14 @@ export function CodexModal({
                         className="rounded-lg border border-white/12 bg-slate-950/65 p-2.5"
                       >
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <span className="font-display text-xs sm:text-sm font-bold text-white">
+                          <span className="font-display text-[13px] sm:text-sm font-bold text-white">
                             {power.name}
                           </span>
-                          <span className={`font-mono-tabular text-[11px] font-bold ${heroAccentText}`}>
+                          <span className={`font-mono-tabular text-[12.5px] font-bold ${heroAccentText}`}>
                             {power.badge}
                           </span>
                         </div>
-                        <p className="mt-1 text-xs leading-relaxed text-slate-200">
+                        <p className="mt-1 text-[13px] leading-relaxed text-slate-200">
                           {power.description}
                         </p>
                       </div>
@@ -467,17 +467,17 @@ export function CodexModal({
                 {/* Signature Overdrive */}
                 <section className="chrome-pill rounded-xl border-[#FFC700]/45 p-3.5">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-wider text-[#FFC700]">
+                    <h4 className="font-display text-[13px] sm:text-sm font-bold uppercase tracking-wider text-[#FFC700]">
                       {codexT.overdriveHeader} · {heroMeta.overdriveName}
                     </h4>
-                    <span className="font-mono-tabular text-[11px] font-bold text-emerald-300">
+                    <span className="font-mono-tabular text-[12.5px] font-bold text-emerald-300">
                       {codexT.freeActionBadge}
                     </span>
                   </div>
-                  <p className="mt-1.5 text-xs leading-relaxed text-slate-100">
+                  <p className="mt-1.5 text-[13px] leading-relaxed text-slate-100">
                     {heroCodex.overdriveRule}
                   </p>
-                  <ul className="mt-2 space-y-1 text-xs text-amber-100">
+                  <ul className="mt-2 space-y-1 text-[13px] text-amber-100">
                     {heroCodex.overdriveBreakdown.map((line, i) => (
                       <li key={i} className="flex items-start gap-2">
                         <span aria-hidden="true" className="font-mono-tabular font-bold text-[#FFC700]">
@@ -494,14 +494,14 @@ export function CodexModal({
               <div className="space-y-3">
                 <section className="chrome-pill rounded-xl p-3.5">
                   <div className="flex items-baseline justify-between gap-2">
-                    <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-wider text-white">
+                    <h4 className="font-display text-[13px] sm:text-sm font-bold uppercase tracking-wider text-white">
                       {codexT.innateCoreHeader}
                     </h4>
-                    <span className="font-mono-tabular text-[11px] text-slate-300">
+                    <span className="font-mono-tabular text-[12.5px] text-slate-300">
                       {heroProfile.innateTiles.length} {t.poolTotalLabel}
                     </span>
                   </div>
-                  <p className="mt-0.5 text-[11px] text-slate-300">{codexT.innateCoreDesc}</p>
+                  <p className="mt-0.5 text-[12.5px] text-slate-300">{codexT.innateCoreDesc}</p>
                   <div className="mt-2.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2 lg:grid-cols-1">
                     {heroProfile.innateTiles.map((spec, idx) => (
                       <TileSpecRow key={`innate_${idx}`} spec={spec} lang={lang} />
@@ -510,7 +510,7 @@ export function CodexModal({
                 </section>
 
                 <section className="chrome-pill rounded-xl p-3.5">
-                  <h4 className="font-display text-xs sm:text-sm font-bold uppercase tracking-wider text-white">
+                  <h4 className="font-display text-[13px] sm:text-sm font-bold uppercase tracking-wider text-white">
                     {codexT.startingGearHeader}
                   </h4>
                   <div className="mt-2 space-y-2">
@@ -522,14 +522,14 @@ export function CodexModal({
                           className="rounded-lg border border-white/12 bg-slate-950/65 p-2.5"
                         >
                           <div className="flex items-baseline justify-between gap-2">
-                            <span className="font-display text-xs sm:text-sm font-bold text-cyan-200">
+                            <span className="font-display text-[13px] sm:text-sm font-bold text-cyan-200">
                               {eqMeta?.name ?? def.id}
                             </span>
-                            <span className="font-mono-tabular text-[11px] font-semibold text-slate-300">
+                            <span className="font-mono-tabular text-[12.5px] font-semibold text-slate-300">
                               {t.sizeLabel} {def.size}
                             </span>
                           </div>
-                          <p className="mt-0.5 text-[11px] leading-snug text-slate-200">
+                          <p className="mt-0.5 text-[12.5px] leading-snug text-slate-200">
                             {eqMeta?.desc ?? ''}
                           </p>
                           <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
@@ -594,7 +594,7 @@ export function CodexModal({
                           setCategory(cat);
                           setFocusedTermId(null);
                         }}
-                        className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                        className={`rounded-lg border px-2.5 py-1.5 text-[12.5px] font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                           isActive
                             ? 'border-[#00F0FF] bg-cyan-950/60 text-[#00F0FF]'
                             : 'border-white/15 bg-slate-950/60 text-slate-300 hover:border-white/35 hover:text-white'
@@ -660,17 +660,17 @@ export function CodexModal({
                                 <h3 className={`font-display text-sm sm:text-base font-bold ${accentTitle}`}>
                                   {entry.term}
                                 </h3>
-                                <span className="text-[11px] font-medium text-slate-300">
+                                <span className="text-[12.5px] font-medium text-slate-300">
                                   · {entry.shortTag}
                                 </span>
                               </div>
-                              <p className="mt-1 text-xs font-medium leading-snug text-white">
+                              <p className="mt-1 text-[13px] font-medium leading-snug text-white">
                                 {entry.summary}
                               </p>
                             </div>
                           </div>
 
-                          <div className="mt-2.5 space-y-1.5 border-t border-white/10 pt-2 text-xs leading-relaxed">
+                          <div className="mt-2.5 space-y-1.5 border-t border-white/10 pt-2 text-[13px] leading-relaxed">
                             <p className="text-slate-200">
                               <span className="font-bold text-cyan-200">
                                 {codexT.mechanicsLabel}:{' '}
@@ -687,7 +687,7 @@ export function CodexModal({
                         </div>
 
                         {meta.relatedTerms.length > 0 && (
-                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2 text-[11px]">
+                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-2 text-[12.5px]">
                             {meta.relatedTerms.map((relId, idx) => {
                               const relEntry = codexT.glossary[relId];
                               if (!relEntry) return null;

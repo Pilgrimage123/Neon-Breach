@@ -353,6 +353,7 @@ export interface AnimationCue {
   textLabel?: string;
   surge?: boolean;
   blocked?: number;
+  armorDamage?: number;
   hpDamage?: number;
   reflectedDamage?: number;
   jammed?: boolean;

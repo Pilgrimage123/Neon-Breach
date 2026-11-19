@@ -7,6 +7,7 @@ import {
 } from '../utils/crawlerSpriteSheet';
 import {
   HEROINE_COMBAT_FRAMES,
+  HEROINE_DODGE_FRAMES,
   HEROINE_EMOTE_FRAMES,
   HEROINE_SHEET_FRAMES,
 } from '../utils/heroineSpriteSheet';
@@ -63,6 +64,10 @@ const KIRA_EMOTE_OPTIONS: SpriteCutoutOptions = {
   minPocketArea: 14,
   defringeStrength: 0.78,
   unmixLightGlow: true,
+};
+
+const KIRA_DODGE_OPTIONS: SpriteCutoutOptions = {
+  preserveExistingAlpha: true,
 };
 
 const AURELIA_SHEET_OPTIONS: SpriteCutoutOptions = {
@@ -134,8 +139,52 @@ export function getPreloadedTitleBg(): HTMLImageElement | null {
   return getCachedDecodedImage(GAME_ASSETS.titleBg);
 }
 
+export const TITLE_LOGO_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 32,
+  defringeStrength: 0.82,
+  unmixLightGlow: true,
+  maxDimension: 960,
+};
+
 export function loadTitleBg(): Promise<HTMLImageElement> {
   return loadDecodedImage(GAME_ASSETS.titleBg);
+}
+
+export function getPreloadedTitleLogo(): HTMLCanvasElement | null {
+  return getCachedSpriteCutout(GAME_ASSETS.titleLogo, TITLE_LOGO_OPTIONS);
+}
+
+export function loadTitleLogo(): Promise<HTMLCanvasElement> {
+  return loadSpriteCutout(GAME_ASSETS.titleLogo, TITLE_LOGO_OPTIONS);
+}
+
+export function getPreloadedTitleLogoFrames(): (HTMLCanvasElement | null)[] {
+  return GAME_ASSETS.titleLogoFrames.map((url) =>
+    getCachedSpriteCutout(url, TITLE_LOGO_OPTIONS),
+  );
+}
+
+export async function loadTitleLogoFrames(
+  onFrameReady?: (index: number, canvas: HTMLCanvasElement) => void,
+): Promise<HTMLCanvasElement[]> {
+  const results: HTMLCanvasElement[] = new Array(GAME_ASSETS.titleLogoFrames.length);
+  for (let i = 0; i < GAME_ASSETS.titleLogoFrames.length; i++) {
+    const url = GAME_ASSETS.titleLogoFrames[i];
+    const cached = getCachedSpriteCutout(url, TITLE_LOGO_OPTIONS);
+    if (cached) {
+      results[i] = cached;
+      onFrameReady?.(i, cached);
+      continue;
+    }
+    const cutout = await loadSpriteCutout(url, TITLE_LOGO_OPTIONS);
+    results[i] = cutout;
+    onFrameReady?.(i, cutout);
+    if (i + 1 < GAME_ASSETS.titleLogoFrames.length) {
+      await yieldTick();
+    }
+  }
+  return results;
 }
 
 export function getPreloadedPortraitFrame(charId: CharacterId): HTMLCanvasElement | null {
@@ -210,11 +259,27 @@ export function getPreloadedZuriDroneFrames(): HTMLCanvasElement[] | null {
   );
 }
 
-function loadZuriDroneFrames(): Promise<HTMLCanvasElement[]> {
+export function loadZuriDroneFrames(): Promise<HTMLCanvasElement[]> {
   return loadSpriteSheetFrames(
     GAME_ASSETS.zuriDrones,
     ZURI_DRONE_FRAMES,
     ZURI_DRONES_OPTIONS,
+  );
+}
+
+export function getPreloadedKiraDodgeFrames(): HTMLCanvasElement[] | null {
+  const frames: HTMLCanvasElement[] = [];
+  for (let i = 0; i < GAME_ASSETS.heroineDodge.length; i++) {
+    const canvas = getCachedSpriteCutout(GAME_ASSETS.heroineDodge[i], KIRA_DODGE_OPTIONS);
+    if (!canvas) return null;
+    frames.push(canvas);
+  }
+  return frames;
+}
+
+function loadKiraDodgeFrames(): Promise<HTMLCanvasElement[]> {
+  return Promise.all(
+    GAME_ASSETS.heroineDodge.map((url) => loadSpriteCutout(url, KIRA_DODGE_OPTIONS)),
   );
 }
 
@@ -416,6 +481,14 @@ export function getPreloadedHeroFrames(charId: CharacterId): HTMLCanvasElement[]
       slots[offset + i] = emote[i];
     }
   }
+  const dodgeOffset = HEROINE_COMBAT_FRAMES.length + HEROINE_EMOTE_FRAMES.length;
+  for (let i = 0; i < HEROINE_DODGE_FRAMES.length; i++) {
+    const url = GAME_ASSETS.heroineDodge[i];
+    const dodgeCanvas = url ? getCachedSpriteCutout(url, KIRA_DODGE_OPTIONS) : null;
+    if (dodgeCanvas) {
+      slots[dodgeOffset + i] = dodgeCanvas;
+    }
+  }
   return slots;
 }
 
@@ -425,6 +498,7 @@ export function areCriticalCombatAssetsReady(
 ): boolean {
   if (!getPreloadedBackdrop()) return false;
   if (!getPreloadedHeroFrames(charId)) return false;
+  if (charId === 'kira' && !getPreloadedKiraDodgeFrames()) return false;
   if (charId === 'zuri' && !getPreloadedZuriDroneFrames()) return false;
   for (let i = 0; i < enemyArchetypes.length; i++) {
     const arch = enemyArchetypes[i];
@@ -467,11 +541,14 @@ async function runBackgroundTask(taskId: string): Promise<void> {
   if (taskId === 'backdrop') {
     await loadDecodedImage(GAME_ASSETS.arenaBackdrop);
   } else if (taskId === 'char:kira') {
-    await loadSpriteSheetFrames(
-      GAME_ASSETS.heroine,
-      HEROINE_COMBAT_FRAMES,
-      KIRA_COMBAT_OPTIONS,
-    );
+    await Promise.all([
+      loadSpriteSheetFrames(
+        GAME_ASSETS.heroine,
+        HEROINE_COMBAT_FRAMES,
+        KIRA_COMBAT_OPTIONS,
+      ),
+      loadKiraDodgeFrames(),
+    ]);
   } else if (taskId === 'char:kira_emote') {
     await loadSpriteSheetFrames(
       GAME_ASSETS.heroineEmote,
@@ -535,12 +612,19 @@ export function preloadForTitleScreen(selectedChar: CharacterId): void {
 
   const titleCritical = Promise.allSettled([
     loadTitleBg(),
+    loadTitleLogo(),
     loadPortraitFrame('kira'),
     loadPortraitFrame('aurelia'),
     loadPortraitFrame('zuri'),
   ]);
 
-  void titleCritical.then(() => {
+  void titleCritical.then(async () => {
+    if (epoch !== activeBgEpoch) return;
+    try {
+      await loadTitleLogoFrames();
+    } catch {
+      // Secondary logo frames degrade gracefully to frame 0
+    }
     if (epoch !== activeBgEpoch) return;
     const tasks = buildBackgroundTaskOrder(selectedChar);
     void runTaskQueue(tasks, epoch);
@@ -576,11 +660,14 @@ export async function ensureCombatAssetsReady(
             ),
             loadZuriDroneFrames(),
           ])
-        : loadSpriteSheetFrames(
-            GAME_ASSETS.heroine,
-            HEROINE_COMBAT_FRAMES,
-            KIRA_COMBAT_OPTIONS,
-          ),
+        : Promise.all([
+            loadSpriteSheetFrames(
+              GAME_ASSETS.heroine,
+              HEROINE_COMBAT_FRAMES,
+              KIRA_COMBAT_OPTIONS,
+            ),
+            loadKiraDodgeFrames(),
+          ]),
   ];
 
   for (let i = 0; i < critical.length; i++) {

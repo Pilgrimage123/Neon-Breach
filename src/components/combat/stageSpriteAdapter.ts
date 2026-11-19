@@ -516,11 +516,12 @@ export function deriveHeroineDeformAndUniforms(params: {
     cutIn,
   } = params;
 
-  const cutInScaleX = cutIn ? cutIn.scaleX : 1;
-  const cutInScaleY = cutIn ? cutIn.scaleY : 1;
+  const isDodging = mode === 'dodge';
+  const cutInScaleX = cutIn && !isDodging ? cutIn.scaleX : 1;
+  const cutInScaleY = cutIn && !isDodging ? cutIn.scaleY : 1;
   uniforms.squashStretch = [breathScaleX * cutInScaleX, breathScaleY * cutInScaleY];
   uniforms.frameBlendAlpha = frameBlendAlpha;
-  if (cutIn) {
+  if (cutIn && !isDodging) {
     uniforms.tintRgba = cutIn.tintRgba;
   }
 
@@ -540,6 +541,13 @@ export function deriveHeroineDeformAndUniforms(params: {
       uniforms.swayAmpPx = hoveredColor === 'attack' ? 2.2 : 1.4;
       uniforms.swayFreq = 2.6;
       uniforms.swayPhase = elapsed * 2.6;
+    } else if (mode === 'dodge') {
+      // Sleek aerodynamic dodge posture: low agile shear with subtle cyan speed energy
+      deform.pelvis.dx = -1.2;
+      deform.waist.dx = -2.4;
+      deform.waist.dy = 0.8;
+      deform.head.dx = -1.8;
+      uniforms.shearPx = [-2.2, 0];
     } else if (mode === 'shoot' || mode === 'kick' || mode === 'slash') {
       // Forward kinetic combat lean through waist and head while feet stay planted
       const recoil = Math.sin(elapsed * 18) * 1.8;
@@ -569,26 +577,28 @@ export function deriveHeroineDeformAndUniforms(params: {
       uniforms.uvDistortPhase = elapsed * 8;
     }
 
-    // Dramatic cut-in static pose emphasis layered on heroine spine
-    if (cutIn && cutIn.poseOverride === 'attack_pose') {
-      deform.pelvis.dx += 4.5;
-      deform.waist.dx += 9.0;
-      deform.waist.rotRad += 0.06;
-      deform.head.dx += 13.0;
-      deform.head.rotRad += 0.08;
-    } else if (cutIn && cutIn.poseOverride === 'brace_pose') {
-      deform.pelvis.dy += 4.0;
-      deform.waist.dy += 7.0;
-      deform.waist.scaleX *= 1.05;
-      deform.waist.rotRad -= 0.05;
-    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
-      deform.pelvis.dx -= 5.0;
-      deform.waist.dx -= 13.0;
-      deform.waist.dy += 3.0;
-      deform.waist.rotRad -= 0.12;
-      deform.head.dx -= 18.0;
-      deform.head.dy += 4.5;
-      deform.head.rotRad -= 0.16;
+    // Dramatic cut-in static pose emphasis layered on heroine spine (suppressed during Kira's dodge!)
+    if (!isDodging) {
+      if (cutIn && cutIn.poseOverride === 'attack_pose') {
+        deform.pelvis.dx += 4.5;
+        deform.waist.dx += 9.0;
+        deform.waist.rotRad += 0.06;
+        deform.head.dx += 13.0;
+        deform.head.rotRad += 0.08;
+      } else if (cutIn && cutIn.poseOverride === 'brace_pose') {
+        deform.pelvis.dy += 4.0;
+        deform.waist.dy += 7.0;
+        deform.waist.scaleX *= 1.05;
+        deform.waist.rotRad -= 0.05;
+      } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+        deform.pelvis.dx -= 5.0;
+        deform.waist.dx -= 13.0;
+        deform.waist.dy += 3.0;
+        deform.waist.rotRad -= 0.12;
+        deform.head.dx -= 18.0;
+        deform.head.dy += 4.5;
+        deform.head.rotRad -= 0.16;
+      }
     }
   }
 
@@ -602,12 +612,14 @@ export function deriveHeroineDeformAndUniforms(params: {
     uniforms.uvDistortPhase = elapsed * 6.5;
   }
 
-  // Hit-flash tint: cut-in white-to-crimson sequence takes precedence when active
-  if (cutIn?.flashRgba) {
-    uniforms.flashRgba = cutIn.flashRgba;
-  } else if (flashTimer > 0) {
-    const flashIntensity = Math.min(0.75, Math.max(0.25, flashTimer * 3.2));
-    uniforms.flashRgba = [1.0, 0.55, 0.72, flashIntensity];
+  // Hit-flash tint: suppressed during clean dodge so Kira never flashes crimson on a MISS
+  if (!isDodging) {
+    if (cutIn?.flashRgba) {
+      uniforms.flashRgba = cutIn.flashRgba;
+    } else if (flashTimer > 0) {
+      const flashIntensity = Math.min(0.75, Math.max(0.25, flashTimer * 3.2));
+      uniforms.flashRgba = [1.0, 0.55, 0.72, flashIntensity];
+    }
   }
 
   return { deform, uniforms };
@@ -636,6 +648,8 @@ export function deriveEnemyDeformAndUniforms(params: {
   spitterJuice?: SpitterJuiceSample;
   bruteJuice?: BruteJuiceSample;
   cutIn?: ActorJuiceSnapshot;
+  /** Sprite facing sign (+1 for native left-facing Crawlers/Boss, -1 for mirrored right-facing Stalker/Spitter/Brute) */
+  facingSign?: number;
 }): { deform: ControlPointDeform; uniforms: CharacterShaderUniforms } {
   const deform = createIdentityControlPoints();
   const uniforms = createDefaultShaderUniforms();
@@ -659,7 +673,21 @@ export function deriveEnemyDeformAndUniforms(params: {
     spitterJuice,
     bruteJuice,
     cutIn,
+    facingSign,
   } = params;
+
+  // Local +X maps to world -X (toward heroine) when facingSign < 0, and to world +X when facingSign > 0.
+  // Multiply all forward-toward-heroine local dx & rotRad bends by fwdSign so EVERY archetype leans the right way!
+  const effectiveFacing =
+    facingSign ??
+    (spitterJuice
+      ? spitterJuice.facingScale
+      : bruteJuice
+        ? bruteJuice.facingScale
+        : archetype === 'stalker' || archetype === 'spitter' || archetype === 'brute'
+          ? -1
+          : 1);
+  const fwdSign = effectiveFacing < 0 ? 1 : -1;
 
   const cutInScaleX = cutIn ? cutIn.scaleX : 1;
   const cutInScaleY = cutIn ? cutIn.scaleY : 1;
@@ -714,6 +742,22 @@ export function deriveEnemyDeformAndUniforms(params: {
     deform.head.dy = spitterJuice.deform.head.dy;
     deform.head.rotRad = spitterJuice.deform.head.rotRad;
     deform.head.scaleX = spitterJuice.deform.head.scaleX;
+
+    if (cutIn && cutIn.poseOverride === 'attack_pose') {
+      deform.pelvis.dx += 4.5 * fwdSign;
+      deform.waist.dx += 9.5 * fwdSign;
+      deform.waist.rotRad += 0.05 * fwdSign;
+      deform.head.dx += 15 * fwdSign;
+      deform.head.rotRad += 0.09 * fwdSign;
+    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+      deform.pelvis.dx -= 4.5 * fwdSign;
+      deform.waist.dx -= 11 * fwdSign;
+      deform.waist.dy += 2.5;
+      deform.waist.rotRad -= 0.1 * fwdSign;
+      deform.head.dx -= 17 * fwdSign;
+      deform.head.dy += 4.0;
+      deform.head.rotRad -= 0.14 * fwdSign;
+    }
 
     // Layer 4: Synced hit-flash uniform (cut-in white->crimson takes precedence when flashing)
     const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.82, ea.flashTimer * 4.2) : 0;
@@ -777,6 +821,22 @@ export function deriveEnemyDeformAndUniforms(params: {
     deform.head.rotRad = bruteJuice.deform.head.rotRad;
     deform.head.scaleX = bruteJuice.deform.head.scaleX;
 
+    if (cutIn && cutIn.poseOverride === 'attack_pose') {
+      deform.pelvis.dx += 5.5 * fwdSign;
+      deform.waist.dx += 11 * fwdSign;
+      deform.waist.rotRad += 0.06 * fwdSign;
+      deform.head.dx += 16 * fwdSign;
+      deform.head.rotRad += 0.1 * fwdSign;
+    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+      deform.pelvis.dx -= 4.5 * fwdSign;
+      deform.waist.dx -= 11 * fwdSign;
+      deform.waist.dy += 2.5;
+      deform.waist.rotRad -= 0.09 * fwdSign;
+      deform.head.dx -= 16 * fwdSign;
+      deform.head.dy += 3.5;
+      deform.head.rotRad -= 0.13 * fwdSign;
+    }
+
     // Layer 4: Synced hit-flash uniform
     const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.84, ea.flashTimer * 4.2) : 0;
     if (cutIn?.flashRgba) {
@@ -813,40 +873,40 @@ export function deriveEnemyDeformAndUniforms(params: {
   uniforms.swayFreq = 2.4;
   uniforms.swayPhase = phase;
 
-  // 1.5 Darkest Dungeon-style static cut-in pose emphasis (particularly impactful on Boss & cutouts)
+  // 1.5 Darkest Dungeon-style static cut-in pose emphasis (direction-aware via fwdSign so Crawlers & Boss bend toward/away cleanly!)
+  const bossAmp = archetype === 'boss' ? 1.25 : 1.0;
   if (cutIn && cutIn.poseOverride === 'attack_pose') {
-    deform.pelvis.dx += 7;
-    deform.waist.dx += 15;
-    deform.waist.rotRad += 0.08;
-    deform.head.dx += 24;
-    deform.head.rotRad += 0.14;
+    deform.pelvis.dx += 7 * fwdSign * bossAmp;
+    deform.waist.dx += 15 * fwdSign * bossAmp;
+    deform.waist.rotRad += 0.08 * fwdSign * bossAmp;
+    deform.head.dx += 22 * fwdSign * bossAmp;
+    deform.head.rotRad += 0.13 * fwdSign * bossAmp;
   } else if (cutIn && cutIn.poseOverride === 'brace_pose') {
     deform.pelvis.dy += 5;
     deform.waist.dy += 9;
-    deform.waist.rotRad -= 0.08;
-    deform.waist.scaleX *= 1.07;
+    deform.waist.rotRad -= 0.07 * fwdSign;
+    deform.waist.scaleX *= 1.06;
   } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
-    deform.pelvis.dx -= 6;
-    deform.waist.dx -= 16;
+    deform.pelvis.dx -= 6 * fwdSign;
+    deform.waist.dx -= 15 * fwdSign;
     deform.waist.dy += 3.5;
-    deform.waist.rotRad -= 0.14;
-    deform.head.dx -= 26;
-    deform.head.dy += 5.5;
-    deform.head.rotRad -= 0.22;
+    deform.waist.rotRad -= 0.12 * fwdSign;
+    deform.head.dx -= 23 * fwdSign;
+    deform.head.dy += 5.0;
+    deform.head.rotRad -= 0.18 * fwdSign;
   }
 
-  // 2. Smooth 4-control-point spine bend on kinetic hit-stagger (replaces flat half-clip shear!)
+  // 2. Smooth 4-control-point spine bend on kinetic hit-stagger (direction-aware via fwdSign!)
   if (ea && ea.staggerTimer > 0 && ea.staggerDuration > 0) {
     const u = Math.max(0, Math.min(1, 1 - ea.staggerTimer / ea.staggerDuration));
     const whip = Math.sin(u * Math.PI) * Math.pow(1 - u, 1.2) * ea.staggerIntensity;
-    // Note: enemy sprites are mirrored with facingSign = -1, so negative local dx bends away from Heroine
-    deform.pelvis.dx -= whip * 4.5 + staggerShearPx * 0.25;
-    deform.waist.dx -= whip * 12.0 + staggerShearPx * 0.75;
+    deform.pelvis.dx -= (whip * 4.5 + staggerShearPx * 0.25) * fwdSign;
+    deform.waist.dx -= (whip * 12.0 + staggerShearPx * 0.75) * fwdSign;
     deform.waist.dy += whip * 3.2;
-    deform.waist.rotRad -= whip * 0.11;
-    deform.head.dx -= whip * 19.5 + staggerShearPx * 1.25;
+    deform.waist.rotRad -= whip * 0.11 * fwdSign;
+    deform.head.dx -= (whip * 19.5 + staggerShearPx * 1.25) * fwdSign;
     deform.head.dy += whip * 5.8;
-    deform.head.rotRad -= whip * 0.18;
+    deform.head.rotRad -= whip * 0.18 * fwdSign;
 
     uniforms.shearPx = [staggerShearPx * 0.65, 0];
   }
@@ -869,8 +929,8 @@ export function deriveEnemyDeformAndUniforms(params: {
     uniforms.uvDistortPhase = elapsed * 7.0 + idx;
   } else if (isPrimedOrCharging) {
     const coil = Math.sin(elapsed * 8.0 + idx);
-    deform.waist.dx += 2.5;
-    deform.head.dx += 4.5 + coil * 1.2;
+    deform.waist.dx += 2.5 * fwdSign;
+    deform.head.dx += (4.5 + coil * 1.2) * fwdSign;
     uniforms.uvDistortAmp = [0.0028, 0.0022];
     uniforms.uvDistortFreq = 18.0;
     uniforms.uvDistortPhase = elapsed * 9.0;

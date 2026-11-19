@@ -21,11 +21,29 @@ export const ZURI_DRONES_SHEET_URL =
 export const NURSE_SPRITE_SHEET_URL =
   '/assets/aistudio/image_d7235730.png';
 
+export const HEROINE_DODGE_URLS = [
+  '/assets/aistudio/Kyberpunkov__akrobatka_v_neonov_m_vzletu_536da17e.png',
+  '/assets/aistudio/Kyberpunkov__skluzavka_s_n_pisem_MISS_6b70b5b2.png',
+  '/assets/aistudio/Kyberpunkov__tane_nice_s_neonov_mi_akcenty_b7bd6a64.png',
+  '/assets/aistudio/Neonov__kyberpunkov__p_ist_vac__p_za_9eb78846.png',
+] as const;
+
+export const TITLE_LOGO_FRAME_URLS = [
+  '/assets/aistudio/Neon_Breach__Z__iv__o_i_mutantky_e73032c9.png',
+  '/assets/aistudio/Neonov__ko_i___kyberpunkov__hrdinka_11d2aafc.png',
+  '/assets/aistudio/Neonov__kyberpunkov__dvojice_mutantky_c41a2fcd.png',
+  '/assets/aistudio/Neon_polibek_proti_xenomutantovi_a842b0d3.png',
+  '/assets/aistudio/Neonov__chaos__Xeno-breach_protokol_cac953eb.png',
+] as const;
+
 export const GAME_ASSETS = {
   titleBg: titleBgUrl,
+  titleLogo: TITLE_LOGO_FRAME_URLS[0],
+  titleLogoFrames: TITLE_LOGO_FRAME_URLS,
   arenaBackdrop: arenaBackdropUrl,
   heroine: '/assets/aistudio/image_99454af5.png',
   heroineEmote: '/assets/aistudio/Kyberpunkov__hrdinka__neonov__sprite_animace_4403eebd.png',
+  heroineDodge: HEROINE_DODGE_URLS,
   aurelia: '/assets/aistudio/aurelia_sprite_sheet.png',
   zuri: ZURI_SPRITE_SHEET_URL,
   zuriEmote: ZURI_EMOTE_SHEET_URL,

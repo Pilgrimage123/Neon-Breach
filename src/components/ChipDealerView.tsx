@@ -94,7 +94,7 @@ export function ChipDealerView({
     >
       <div
         data-testid="chip-dealer-panel"
-        className={`chrome-glass flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl ${
+        className={`chrome-glass flex max-h-full w-full max-w-[1620px] flex-col overflow-hidden rounded-2xl ${
           isCompactLandscape ? 'p-2.5' : 'p-4 sm:p-5 md:p-6'
         }`}
       >
@@ -112,15 +112,15 @@ export function ChipDealerView({
               {t.chipDealerTitle}
             </h1>
             {isFlashSale && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono-tabular text-[10px] sm:text-xs font-bold uppercase tracking-wider animate-pulse shrink-0">
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-400/60 text-amber-300 font-mono-tabular text-[12px] sm:text-xs font-bold uppercase tracking-wider animate-pulse shrink-0">
                 {t.bountyFlashSaleBadge}
               </span>
             )}
-            <p className="text-[11px] sm:text-sm text-slate-200 truncate min-w-0">
+            <p className="text-[12.5px] sm:text-sm text-slate-200 truncate min-w-0">
               {t.chipDealerSubtitle.replace('{name}', charCode)}
             </p>
           </div>
-          <div className="flex items-center gap-1.5 font-mono-tabular text-[11px] sm:text-sm shrink-0">
+          <div className="flex items-center gap-1.5 font-mono-tabular text-[12.5px] sm:text-sm shrink-0">
             <span className="font-bold text-[#FFC700]">
               {run.heroine.credits} {t.creditsLabel}
             </span>
@@ -131,7 +131,7 @@ export function ChipDealerView({
               <button
                 type="button"
                 onClick={onOpenPool}
-                className="chrome-pill rounded-lg px-2 py-0.5 text-[11px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
+                className="chrome-pill rounded-lg px-2 py-0.5 text-[12.5px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
                 title={t.inspectPool}
               >
                 ▣ {t.capacityLabel}: {equippedMemory}/{run.heroine.carryCapacity}
@@ -145,7 +145,7 @@ export function ChipDealerView({
               type="button"
               data-testid="chip-dealer-leave-btn"
               onClick={onLeave}
-              className="chrome-pill ml-1 rounded-lg px-2.5 py-0.5 sm:px-3 sm:py-1 font-sans text-[11px] sm:text-xs font-semibold text-slate-100 hover:border-amber-300 hover:text-white cursor-pointer"
+              className="chrome-pill ml-1 rounded-lg px-2.5 py-0.5 sm:px-3 sm:py-1 font-sans text-[12.5px] sm:text-xs font-semibold text-slate-100 hover:border-amber-300 hover:text-white cursor-pointer"
             >
               {t.skipChipDealer} →
             </button>
@@ -154,14 +154,14 @@ export function ChipDealerView({
 
         <div className="mt-2.5 flex-1 min-h-0 overflow-y-auto border-t border-white/15 pt-2.5 sm:mt-3 sm:pt-3">
           <div className="flex items-center justify-between gap-2">
-            <div className="truncate text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-[#FFC700]">
+            <div className="truncate text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-[#FFC700]">
               {t.clinicShopTitle}
             </div>
             <button
               type="button"
               disabled={run.heroine.credits < CLINIC_RESTOCK_COST}
               onClick={onRestockShop}
-              className="chrome-pill shrink-0 rounded-md border-amber-300/45 px-2 py-0.5 font-mono-tabular text-[10px] sm:text-[11px] font-bold text-amber-200 transition-colors hover:border-[#FFC700] hover:text-white disabled:opacity-40 cursor-pointer"
+              className="chrome-pill shrink-0 rounded-md border-amber-300/45 px-2.5 py-0.5 font-mono-tabular text-[12px] sm:text-[13px] font-bold text-amber-200 transition-colors hover:border-[#FFC700] hover:text-white disabled:opacity-40 cursor-pointer"
             >
               ↻ {t.restockShop} ({CLINIC_RESTOCK_COST} {t.creditsLabel})
             </button>
@@ -195,12 +195,12 @@ export function ChipDealerView({
                     }`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center justify-between gap-x-2 text-[10px] sm:text-[11px] font-mono-tabular">
+                      <div className="flex flex-wrap items-center justify-between gap-x-2 text-[12px] sm:text-[13px] font-mono-tabular">
                         <div className="flex items-center gap-1.5 min-w-0">
-                          <span className="rounded bg-slate-900/90 border border-white/15 px-1.5 py-0.5 text-[10px] font-bold text-amber-200 shrink-0">
+                          <span className="rounded bg-slate-900/90 border border-white/15 px-1.5 py-0.5 text-[12px] font-bold text-amber-200 shrink-0">
                             [{idx + 1}]
                           </span>
-                          <h2 className="font-display text-xs sm:text-sm font-bold text-white truncate">
+                          <h2 className="font-display text-sm sm:text-base font-bold text-white truncate">
                             {meta?.name ?? def.id}
                           </h2>
                           <span className={fitsMemory ? 'text-[#00F0FF] shrink-0' : 'text-amber-300 shrink-0'}>
@@ -210,7 +210,7 @@ export function ChipDealerView({
                         {!isCompactLandscape && (
                           <span className="font-bold text-[#FFC700]">
                             {isFlashSale && (
-                              <span className="line-through text-slate-400 mr-1 text-[10px]">
+                              <span className="line-through text-slate-400 mr-1 text-[12px]">
                                 {def.price}
                               </span>
                             )}
@@ -219,13 +219,13 @@ export function ChipDealerView({
                         )}
                       </div>
                       <p
-                        className={`mt-1 font-mono-tabular text-[10px] sm:text-[11px] leading-snug text-slate-200 ${
+                        className={`mt-1 font-mono-tabular text-[12px] sm:text-[13px] leading-snug text-slate-200 ${
                           isCompactLandscape ? 'line-clamp-1' : ''
                         }`}
                       >
                         {meta?.desc ?? ''}
                       </p>
-                      <div className="mt-1.5 flex flex-wrap items-center gap-1 font-mono-tabular text-[10px] sm:text-[11px]">
+                      <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[12px] sm:text-[13px]">
                         {def.tiles.map((spec, tileIdx) => (
                           <span
                             key={`${defId}_chip_tile_${tileIdx}`}
@@ -249,7 +249,7 @@ export function ChipDealerView({
                       disabled={!canAfford}
                       onClick={() => onBuyChip(defId)}
                       className={`${
-                        isCompactLandscape ? 'shrink-0 px-2.5 py-1 text-[10px]' : 'mt-2.5 w-full px-3 py-1.5 text-xs'
+                        isCompactLandscape ? 'shrink-0 px-2.5 py-1 text-[12px]' : 'mt-2.5 w-full px-3 py-1.5 text-[13px]'
                       } rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] font-bold text-slate-950 shadow-[inset_0_1px_0_rgba(255,255,255,0.8)] transition-all hover:brightness-110 disabled:bg-none disabled:bg-slate-800/80 disabled:text-slate-400 disabled:shadow-none cursor-pointer whitespace-nowrap`}
                     >
                       {isCompactLandscape ? (
@@ -282,10 +282,10 @@ export function ChipDealerView({
                     className="chrome-pill rounded-xl border border-emerald-400/40 bg-emerald-950/20 p-2.5 flex flex-col justify-between gap-1.5"
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-display text-xs font-bold text-emerald-200">
+                      <span className="font-display text-[13px] font-bold text-emerald-200">
                         🤖 {isCs ? 'Chůva-Boti' : 'Nanny-Bots'}
                       </span>
-                      <span className="font-mono-tabular text-[10px] font-bold text-emerald-300">
+                      <span className="font-mono-tabular text-[12px] font-bold text-emerald-300">
                         {nannyCost} CR
                       </span>
                     </div>
@@ -299,14 +299,14 @@ export function ChipDealerView({
                             data-testid={`nanny-bot-btn-${bot.id}`}
                             disabled={isInstalled || run.heroine.credits < nannyCost}
                             onClick={() => onAdoptNannyBot(bot.id)}
-                            className={`flex items-center justify-between rounded-lg border px-2 py-1 font-mono-tabular text-[10px] font-bold transition-all cursor-pointer ${
+                            className={`flex items-center justify-between rounded-lg border px-2 py-1 font-mono-tabular text-[12px] font-bold transition-all cursor-pointer ${
                               isInstalled
                                 ? 'border-emerald-300 bg-emerald-500/30 text-white'
                                 : 'border-emerald-400/40 bg-slate-900/75 text-emerald-200 hover:border-emerald-300 disabled:opacity-45'
                             }`}
                           >
                             <span className="truncate">{isCs ? bot.titleCs : bot.titleEn}</span>
-                            <span className="shrink-0 ml-1 text-[9px] text-amber-300">
+                            <span className="shrink-0 ml-1 text-[11px] text-amber-300">
                               {isInstalled ? '✓ ACTIVE' : bot.badge}
                             </span>
                           </button>
@@ -323,15 +323,15 @@ export function ChipDealerView({
                     className="chrome-pill rounded-xl border border-violet-400/40 bg-violet-950/20 p-2.5 flex flex-col justify-between gap-1.5"
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-display text-xs font-bold text-violet-200">
+                      <span className="font-display text-[13px] font-bold text-violet-200">
                         🕹 {isCs ? 'Beta Herna' : 'Beta Arcade'}
                       </span>
-                      <span className="font-mono-tabular text-[9px] font-bold text-violet-300">
+                      <span className="font-mono-tabular text-[11.5px] font-bold text-violet-300">
                         5× TILE → +2 STAT
                       </span>
                     </div>
                     {run.heroine.betaTrialChip ? (
-                      <div className="rounded-lg border border-violet-400/50 bg-violet-900/30 px-2.5 py-1.5 font-mono-tabular text-[10px] text-violet-200 font-bold">
+                      <div className="rounded-lg border border-violet-400/50 bg-violet-900/30 px-2.5 py-1.5 font-mono-tabular text-[12px] text-violet-200 font-bold">
                         {run.heroine.betaTrialChip.upgraded
                           ? isCs
                             ? '✓ Trvale vylepšeno (+2)'
@@ -343,7 +343,7 @@ export function ChipDealerView({
                         type="button"
                         data-testid="beta-arcade-claim-btn"
                         onClick={() => onStartBetaTrial(run.clinicShopChoices[0])}
-                        className="w-full rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 font-mono-tabular text-[10px] font-bold text-white hover:brightness-110 cursor-pointer"
+                        className="w-full rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 font-mono-tabular text-[12px] font-bold text-white hover:brightness-110 cursor-pointer"
                       >
                         {isCs ? 'Zkušební AI Čip (0 CR)' : 'Trial AI Chip (0 CR)'}
                       </button>
@@ -358,10 +358,10 @@ export function ChipDealerView({
                     className="chrome-pill rounded-xl border border-amber-400/40 bg-amber-950/20 p-2.5 flex flex-col justify-between gap-1.5"
                   >
                     <div className="flex items-center justify-between gap-1">
-                      <span className="font-display text-xs font-bold text-amber-200">
+                      <span className="font-display text-[13px] font-bold text-amber-200">
                         🗡 {isCs ? 'Rodová Kovárna' : 'Heirloom Forge'}
                       </span>
-                      <span className="font-mono-tabular text-[9px] font-bold text-amber-300">
+                      <span className="font-mono-tabular text-[11.5px] font-bold text-amber-300">
                         +{run.heroine.heirloomStacks ?? 0} (+1/WIN)
                       </span>
                     </div>
@@ -374,7 +374,7 @@ export function ChipDealerView({
                           run.heroine.ownedEquipment[0]?.defId ?? 'starter_katana_chip';
                         onEngraveHeirloom(target);
                       }}
-                      className="w-full rounded-lg border border-amber-300/60 bg-amber-500/25 px-3 py-1.5 font-mono-tabular text-[10px] font-bold text-amber-100 hover:bg-amber-500/35 disabled:opacity-45 cursor-pointer"
+                      className="w-full rounded-lg border border-amber-300/60 bg-amber-500/25 px-3 py-1.5 font-mono-tabular text-[12px] font-bold text-amber-100 hover:bg-amber-500/35 disabled:opacity-45 cursor-pointer"
                     >
                       {run.heroine.heirloomEngravedId
                         ? isCs

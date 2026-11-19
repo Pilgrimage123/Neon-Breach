@@ -16,6 +16,12 @@ import { SpriteJuiceFeedbackHandler } from './SpriteJuiceFeedbackHandler.ts';
 import { CombatActionSequencer } from './CombatActionSequencer.ts';
 import { sampleCrawlerFrame } from '../../utils/crawlerSpriteSheet.ts';
 import { sampleStalkerFrame } from '../../utils/stalkerSpriteSheet.ts';
+import {
+  classifyEnemyAttackStaging,
+  classifyHeroAttackStaging,
+  computeNoseToNoseMeleeSlides,
+} from './combatStagingClassifier.ts';
+import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter.ts';
 
 function screenToWorldCorner(
   sx: number,
@@ -620,3 +626,338 @@ test('Crawler and Stalker sheets expose crisp static cut-in pose overrides', () 
   assert.equal(stalkerBrace.frameIndex, 11);
   assert.equal(stalkerRecoil.frameIndex, 12);
 });
+
+test('CombatActionSequencer isolates throwing callbacks and still completes Phase D cleanup', async () => {
+  const seq = new CombatActionSequencer();
+  let resolved = false;
+  const done = seq
+    .enqueueCutIn(
+      {
+        id: 'fault-tolerant-aoe',
+        actionKind: 'aoe',
+        stagingMode: 'ranged_aoe',
+        attackerId: 'hero',
+        targetIds: ['e1', 'e2'],
+        allActorIds: ['hero', 'e1', 'e2'],
+        attackerBounds: { id: 'hero', x: 200, groundY: 300, widthPx: 110, heightPx: 180 },
+        targetBounds: [
+          { id: 'e1', x: 560, groundY: 300, widthPx: 96, heightPx: 150 },
+          { id: 'e2', x: 720, groundY: 300, widthPx: 96, heightPx: 150 },
+        ],
+        onWindupStart: () => {
+          throw new Error('simulated windup VFX failure');
+        },
+        onProjectileSpawn: () => {
+          throw new Error('simulated projectile spawn failure');
+        },
+        onImpactFrame: () => {
+          throw new Error('simulated impact audio failure');
+        },
+        onImpactTarget: () => {
+          throw new Error('simulated target popup failure');
+        },
+      },
+      DEFAULT_COMBAT_PRESENTATION_CONFIG,
+      960,
+      380,
+    )
+    .then(() => {
+      resolved = true;
+    });
+
+  let lastFrame = seq.step(0.016, 960, 380, {
+    tacticalViewActive: false,
+    reducedMotion: false,
+  });
+  for (let i = 0; i < 160; i++) {
+    lastFrame = seq.step(0.02, 960, 380, {
+      tacticalViewActive: false,
+      reducedMotion: false,
+    });
+    if (!lastFrame.active) break;
+  }
+
+  await done;
+  assert.equal(resolved, true);
+  assert.equal(lastFrame.active, false);
+  assert.equal(lastFrame.dimmerAlpha, 0);
+  assert.equal(lastFrame.worldUiAlpha, 1);
+  assert.ok(Math.abs(lastFrame.cameraZoom - 1) < 0.02);
+  assert.equal(seq.getActorJuice('hero').poseOverride, 'none');
+  assert.equal(seq.getActorJuice('e1').poseOverride, 'none');
+  assert.equal(seq.getActorJuice('e2').poseOverride, 'none');
+});
+
+test('classifyHeroAttackStaging keeps Aurelia and Zuri 100% ranged and Kira hybrid melee/pistol', () => {
+  // Aurelia is strictly ranged (scattergun) even on Surge or Overdrive
+  const aureliaSingle = classifyHeroAttackStaging({
+    charId: 'aurelia',
+    isSurge: true,
+    damageValue: 22,
+    targetCount: 1,
+    attackToggle: 0,
+    isOverdrive: false,
+  });
+  assert.equal(aureliaSingle.stagingMode, 'ranged_fast');
+  assert.equal(aureliaSingle.heroAnimMode, 'shoot');
+  assert.equal(aureliaSingle.projectileProfile, 'scattergun');
+
+  const aureliaOd = classifyHeroAttackStaging({
+    charId: 'aurelia',
+    isSurge: false,
+    damageValue: 20,
+    targetCount: 3,
+    attackToggle: 0,
+    isOverdrive: true,
+  });
+  assert.equal(aureliaOd.stagingMode, 'ranged_aoe');
+  assert.equal(aureliaOd.heroAnimMode, 'overdrive');
+  assert.equal(aureliaOd.projectileProfile, 'scattergun');
+
+  // Zuri is strictly ranged (drone_plasma)
+  const zuriSingle = classifyHeroAttackStaging({
+    charId: 'zuri',
+    isSurge: true,
+    damageValue: 18,
+    targetCount: 1,
+    attackToggle: 0,
+    isOverdrive: false,
+  });
+  assert.equal(zuriSingle.stagingMode, 'ranged_fast');
+  assert.equal(zuriSingle.heroAnimMode, 'shoot');
+  assert.equal(zuriSingle.projectileProfile, 'drone_plasma');
+
+  // Kira alternates melee dash-kick and ranged cyber-pistol, with Surge forcing melee clash
+  const kiraMelee = classifyHeroAttackStaging({
+    charId: 'kira',
+    isSurge: true,
+    damageValue: 16,
+    targetCount: 1,
+    attackToggle: 1,
+    isOverdrive: false,
+  });
+  assert.equal(kiraMelee.stagingMode, 'melee');
+  assert.equal(kiraMelee.heroAnimMode, 'dash_kick');
+
+  const kiraPistol = classifyHeroAttackStaging({
+    charId: 'kira',
+    isSurge: false,
+    damageValue: 10,
+    targetCount: 1,
+    attackToggle: 0,
+    isOverdrive: false,
+  });
+  assert.equal(kiraPistol.stagingMode, 'ranged_fast');
+  assert.equal(kiraPistol.heroAnimMode, 'shoot');
+  assert.equal(kiraPistol.projectileProfile, 'pistol_bolt');
+});
+
+test('classifyEnemyAttackStaging routes Spitter acid and Stinger darts to ranged, all others to melee', () => {
+  const spitterAcid = classifyEnemyAttackStaging({ archetype: 'spitter', cueKind: 'enemy_acid' });
+  assert.equal(spitterAcid.stagingMode, 'ranged_fast');
+  assert.equal(spitterAcid.projectileProfile, 'acid_bile');
+
+  const spitterClaw = classifyEnemyAttackStaging({
+    archetype: 'spitter',
+    cueKind: 'enemy_attack',
+    clawRend: true,
+  });
+  assert.equal(spitterClaw.stagingMode, 'melee');
+
+  const stingerDart = classifyEnemyAttackStaging({ archetype: 'stinger', cueKind: 'enemy_attack' });
+  assert.equal(stingerDart.stagingMode, 'ranged_fast');
+  assert.equal(stingerDart.projectileProfile, 'stinger_dart');
+
+  for (const arch of ['larva', 'skitter', 'stalker', 'brute', 'boss'] as const) {
+    const res = classifyEnemyAttackStaging({ archetype: arch, cueKind: 'enemy_attack' });
+    assert.equal(res.stagingMode, 'melee', `${arch} must use nose-to-nose melee clash`);
+  }
+});
+
+test('computeNoseToNoseMeleeSlides guarantees tight contact gap across Slots 1-5 without crossing', () => {
+  const viewportW = 1000;
+  const heroBounds = { id: 'hero', x: 210, groundY: 300, widthPx: 110, heightPx: 180 };
+  const gapVw = 0.125; // 125px nose-to-nose contact gap
+  const enemySlotsX = [460, 560, 660, 760, 860];
+
+  for (const enemyX of enemySlotsX) {
+    const enemyBounds = { id: 'e1', x: enemyX, groundY: 300, widthPx: 100, heightPx: 160 };
+
+    // Hero attacking enemy
+    const heroAtk = computeNoseToNoseMeleeSlides({
+      attackerBounds: heroBounds,
+      targetBounds: [enemyBounds],
+      viewportW,
+      clashGapVw: gapVw,
+      strikeDirX: +1,
+    });
+    const finalHeroX = heroBounds.x + heroAtk.attackerSlideX;
+    const finalEnemyX = enemyBounds.x + (heroAtk.targetSlidesX.get('e1') ?? 0);
+    assert.ok(finalHeroX < finalEnemyX, 'hero stays strictly left of enemy during melee clash');
+    assert.ok(
+      Math.abs((finalEnemyX - finalHeroX) - viewportW * gapVw) < 1.0,
+      `contact gap (${(finalEnemyX - finalHeroX).toFixed(1)}px) matches ${(viewportW * gapVw).toFixed(1)}px`,
+    );
+
+    // Enemy attacking hero
+    const enemyAtk = computeNoseToNoseMeleeSlides({
+      attackerBounds: enemyBounds,
+      targetBounds: [heroBounds],
+      viewportW,
+      clashGapVw: gapVw,
+      strikeDirX: -1,
+    });
+    const finalEnemyAtkX = enemyBounds.x + enemyAtk.attackerSlideX;
+    const finalHeroDefX = heroBounds.x + (enemyAtk.targetSlidesX.get('hero') ?? 0);
+    assert.ok(finalHeroDefX < finalEnemyAtkX, 'attacking enemy stays strictly right of heroine');
+    assert.ok(
+      Math.abs((finalEnemyAtkX - finalHeroDefX) - viewportW * gapVw) < 1.0,
+      `enemy clash gap (${(finalEnemyAtkX - finalHeroDefX).toFixed(1)}px) matches target`,
+    );
+  }
+});
+
+test('SpriteJuiceFeedbackHandler knockback eases out smoothly with zero rubber-band reversal', () => {
+  const juice = new SpriteJuiceFeedbackHandler();
+  juice.beginWindup({
+    attackerId: 'hero',
+    targetIds: ['e1'],
+    allActorIds: ['hero', 'e1'],
+    strikeDirX: +1,
+    isMelee: true,
+    clashSlideDistPx: 120,
+    rangedLungePx: 18,
+    attackerSlideOverridePx: 120,
+    targetSlideOverridesPx: new Map([['e1', -120]]),
+  });
+  juice.triggerImpact({
+    attackerId: 'hero',
+    targetIds: ['e1'],
+    strikeDirX: +1,
+    knockbackPx: 60,
+    holdDriftPx: 14,
+    attackerScalePunch: 1.28,
+    whiteFlashFrames: 3,
+    isCrit: false,
+    isMelee: true,
+  });
+
+  // Knockback starts with a crisp 22% initial impulse (not a 78% teleport) and eases smoothly to peak with zero negative overshoot
+  const t0 = juice.getSnapshot('e1', 0.75).knockbackX;
+  assert.ok(t0 > 0 && t0 <= 20, `initial knockback impulse (${t0.toFixed(1)}px) avoids abrupt teleport`);
+
+  let peakKb = t0;
+  for (let i = 0; i < 45; i++) {
+    juice.stepFrame(0.016, false, 'followthrough', i / 45);
+    const kb = juice.getSnapshot('e1', 0.75).knockbackX;
+    assert.ok(kb >= 0, `knockbackX (${kb.toFixed(2)}) must never overshoot opposite direction`);
+    if (kb > peakKb) peakKb = kb;
+  }
+  assert.ok(peakKb > 54, `knockback reaches near peak (${peakKb.toFixed(1)}px)`);
+});
+
+test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right enemies toward heroine on attack and away on recoil', () => {
+  const makeCutIn = (poseOverride: 'attack_pose' | 'recoil_pose') => ({
+    active: true,
+    role: poseOverride === 'attack_pose' ? ('attacker' as const) : ('target' as const),
+    isMeleeClash: true,
+    poseOverride,
+    drawPriority: 10,
+    clashSlideX: 0,
+    knockbackX: 0,
+    scaleX: 1,
+    scaleY: 1,
+    leanRad: 0,
+    flashRgba: null,
+    tintRgba: [1, 1, 1, 1] as [number, number, number, number],
+  });
+
+  // 1. Native left-facing enemy (Crawler / Boss, facingSign = +1):
+  // Local +X = screen RIGHT, Local -X = screen LEFT (toward heroine).
+  const larvaAtk = deriveEnemyDeformAndUniforms({
+    archetype: 'larva',
+    idx: 0,
+    ea: undefined,
+    isDead: false,
+    staggerShearPx: 0,
+    staggerBioFlashAlpha: 0,
+    breathScaleX: 1,
+    breathScaleY: 1,
+    frameBlendAlpha: 1,
+    bioEmissiveRgb: [0.5, 1, 0.2],
+    isPrimedOrCharging: false,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: false,
+    elapsed: 0,
+    tacticalViewActive: false,
+    cutIn: makeCutIn('attack_pose'),
+    facingSign: 1,
+  });
+  const larvaRecoil = deriveEnemyDeformAndUniforms({
+    archetype: 'larva',
+    idx: 0,
+    ea: undefined,
+    isDead: false,
+    staggerShearPx: 0,
+    staggerBioFlashAlpha: 0,
+    breathScaleX: 1,
+    breathScaleY: 1,
+    frameBlendAlpha: 1,
+    bioEmissiveRgb: [0.5, 1, 0.2],
+    isPrimedOrCharging: false,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: false,
+    elapsed: 0,
+    tacticalViewActive: false,
+    cutIn: makeCutIn('recoil_pose'),
+    facingSign: 1,
+  });
+  // Screen dx = local dx * facingSign (+1): attack bends LEFT (< 0), recoil bends RIGHT (> 0)
+  assert.ok(larvaAtk.deform.head.dx * 1 < 0, 'native-left larva attack bends toward heroine (left)');
+  assert.ok(larvaRecoil.deform.head.dx * 1 > 0, 'native-left larva recoil bends away from heroine (right)');
+
+  // 2. Mirrored right-facing enemy (Stalker, facingSign = -1):
+  // Screen dx = local dx * facingSign (-1): so local dx > 0 bends LEFT on screen!
+  const stalkerAtk = deriveEnemyDeformAndUniforms({
+    archetype: 'stalker',
+    idx: 0,
+    ea: undefined,
+    isDead: false,
+    staggerShearPx: 0,
+    staggerBioFlashAlpha: 0,
+    breathScaleX: 1,
+    breathScaleY: 1,
+    frameBlendAlpha: 1,
+    bioEmissiveRgb: [1, 0.2, 0.5],
+    isPrimedOrCharging: false,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: false,
+    elapsed: 0,
+    tacticalViewActive: false,
+    cutIn: makeCutIn('attack_pose'),
+    facingSign: -1,
+  });
+  const stalkerRecoil = deriveEnemyDeformAndUniforms({
+    archetype: 'stalker',
+    idx: 0,
+    ea: undefined,
+    isDead: false,
+    staggerShearPx: 0,
+    staggerBioFlashAlpha: 0,
+    breathScaleX: 1,
+    breathScaleY: 1,
+    frameBlendAlpha: 1,
+    bioEmissiveRgb: [1, 0.2, 0.5],
+    isPrimedOrCharging: false,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: false,
+    elapsed: 0,
+    tacticalViewActive: false,
+    cutIn: makeCutIn('recoil_pose'),
+    facingSign: -1,
+  });
+  assert.ok(stalkerAtk.deform.head.dx * -1 < 0, 'mirrored stalker attack bends toward heroine (left on screen)');
+  assert.ok(stalkerRecoil.deform.head.dx * -1 > 0, 'mirrored stalker recoil bends away from heroine (right on screen)');
+});
+
+
