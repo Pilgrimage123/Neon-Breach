@@ -1,8 +1,11 @@
 import arenaBackdropUrl from './images/arena_backdrop_1794552838070.jpg';
+import brutePortraitUrl from './images/brute_portrait_1794946123759.jpg';
+import bruteSheetUrl from './images/brute_spritesheet_1794946123451.jpg';
 import mutantBossUrl from './images/mutant_boss_1794546443418.jpg';
-import mutantBruteUrl from './images/mutant_brute_1794554091239.jpg';
-import mutantSpitterUrl from './images/mutant_spitter_1794546442524.jpg';
-import mutantStalkerUrl from './images/mutant_stalker_1794546443178.jpg';
+import spitterPortraitUrl from './images/spitter_portrait_base.jpg';
+import spitterSheetUrl from './images/spitter_spritesheet_1794935806587.jpg';
+import stalkerPortraitUrl from './images/stalker_portrait_1794927638770.jpg';
+import stalkerSheetUrl from './images/stalker_spritesheet_1794927639433.jpg';
 import titleBgUrl from './images/title_bg_1794552837177.jpg';
 import type { EnemyArchetype } from '../engine/types';
 
@@ -29,13 +32,21 @@ export const GAME_ASSETS = {
   zuriDrones: ZURI_DRONES_SHEET_URL,
   nurse: NURSE_SPRITE_SHEET_URL,
   crawlerSheet: CRAWLER_SPRITE_SHEET_URL,
+  stalkerSheet: stalkerSheetUrl,
+  spitterSheet: spitterSheetUrl,
+  bruteSheet: bruteSheetUrl,
+  enemyPortraits: {
+    stalker: stalkerPortraitUrl,
+    spitter: spitterPortraitUrl,
+    brute: brutePortraitUrl,
+  } as Partial<Record<EnemyArchetype, string>>,
   enemies: {
     larva: CRAWLER_SPRITE_SHEET_URL,
     skitter: CRAWLER_SPRITE_SHEET_URL,
     stinger: CRAWLER_SPRITE_SHEET_URL,
-    stalker: mutantStalkerUrl,
-    spitter: mutantSpitterUrl,
-    brute: mutantBruteUrl,
+    stalker: stalkerPortraitUrl,
+    spitter: spitterPortraitUrl,
+    brute: brutePortraitUrl,
     boss: mutantBossUrl,
   } as Record<EnemyArchetype, string>,
 } as const;

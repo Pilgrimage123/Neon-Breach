@@ -58,7 +58,7 @@ Single enemies are checks; paired enemies create **Target Priority Dilemmas**:
 * **The Buffer + The Scaler (`Cobalt Skitter` + `Pyre Stinger`):** `Skitter` projects `+4 Armor` across the squad while `Stinger` counts down `2T -> 16 DMG`. Do you **Push (`[R]`)** `Stinger` to the front to kill/stagger it early, or crack `Skitter`'s Shield Pip first?
 * **The Volatile Blocker + The Punisher (`Spore Mite` + `Chitin Stalker`):** Frontline `Mite` soaks single-target Attacks, yet killing it detonates **`6 Pierce Bio-Rupture`** straight into `Stalker` without triggering `Spike Retaliation`!
 * **The Protector + The Disrupter (`Carapace Brute` + `Bile Spitter`):** `Brute`'s `8 ARM + 1 Pip` shields backline `Spitter`, who pollutes your board with `Acid Jam`, `Caustic Slag`, and `Tile Hexes`. **Push (`[R]`)**, **Cleave Surge**, and **Overdrive** cleanly crack the duo.
-* **Rule of Three & Turn-1 Breathing Room (`buildEncounterSpec`):** Encounters never exceed **3 active enemies**, and Turn-1 incoming damage stays capped (`3 DMG` in Layer 0, `3–5 DMG` in Layers 1–3, `0 DMG` on Boss Turn 1) so players always have agency to inspect, hold, or Push.
+* **Six-Slot Sky-Bridge & Turn-1 Breathing Room (`buildEncounterSpec` & `MAX_ACTIVE_BRIDGE_ENEMIES = 6`):** The sky-bridge supports **up to 6 active enemy/prop slots simultaneously** across high-threat waves, reinforcements, and battlefield props, while Turn-1 incoming damage stays capped (`3 DMG` in Layer 0, `3–5 DMG` in Layers 1–3, `0 DMG` on Boss Turn 1) so players always have agency to inspect, hold, or Push.
 
 ---
 
@@ -67,8 +67,71 @@ Single enemies are checks; paired enemies create **Target Priority Dilemmas**:
 1. **Always Use Soft Counters, Never Hard Immunities:**
    * Shield Pips crack to *any* hit (`Riposte`, `Bio-Rupture`, `ARC Pierce`, `Push`-assisted follow-up, light Attack). Spike Retaliation is bypassed by Surges, `TECH Pierce`, `Riposte`, or 1-hit KOs. Tile Hexes shatter instantly when the caster dies or when Overdrive fires.
 2. **Reward Disruption Generously:**
-   * Full-blocking `Acid` completely prevents both **Tile Jam** and **Caustic Slag** injection; full-blocking `Leech` denies enemy healing; dealing `16+` burst **Staggers** `Charge`/`Heavy` attacks to `0 DMG`; popping `Spore Mite` damages every enemy behind it.
+   * Full-blocking `Acid` completely prevents both **Tile Jam** and **Caustic Slag** injection; full-blocking `Leech` denies enemy healing; dealing `16+` burst **Staggers** `Charge`/`Heavy` attacks to `0 DMG`; dealing `22+` burst **Weapon-Breaks** (`🔨 -3 DMG` permanent); popping `Spore Mite` or `Plasma Barrel` damages enemies behind them.
 3. **Prevent Infinite Stalling (`reinforcementDirector`):**
    * `Par Caches` reward fast clears (`T3/T4/T5+`), `Tempo Streaks` pay `+2 CR` per aggressive turn, and Overtime Heat escalates gently if players stall indefinitely.
 4. **Visual & Telemetry Cohesion:**
-   * Every mechanic (`Conditional +4`, `⚡ STAGGER`, `⬡ HEX`, `☣ SLAG`, `Aegis Pip`, `Phase Gate`) surfaces directly via high-contrast icons, color-coded stage rings, and live **What-If Hover Previews** on both player and enemy lifebars before a single tile is committed.
+   * Every mechanic (`Conditional +4`, `⚡ STAGGER`, `🔨 WEAPON BREAK`, `⬡ HEX`, `☣ SLAG`, `💣 HOT POTATO`, `🦠 CONTAGION`, `⚡ BARGAIN`, `Aegis Pip`, `Phase Gate`) surfaces directly via high-contrast icons, color-coded stage rings, reactive enemy barks, and live **What-If Hover Previews** on both player and enemy lifebars before a single tile is committed.
+
+---
+
+## 6. Advanced Hand & Board Manipulation
+
+Going beyond basic `Caustic Slag` pollution that passively sits on the board, advanced enemies turn the player's 6-slot board and draw queue into an active micro-game:
+
+| Board / Deck Mechanic | How It Works in **NEON BREACH** | Tactical Decision & Counterplay |
+| --- | --- | --- |
+| **Ticking Time-Bomb Tile (`isHotPotato` / `💣 PASS 8`)** | Armed onto a board tile by `Pyre Stinger` or `Apex Sovereign`. If kept unresolved at round end, it detonates on the heroine for **`6 DMG`**. If resolved (`1 AP` color commit), the heroine **passes the bomb back** to the front living enemy for **`8 Pierce DMG`**! | Turns a dangerous end-of-turn hazard into free offensive tempo when the player commits the marked color immediately. |
+| **Positional Hand Traps (`isContagion` / `🦠 TRAP` & Edge Slot Lock)** | **Contagion** infects a board tile so resolving its color also **discards adjacent non-matching board tiles (`idx - 1` / `idx + 1`)** before refilling. **Cryo Edge Lock** freezes the leftmost/rightmost slots (`#1` / `#6`). | Forces players to inspect neighboring board slots (`idx ± 1`) before committing a Contagion color, or use `Swap` / `Scry` to protect high-rank tiles. |
+| **The Bargain / Temptation Tile (`isTemptation` / `⚡ +14 ALL`)** | An enemy stamps a dark pact onto a board tile: resolving its color unleashes **`+14 Bonus Cleave Damage` to ALL living enemies**, at the cost of adding **`2 Caustic Slag` (`isBlight`) curses** to the deck. | When at critical HP or facing a 6-unit bridge swarm, players agonize over whether to take the massive AoE bailout now at the cost of deck purity. |
+| **Top-Deck Manipulation (`TOP DRAW` Sabotage)** | Instead of shuffling `Caustic Slag` randomly into the discard pile, `Bile Spitter` / `Acid Sabotage` places the slag **directly on top of `drawPile` (`drawPile[0]`)**, visibly previewed as the `#1` slot in `Upcoming Draws`. | Gives the player deterministic foresight that their very next draw is ruined unless they use `Scry [G]` or `Cycle` right now. |
+
+---
+
+## 7. Dynamic Win Conditions (Beyond "Reduce HP to 0")
+
+Not every bridge entity is a standard fight to the death. Alternate combat goals keep runs fresh and reward utility, precision targeting, and tempo control:
+
+| Dynamic Objective | How It Works in **NEON BREACH** | Reward & Strategy |
+| --- | --- | --- |
+| **The Heist / Loot Runner (`isLootRunner` / `💰 ESCAPE`)** | A non-attacking courier drone (`0 DMG` intent) channels a warp beacon for **`3 Turns`** while gaining Armor each round. At `0T`, it warps away (`escaped = true`) without hurting the player. | Pure optional DPS/Pierce check: destroying the Loot Runner before warp grants a **`+25 CR` Bonus Bounty**. |
+| **The Mercy / Pacifist Puzzle (`isMercyTarget` / `🕊 MERCY`)** | A hijacked Civilian Med-Drone accompanies hostile bio-horrors, poking recklessly (`3 DMG`). Combat ends immediately in **Mercy Victory** as soon as all hostile enemies are eliminated while the Med-Drone survives! | Forces the player to block light pokes and carefully avoid lethal AoE (`Cleave`) until hostiles drop—rewarding **`+6 HP` Field Repair & `+15 CR`**. |
+| **The Tug-of-War Meter (`combat.tugOfWarMeter`, `0%..100%`)** | Active in neural resonance encounters (starts at `50%`). Every point of player damage pushes it toward **`100%` (`+2%` per DMG)**; every point of unblocked enemy HP damage pulls it toward **`0%` (`-3%` per DMG)**. | Reaching **`100%` triggers Neural Purge**: immediately **Staggers all living enemies**, grants **`+25% Overdrive`**, and awards **`+10 CR`**. |
+| **The Sleepwalker (`sleepCounter` / `💤 DORMANT`)** | Dormant heavy horrors start asleep (`sleepCounter > 0`, `0 DMG · SLEEPING` intent). Playing `Defense [Y]` or `TECH [G]` does **not** wake them—only damaging `Attack [R]` hits reduce `sleepCounter` by `1` (waking at `0`). | Lets slow setup decks stack Next-Turn `Boost`, `Shield`, and `Overdrive` safely before waking the beast for a 1-turn execution. |
+
+---
+
+## 8. Psychological Pacing & "Fairness Hacks"
+
+Invisible guardrails and high-skill bonuses make fights feel tense without causing cheap Turn-1 deaths:
+
+| Design Trick | Implementation in **NEON BREACH** | Why It Feels Great |
+| --- | --- | --- |
+| **Turn 1 Grace Period** | Heavy-hitting enemies and newly arrived reinforcements (`createReinforcementUnit`) never open on their biggest `heavy` nuke on their first active turn—automatically shifting to `strike`, `bolster`, or `charge`. | Gives players with slow setup engines a fair window to bring mitigation online. |
+| **Desperation Telegraph (`desperationEnraged` at `<= 20% HP`)** | When a non-prop enemy is reduced to **`<= 20% HP`** (and survives), it panics—dropping passive `armor`/`bolster` intents and telegraphing a final **Desperation Strike (`🔥 +3 DMG`)**. | Eliminates boring "cleanup turns" where a 2-HP enemy just blocks; creates a dramatic final standoff. |
+| **Shared Battlefield Rules (`combat.battlefieldRule`)** | Symmetrical sector anomalies affect **both** heroine and enemies: **`VOLATILE ATMOSPHERE` (`+25% Attack DMG` for all)** or **`MAGNETIC SURGE` (`+2 Shield / +2 Armor` on defensive gains)**. | Feels fair because the rule is symmetrical, while letting clever players exploit the modifier harder than the AI. |
+| **The "Overkill" Weapon-Break Bonus (`weaponBroken` at `>= 22 DMG`)** | Dealing **`>= 22` single-turn burst damage** (`WEAPON_BREAK_THRESHOLD`) to an enemy priming `charge` or `heavy` **permanently breaks its bio-weapon (`🔨 -3 DMG` on all attacks for the rest of combat)** in addition to Staggering it! | Rewards greedy all-in burst turns over timid chip damage, turning offense into permanent mitigation. |
+
+---
+
+## 9. Environment & Prop Entities (Up to 6 Simultaneous Bridge Slots)
+
+With **`MAX_ACTIVE_BRIDGE_ENEMIES = 6`**, the sky-bridge hosts interactive battlefield props and persistent corpses alongside enemy squads:
+
+* **Explosive Plasma Barrel (`propKind: 'plasma_barrel'`, `10 HP`, `0 DMG` intent):**
+  * Neutral/enemy-side volatile canister. Destroying it triggers a chain explosion dealing **`10 Pierce DMG` to ALL living enemies** and granting **`+20% Overdrive`** to the heroine!
+* **Meat Shield / Decoy Totem (`propKind: 'decoy_totem'`, `5 HP`, `1 Pip`, `0 DMG` intent):**
+  * A frontline holo-totem that intercepts single-target `Attack [R]` hits in front of priority backliners (`Spitter` / `Warden`), rewarding `Push [R]`, `TECH Pierce [G]`, or `Cleave Surge`.
+* **Corpse Persistence / Bio-Husk (`propKind: 'bio_husk'`, `8 HP`, `reviveTimer: 2`):**
+  * When a non-prop enemy dies while a backline `Apex Sovereign` (`boss`) or `Bile Spitter` (`spitter`) lives, its biomass collapses into a pulsing **Bio-Husk (`8 HP`)** for `2` turns. If not destroyed before `reviveTimer` reaches `0`, it **resurrects at `50% HP`**!
+
+---
+
+## 10. UI & Juice Tricks (Selling the "Smart" AI)
+
+* **Reactive Hover Barks (`getEnemyReactiveBark`):**
+  * Hovering `Attack [R]`, `Defense [Y]`, or `TECH [G]` in the Tactical Dock triggers real-time contextual enemy barks above overhead pods (`"UNSHIELDED PREY!"`, `"STRIKE ME & BLEED!"`, `"FEED MY HEX!"`, `"⚡ WEAPON BREAK!"`, `"💤 UNDISTURBED"`).
+* **Dynamic Intent Updates:**
+  * Overhead intent pills transform immediately when Staggered (`⚡ 0 DMG`), Weapon-Broken (`🔨 -3`), Desperation (`🔥 +3`), Dormant (`💤 0 DMG`), or Escaping (`💰 3T`).
+* **The "Inspect" Tooltip Hierarchy:**
+  * Overhead pods keep numeric badges clean (`15 DMG`, `🛡 4`, `◈1`, `🔨 -3`), while clicking/inspecting any unit opens the structured **Enemy Intel Panel** with highlighted reactive triggers and full intent cycle breakdowns.

@@ -66,7 +66,9 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
       !Array.isArray(parsed.heroine.equippedInstanceIds) ||
       typeof parsed.heroine.damageBoostPct !== 'number' ||
       !Array.isArray(parsed.mapNodes) ||
-      parsed.mapNodes.length !== 11 ||
+      (parsed.mapNodes.length !== 11 &&
+        parsed.mapNodes.length !== 17 &&
+        parsed.mapNodes.length !== 32) ||
       !Array.isArray(parsed.masterPool) ||
       !Array.isArray(parsed.clinicChoices) ||
       !Array.isArray(parsed.clinicShopChoices)
@@ -115,6 +117,24 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
     if (!Array.isArray(parsed.heroine.purgedInnateIds)) {
       parsed.heroine.purgedInnateIds = [];
     }
+    if (!Array.isArray(parsed.heroine.prodigyTileIds)) {
+      parsed.heroine.prodigyTileIds = [];
+    }
+    if (!Array.isArray(parsed.heroine.splicedTilePairs)) {
+      parsed.heroine.splicedTilePairs = [];
+    }
+    if (!Array.isArray(parsed.heroine.familyEstates)) {
+      parsed.heroine.familyEstates = [];
+    }
+    if (typeof parsed.heroine.meshReroutesUsed !== 'number') {
+      parsed.heroine.meshReroutesUsed = 0;
+    }
+    if (typeof parsed.heroine.maglevUsed !== 'boolean') {
+      parsed.heroine.maglevUsed = false;
+    }
+    if (typeof parsed.heroine.heirloomStacks !== 'number') {
+      parsed.heroine.heirloomStacks = 0;
+    }
     if (parsed.activeEvent === undefined) {
       parsed.activeEvent = null;
     }
@@ -158,6 +178,8 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
         if (enemy.phaseGatePct === undefined) enemy.phaseGatePct = tpl.phaseGatePct;
         if (typeof enemy.staggered !== 'boolean') enemy.staggered = false;
         if (typeof enemy.enragedAlone !== 'boolean') enemy.enragedAlone = false;
+        if (typeof enemy.weaponBroken !== 'boolean') enemy.weaponBroken = false;
+        if (typeof enemy.desperationEnraged !== 'boolean') enemy.desperationEnraged = false;
         if (typeof enemy.turnDamageTaken !== 'number') enemy.turnDamageTaken = 0;
       }
       if (c.director && !Array.isArray(c.director.pendingReinforcements)) {
@@ -205,17 +227,45 @@ export function loadEncounterSnapshot(): RunState | null {
 export function loadBestRecord(): BestRunRecord {
   try {
     const raw = getStorageItem(BEST_RECORD_KEY);
-    if (!raw) return { bestScore: 0, sectorsCleared: 0, totalRuns: 0, totalNanites: 0 };
+    if (!raw) {
+      return {
+        bestScore: 0,
+        sectorsCleared: 0,
+        totalRuns: 0,
+        totalNanites: 0,
+        inheritedHeirloom: null,
+      };
+    }
     const parsed = JSON.parse(raw) as BestRunRecord;
     return {
       bestScore: parsed.bestScore ?? 0,
       sectorsCleared: parsed.sectorsCleared ?? 0,
       totalRuns: parsed.totalRuns ?? 0,
       totalNanites: parsed.totalNanites ?? 0,
+      inheritedHeirloom: parsed.inheritedHeirloom ?? null,
     };
   } catch {
-    return { bestScore: 0, sectorsCleared: 0, totalRuns: 0, totalNanites: 0 };
+    return {
+      bestScore: 0,
+      sectorsCleared: 0,
+      totalRuns: 0,
+      totalNanites: 0,
+      inheritedHeirloom: null,
+    };
   }
+}
+
+export function saveInheritedHeirloom(defId: string, bonusStacks: number): BestRunRecord {
+  const prev = loadBestRecord();
+  const next: BestRunRecord = {
+    ...prev,
+    inheritedHeirloom: {
+      defId,
+      bonusStacks: Math.max(1, Math.min(8, bonusStacks)),
+    },
+  };
+  setStorageItem(BEST_RECORD_KEY, JSON.stringify(next));
+  return next;
 }
 
 export function recordRunCompletion(
@@ -229,6 +279,7 @@ export function recordRunCompletion(
     sectorsCleared: prev.sectorsCleared + (clearedSector ? 1 : 0),
     totalRuns: prev.totalRuns + 1,
     totalNanites: (prev.totalNanites ?? 0) + Math.max(0, nanitesBanked),
+    inheritedHeirloom: prev.inheritedHeirloom ?? null,
   };
   setStorageItem(BEST_RECORD_KEY, JSON.stringify(next));
   return next;

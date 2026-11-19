@@ -15,30 +15,41 @@ import {
   rebuildMasterPool,
 } from './data';
 import {
+  adoptNannyBot,
+  advanceNodeDynastyProgress,
   advanceRoundAfterEnemies,
   applyMedBayAction,
   buyClinicEquipment,
   canModifyEquipment,
+  charterSuburbanEstate,
   claimCombatEquipmentReward,
   completeCombatRewardAndOpenMap,
   createInitialRun,
   drawToSix,
+  engraveHeirloom,
+  enrollCharterProdigyTile,
   equipEquipmentInstance,
   executeEnemyTurn,
   executeOverdrive,
   executeSingleEnemyAction,
   getEffectiveTileValue,
+  incubateStorkTile,
   installCyberImplant,
+  marryBloodlineCrest,
   previewColorResolution,
   previewHeroineThreat,
   purgeClinicInnateTile,
+  rerouteMeshNetNode,
   resolveCyberEventChoice,
   resolvePlayerColor,
   restockClinicShop,
+  rideMagLevExpress,
   scrapEquipmentInstance,
   skipChipDealer,
   skipCombatEncounter,
   sortTilesByGroup,
+  spliceFabLabTiles,
+  startBetaTrialChip,
   startNodeEncounter,
   unequipEquipmentInstance,
 } from './gameEngine';
@@ -2388,6 +2399,252 @@ test('30. 5-Tier Difficulty Matrix: smart HP scaling, sacred chaff & enemy DMG, 
   assert.equal(parsed.difficultyTier, 4);
   assert.equal(parsed.runResetsUsed, 1);
 });
+
+test('31. Extended 12-Stage / 32-Node Grand Metropolis Sector Map, Pro-Family Dynasty & Optimistic Civic-Tech Tile Mechanics', () => {
+  // 1. Extended 12-Stage / 32-Node Sector Map for live seeds (>= 2000) & District Badges
+  const extendedRun = createInitialRun(104729, 'kira', 3);
+  assert.equal(
+    extendedRun.mapNodes.length,
+    32,
+    'Extended Grand Metropolis Sector Map must have 32 nodes across 12 stages (Layers 0 -> 11)',
+  );
+  const maxLayer = Math.max(...extendedRun.mapNodes.map((n) => n.layer));
+  assert.equal(maxLayer, 11, 'Extended Sector Map Boss is on Layer 11 (Stage 12)');
+  const bossNode = extendedRun.mapNodes.find((n) => n.type === 'BOSS');
+  assert.ok(bossNode);
+  assert.equal(bossNode.id, 'n_11_0');
+  assert.equal(bossNode.layer, 11);
+  assert.ok(
+    extendedRun.mapNodes.some(
+      (n) =>
+        n.districtBadge === 'stork_nursery' ||
+        n.districtBadge === 'open_fablab' ||
+        n.districtBadge === 'upcycle_kiosk' ||
+        n.districtBadge === 'ar_graffiti_wall',
+    ),
+    'Extended 32-node map assigns all Civic-Tech & Dynasty district badges',
+  );
+  // Persistence roundtrip of 32-node map
+  const parsed32 = parseAndValidateRun(JSON.stringify(extendedRun));
+  assert.ok(parsed32);
+  assert.equal(parsed32.mapNodes.length, 32);
+
+  // 2. Active Route Manipulation: Mesh-Net Relay Reroute (up to 2 on extended map), Suburban Dome Estate Charter, and Mag-Lev Express Jump
+  let mapRun = completeCombatRewardAndOpenMap({
+    ...extendedRun,
+    heroine: { ...extendedRun.heroine, credits: 120, hp: 35, maxHp: 60 },
+    combat: {
+      ...extendedRun.combat!,
+      phase: 'VICTORY',
+      rewardCredits: 20,
+      rewardEquipmentChoices: [],
+    },
+  });
+  assert.equal(mapRun.screen, 'map');
+  assert.equal(mapRun.currentNodeId, 'n_0_0');
+  const creditsAfterEntryClear = mapRun.heroine.credits; // 120 + 20 + 15 salvage = 155
+  const hpAfterEntryClear = mapRun.heroine.hp; // 35
+
+  // Charter Suburban Dome Estate on Stage 1 (costs 20 CR, heals +5 HP immediately)
+  mapRun = charterSuburbanEstate(mapRun);
+  assert.ok(mapRun.heroine.familyEstates?.includes(1));
+  assert.equal(mapRun.heroine.credits, creditsAfterEntryClear - 20);
+  assert.equal(mapRun.heroine.hp, hpAfterEntryClear + 5);
+
+  // Advance to a Layer 1 node to trigger Suburban Estate dividend (+12 CR, +5 HP)
+  const l1CombatNode = mapRun.mapNodes.find((n) => n.layer === 1 && n.type === 'COMBAT')!;
+  const afterEstateVisit = startNodeEncounter(mapRun, l1CombatNode.id);
+  assert.equal(afterEstateVisit.heroine.credits, creditsAfterEntryClear - 20 + 12);
+  assert.equal(afterEstateVisit.heroine.hp, hpAfterEntryClear + 5 + 5);
+
+  // Clear Layer 1 node and test Mesh-Net Relay Reroute + Mag-Lev Express Jump
+  let layer1Cleared = completeCombatRewardAndOpenMap({
+    ...afterEstateVisit,
+    combat: {
+      ...afterEstateVisit.combat!,
+      phase: 'VICTORY',
+      rewardCredits: 20,
+      rewardEquipmentChoices: [],
+    },
+  });
+  const disconnectedL2 = layer1Cleared.mapNodes.find(
+    (n) =>
+      n.layer === 2 &&
+      !layer1Cleared.mapNodes.find((cur) => cur.id === l1CombatNode.id)!.nextIds.includes(n.id),
+  );
+  if (disconnectedL2) {
+    layer1Cleared = rerouteMeshNetNode(layer1Cleared, disconnectedL2.id);
+    assert.equal(layer1Cleared.heroine.meshReroutesUsed, 1);
+    assert.ok(
+      layer1Cleared.mapNodes
+        .find((cur) => cur.id === l1CombatNode.id)!
+        .nextIds.includes(disconnectedL2.id),
+    );
+  }
+
+  // Mag-Lev Express Jump from Layer 1 directly to a Layer 3 node (+25 CR bonus)
+  const preMaglevCredits = layer1Cleared.heroine.credits;
+  const afterMaglev = rideMagLevExpress(layer1Cleared, 'n_3_1');
+  assert.equal(afterMaglev.heroine.maglevUsed, true);
+  assert.equal(afterMaglev.heroine.credits, preMaglevCredits + 25);
+  assert.ok(
+    afterMaglev.mapNodes.find((cur) => cur.id === l1CombatNode.id)!.nextIds.includes('n_3_1'),
+  );
+
+  // 3. Ectogenesis Stork Nursery (Tile Incubation for 3 nodes -> Next-Gen 2x Base Value + +1 UpCharge)
+  let clinicRun: RunState = {
+    ...extendedRun,
+    screen: 'clinic',
+    heroine: { ...extendedRun.heroine, credits: 200 },
+  };
+  const innateStrike = clinicRun.masterPool.find(
+    (t) => t.sourceId === 'innate' && t.type === 'attack',
+  )!;
+  const poolSizeBefore = clinicRun.masterPool.length;
+  clinicRun = incubateStorkTile(clinicRun, innateStrike.id);
+  assert.ok(clinicRun.heroine.incubatingTile);
+  assert.equal(clinicRun.heroine.incubatingTile?.nodesRemaining, 3);
+  assert.equal(
+    clinicRun.masterPool.length,
+    poolSizeBefore - 1,
+    'Incubating Tile leaves the Master Tile Pool while growing',
+  );
+
+  // Advance 3 nodes to hatch the Next-Gen Tile
+  let growingHero = clinicRun.heroine;
+  growingHero = advanceNodeDynastyProgress(growingHero);
+  assert.equal(growingHero.incubatingTile?.nodesRemaining, 2);
+  growingHero = advanceNodeDynastyProgress(growingHero);
+  assert.equal(growingHero.incubatingTile?.nodesRemaining, 1);
+  growingHero = advanceNodeDynastyProgress(growingHero);
+  assert.equal(growingHero.incubatingTile, null, 'Pod hatches after 3 nodes');
+  assert.ok(growingHero.maturedNextGenTiles?.[innateStrike.id]);
+  const hatchedPool = rebuildMasterPool(growingHero);
+  const nextGenTile = hatchedPool.find((t) => t.id === innateStrike.id)!;
+  assert.equal(
+    nextGenTile.value,
+    Math.max(8, innateStrike.value * 2),
+    'Next-Gen Tile has 2x value (min 8)',
+  );
+  assert.equal(
+    nextGenTile.upcharge || 0,
+    (innateStrike.upcharge || 0) + 1,
+    'Next-Gen Tile inherits +1 UpCharge',
+  );
+
+  // 4. Gene-Splice Pedigree Lab (Bloodline Tile Crest marriage + Board Auto-UpCharge) & Charter Academy & Dual-Channel FabLab Splicing
+  let pedigreeRun = marryBloodlineCrest(
+    { ...clinicRun, heroine: growingHero, masterPool: hatchedPool },
+    'attack',
+    'defense',
+  );
+  assert.deepEqual(pedigreeRun.heroine.bloodlineCrest, {
+    primary: 'attack',
+    secondary: 'defense',
+    bonusValue: 2,
+  });
+
+  const innateDef = pedigreeRun.masterPool.find(
+    (t) => t.sourceId === 'innate' && t.type === 'defense',
+  )!;
+  pedigreeRun = enrollCharterProdigyTile(pedigreeRun, innateDef.id);
+  assert.ok(pedigreeRun.heroine.prodigyTileIds?.includes(innateDef.id));
+
+  // Dual-Channel Hybrid Tile Splicing: splice an Attack Tile with a Defense Tile
+  const otherAtk = pedigreeRun.masterPool.find(
+    (t) => t.type === 'attack' && t.id !== innateStrike.id,
+  )!;
+  const otherDef = pedigreeRun.masterPool.find(
+    (t) => t.type === 'defense' && t.id !== innateDef.id,
+  )!;
+  const preSpliceAtkVal = otherAtk.value;
+  pedigreeRun = spliceFabLabTiles(pedigreeRun, otherAtk.id, otherDef.id);
+  const splicedHybrid = pedigreeRun.masterPool.find((t) => t.id === otherAtk.id)!;
+  assert.ok(splicedHybrid.value > preSpliceAtkVal, 'Spliced Tile gains donor Tile stats');
+  assert.equal(
+    splicedHybrid.secondaryType,
+    'defense',
+    'Spliced Tile carries Dual-Channel secondaryType',
+  );
+  assert.ok((splicedHybrid.secondaryValue ?? 0) >= 3);
+  assert.ok(
+    !pedigreeRun.masterPool.some((t) => t.id === otherDef.id),
+    'Donor Tile is consumed in splice',
+  );
+
+  // Verify Dual-Channel Hybrid Tile & Bloodline Board Auto-UpCharge on the 6-slot board in combat!
+  const testCombatRun: RunState = {
+    ...pedigreeRun,
+    screen: 'combat',
+    combat: {
+      ...extendedRun.combat!,
+      phase: 'PLAYER_IDLE',
+      board: [
+        { ...splicedHybrid, isHeldFromPrevTurn: false },
+        { ...innateDef, upcharge: 0, isHeldFromPrevTurn: false },
+      ],
+    },
+  };
+  const resolvedHybrid = resolvePlayerColor(testCombatRun, 'attack');
+  assert.ok(
+    resolvedHybrid.heroine.shield >= (splicedHybrid.secondaryValue ?? 3),
+    'Resolving Dual-Channel Attack+Defense Tile simultaneously grants Aegis Shield!',
+  );
+  assert.equal(resolvedHybrid.combat?.bloodlineResonanceActive, 'defense');
+  assert.equal(
+    resolvedHybrid.combat?.board[0].upcharge,
+    1,
+    'Bloodline Crest immediately supercharges unconsumed partner-color Tiles on the 6-slot board with +1 UpCharge (⚡)!',
+  );
+
+  // 5. Nanny-Bot Showroom, Beta-Test Arcade, and Heirloom Forge Cross-Run Inheritance
+  let dealerRun: RunState = {
+    ...pedigreeRun,
+    screen: 'chip_dealer',
+    heroine: { ...pedigreeRun.heroine, credits: 200 },
+  };
+  dealerRun = adoptNannyBot(dealerRun, 'guardian_nanny');
+  assert.equal(dealerRun.heroine.nannyBotInstalled, 'guardian_nanny');
+
+  dealerRun = startBetaTrialChip(dealerRun, 'karabin_vx');
+  assert.equal(dealerRun.heroine.betaTrialChip?.defId, 'karabin_vx');
+  assert.equal(dealerRun.heroine.betaTrialChip?.combatsRemaining, 2);
+
+  const firstEquip = dealerRun.heroine.ownedEquipment[0];
+  dealerRun = engraveHeirloom(dealerRun, firstEquip.instanceId);
+  assert.equal(dealerRun.heroine.heirloomEngravedId, firstEquip.defId);
+
+  // Verify next run inherits the engraved Heirloom Chip
+  const descendantRun = createInitialRun(204000, 'kira', 3, true);
+  assert.equal(descendantRun.heroine.heirloomEngravedId, firstEquip.defId);
+  assert.ok((descendantRun.heroine.heirloomStacks ?? 0) >= 1);
+
+  // 6. Smart-Hearth Multi-Generational Compound (Grandparents, Spouse, Kids)
+  const medRun: RunState = {
+    ...dealerRun,
+    screen: 'medbay',
+    heroine: { ...dealerRun.heroine, hp: 25, maxHp: 60 },
+  };
+  const afterKids = applyMedBayAction(medRun, 'hearth_kids');
+  assert.ok(afterKids.heroine.hp > 25);
+  assert.equal(afterKids.heroine.activeTempoRule?.id, 'kids_vitality_boost');
+  assert.equal(afterKids.heroine.activeTempoRule?.nodesRemaining, 2);
+
+  // 7. Maternal Vanguard Escort Elite (Neonatal Bio-Cradle objective)
+  const eliteNode = extendedRun.mapNodes.find((n) => n.type === 'ELITE')!;
+  const eliteCombatRun = startNodeEncounter(
+    { ...extendedRun, screen: 'map', currentNodeId: eliteNode.id },
+    eliteNode.id,
+  );
+  assert.ok(
+    eliteCombatRun.combat?.cradleObjective,
+    'Elite encounter initializes Neonatal Bio-Cradle objective',
+  );
+  assert.equal(eliteCombatRun.combat?.cradleObjective?.hp, 18);
+  assert.equal(eliteCombatRun.combat?.cradleObjective?.liberated, false);
+});
+
+
 
 
 

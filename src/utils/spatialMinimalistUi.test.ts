@@ -120,6 +120,11 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
           countUiWords(res.counterMath) <= 8,
           `Enemy counter ${passive} (${lang}) "${res.counterMath}" exceeds 8 words`
         );
+        assert.equal(
+          new Set(res.keywords).size,
+          res.keywords.length,
+          `Enemy passive ${passive} (${lang}) returned duplicate keywords: ${res.keywords.join(', ')}`
+        );
       }
     }
   });
@@ -231,5 +236,172 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
     assert.ok(attackKeywords.includes('surge'));
     assert.ok(attackKeywords.includes('armor'));
     assert.ok(attackKeywords.includes('pierce'));
+  });
+
+  it('verifies 100% of equipment descriptions satisfy the 8-word limit in EN and CS', async () => {
+    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    for (const lang of ['en', 'cs'] as const) {
+      const eqMap = TRANSLATIONS[lang].equipment;
+      for (const [id, item] of Object.entries(eqMap)) {
+        const words = countUiWords(item.desc);
+        assert.ok(
+          words <= 8,
+          `Equipment ${id} [${lang}] exceeds 8 words (${words}): "${item.desc}"`
+        );
+      }
+    }
+  });
+
+  it('verifies 100% of cyber implant descriptions satisfy the 8-word limit in EN and CS', async () => {
+    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    for (const lang of ['en', 'cs'] as const) {
+      const impMap = TRANSLATIONS[lang].implants;
+      for (const [id, item] of Object.entries(impMap)) {
+        const words = countUiWords(item.desc);
+        assert.ok(
+          words <= 8,
+          `Implant ${id} [${lang}] exceeds 8 words (${words}): "${item.desc}"`
+        );
+      }
+    }
+  });
+
+  it('verifies all character passives and overdrive descriptions satisfy the 8-word limit in EN and CS', async () => {
+    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    for (const lang of ['en', 'cs'] as const) {
+      const charMap = TRANSLATIONS[lang].characters;
+      for (const [id, char] of Object.entries(charMap)) {
+        const passWords = countUiWords(char.passive);
+        assert.ok(
+          passWords <= 8,
+          `Heroine ${id} [${lang}] passive exceeds 8 words (${passWords}): "${char.passive}"`
+        );
+        const odWords = countUiWords(char.overdriveDesc);
+        assert.ok(
+          odWords <= 8,
+          `Heroine ${id} [${lang}] overdrive exceeds 8 words (${odWords}): "${char.overdriveDesc}"`
+        );
+        const sumWords = countUiWords(char.summary);
+        assert.ok(
+          sumWords <= 8,
+          `Heroine ${id} [${lang}] summary exceeds 8 words (${sumWords}): "${char.summary}"`
+        );
+      }
+    }
+  });
+
+  it('verifies map node descriptions satisfy the 8-word limit in EN and CS', async () => {
+    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    for (const lang of ['en', 'cs'] as const) {
+      const nodeMap = TRANSLATIONS[lang].nodeDescs;
+      for (const [type, desc] of Object.entries(nodeMap)) {
+        const words = countUiWords(desc);
+        assert.ok(
+          words <= 8,
+          `Node ${type} [${lang}] desc exceeds 8 words (${words}): "${desc}"`
+        );
+      }
+    }
+  });
+
+  it('verifies clinic and medbay notices satisfy the 8-word limit in EN and CS', async () => {
+    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    for (const lang of ['en', 'cs'] as const) {
+      const t = TRANSLATIONS[lang];
+      const fields = [
+        t.medbayHealDesc,
+        t.medbayCalibrateDesc,
+        t.medbaySalvageDesc,
+        t.medbayOverclockDesc,
+        t.fundedClinicAllActionsNote,
+        t.greedyClinicNotice,
+        t.opportunityCostNotice,
+        t.clinicSubtitle,
+        t.medbaySubtitle,
+        t.chipDealerSubtitle,
+      ];
+      for (const text of fields) {
+        const words = countUiWords(text);
+        assert.ok(
+          words <= 8,
+          `Clinic/Medbay notice [${lang}] exceeds 8 words (${words}): "${text}"`
+        );
+      }
+    }
+  });
+
+  it('verifies all cyber and dynasty event choices and stories satisfy the 8-word limit in EN and CS', async () => {
+    const {
+      CYBER_EVENT_TEMPLATES,
+      DYNASTY_EVENT_TEMPLATES,
+      localizeCyberEvent,
+    } = await import('../engine/cyberEvents.ts');
+    const allTemplates = [...CYBER_EVENT_TEMPLATES, ...DYNASTY_EVENT_TEMPLATES];
+
+    for (const lang of ['en', 'cs'] as const) {
+      for (const tpl of allTemplates) {
+        const localized = localizeCyberEvent(tpl, lang);
+        const storyWords = countUiWords(localized.story);
+        assert.ok(
+          storyWords <= 8,
+          `Event ${tpl.id} [${lang}] story exceeds 8 words (${storyWords}): "${localized.story}"`
+        );
+        for (const choice of localized.choices) {
+          const labelWords = countUiWords(choice.label);
+          assert.ok(
+            labelWords <= 8,
+            `Event ${tpl.id} choice ${choice.id} [${lang}] label exceeds 8 words (${labelWords}): "${choice.label}"`
+          );
+          const descWords = countUiWords(choice.description);
+          assert.ok(
+            descWords <= 8,
+            `Event ${tpl.id} choice ${choice.id} [${lang}] desc exceeds 8 words (${descWords}): "${choice.description}"`
+          );
+        }
+      }
+    }
+  });
+
+  it('computes zero-hover Smart Action Trigger summaries (live math + KILL / FULL BLOCK / SURGE tags)', async () => {
+    const { createInitialRun } = await import('../engine/gameEngine.ts');
+    const { computeSmartActionTriggerSummaries } = await import('./spatialMinimalistUi.ts');
+    const run = createInitialRun(42, 'kira');
+    assert.ok(run.combat, 'Expected active combat on new run');
+
+    // Force front enemy to low HP so attack trigger shows KILL tag, and set a known board
+    run.combat.enemies[0].hp = 4;
+    run.combat.enemies[0].armor = 0;
+    run.combat.enemies[0].shieldPips = 0;
+    run.combat.enemies[0].intentCycle = [{ kind: 'attack', value: 4 }];
+    run.combat.enemies[0].currentIntentIndex = 0;
+
+    run.combat.board = [
+      { id: 'b1', type: 'attack', sourceId: 'innate', value: 6, isHeldFromPrevTurn: false },
+      { id: 'b2', type: 'defense', sourceId: 'innate', value: 6, isHeldFromPrevTurn: false },
+      {
+        id: 'b3',
+        type: 'tech',
+        sourceId: 'innate',
+        value: 0,
+        isHeldFromPrevTurn: false,
+        techEffect: { kind: 'damage_boost', percent: 35, decayPerTurn: 10 },
+      },
+    ];
+
+    const summaries = computeSmartActionTriggerSummaries(run, 'en');
+    assert.equal(summaries.attack.tileCount, 1);
+    assert.ok(summaries.attack.mathFormula.includes('⚔'), `Expected ⚔ in ${summaries.attack.mathFormula}`);
+    assert.ok(summaries.attack.killCount >= 1, 'Expected attack trigger to detect lethal KILL');
+    assert.equal(summaries.attack.outcomeTag, '☠ KILL');
+    assert.equal(summaries.attack.outcomeTone, 'kill');
+
+    assert.equal(summaries.defense.tileCount, 1);
+    assert.ok(summaries.defense.mathFormula.includes('🛡+'), `Expected 🛡+ in ${summaries.defense.mathFormula}`);
+    assert.equal(summaries.defense.blocksAllIncoming, true);
+    assert.equal(summaries.defense.outcomeTag, '🛡 FULL BLOCK');
+    assert.equal(summaries.defense.outcomeTone, 'block');
+
+    assert.equal(summaries.tech.tileCount, 1);
+    assert.ok(summaries.tech.mathFormula.includes('+35%'), `Expected +35% in ${summaries.tech.mathFormula}`);
   });
 });

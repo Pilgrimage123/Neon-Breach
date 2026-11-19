@@ -13,6 +13,8 @@ export interface TileSpec {
   techEffect?: TechEffect;
   isDud?: boolean;
   upcharge?: number;
+  secondaryType?: TileType;
+  secondaryValue?: number;
 }
 
 export interface Tile {
@@ -23,10 +25,16 @@ export interface Tile {
   techEffect?: TechEffect;
   isDud?: boolean;
   upcharge?: number;
+  secondaryType?: TileType;
+  secondaryValue?: number;
   isHeldFromPrevTurn: boolean;
   isJammed?: boolean;
   isBlight?: boolean;
+  isTopDecked?: boolean;
   hexedByEnemyId?: string;
+  isHotPotato?: boolean;
+  isContagion?: boolean;
+  isTemptation?: boolean;
 }
 
 export type EquipmentCategory = 'weapon' | 'armor' | 'med' | 'tech';
@@ -70,12 +78,20 @@ export type EnemyRoleColor = 'lime' | 'blue' | 'orange' | 'crimson' | 'violet' |
 
 export type IntentConditionKind = 'if_no_shield' | 'if_play_attack' | 'if_play_tech';
 
+export type EnemyPropKind = 'plasma_barrel' | 'decoy_totem' | 'bio_husk';
+
+export type BattlefieldRuleKind = 'volatile_atmosphere' | 'magnetic_surge';
+
 export interface EnemyIntent {
   kind: IntentKind;
   value: number;
   secondaryValue?: number;
   condition?: IntentConditionKind;
   conditionBonus?: number;
+  topDeckBlight?: boolean;
+  corrodeAmount?: number;
+  armorOnHit?: number;
+  clawRend?: boolean;
 }
 
 export interface EnemyUnit {
@@ -95,6 +111,19 @@ export interface EnemyUnit {
   enrageAtkBonus?: number;
   enragedAlone?: boolean;
   staggered?: boolean;
+  weaponBroken?: boolean;
+  desperationEnraged?: boolean;
+  sleepCounter?: number;
+  isLootRunner?: boolean;
+  escapeTurnsLeft?: number;
+  bountyCredits?: number;
+  escaped?: boolean;
+  isMercyTarget?: boolean;
+  propKind?: EnemyPropKind;
+  reviveTimer?: number;
+  reviveArchetype?: EnemyArchetype;
+  reviveMaxHp?: number;
+  huskSpawned?: boolean;
   turnDamageTaken?: number;
   turnsWithoutDamage?: number;
   sosCharging?: boolean;
@@ -155,6 +184,27 @@ export interface LaneClusterProfile {
 
 export type DifficultyTier = 1 | 2 | 3 | 4 | 5;
 
+export type DynastyDistrictBadge =
+  | 'stork_nursery'
+  | 'pedigree_lab'
+  | 'charter_academy'
+  | 'open_fablab'
+  | 'upcycle_kiosk'
+  | 'smart_hearth'
+  | 'rooftop_cafe'
+  | 'suburban_dome'
+  | 'nanny_showroom'
+  | 'beta_arcade'
+  | 'heirloom_forge'
+  | 'matchmakers_gala'
+  | 'mutual_aid_coop'
+  | 'synth_rave'
+  | 'mesh_relay'
+  | 'ar_graffiti_wall'
+  | 'vanguard_escort'
+  | 'data_liberation'
+  | 'maglev_hub';
+
 export interface MapNode {
   id: string;
   layer: number;
@@ -164,9 +214,38 @@ export interface MapNode {
   cleared: boolean;
   modifier?: NodeModifier;
   isBreatherNode?: boolean;
+  districtBadge?: DynastyDistrictBadge;
 }
 
 export type CharacterId = 'kira' | 'aurelia' | 'zuri';
+
+export type NannyBotId = 'guardian_nanny' | 'caretaker_nanny' | 'tutor_nanny';
+
+export interface IncubatingPodState {
+  tile: Tile;
+  nodesRemaining: number;
+  inheritedTrait: 'upcharge' | 'pierce_boost' | 'shield_aura';
+}
+
+export interface BloodlineCrestState {
+  primary: TileType;
+  secondary: TileType;
+  bonusValue: number;
+}
+
+export interface ActiveTempoRuleState {
+  id: 'algo_rave_surge' | 'kids_vitality_boost' | 'bandwidth_vow';
+  nodesRemaining: number;
+}
+
+export interface CradleObjectiveState {
+  name: string;
+  hp: number;
+  maxHp: number;
+  turnsSurvived: number;
+  targetTurns: number;
+  liberated: boolean;
+}
 
 export interface HeroineState {
   characterId?: CharacterId;
@@ -188,6 +267,36 @@ export interface HeroineState {
   consecutiveCombatWithoutClinic?: number;
   emergencyDefibUsed?: boolean;
   overclockCount?: number;
+  incubatingTile?: IncubatingPodState | null;
+  maturedNextGenTiles?: Record<
+    string,
+    { bonusMultiplier: number; inheritedTrait: 'upcharge' | 'pierce_boost' | 'shield_aura' }
+  >;
+  bloodlineCrest?: BloodlineCrestState | null;
+  prodigyTileIds?: string[];
+  splicedTilePairs?: Array<{
+    targetId: string;
+    consumedId: string;
+    bonusValue: number;
+    bonusUpcharge: number;
+    secondaryType?: TileType;
+    secondaryValue?: number;
+  }>;
+  heirloomEngravedId?: string | null;
+  heirloomStacks?: number;
+  nannyBotInstalled?: NannyBotId | null;
+  betaTrialChip?: {
+    defId: string;
+    combatsRemaining: number;
+    resolvesLogged: number;
+    upgraded: boolean;
+  } | null;
+  activeTempoRule?: ActiveTempoRuleState | null;
+  familyEstates?: number[];
+  meshReroutesUsed?: number;
+  maglevUsed?: boolean;
+  scionAlliedHouse?: 'house_solaris' | 'house_valkyr' | null;
+  dynastyRelicUnlocked?: boolean;
 }
 
 export interface CyberEventChoice {
@@ -201,6 +310,10 @@ export interface CyberEventChoice {
   rewardHp?: number;
   rewardOverdrive?: number;
   rewardDamageBoostPct?: number;
+  rewardScionHouse?: 'house_solaris' | 'house_valkyr';
+  rewardFreeImplant?: boolean;
+  rewardHeirloomStacks?: number;
+  applyTempoRule?: 'algo_rave_surge' | 'kids_vitality_boost' | 'bandwidth_vow';
 }
 
 export interface CyberEvent {
@@ -226,6 +339,7 @@ export interface AnimationCue {
     | 'enemy_phase_gate'
     | 'enemy_burst'
     | 'enemy_retaliate'
+    | 'enemy_pustule_rupture'
     | 'enemy_ko'
     | 'enemy_telegraph'
     | 'enemy_reinforce'
@@ -242,6 +356,9 @@ export interface AnimationCue {
   hpDamage?: number;
   reflectedDamage?: number;
   jammed?: boolean;
+  clawRend?: boolean;
+  heavySmash?: boolean;
+  secondaryHeal?: number;
 }
 
 export interface TurnPreview {
@@ -264,9 +381,13 @@ export interface TurnPreview {
   techPierceDamage: number;
   cleanseCorrodeAmount: number;
   retaliateDamage: number;
+  pustuleRuptureCorrode?: number;
   hexedHealBonus?: number;
   hexedArmorBonus?: number;
   blightPurgeCount?: number;
+  hotPotatoPassedDamage?: number;
+  contagionDiscardedCount?: number;
+  temptationCleaveBonus?: number;
   upchargeGained?: number;
   dudCount?: number;
 }
@@ -292,6 +413,7 @@ export interface HeroineThreatPreview {
   willDie: boolean;
   conditionalBonusDamage?: number;
   blightChipDamage?: number;
+  hotPotatoSelfDamage?: number;
   hexHealTriggered?: number;
 }
 
@@ -384,6 +506,14 @@ export interface CombatState {
   failedAttempts?: number;
   mandateBreachPenaltyHp?: number;
   mandateBreachLootConfiscated?: boolean;
+  battlefieldRule?: BattlefieldRuleKind;
+  tugOfWarMeter?: number;
+  tugOfWarPurged?: boolean;
+  mercyBonusAwarded?: boolean;
+  lootBountyAwarded?: number;
+  edgeLockActive?: boolean;
+  cradleObjective?: CradleObjectiveState;
+  bloodlineResonanceActive?: TileType | null;
 }
 
 export type ScreenPhase = 'title' | 'map' | 'combat' | 'clinic' | 'chip_dealer' | 'medbay' | 'event' | 'victory' | 'gameover';
@@ -413,4 +543,5 @@ export interface BestRunRecord {
   sectorsCleared: number;
   totalRuns: number;
   totalNanites?: number;
+  inheritedHeirloom?: { defId: string; bonusStacks: number } | null;
 }

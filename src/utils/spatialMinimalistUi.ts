@@ -1,5 +1,7 @@
-import type { CombatState, EnemyUnit, Tile, TurnPreview } from '../engine/types';
+import { previewColorResolution, previewHeroineThreat } from '../engine/gameEngine';
+import type { CombatState, EnemyUnit, RunState, Tile, TileType, TurnPreview } from '../engine/types';
 import type { Language } from '../i18n/translations';
+import { computeEnemyArmorPreview } from '../components/combat/combatEnemyUi';
 
 /**
  * Section 5: AI System Constraint Block for Minimalist Strategy UI.
@@ -43,7 +45,11 @@ export type CoreMechanicKeywordId =
   | 'held'
   | 'stagger'
   | 'hex'
-  | 'blight';
+  | 'blight'
+  | 'upcharge'
+  | 'overdrive'
+  | 'dud'
+  | 'bloodline';
 
 export interface NestedKeywordTooltipSpec {
   id: CoreMechanicKeywordId;
@@ -198,6 +204,42 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
     ruleCs: 'Blokuje slot. Držení udělí 2 DMG.',
     accentHex: '#84CC16',
   },
+  upcharge: {
+    id: 'upcharge',
+    icon: '⚡',
+    labelEn: 'UpCharge',
+    labelCs: 'Nabití',
+    ruleEn: '+2 power per stack on future draws.',
+    ruleCs: '+2 k síle na další tahy.',
+    accentHex: '#FFC700',
+  },
+  overdrive: {
+    id: 'overdrive',
+    icon: '⚡',
+    labelEn: 'Overdrive',
+    labelCs: 'Overdrive',
+    ruleEn: '100% unleashes 0 AP ultimate attack.',
+    ruleCs: 'Při 100% spustí útok za 0 AP.',
+    accentHex: '#00F0FF',
+  },
+  dud: {
+    id: 'dud',
+    icon: '⬡',
+    labelEn: 'Dud Tile',
+    labelCs: 'Slepý dílek',
+    ruleEn: '0 base stats. Feeds UpCharge and Surges.',
+    ruleCs: 'Základ 0. Dává Nabití a Přetížení.',
+    accentHex: '#94A3B8',
+  },
+  bloodline: {
+    id: 'bloodline',
+    icon: '♥',
+    labelEn: 'Bloodline',
+    labelCs: 'Rodokmen',
+    ruleEn: '+2 Value and +1 UpCharge to partner.',
+    ruleCs: '+2 k síle a +1⚡ partnerovi.',
+    accentHex: '#F43F5E',
+  },
 };
 
 /**
@@ -232,6 +274,21 @@ export function enforceEightWordRule(text: string, maxWords = 8): string {
     kept.push(token);
   }
   return kept.join(' ').replace(/[,;:]$/, '');
+}
+
+/**
+ * Validates whether a UI string strictly adheres to the <= 8-word cap.
+ */
+export function validateStreamlinedCopy(
+  text: string,
+  maxWords = 8,
+): { valid: boolean; wordCount: number; clean: string } {
+  const wordCount = countUiWords(text);
+  return {
+    valid: wordCount <= maxWords,
+    wordCount,
+    clean: enforceEightWordRule(text, maxWords),
+  };
 }
 
 /**
@@ -354,11 +411,13 @@ export function formatEnemyStreamlinedRule(
   counterMath: string;
   keywords: CoreMechanicKeywordId[];
 } {
-  const keywords: CoreMechanicKeywordId[] = [];
-  if (enemy.armor > 0) keywords.push('armor');
+  const baseKeywords: CoreMechanicKeywordId[] = [];
+  if (enemy.armor > 0) baseKeywords.push('armor');
   if (enemy.shieldPips > 0 && enemy.passive !== 'anchor_aegis' && enemy.passive !== 'threshold_pip') {
-    keywords.push('pip');
+    baseKeywords.push('pip');
   }
+  const withUnique = (extra: CoreMechanicKeywordId[]): CoreMechanicKeywordId[] =>
+    Array.from(new Set([...baseKeywords, ...extra]));
 
   switch (enemy.passive) {
     case 'volatile_burst':
@@ -368,7 +427,7 @@ export function formatEnemyStreamlinedRule(
             ? `**Bio-exploze:** Smrt udělí 6 **Průraz** DMG.`
             : `**Bio-Burst:** Death deals 6 **Pierce** DMG.`,
         counterMath: lang === 'cs' ? `⇄ Odstrč k obrněným cílům.` : `⇄ **Push** near **Armor** targets.`,
-        keywords: [...keywords, 'bioburst', 'pierce', 'push'],
+        keywords: withUnique(['bioburst', 'pierce', 'push']),
       };
     case 'anchor_aegis':
       return {
@@ -377,7 +436,7 @@ export function formatEnemyStreamlinedRule(
             ? `**1 Aegis Pip.** Dává +4 **Brnění** všem.`
             : `**1 Aegis Pip.** Grants +4 **Armor** all.`,
         counterMath: lang === 'cs' ? `◆ Proraz **Pip**, pak **Přetížení**.` : `◆ Crack **Pip**, then **Surge**.`,
-        keywords: [...keywords, 'pip', 'armor', 'surge'],
+        keywords: withUnique(['pip', 'armor', 'surge']),
       };
     case 'time_bomb':
       return {
@@ -386,7 +445,7 @@ export function formatEnemyStreamlinedRule(
             ? `**Nabíjí 2 tahy.** 16+ **Omráčení** zruší výboj.`
             : `**Charge 2 turns.** 16+ **Stagger** cancels blast.`,
         counterMath: lang === 'cs' ? `⚡ Uděl 16+ DMG nebo **Odstrč**.` : `⚡ Deal 16+ DMG or **Push**.`,
-        keywords: [...keywords, 'stagger', 'push'],
+        keywords: withUnique(['stagger', 'push']),
       };
     case 'spike_retaliate':
       return {
@@ -395,25 +454,28 @@ export function formatEnemyStreamlinedRule(
             ? `**Odplata 3 DMG.** +4 DMG při 0 **Štítu**.`
             : `**Retaliate 3 DMG.** +4 DMG at 0 **Shield**.`,
         counterMath: lang === 'cs' ? `★ Použij **Přetížení** 4+ a **Štít**.` : `★ Use **Surge** 4+ and **Shield**.`,
-        keywords: [...keywords, 'retaliate', 'shield', 'surge'],
+        keywords: withUnique(['retaliate', 'shield', 'surge']),
       };
     case 'acid_jam':
       return {
         shortRule:
           lang === 'cs'
-            ? `**Blok** + **Struska** při zásahu. Sesílá **Kletbu**.`
-            : `**Jams** + **Slag** on hit. Casts **Hex**.`,
-        counterMath: lang === 'cs' ? `🛡 Vykryj **Štítem**. **TECH** pálí **Strusku**.` : `🛡 Block with **Shield**. **TECH** purges **Slag**.`,
-        keywords: [...keywords, 'blight', 'hex', 'shield'],
+            ? `**Pustuly:** +2 **Koroze**; **Kyselina** **Blok**, **Struska**, **Kletba**.`
+            : `**Pustules:** +2 **Corrode**; **Acid** **Jams**, **Slag**, **Hex**.`,
+        counterMath:
+          lang === 'cs'
+            ? `★ Použij **Přetížení** / KO; kryj **Kyselinu** **Štítem**.`
+            : `★ Use **Surge** or KO; **Shield** blocks **Acid**.`,
+        keywords: withUnique(['corrode', 'blight', 'hex', 'surge']),
       };
     case 'threshold_pip':
       return {
         shortRule:
           lang === 'cs'
-            ? `**1 Pip** · **Brnění**. 16+ **Omráčení** ruší Těžký.`
-            : `**1 Pip** · **Armor**. 16+ **Stagger** cancels Heavy.`,
+            ? `**1 Pip**, **Brnění**/+3HP; 16+ **Omráčení** ruší Těžký.`
+            : `**1 Pip**, **Armor**/+3HP; 16+ **Stagger** stops Heavy.`,
         counterMath: lang === 'cs' ? `◆ Znič **Pip** před **Přetížením**.` : `◆ Crack **Pip** before **Surge**.`,
-        keywords: [...keywords, 'pip', 'armor', 'stagger'],
+        keywords: withUnique(['pip', 'armor', 'stagger']),
       };
     case 'phase_gate':
     default:
@@ -423,7 +485,7 @@ export function formatEnemyStreamlinedRule(
             ? `**50% Zámek:** +10 **Brnění**, +1 **Pip**, **Kletba**.`
             : `**50% Lock:** +10 **Armor**, +1 **Pip**, **Hex**.`,
         counterMath: lang === 'cs' ? `⚡ **Průlom** Brnění a 16+ **Omráčení**.` : `⚡ **Shred** **Armor** and 16+ **Stagger**.`,
-        keywords: [...keywords, 'armor', 'pip', 'hex'],
+        keywords: withUnique(['armor', 'pip', 'hex']),
       };
   }
 }
@@ -621,3 +683,134 @@ export function resolveActivePreviewKeywords(
   }
   return list.slice(0, 3);
 }
+
+export interface SmartActionTriggerSummary {
+  color: TileType;
+  tileCount: number;
+  mathFormula: string;
+  outcomeTag: string | null;
+  outcomeTone: 'kill' | 'block' | 'stagger' | 'overdrive' | 'surge' | 'neutral';
+  killCount: number;
+  blocksAllIncoming: boolean;
+  fillsOverdrive: boolean;
+}
+
+/**
+ * Computes zero-hover instant turn math and tactical outcome badges for all 3 tile colors
+ * simultaneously, eliminating the need to hover each group one by one to compare turn options.
+ */
+export function computeSmartActionTriggerSummaries(
+  run: RunState,
+  lang: Language = 'en',
+): Record<TileType, SmartActionTriggerSummary> {
+  const isCs = lang === 'cs';
+  const combat = run.combat;
+  const baselineThreat = combat ? previewHeroineThreat(combat, run.heroine, null) : null;
+  const frontIdx = combat ? combat.enemies.findIndex((e) => e.hp > 0) : -1;
+
+  const buildForColor = (color: TileType): SmartActionTriggerSummary => {
+    const preview = combat ? previewColorResolution(run, color) : null;
+    if (!combat || !preview || preview.tileCount === 0) {
+      return {
+        color,
+        tileCount: 0,
+        mathFormula: '—',
+        outcomeTag: null,
+        outcomeTone: 'neutral',
+        killCount: 0,
+        blocksAllIncoming: false,
+        fillsOverdrive: false,
+      };
+    }
+
+    let mathFormula = '—';
+    if (color === 'attack') {
+      mathFormula =
+        preview.cleaveDamage > 0
+          ? `⚔${preview.totalDamage} +${preview.cleaveDamage}`
+          : `⚔${preview.totalDamage}`;
+    } else if (color === 'defense') {
+      mathFormula =
+        preview.reflectOnBlock > 0
+          ? `🛡+${preview.shieldGained} ↩${preview.reflectOnBlock}`
+          : `🛡+${preview.shieldGained}`;
+    } else {
+      const parts: string[] = [];
+      if (preview.damageBoostAddedPct > 0) parts.push(`+${preview.damageBoostAddedPct}%`);
+      if (preview.armorShredAmount > 0) parts.push(`-${preview.armorShredAmount}🛡`);
+      if (preview.techPierceDamage > 0) parts.push(`⚡${preview.techPierceDamage}`);
+      if (preview.healAmount > 0) parts.push(`💚+${preview.healAmount}`);
+      if (preview.shieldGained > 0) parts.push(`🛡+${preview.shieldGained}`);
+      if (preview.cleanseCorrodeAmount > 0) parts.push(`-${preview.cleanseCorrodeAmount}☣`);
+      if (parts.length === 0 && preview.overdriveGained > 0) {
+        parts.push(`⚡+${preview.overdriveGained}%`);
+      }
+      mathFormula = parts.slice(0, 2).join(' · ') || `⚡+${preview.overdriveGained}%`;
+    }
+
+    let killCount = 0;
+    let willStaggerFront = false;
+    if (frontIdx !== -1) {
+      for (let i = 0; i < combat.enemies.length; i++) {
+        const e = combat.enemies[i];
+        if (e.hp <= 0) continue;
+        const ep = computeEnemyArmorPreview(e, i, frontIdx, preview, combat.enemies);
+        if (ep.willDie) killCount += 1;
+        if (i === frontIdx && ep.willStagger) willStaggerFront = true;
+      }
+    }
+
+    const threatAfter = previewHeroineThreat(combat, run.heroine, preview);
+    const blocksAllIncoming = Boolean(
+      baselineThreat &&
+        baselineThreat.hpDamageTaken > 0 &&
+        threatAfter.hpDamageTaken === 0 &&
+        color === 'defense',
+    );
+    const fillsOverdrive =
+      run.heroine.overdrive < 100 && run.heroine.overdrive + preview.overdriveGained >= 100;
+
+    let outcomeTag: string | null = null;
+    let outcomeTone: SmartActionTriggerSummary['outcomeTone'] = 'neutral';
+
+    if (killCount > 0) {
+      outcomeTag =
+        killCount > 1
+          ? `☠ ×${killCount} KO`
+          : isCs
+            ? '☠ KO'
+            : '☠ KILL';
+      outcomeTone = 'kill';
+    } else if (willStaggerFront) {
+      outcomeTag = isCs ? '⚡ OMRÁČENÍ' : '⚡ STAGGER';
+      outcomeTone = 'stagger';
+    } else if (blocksAllIncoming) {
+      outcomeTag = isCs ? '🛡 KRYJE VŠE' : '🛡 FULL BLOCK';
+      outcomeTone = 'block';
+    } else if (fillsOverdrive) {
+      outcomeTag = '⚡ 100% OD';
+      outcomeTone = 'overdrive';
+    } else if (preview.surgeTriggered) {
+      outcomeTag = isCs ? '★ PŘETÍŽENÍ' : '★ SURGE';
+      outcomeTone = 'surge';
+    }
+
+    return {
+      color,
+      tileCount: preview.tileCount,
+      mathFormula,
+      outcomeTag,
+      outcomeTone,
+      killCount,
+      blocksAllIncoming,
+      fillsOverdrive,
+    };
+  };
+
+  return {
+    attack: buildForColor('attack'),
+    defense: buildForColor('defense'),
+    tech: buildForColor('tech'),
+  };
+}
+

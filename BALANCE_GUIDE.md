@@ -204,3 +204,23 @@ Tile TPU ≈
   * Starter gear (`Size 1–3`): **`8.0 – 13.0 TPU / Size`**
   * Common shop/loot gear (`Size 2–4`): **`6.5 – 11.0 TPU / Size`**
   * Rare build-around gear (`Size 2–5`): **`6.5 – 13.0 TPU / Size`** *(heavier `Size 4–5` items trade `TPU / Size` for high **per-tile density** `> 10.5 TPU / tile`)*
+
+---
+
+## 8. Six-Enemy Sky-Bridge & Advanced Tactical Puzzle Mechanics
+
+See [`ENEMY_DESIGN_PRINCIPLES.md`](./ENEMY_DESIGN_PRINCIPLES.md) for the complete enemy design constitution:
+
+* **Six-Slot Sky-Bridge (`MAX_ACTIVE_BRIDGE_ENEMIES = 6`):** Supports up to **6 simultaneous active enemies/props** with adaptive lane geometry (`getEnemyLaneMetrics`) so 1–6 units render and target cleanly.
+* **Advanced Hand & Deck Manipulation:**
+  * **Hot Potato (`isHotPotato` / `💣 PASS 8`):** Unresolved at round end = **`6 DMG` to heroine**; resolved (`1 AP` color commit) = **`8 Pierce DMG` to front living enemy**.
+  * **Positional Contagion (`isContagion` / `🦠 TRAP`):** Resolving a Contagion tile also discards adjacent non-matching board slots (`idx - 1` / `idx + 1`).
+  * **Temptation Bargain (`isTemptation` / `⚡ +14 ALL`):** Resolving grants **`+14 Bonus Cleave DMG` to all enemies** at the cost of injecting **`2 Caustic Slag`** curses.
+  * **Top-Deck Manipulation (`TOP DRAW`):** Acid sabotage places `Caustic Slag` directly at `drawPile[0]`, visible in `Upcoming Draws`.
+* **Dynamic Win Conditions:**
+  * **Loot Runner (`isLootRunner`):** `3T` warp channel (`0 DMG`); killing before warp awards **`+25 CR` Bonus Bounty**.
+  * **Mercy Target (`isMercyTarget`):** Sparing a hijacked Med-Drone while eliminating all hostiles triggers immediate **Mercy Victory (`+6 HP` & `+15 CR`)**.
+  * **Tug-of-War Meter (`tugOfWarMeter`):** Starts at `50%`; reaching `100%` (`+2%` per player DMG dealt, `-3%` per unblocked enemy HP DMG) triggers **Neural Purge** (Staggers all living enemies + **`+25% Overdrive`** + **`+10 CR`**).
+  * **Sleepwalker (`sleepCounter`):** Dormant (`0 DMG`); `Defense` and `TECH` plays do not wake it, while each damaging `Attack` hit decrements `sleepCounter` by `1`.
+* **Fairness Hacks & Environment Props:**
+  * **Turn 1 Grace Period**, **Desperation Telegraph (`<= 20% HP` -> `🔥 +3 DMG`)**, **Overkill Weapon-Break (`>= 22 DMG` burst -> `🔨 -3 DMG` permanent)**, **Symmetrical Battlefield Rules (`volatile_atmosphere` / `magnetic_surge`)**, and **Props (`plasma_barrel` `10 Pierce AoE + 20% OD`, `decoy_totem` `5 HP / 1 Pip`, `bio_husk` `2T` corpse persistence)**.

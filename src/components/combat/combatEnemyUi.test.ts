@@ -5,6 +5,7 @@ import { formatEnemyIntent } from './combatStageTypes';
 import {
   computeEnemyArmorPreview,
   computeEnemyHitBoxes,
+  computeEnemySlotLayout,
   formatEnemyIntentCompact,
   formatEnemyIntentSummary,
   hitTestEnemySprite,
@@ -230,6 +231,7 @@ test('intent formatters never expose enemy attack names in EN or CS', () => {
 
   const intents: EnemyIntent[] = [
     { kind: 'attack', value: 7 },
+    { kind: 'attack', value: 7, corrodeAmount: 2, armorOnHit: 3, clawRend: true },
     { kind: 'heavy', value: 13 },
     { kind: 'acid', value: 5, secondaryValue: 2 },
     { kind: 'armor', value: 8 },
@@ -255,6 +257,8 @@ test('intent formatters never expose enemy attack names in EN or CS', () => {
       }
     }
   }
+  const clawCompactEn = formatEnemyIntentCompact(intents[1], 'en');
+  assert.ok(clawCompactEn.includes('+2') && clawCompactEn.includes('+3'));
 });
 
 test('computeEnemyHitBoxes and hitTestEnemySprite track living enemies accurately across viewports', () => {
@@ -284,4 +288,27 @@ test('computeEnemyHitBoxes and hitTestEnemySprite track living enemies accuratel
     // Empty sky top-left misses all enemy hitboxes
     assert.equal(hitTestEnemySprite(12, 12, boxes), null);
   }
+});
+
+test('Carapace Brute occupies 2 bridge spots in computeEnemySlotLayout and formats armor + HP heal intents cleanly', () => {
+  const enemies: EnemyUnit[] = [
+    makeEnemy({ id: 'skitter-1', archetype: 'skitter', hp: 18, maxHp: 18, armor: 0 }),
+    makeEnemy({ id: 'brute-2', archetype: 'brute', hp: 40, maxHp: 40, armor: 6 }),
+    makeEnemy({ id: 'spitter-3', archetype: 'spitter', hp: 28, maxHp: 28, armor: 0 }),
+  ];
+
+  const layout = computeEnemySlotLayout(enemies, []);
+  assert.equal(layout.effectiveSlotCount, 4);
+  assert.deepEqual(layout.slotCenters, [0, 1.5, 3]);
+
+  const boxes = computeEnemyHitBoxes(1440, 500, enemies);
+  assert.equal(boxes.length, 3);
+  assert.ok(boxes[1].width > boxes[0].width, '2-slot Brute hitbox should be wider than 1-slot Skitter');
+  assert.ok(boxes[1].centerX > boxes[0].centerX && boxes[2].centerX > boxes[1].centerX);
+
+  const braceIntent: EnemyIntent = { kind: 'armor', value: 6, secondaryValue: 3 };
+  assert.equal(formatEnemyIntentCompact(braceIntent, 'en'), '+6 ARM · +3 HP');
+  assert.equal(formatEnemyIntentCompact(braceIntent, 'cs'), '+6 BRN · +3 Zdraví');
+  assert.equal(formatEnemyIntentSummary(braceIntent, 'en'), '+6 Armor · +3 HP');
+  assert.equal(formatEnemyIntentSummary(braceIntent, 'cs'), '+6 Brnění · +3 Zdraví');
 });

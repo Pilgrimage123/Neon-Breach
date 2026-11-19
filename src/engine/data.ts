@@ -7,6 +7,7 @@ import type {
   EnemyArchetype,
   EnemyIntent,
   EnemyPassiveKind,
+  EnemyPropKind,
   EnemyRoleColor,
   EnemyUnit,
   EquipmentDefinition,
@@ -482,42 +483,151 @@ export function getEquippedEquipmentWeight(heroine: Pick<HeroineState, 'ownedEqu
 export function rebuildMasterPool(
   heroine: Pick<
     HeroineState,
-    'characterId' | 'ownedEquipment' | 'equippedInstanceIds' | 'overclockCount' | 'purgedInnateIds'
+    | 'characterId'
+    | 'ownedEquipment'
+    | 'equippedInstanceIds'
+    | 'overclockCount'
+    | 'purgedInnateIds'
+    | 'incubatingTile'
+    | 'maturedNextGenTiles'
+    | 'prodigyTileIds'
+    | 'splicedTilePairs'
+    | 'heirloomEngravedId'
+    | 'heirloomStacks'
+    | 'dynastyRelicUnlocked'
   >,
 ): Tile[] {
   const purgedSet = new Set(heroine.purgedInnateIds ?? []);
+  const prodigySet = new Set(heroine.prodigyTileIds ?? []);
+  const splicedPairs = heroine.splicedTilePairs ?? [];
+  const consumedBySplice = new Set(splicedPairs.map((p) => p.consumedId));
+  const incubatingId =
+    heroine.incubatingTile && heroine.incubatingTile.nodesRemaining > 0
+      ? heroine.incubatingTile.tile.id
+      : null;
+  const maturedMap = heroine.maturedNextGenTiles ?? {};
+
   const innateSpecs = getInnateTilesForCharacter(heroine.characterId ?? 'kira');
   const pool: Tile[] = [];
   innateSpecs.forEach((spec, idx) => {
     const id = `tile_innate_${idx + 1}`;
-    if (purgedSet.has(id)) return;
+    if (purgedSet.has(id) || consumedBySplice.has(id) || id === incubatingId) return;
+
+    let value = spec.value;
+    let isDud = spec.isDud;
+    let upcharge = spec.upcharge;
+    let techEffect = spec.techEffect ? { ...spec.techEffect } : undefined;
+
+    if (prodigySet.has(id)) {
+      isDud = false;
+      value = spec.type === 'tech' ? 0 : Math.max(6, spec.value + 3);
+      upcharge = (upcharge ?? 0) + 1;
+      if (spec.type === 'tech' && !techEffect) {
+        techEffect = { kind: 'tactical_shield', shieldAmount: 5, damageBoostPct: 20 };
+      }
+    }
+
+    const splice = splicedPairs.find((p) => p.targetId === id);
+    let secondaryType = spec.secondaryType;
+    let secondaryValue = spec.secondaryValue;
+    if (splice) {
+      isDud = false;
+      value += splice.bonusValue;
+      upcharge = (upcharge ?? 0) + splice.bonusUpcharge;
+      if (splice.secondaryType) {
+        secondaryType = splice.secondaryType;
+        secondaryValue = splice.secondaryValue ?? splice.bonusValue;
+      }
+    }
+
+    const matured = maturedMap[id];
+    if (matured) {
+      isDud = false;
+      value = spec.type === 'tech' ? 0 : Math.max(8, value * matured.bonusMultiplier);
+      upcharge = (upcharge ?? 0) + 1;
+      if (techEffect) {
+        if (techEffect.kind === 'heal') {
+          techEffect = { ...techEffect, amount: techEffect.amount * 2 };
+        } else if (techEffect.kind === 'damage_boost') {
+          techEffect = { ...techEffect, percent: Math.min(80, techEffect.percent + 25) };
+        }
+      }
+    }
+
     pool.push({
       id,
       type: spec.type,
       sourceId: 'innate',
-      value: spec.value,
-      techEffect: spec.techEffect ? { ...spec.techEffect } : undefined,
-      isDud: spec.isDud,
-      upcharge: spec.upcharge,
+      value,
+      techEffect,
+      isDud,
+      upcharge,
+      ...(secondaryType ? { secondaryType, secondaryValue } : {}),
       isHeldFromPrevTurn: false,
     });
   });
 
+  // Upcycle / Charter Academy adjacency buff: each enrolled Prodigy tile grants +1 base value to adjacent innate Attack/Defense tiles
+  if (prodigySet.size > 0) {
+    for (let i = 0; i < pool.length; i++) {
+      if (
+        pool[i].sourceId === 'innate' &&
+        !prodigySet.has(pool[i].id) &&
+        !pool[i].isDud &&
+        (pool[i].type === 'attack' || pool[i].type === 'defense')
+      ) {
+        pool[i] = { ...pool[i], value: pool[i].value + 1 };
+      }
+    }
+  }
+
+  const heirloomBonus = Math.min(6, Math.max(0, heroine.heirloomStacks ?? 0));
   const ownedById = new Map(heroine.ownedEquipment.map((item) => [item.instanceId, item]));
   for (const instanceId of heroine.equippedInstanceIds) {
     const owned = ownedById.get(instanceId);
     if (!owned) continue;
     const def = EQUIPMENT_BY_ID[owned.defId];
     if (!def) continue;
+    const isHeirloomChip =
+      heirloomBonus > 0 &&
+      (heroine.heirloomEngravedId === def.id || heroine.heirloomEngravedId === instanceId);
     def.tiles.forEach((spec, idx) => {
+      const id = `tile_${instanceId}_${idx + 1}`;
+      if (id === incubatingId || consumedBySplice.has(id)) return;
+      let value = spec.value + (isHeirloomChip && spec.type !== 'tech' ? heirloomBonus : 0);
+      let upcharge = spec.upcharge;
+      let techEffect = spec.techEffect ? { ...spec.techEffect } : undefined;
+      let secondaryType = spec.secondaryType;
+      let secondaryValue = spec.secondaryValue;
+
+      const splice = splicedPairs.find((p) => p.targetId === id);
+      if (splice) {
+        value += splice.bonusValue;
+        upcharge = (upcharge ?? 0) + splice.bonusUpcharge;
+        if (splice.secondaryType) {
+          secondaryType = splice.secondaryType;
+          secondaryValue = splice.secondaryValue ?? splice.bonusValue;
+        }
+      }
+
+      const matured = maturedMap[id];
+      if (matured) {
+        value = spec.type === 'tech' ? 0 : Math.max(10, value * matured.bonusMultiplier);
+        upcharge = (upcharge ?? 0) + 1;
+        if (techEffect && techEffect.kind === 'heal') {
+          techEffect = { ...techEffect, amount: techEffect.amount * 2 };
+        }
+      }
+
       pool.push({
-        id: `tile_${instanceId}_${idx + 1}`,
+        id,
         type: spec.type,
         sourceId: def.id,
-        value: spec.value,
-        techEffect: spec.techEffect ? { ...spec.techEffect } : undefined,
+        value,
+        techEffect,
         isDud: spec.isDud,
-        upcharge: spec.upcharge,
+        upcharge,
+        ...(secondaryType ? { secondaryType, secondaryValue } : {}),
         isHeldFromPrevTurn: false,
       });
     });
@@ -531,6 +641,16 @@ export function rebuildMasterPool(
       if (pool[i].type === 'attack' && !pool[i].isDud) {
         pool[i] = { ...pool[i], value: pool[i].value + atkBonus };
         upgraded++;
+      }
+    }
+  }
+
+  // Dynasty Relic (Maternal/Paternal Vanguard Escort reward): scales tile power with total Master Tile Pool size
+  if (heroine.dynastyRelicUnlocked) {
+    const dynastyBonus = Math.max(1, Math.floor(pool.length / 6));
+    for (let i = 0; i < pool.length; i++) {
+      if (!pool[i].isDud && (pool[i].type === 'attack' || pool[i].type === 'defense')) {
+        pool[i] = { ...pool[i], value: pool[i].value + dynastyBonus };
       }
     }
   }
@@ -626,8 +746,8 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
     roleColor: 'violet',
     intentCycle: [
       { kind: 'acid', value: 5, secondaryValue: 2 },
-      { kind: 'leech', value: 6, secondaryValue: 4 },
-      { kind: 'acid', value: 6, secondaryValue: 2 },
+      { kind: 'attack', value: 7, corrodeAmount: 2, armorOnHit: 3, clawRend: true },
+      { kind: 'acid', value: 6, secondaryValue: 2, topDeckBlight: true },
     ],
   },
   brute: {
@@ -638,9 +758,9 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
     passive: 'threshold_pip',
     roleColor: 'gold',
     intentCycle: [
-      { kind: 'armor', value: 6 },
-      { kind: 'heavy', value: 13 },
-      { kind: 'attack', value: 8 },
+      { kind: 'armor', value: 6, secondaryValue: 3 },
+      { kind: 'heavy', value: 14 },
+      { kind: 'attack', value: 9 },
     ],
   },
   boss: {
@@ -654,13 +774,13 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
     intentCycle: [
       { kind: 'armor', value: 10 },
       { kind: 'attack', value: 11, condition: 'if_play_attack', conditionBonus: 4 },
-      { kind: 'acid', value: 8, secondaryValue: 2 },
+      { kind: 'acid', value: 8, secondaryValue: 2, topDeckBlight: true },
       { kind: 'heavy', value: 18 },
     ],
   },
 };
 
-export function createBlightTile(turn: number, seq: number): Tile {
+export function createBlightTile(turn: number, seq: number, isTopDecked = false): Tile {
   return {
     id: `tile_blight_${turn}_${seq}`,
     type: 'tech',
@@ -668,7 +788,115 @@ export function createBlightTile(turn: number, seq: number): Tile {
     value: 0,
     isHeldFromPrevTurn: false,
     isBlight: true,
+    ...(isTopDecked ? { isTopDecked: true } : {}),
   };
+}
+
+export function createPropUnit(
+  propKind: EnemyPropKind,
+  idSuffix: string,
+  reviveData?: { archetype: EnemyArchetype; maxHp: number },
+): EnemyUnit {
+  if (propKind === 'plasma_barrel') {
+    return {
+      id: `prop_plasma_barrel_${idSuffix}`,
+      archetype: 'larva',
+      hp: 10,
+      maxHp: 10,
+      armor: 0,
+      shieldPips: 0,
+      maxShieldPips: 0,
+      passive: 'volatile_burst',
+      roleColor: 'orange',
+      propKind: 'plasma_barrel',
+      intentCycle: [{ kind: 'armor', value: 0 }],
+      currentIntentIndex: 0,
+      isZeroReward: true,
+    };
+  }
+  if (propKind === 'decoy_totem') {
+    return {
+      id: `prop_decoy_totem_${idSuffix}`,
+      archetype: 'skitter',
+      hp: 5,
+      maxHp: 5,
+      armor: 2,
+      shieldPips: 1,
+      maxShieldPips: 1,
+      passive: 'anchor_aegis',
+      roleColor: 'blue',
+      propKind: 'decoy_totem',
+      intentCycle: [{ kind: 'armor', value: 2 }],
+      currentIntentIndex: 0,
+      isZeroReward: true,
+    };
+  }
+  const revArch = reviveData?.archetype ?? 'stalker';
+  return {
+    id: `prop_bio_husk_${idSuffix}`,
+    archetype: revArch,
+    hp: 8,
+    maxHp: 8,
+    armor: 0,
+    shieldPips: 0,
+    maxShieldPips: 0,
+    passive: 'volatile_burst',
+    roleColor: 'violet',
+    propKind: 'bio_husk',
+    reviveTimer: 2,
+    reviveArchetype: revArch,
+    reviveMaxHp: reviveData?.maxHp ?? ENEMY_TEMPLATES[revArch].maxHp,
+    intentCycle: [{ kind: 'armor', value: 0 }],
+    currentIntentIndex: 0,
+    isZeroReward: true,
+  };
+}
+
+export function createLootRunnerUnit(idSuffix: string, bountyCredits = 25): EnemyUnit {
+  return {
+    id: `enemy_loot_runner_${idSuffix}`,
+    archetype: 'skitter',
+    hp: 18,
+    maxHp: 18,
+    armor: 4,
+    shieldPips: 1,
+    maxShieldPips: 1,
+    passive: 'anchor_aegis',
+    roleColor: 'gold',
+    isLootRunner: true,
+    escapeTurnsLeft: 3,
+    bountyCredits,
+    intentCycle: [
+      { kind: 'armor', value: 4 },
+      { kind: 'armor', value: 5 },
+      { kind: 'armor', value: 6 },
+    ],
+    currentIntentIndex: 0,
+  };
+}
+
+export function createMercyDroneUnit(idSuffix: string): EnemyUnit {
+  return {
+    id: `enemy_mercy_drone_${idSuffix}`,
+    archetype: 'skitter',
+    hp: 16,
+    maxHp: 16,
+    armor: 2,
+    shieldPips: 0,
+    maxShieldPips: 0,
+    passive: 'anchor_aegis',
+    roleColor: 'lime',
+    isMercyTarget: true,
+    intentCycle: [{ kind: 'attack', value: 3 }],
+    currentIntentIndex: 0,
+    isZeroReward: true,
+  };
+}
+
+export function createSleepwalkerUnit(idSuffix: string, hpBonus = 0, sleepCounter = 2): EnemyUnit {
+  const unit = createEnemyFromArchetype('brute', idSuffix, hpBonus, 1);
+  unit.sleepCounter = sleepCounter;
+  return unit;
 }
 
 function createEnemyFromArchetype(

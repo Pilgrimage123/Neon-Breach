@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ensureCombatAssetsReady } from './assets/assetPreloader';
 import { soundEngine } from './audio/soundEngine';
-import { BioMedBayView } from './components/BioMedBayView';
+import { BioMedBayView, type MedBayActionType } from './components/BioMedBayView';
 import { ChipDealerView } from './components/ChipDealerView';
 import { CodexModal, type CodexTab } from './components/CodexModal';
 import { CombatStageCanvas } from './components/CombatStageCanvas';
@@ -15,26 +15,37 @@ import { TopHud } from './components/TopHud';
 import { EQUIPMENT_BY_ID, getEquippedEquipmentWeight } from './engine/data';
 import { DEFAULT_DIFFICULTY_TIER, getDifficultyProfile } from './engine/difficulty';
 import {
+  adoptNannyBot,
   advanceRoundAfterEnemies,
   applyMedBayAction,
   buyClinicEquipment,
+  charterSuburbanEstate,
   claimCombatEquipmentReward,
   createInitialRun,
+  engraveHeirloom,
+  enrollCharterProdigyTile,
   equipEquipmentInstance,
   executeOverdrive,
   executeSingleEnemyAction,
   getSurgeThreshold,
+  incubateStorkTile,
   installCyberImplant,
+  marryBloodlineCrest,
   previewColorResolution,
   purgeClinicInnateTile,
+  rerouteMeshNetNode,
   resolveCyberEventChoice,
   resolvePlayerColor,
   restockClinicShop,
+  rideMagLevExpress,
   scrapEquipmentInstance,
   skipChipDealer,
   skipCombatEncounter,
   skipCyberClinic,
+  spliceFabLabTiles,
+  startBetaTrialChip,
   startNodeEncounter,
+  switchActiveCyberEvent,
   unequipEquipmentInstance,
 } from './engine/gameEngine';
 import { getNodeEncounterIntel } from './engine/mapGenerator';
@@ -52,6 +63,7 @@ import type {
   CharacterId,
   CyberImplantId,
   DifficultyTier,
+  NannyBotId,
   RunState,
   TileType,
 } from './engine/types';
@@ -204,6 +216,7 @@ export default function App() {
     () => initialState.saved?.difficultyTier ?? DEFAULT_DIFFICULTY_TIER,
   );
   const [readyOutcomeKey, setReadyOutcomeKey] = useState<string | null>(null);
+  const [completedCueBatchKey, setCompletedCueBatchKey] = useState<string>('');
   const [defibNoticeVisible, setDefibNoticeVisible] = useState<boolean>(false);
 
   // Low-Floor / High-Ceiling Tactical Sandbox & Difficulty Policy State
@@ -234,6 +247,14 @@ export default function App() {
   const t = TRANSLATIONS[lang];
   const combat = run.combat;
 
+  const currentCueBatchKey = useMemo(
+    () => (combat?.lastCues ?? []).map((c) => c.id).join('|'),
+    [combat?.lastCues],
+  );
+  const handleCueSequenceComplete = useCallback((batchKey: string) => {
+    setCompletedCueBatchKey(batchKey);
+  }, []);
+
   const isPostCombatOutcome = Boolean(
     (run.screen === 'combat' && combat?.phase === 'VICTORY') ||
       run.screen === 'victory' ||
@@ -256,7 +277,7 @@ export default function App() {
     }
   }, [showTitle]);
 
-  // Wait for the full hit, enemy stagger, blood spray, and KO animation of the last enemy before showing reward UI
+  // Wait for the full hit, Hit-Stop, enemy stagger, blood spray, KO animation, and camera reset before showing reward/end UI
   useEffect(() => {
     if (showTitle || paused || !outcomeKey) {
       return;
@@ -266,16 +287,16 @@ export default function App() {
     }
 
     const cues = combat?.lastCues ?? [];
-    const hasOverdrive = cues.some((c) => c.kind === 'hero_overdrive');
-    const hasSlash = cues.some((c) => c.kind === 'hero_slash');
+    const seqCompleted =
+      currentCueBatchKey !== '' && completedCueBatchKey === currentCueBatchKey;
     const delayMs =
       cues.length === 0
         ? 180
-        : hasOverdrive
-          ? 1580
-          : hasSlash
-            ? 1320
-            : 1120;
+        : seqCompleted
+          ? 40
+          : effectiveTacticalView
+            ? 880
+            : 2200;
 
     const tid = window.setTimeout(() => {
       setReadyOutcomeKey(outcomeKey);
@@ -284,9 +305,18 @@ export default function App() {
     return () => {
       window.clearTimeout(tid);
     };
-  }, [combat?.lastCues, outcomeKey, paused, readyOutcomeKey, showTitle]);
+  }, [
+    combat?.lastCues,
+    completedCueBatchKey,
+    currentCueBatchKey,
+    effectiveTacticalView,
+    outcomeKey,
+    paused,
+    readyOutcomeKey,
+    showTitle,
+  ]);
 
-  // Pause-safe, StrictMode-safe staggered enemy turn stepper
+  // Pause-safe, StrictMode-safe sequential enemy turn stepper synchronized with Action Camera Sequencer
   useEffect(() => {
     if (showTitle || paused || poolModalOpen || Boolean(codexTarget) || run.screen !== 'combat' || !combat) {
       return;
@@ -301,18 +331,19 @@ export default function App() {
       (e, idx) => e.hp > 0 && !enemyActedSetRef.current.has(idx),
     );
 
-    const hasPrimaryAttackCue = combat.lastCues.some(
-      (c) => c.kind === 'hero_slash' && !c.id.endsWith('_def_pulse'),
-    );
-    const hasTechCue = combat.lastCues.some((c) => c.kind === 'hero_tech');
-    const delayMs =
-      combat.phase === 'PLAYER_RESOLVED'
-        ? hasTechCue
-          ? 940
-          : hasPrimaryAttackCue
-            ? 880
-            : 560
-        : 560;
+    const seqCompleted =
+      currentCueBatchKey !== '' && completedCueBatchKey === currentCueBatchKey;
+    const isEmptyBatch = currentCueBatchKey === '';
+    const delayMs = isEmptyBatch
+      ? 180
+      : seqCompleted
+        ? combat.phase === 'PLAYER_RESOLVED'
+          ? 80
+          : 60
+        : effectiveTacticalView
+          ? 900
+          : 2600;
+
     const tid = window.setTimeout(() => {
       if (nextEnemyIdx !== -1) {
         enemyActedSetRef.current.add(nextEnemyIdx);
@@ -354,7 +385,22 @@ export default function App() {
     return () => {
       window.clearTimeout(tid);
     };
-  }, [combat, codexTarget, encounterStartSnapshot?.heroine.hp, failForwardUsedInNode, hintsUsedInNode, lang, paused, poolModalOpen, run, showTitle, undosUsedInNode]);
+  }, [
+    combat,
+    codexTarget,
+    completedCueBatchKey,
+    currentCueBatchKey,
+    effectiveTacticalView,
+    encounterStartSnapshot?.heroine.hp,
+    failForwardUsedInNode,
+    hintsUsedInNode,
+    lang,
+    paused,
+    poolModalOpen,
+    run,
+    showTitle,
+    undosUsedInNode,
+  ]);
 
   // Sync document.body.dataset.state cleanly without triggering storage writes
   useEffect(() => {
@@ -452,6 +498,7 @@ export default function App() {
         Math.floor(Date.now() % 900000) + 10000,
         charId,
         selectedDifficultyTier,
+        true,
       );
       if (fresh.screen === 'combat' && fresh.combat) {
         void ensureCombatAssetsReady(
@@ -654,7 +701,9 @@ export default function App() {
       );
       const cues = nextState.combat?.lastCues ?? [];
       if (cues.some((c) => c.kind === 'enemy_burst')) soundEngine.playBioBurst();
-      if (cues.some((c) => c.kind === 'enemy_retaliate')) soundEngine.playRetaliateSpike();
+      if (cues.some((c) => c.kind === 'enemy_retaliate' || c.kind === 'enemy_pustule_rupture')) {
+        soundEngine.playRetaliateSpike();
+      }
       if (cues.some((c) => c.kind === 'enemy_phase_gate')) soundEngine.playShieldPipCrack();
       setRun(nextState);
       setHoveredColor(null);
@@ -1073,13 +1122,65 @@ export default function App() {
     setRun((prev) => purgeClinicInnateTile(prev, tileId));
   }, []);
 
-  const handleMedBayAction = useCallback(
-    (action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock') => {
-      soundEngine.playUpgrade(false);
-      setRun((prev) => applyMedBayAction(prev, action));
-    },
-    [],
-  );
+  const handleIncubateTile = useCallback((tileId: string) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => incubateStorkTile(prev, tileId));
+  }, []);
+
+  const handleMarryBloodline = useCallback((colorA: TileType, colorB: TileType) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => marryBloodlineCrest(prev, colorA, colorB));
+  }, []);
+
+  const handleEnrollProdigy = useCallback((tileId: string) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => enrollCharterProdigyTile(prev, tileId));
+  }, []);
+
+  const handleSpliceTiles = useCallback((primaryTileId: string, donorTileId: string) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => spliceFabLabTiles(prev, primaryTileId, donorTileId));
+  }, []);
+
+  const handleAdoptNannyBot = useCallback((botId: NannyBotId) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => adoptNannyBot(prev, botId));
+  }, []);
+
+  const handleStartBetaTrial = useCallback((defId?: string) => {
+    soundEngine.playUpgrade(false);
+    setRun((prev) => startBetaTrialChip(prev, defId));
+  }, []);
+
+  const handleEngraveHeirloom = useCallback((instanceId: string) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => engraveHeirloom(prev, instanceId));
+  }, []);
+
+  const handleRerouteMeshNet = useCallback((targetNodeId: string) => {
+    soundEngine.playUpgrade(false);
+    setRun((prev) => rerouteMeshNetNode(prev, targetNodeId));
+  }, []);
+
+  const handleCharterEstate = useCallback(() => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => charterSuburbanEstate(prev));
+  }, []);
+
+  const handleRideMagLev = useCallback((targetNodeId?: string) => {
+    soundEngine.playUpgrade(true);
+    setRun((prev) => rideMagLevExpress(prev, targetNodeId));
+  }, []);
+
+  const handleSwitchEvent = useCallback((eventId: string) => {
+    soundEngine.playClick();
+    setRun((prev) => switchActiveCyberEvent(prev, eventId));
+  }, []);
+
+  const handleMedBayAction = useCallback((action: MedBayActionType) => {
+    soundEngine.playUpgrade(false);
+    setRun((prev) => applyMedBayAction(prev, action));
+  }, []);
 
   const handleResolveEventChoice = useCallback((choiceIndex: number) => {
     soundEngine.playUpgrade(true);
@@ -1263,6 +1364,24 @@ export default function App() {
       if (paused || poolModalOpen || Boolean(codexTarget)) return;
 
       if (run.screen === 'combat' && !isTextEditableFocused(e.target)) {
+        if (run.combat?.phase === 'VICTORY' && postCombatOverlayReady) {
+          const choices = run.combat.rewardEquipmentChoices;
+          if (e.key === '1' && choices[0]) {
+            e.preventDefault();
+            handleClaimCombatReward(choices[0]);
+            return;
+          }
+          if (e.key === '2' && choices[1]) {
+            e.preventDefault();
+            handleClaimCombatReward(choices[1]);
+            return;
+          }
+          if (e.key === '0' || (e.key === 'Enter' && !isInteractiveFocused(e.target))) {
+            e.preventDefault();
+            handleClaimCombatReward(null);
+            return;
+          }
+        }
         if (e.key === '1') {
           handleCommitColor('attack');
         } else if (e.key === '2') {
@@ -1306,6 +1425,7 @@ export default function App() {
   }, [
     codexTarget,
     fullscreen,
+    handleClaimCombatReward,
     handleCommitColor,
     handleContinueRun,
     handleCycleSemanticZoom,
@@ -1322,6 +1442,8 @@ export default function App() {
     handleUndoTurn,
     paused,
     poolModalOpen,
+    postCombatOverlayReady,
+    run.combat,
     run.screen,
     savedRunSnapshot,
     selectedCharacter,
@@ -1449,6 +1571,9 @@ export default function App() {
           effectiveWidth={viewport.effectiveWidth}
           onSelectNode={handleSelectMapNode}
           onOpenLoadout={handleOpenPool}
+          onRerouteMeshNet={handleRerouteMeshNet}
+          onCharterEstate={handleCharterEstate}
+          onRideMagLev={handleRideMagLev}
         />
       )}
 
@@ -1462,6 +1587,10 @@ export default function App() {
           onInstall={handleInstallImplant}
           onOpenPool={handleOpenPool}
           onSkip={handleSkipClinic}
+          onIncubateTile={handleIncubateTile}
+          onMarryBloodline={handleMarryBloodline}
+          onEnrollProdigyTile={handleEnrollProdigy}
+          onSpliceTiles={handleSpliceTiles}
         />
       )}
 
@@ -1474,6 +1603,9 @@ export default function App() {
           onRestockShop={handleRestockShop}
           onOpenPool={handleOpenPool}
           onLeave={handleSkipChipDealer}
+          onAdoptNannyBot={handleAdoptNannyBot}
+          onStartBetaTrial={handleStartBetaTrial}
+          onEngraveHeirloom={handleEngraveHeirloom}
         />
       )}
 
@@ -1492,6 +1624,7 @@ export default function App() {
           lang={lang}
           isCompactLandscape={viewport.isCompactLandscape}
           onChoice={handleResolveEventChoice}
+          onSwitchEvent={handleSwitchEvent}
         />
       )}
 
@@ -1499,6 +1632,43 @@ export default function App() {
         combat && (
           <>
             <div className="relative flex flex-1 min-h-0 flex-col">
+              {(combat.cradleObjective ||
+                run.heroine.bloodlineCrest ||
+                run.heroine.nannyBotInstalled ||
+                run.heroine.activeTempoRule) && (
+                <div
+                  data-testid="dynasty-combat-hud-banner"
+                  className="pointer-events-none absolute top-2 left-1/2 z-10 flex -translate-x-1/2 flex-wrap items-center justify-center gap-1.5 px-2"
+                >
+                  {combat.cradleObjective && (
+                    <span
+                      data-testid="bio-cradle-hud-pill"
+                      className={`rounded-md border px-2 py-0.5 font-mono-tabular text-[10px] font-bold shadow-md backdrop-blur-sm ${
+                        combat.cradleObjective.hp > 0
+                          ? 'border-pink-300/65 bg-pink-950/75 text-pink-100'
+                          : 'border-rose-400/65 bg-rose-950/75 text-rose-200'
+                      }`}
+                    >
+                      🍼 {lang === 'cs' ? 'Bio-Kolébka' : 'Bio-Cradle'}: {combat.cradleObjective.hp}/
+                      {combat.cradleObjective.maxHp} HP
+                    </span>
+                  )}
+                  {run.heroine.bloodlineCrest && (
+                    <span className="rounded-md border border-amber-300/60 bg-amber-950/75 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-[#FFE066] shadow-md backdrop-blur-sm">
+                      ⚜ {run.heroine.bloodlineCrest.primary.toUpperCase()} ⚭{' '}
+                      {run.heroine.bloodlineCrest.secondary.toUpperCase()}
+                      {combat.bloodlineResonanceActive
+                        ? ` · +${run.heroine.bloodlineCrest.bonusValue} + ⚡ (${combat.bloodlineResonanceActive.toUpperCase()})`
+                        : ''}
+                    </span>
+                  )}
+                  {run.heroine.nannyBotInstalled && (
+                    <span className="rounded-md border border-cyan-300/55 bg-cyan-950/75 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-100 shadow-md backdrop-blur-sm">
+                      🤖 {run.heroine.nannyBotInstalled}
+                    </span>
+                  )}
+                </div>
+              )}
               <CombatStageCanvas
                 runId={run.runId}
                 combat={combat}
@@ -1515,6 +1685,7 @@ export default function App() {
                 difficultyTier={diffProfile.tier}
                 onUndoTurn={handleUndoTurn}
                 onOpenCodex={handleOpenCodex}
+                onCueSequenceComplete={handleCueSequenceComplete}
               />
 
               {/* Non-boss Combat Clear + Equipment Loot Overlay (shown after full hit & KO animation) */}
@@ -1578,30 +1749,27 @@ export default function App() {
                       {objectivesSummary && (
                         <div
                           data-testid="victory-tiered-objectives"
-                          className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3 text-left font-mono-tabular text-[10px]"
+                          className="mt-2 flex flex-wrap items-center justify-center gap-1.5 font-mono-tabular text-[10px]"
                         >
                           {objectivesSummary.tiers.map((tier) => (
                             <div
                               key={`victory_tier_${tier.tier}`}
                               data-achieved={tier.completed ? 'true' : 'false'}
-                              className={`rounded-lg border p-2 ${
+                              className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-1 ${
                                 tier.completed
                                   ? 'border-emerald-300/60 bg-emerald-950/50 text-emerald-100'
                                   : 'border-white/10 bg-slate-900/60 text-slate-400 opacity-75'
                               }`}
                             >
-                              <div className="flex items-center justify-between font-bold">
-                                <span className={tier.completed ? 'text-[#FFC700]' : 'text-slate-400'}>
-                                  {tier.tierLabel}
-                                </span>
-                                <span>{tier.completed ? '✓' : '—'}</span>
-                              </div>
-                              <div className="mt-0.5 text-[9px] text-slate-300">
+                              <span className={`font-bold ${tier.completed ? 'text-[#FFC700]' : 'text-slate-400'}`}>
+                                {tier.completed ? '✓' : '—'} {tier.tierLabel}
+                              </span>
+                              <span className="text-[9px] text-slate-300 truncate max-w-[150px]">
                                 {tier.title}
-                              </div>
-                              <div className="mt-0.5 text-[9px] font-bold text-cyan-200">
+                              </span>
+                              <span className="text-[9px] font-bold text-cyan-200">
                                 {tier.rewardText}
-                              </div>
+                              </span>
                             </div>
                           ))}
                         </div>
@@ -1643,7 +1811,7 @@ export default function App() {
                             </div>
                           </div>
                           <div className="mt-2 grid grid-cols-1 gap-2 min-[500px]:grid-cols-2 sm:gap-3">
-                            {combat.rewardEquipmentChoices.map((defId) => {
+                            {combat.rewardEquipmentChoices.map((defId, idx) => {
                               const def = EQUIPMENT_BY_ID[defId];
                               if (!def) return null;
                               const meta = t.equipment[def.id];
@@ -1653,28 +1821,33 @@ export default function App() {
                                   key={defId}
                                   type="button"
                                   onClick={() => handleClaimCombatReward(defId)}
-                                  className="chrome-pill flex flex-col justify-between rounded-xl border-cyan-300/45 p-2.5 sm:p-4 text-left transition-all hover:-translate-y-0.5 hover:border-[#00F0FF] cursor-pointer"
+                                  className="chrome-pill flex flex-col justify-between rounded-xl border-cyan-300/45 p-2.5 sm:p-3.5 text-left transition-all hover:-translate-y-0.5 hover:border-[#00F0FF] cursor-pointer"
                                 >
                                   <div>
                                     <div className="flex items-center justify-between gap-2">
-                                      <span className="font-display text-sm sm:text-base font-bold text-white">
-                                        {meta?.name ?? def.id}
-                                      </span>
+                                      <div className="flex items-center gap-1.5 min-w-0">
+                                        <span className="rounded bg-slate-900/90 border border-white/15 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-200 shrink-0">
+                                          [{idx + 1}]
+                                        </span>
+                                        <span className="font-display text-sm sm:text-base font-bold text-white truncate">
+                                          {meta?.name ?? def.id}
+                                        </span>
+                                      </div>
                                       <span
-                                        className={`font-mono-tabular text-[11px] sm:text-xs font-bold ${
+                                        className={`font-mono-tabular text-[11px] sm:text-xs font-bold shrink-0 ${
                                           fitsEquip ? 'text-[#00F0FF]' : 'text-amber-300'
                                         }`}
                                       >
-                                        {t.sizeLabel}: {def.size}
+                                        {t.sizeLabel}:{def.size}
                                       </span>
                                     </div>
-                                    <p className="mt-0.5 sm:mt-1 text-[11px] sm:text-xs text-slate-200">
+                                    <p className="mt-0.5 sm:mt-1 font-mono-tabular text-[10px] sm:text-xs text-slate-200">
                                       {meta?.desc ?? ''}
                                     </p>
-                                    <div className="mt-1.5 sm:mt-2 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]">
-                                      {def.tiles.map((spec, idx) => (
+                                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]">
+                                      {def.tiles.map((spec, tileIdx) => (
                                         <span
-                                          key={`${defId}_loot_${idx}`}
+                                          key={`${defId}_loot_${tileIdx}`}
                                           className={`font-bold ${
                                             spec.type === 'attack'
                                               ? 'text-rose-200'
@@ -1683,13 +1856,13 @@ export default function App() {
                                                 : 'text-amber-200'
                                           }`}
                                         >
-                                          {idx > 0 ? '· ' : ''}
+                                          {tileIdx > 0 ? '· ' : ''}
                                           {formatTileShortLabel(spec, lang)}
                                         </span>
                                       ))}
                                     </div>
                                   </div>
-                                  <div className="mt-2 sm:mt-3 flex items-center justify-between gap-2 text-[11px] sm:text-xs font-bold">
+                                  <div className="mt-2 flex items-center justify-between gap-2 text-[11px] sm:text-xs font-bold">
                                     <span className={fitsEquip ? 'text-[#00F0FF]' : 'text-amber-300'}>
                                       {fitsEquip
                                         ? `✓ ${lang === 'cs' ? 'Vybavit hned' : 'Auto-Equip'}`

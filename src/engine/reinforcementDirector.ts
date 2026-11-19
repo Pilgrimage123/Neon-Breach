@@ -17,7 +17,28 @@ import type {
   Tile,
 } from './types';
 
-export const MAX_ACTIVE_BRIDGE_ENEMIES = 3;
+export const MAX_ACTIVE_BRIDGE_ENEMIES = 6;
+
+export function getEnemySlotSpan(archetype: EnemyArchetype): number {
+  return archetype === 'brute' ? 2 : 1;
+}
+
+export function getOccupiedBridgeSlotCount(
+  enemies: readonly Pick<EnemyUnit, 'archetype' | 'hp' | 'escaped'>[],
+  pending: readonly Pick<PendingReinforcement, 'archetype'>[] = [],
+): number {
+  let total = 0;
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (e.hp > 0 && !e.escaped) {
+      total += getEnemySlotSpan(e.archetype);
+    }
+  }
+  for (let i = 0; i < pending.length; i++) {
+    total += getEnemySlotSpan(pending[i].archetype);
+  }
+  return total;
+}
 
 const ARCHETYPE_THREAT_COST: Record<Exclude<EnemyArchetype, 'boss'>, number> = {
   larva: 4,
@@ -55,6 +76,7 @@ export function computePlayerMetaPower(heroine: HeroineState): number {
 export interface EnemyIntentContext {
   shieldAfterPlayer?: number;
   colorPlayed?: 'attack' | 'defense' | 'tech' | null;
+  battlefieldRule?: 'volatile_atmosphere' | 'magnetic_surge';
 }
 
 export function isIntentConditionMet(
@@ -76,11 +98,27 @@ export function isIntentConditionMet(
 }
 
 export function getEffectiveEnemyIntentValue(
-  enemy: Pick<EnemyUnit, 'staggered' | 'enrageAtkBonus'>,
+  enemy: Pick<
+    EnemyUnit,
+    | 'staggered'
+    | 'enrageAtkBonus'
+    | 'weaponBroken'
+    | 'desperationEnraged'
+    | 'sleepCounter'
+    | 'propKind'
+    | 'isLootRunner'
+    | 'escaped'
+  >,
   intent: EnemyIntent,
   ctx?: EnemyIntentContext,
 ): number {
-  if (enemy.staggered) {
+  if (
+    enemy.staggered ||
+    (enemy.sleepCounter !== undefined && enemy.sleepCounter > 0) ||
+    Boolean(enemy.propKind) ||
+    Boolean(enemy.isLootRunner) ||
+    Boolean(enemy.escaped)
+  ) {
     if (
       intent.kind === 'attack' ||
       intent.kind === 'heavy' ||
@@ -92,6 +130,8 @@ export function getEffectiveEnemyIntentValue(
     }
   }
   const bonus = Math.max(0, enemy.enrageAtkBonus ?? 0);
+  const desperationBonus = enemy.desperationEnraged ? 3 : 0;
+  const weaponPenalty = enemy.weaponBroken ? 3 : 0;
   const condBonus = isIntentConditionMet(intent, ctx) ? (intent.conditionBonus ?? 0) : 0;
   if (
     intent.kind === 'attack' ||
@@ -100,7 +140,21 @@ export function getEffectiveEnemyIntentValue(
     intent.kind === 'leech' ||
     intent.kind === 'charge'
   ) {
-    return intent.value + bonus + condBonus;
+    const raw = Math.max(
+      intent.value > 0 ? 1 : 0,
+      intent.value - weaponPenalty + bonus + desperationBonus + condBonus,
+    );
+    if (ctx?.battlefieldRule === 'volatile_atmosphere' && raw > 0) {
+      return Math.round(raw * 1.25);
+    }
+    return raw;
+  }
+  if (
+    (intent.kind === 'armor' || intent.kind === 'bolster') &&
+    ctx?.battlefieldRule === 'magnetic_surge' &&
+    intent.value > 0
+  ) {
+    return intent.value + 2;
   }
   return intent.value;
 }
@@ -241,6 +295,12 @@ export function createReinforcementUnit(
     archetype === 'boss' ? 'skitter' : archetype;
   const tpl = ENEMY_TEMPLATES[safeArchetype];
   const scaledHp = computeSmartScaledEnemyHp(safeArchetype, tpl.maxHp, hpBonus, difficultyTier);
+  const intentCycle = tpl.intentCycle.map((intent) => ({ ...intent }));
+  // Turn-1 Grace Period: never open on a heavy nuke on arrival turn
+  const graceStartIdx =
+    intentCycle[0]?.kind === 'heavy'
+      ? Math.max(0, intentCycle.findIndex((i) => i.kind !== 'heavy'))
+      : 0;
   return {
     id: `enemy_reinf_${safeArchetype}_${sequenceId}`,
     archetype: safeArchetype,
@@ -251,8 +311,8 @@ export function createReinforcementUnit(
     maxShieldPips: tpl.startingShieldPips,
     passive: tpl.passive,
     roleColor: tpl.roleColor,
-    intentCycle: tpl.intentCycle.map((intent) => ({ ...intent })),
-    currentIntentIndex: 0,
+    intentCycle,
+    currentIntentIndex: graceStartIdx,
     enrageAtkBonus: 0,
     turnsWithoutDamage: 0,
     sosCharging: false,
@@ -264,22 +324,45 @@ export function createReinforcementUnit(
 export function findOpenBridgeSlot(
   enemies: EnemyUnit[],
   pending: PendingReinforcement[],
+  neededSpan = 1,
 ): number | null {
+  const usedCapacity = getOccupiedBridgeSlotCount(enemies, pending);
+  if (usedCapacity + neededSpan > MAX_ACTIVE_BRIDGE_ENEMIES) {
+    return null;
+  }
+
   const occupiedSlots = new Set<number>();
-  for (let i = 0; i < Math.min(MAX_ACTIVE_BRIDGE_ENEMIES, enemies.length); i++) {
-    if (enemies[i].hp > 0) {
-      occupiedSlots.add(i);
+  let cursor = 0;
+  for (let i = 0; i < enemies.length; i++) {
+    const span = getEnemySlotSpan(enemies[i].archetype);
+    if (enemies[i].hp > 0 && !enemies[i].escaped) {
+      for (let s = 0; s < span; s++) {
+        occupiedSlots.add(cursor + s);
+      }
     }
+    cursor += span;
   }
   for (const drop of pending) {
-    occupiedSlots.add(drop.slotIndex);
+    const dropSpan = getEnemySlotSpan(drop.archetype);
+    for (let s = 0; s < dropSpan; s++) {
+      occupiedSlots.add(drop.slotIndex + s);
+    }
   }
+
+  const isContiguousFree = (startSlot: number): boolean => {
+    if (startSlot < 0 || startSlot + neededSpan > MAX_ACTIVE_BRIDGE_ENEMIES) return false;
+    for (let s = 0; s < neededSpan; s++) {
+      if (occupiedSlots.has(startSlot + s)) return false;
+    }
+    return true;
+  };
+
   // Prefer filling empty extension lane slots first, then dead KO slots
-  for (let slot = enemies.length; slot < MAX_ACTIVE_BRIDGE_ENEMIES; slot++) {
-    if (!occupiedSlots.has(slot)) return slot;
+  for (let slot = Math.min(cursor, MAX_ACTIVE_BRIDGE_ENEMIES); slot < MAX_ACTIVE_BRIDGE_ENEMIES; slot++) {
+    if (isContiguousFree(slot)) return slot;
   }
   for (let slot = 0; slot < MAX_ACTIVE_BRIDGE_ENEMIES; slot++) {
-    if (!occupiedSlots.has(slot)) return slot;
+    if (isContiguousFree(slot)) return slot;
   }
   return null;
 }
@@ -291,6 +374,7 @@ export function pickReinforcementArchetype(
   seed: number,
   turn: number,
   budget: number,
+  freeSlotCount = MAX_ACTIVE_BRIDGE_ENEMIES,
 ): { archetype: Exclude<EnemyArchetype, 'boss'>; reason: ReinforcementReason } {
   const roll = deterministicHash(seed + turn * 131 + director.totalSpawnSequence * 37) % 100;
   const { attack, defense, tech, surges } = director.compositionCounts;
@@ -314,8 +398,8 @@ export function pickReinforcementArchetype(
     }
   }
 
-  // Modular Threat-Pool buy filtered by affordable Threat Points and layer difficulty
-  const pool: Array<Exclude<EnemyArchetype, 'boss'>> =
+  // Modular Threat-Pool buy filtered by affordable Threat Points, free slot span, and layer difficulty
+  const rawPool: Array<Exclude<EnemyArchetype, 'boss'>> =
     layer === 0
       ? ['larva', 'skitter']
       : nodeType === 'BOSS'
@@ -324,6 +408,7 @@ export function pickReinforcementArchetype(
           ? ['larva', 'skitter', 'stinger', 'stalker']
           : ['skitter', 'stinger', 'stalker', 'spitter', 'brute'];
 
+  const pool = rawPool.filter((arch) => getEnemySlotSpan(arch) <= freeSlotCount);
   const affordable = pool.filter((arch) => ARCHETYPE_THREAT_COST[arch] <= budget);
   const candidates = affordable.length > 0 ? affordable : (['larva'] as const);
   const pickIdx = deterministicHash(seed + turn * 53 + director.totalSpawnSequence * 19) % candidates.length;
@@ -476,9 +561,16 @@ export function advanceDirectorAtRoundEnd(params: {
 
       const nextCountdown = drop.turnsUntilDrop - 1;
       if (nextCountdown <= 0) {
-        const currentLiving = nextEnemies.filter((e) => e.hp > 0).length;
-        if (currentLiving >= MAX_ACTIVE_BRIDGE_ENEMIES) {
-          // Board is already at 3 active cap; keep waiting in orbit at T-1
+        const dropSpan = getEnemySlotSpan(drop.archetype);
+        const occupiedBeforeDrop = getOccupiedBridgeSlotCount(nextEnemies);
+        const replaceIdx =
+          drop.slotIndex < nextEnemies.length && nextEnemies[drop.slotIndex].hp <= 0
+            ? drop.slotIndex
+            : nextEnemies.findIndex(
+                (e) => e.hp <= 0 && getEnemySlotSpan(e.archetype) >= dropSpan,
+              );
+        if (occupiedBeforeDrop + dropSpan > MAX_ACTIVE_BRIDGE_ENEMIES) {
+          // Board lacks slot capacity for this unit's footprint; keep waiting in orbit at T-1
           remainingPending.push({ ...drop, turnsUntilDrop: 1 });
           continue;
         }
@@ -491,18 +583,19 @@ export function advanceDirectorAtRoundEnd(params: {
           Boolean(drop.isZeroReward),
           difficultyTier,
         );
-        if (drop.slotIndex < nextEnemies.length && nextEnemies[drop.slotIndex].hp <= 0) {
+        if (
+          drop.slotIndex < nextEnemies.length &&
+          nextEnemies[drop.slotIndex].hp <= 0 &&
+          getEnemySlotSpan(nextEnemies[drop.slotIndex].archetype) >= dropSpan
+        ) {
           nextEnemies[drop.slotIndex] = unit;
         } else if (nextEnemies.length < MAX_ACTIVE_BRIDGE_ENEMIES) {
           nextEnemies.push(unit);
+        } else if (replaceIdx >= 0) {
+          nextEnemies[replaceIdx] = unit;
         } else {
-          const deadSlot = nextEnemies.findIndex((e) => e.hp <= 0);
-          if (deadSlot >= 0) {
-            nextEnemies[deadSlot] = unit;
-          } else {
-            remainingPending.push({ ...drop, turnsUntilDrop: 1 });
-            continue;
-          }
+          remainingPending.push({ ...drop, turnsUntilDrop: 1 });
+          continue;
         }
         if (!drop.isZeroReward) {
           spawnedCount += 1;
@@ -635,6 +728,10 @@ export function advanceDirectorAtRoundEnd(params: {
   if (canQueueThreatWave) {
     if (spawnedCount < director.maxReinforcementsSpawned && nextThreatPool >= 4) {
       const isReactive = livingNow.length === 1 && nextEnemies.length >= 2;
+      const freeSlotCount = Math.max(
+        0,
+        MAX_ACTIVE_BRIDGE_ENEMIES - getOccupiedBridgeSlotCount(nextEnemies, remainingPending),
+      );
       const pick = pickReinforcementArchetype(
         { ...director, totalSpawnSequence: seq },
         layer,
@@ -642,8 +739,19 @@ export function advanceDirectorAtRoundEnd(params: {
         seed,
         nextTurn,
         nextThreatPool,
+        freeSlotCount,
       );
-      const cost = ARCHETYPE_THREAT_COST[pick.archetype];
+      let chosenArch = pick.archetype;
+      let dropSlot = findOpenBridgeSlot(
+        nextEnemies,
+        remainingPending,
+        getEnemySlotSpan(chosenArch),
+      );
+      if (dropSlot === null) {
+        chosenArch = nextThreatPool >= ARCHETYPE_THREAT_COST.skitter ? 'skitter' : 'larva';
+        dropSlot = openSlot;
+      }
+      const cost = ARCHETYPE_THREAT_COST[chosenArch];
       if (nextThreatPool >= cost) {
         nextThreatPool = Math.max(0, nextThreatPool - cost);
         const baseLead = isReactive || nodeType === 'BOSS' ? 1 : 2;
@@ -651,11 +759,11 @@ export function advanceDirectorAtRoundEnd(params: {
         const reason: ReinforcementReason =
           pick.reason === 'adaptive' ? 'adaptive' : isReactive ? 'reactive' : 'threat_pool';
         const dropId = `drop_wave_${nextTurn}_${seq + 1}`;
-        const armorBonus = director.playerMetaPower >= 9 && pick.archetype === 'larva' ? 2 : 0;
+        const armorBonus = director.playerMetaPower >= 9 && chosenArch === 'larva' ? 2 : 0;
         remainingPending.push({
           id: dropId,
-          archetype: pick.archetype,
-          slotIndex: openSlot,
+          archetype: chosenArch,
+          slotIndex: dropSlot,
           turnsUntilDrop,
           reason,
           isZeroReward: heatStage === 'overtime',
@@ -665,7 +773,7 @@ export function advanceDirectorAtRoundEnd(params: {
           id: `cue_telegraph_${dropId}`,
           kind: 'enemy_telegraph',
           value: turnsUntilDrop,
-          textLabel: pick.archetype,
+          textLabel: chosenArch,
         });
       }
     } else if (heatStage === 'overtime' && livingNow.length < 2) {

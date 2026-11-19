@@ -1,8 +1,9 @@
 import { useEffect, useRef } from 'react';
 import {
   ENEMY_CUTOUT_OPTIONS,
-  getPreloadedEnemyCutout,
+  getPreloadedEnemyPortrait,
   loadCrawlerVariantFrames,
+  loadEnemyPortrait,
 } from '../../assets/assetPreloader';
 import { GAME_ASSETS } from '../../assets/gameAssets';
 import { PASSIVE_TO_GLOSSARY_TERM } from '../../engine/codexData';
@@ -94,15 +95,13 @@ function EnemyBioScanPortrait({
         ctx.stroke();
       }
 
-      const pad = 6;
+      const hasDedicatedPortrait = Boolean(GAME_ASSETS.enemyPortraits[archetype]);
+      const pad = hasDedicatedPortrait ? 2 : 6;
       const drawDim = sizePx - pad * 2;
       const cx = sizePx * 0.5;
-      const baseBottomY = sizePx - 6;
+      const baseBottomY = hasDedicatedPortrait ? sizePx - 2 : sizePx - 6;
       ctx.save();
       ctx.translate(cx, baseBottomY);
-      if (archetype === 'brute') {
-        ctx.scale(-1, 1);
-      }
       ctx.drawImage(
         sourceCanvas,
         -drawDim * bounds.centerXRatio,
@@ -114,13 +113,25 @@ function EnemyBioScanPortrait({
       ctx.restore();
     };
 
-    const cached = getPreloadedEnemyCutout(archetype);
+    const cached = getPreloadedEnemyPortrait(archetype);
     if (cached) {
       drawCutout(cached.canvas, cached.bounds);
       return;
     }
 
-    if (isCrawlerArchetype(archetype)) {
+    if (
+      GAME_ASSETS.enemyPortraits[archetype] ||
+      archetype === 'stalker' ||
+      archetype === 'spitter' ||
+      archetype === 'brute'
+    ) {
+      void loadEnemyPortrait(archetype)
+        .then((cut) => {
+          if (cancelled || !cut) return;
+          drawCutout(cut, measureSpriteBounds(cut));
+        })
+        .catch(() => {});
+    } else if (isCrawlerArchetype(archetype)) {
       void loadCrawlerVariantFrames(archetype)
         .then((frames) => {
           if (cancelled || !frames[0]) return;
@@ -148,7 +159,11 @@ function EnemyBioScanPortrait({
           ? 'border-[#84CC16]/65 shadow-[inset_0_0_24px_rgba(132,204,22,0.22)]'
           : archetype === 'brute'
             ? 'border-[#FFC700]/60 shadow-[inset_0_0_24px_rgba(255,199,0,0.18)]'
-            : 'border-cyan-300/45 shadow-[inset_0_0_24px_rgba(0,240,255,0.16)]'
+            : archetype === 'stalker'
+              ? 'border-[#FF2E7E]/70 shadow-[inset_0_0_24px_rgba(255,46,126,0.24)]'
+              : archetype === 'spitter'
+                ? 'border-[#A3E635]/70 shadow-[inset_0_0_24px_rgba(163,230,53,0.22)]'
+                : 'border-cyan-300/45 shadow-[inset_0_0_24px_rgba(0,240,255,0.16)]'
       }`}
       style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
     >
@@ -213,6 +228,18 @@ export function EnemyIntelPanel({
     onSelectEnemy(livingEnemies[nextIdx].id);
   };
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [onClose]);
+
   return (
     <div
       role="region"
@@ -270,6 +297,14 @@ export function EnemyIntelPanel({
                   {meta.name}
                 </h3>
                 <span className="text-xs font-bold text-lime-300">· {meta.classification}</span>
+                {enemy.archetype === 'brute' && (
+                  <span
+                    data-testid="enemy-intel-two-slot"
+                    className="rounded-md border border-[#FFC700]/65 bg-amber-500/20 px-1.5 py-0.5 font-mono-tabular text-[11px] font-black text-[#FFE066]"
+                  >
+                    {lang === 'cs' ? '2× POZICE' : '2× SLOTS'}
+                  </span>
+                )}
                 {enemy.staggered && (
                   <span className="rounded-md border border-cyan-300 bg-cyan-500/20 px-2 py-0.5 font-mono-tabular text-xs font-black text-cyan-200">
                     {t.staggeredTag} (0 DMG)
@@ -295,6 +330,7 @@ export function EnemyIntelPanel({
 
             <button
               type="button"
+              data-testid="enemy-intel-close-btn"
               onClick={onClose}
               className="chrome-pill shrink-0 rounded-lg px-2.5 py-1 text-xs font-bold text-[#F4F4F6] hover:border-cyan-300 cursor-pointer"
             >

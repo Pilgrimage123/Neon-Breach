@@ -18,13 +18,20 @@ import {
   type MedBayOptionId,
 } from '../utils/nurseSpriteSheet';
 
+export type MedBayActionType =
+  | 'heal'
+  | 'calibrate_max_hp'
+  | 'salvage_credits'
+  | 'tile_overclock'
+  | 'hearth_grandparents'
+  | 'hearth_spouse'
+  | 'hearth_kids';
+
 interface BioMedBayViewProps {
   run: RunState;
   lang: Language;
   isCompactLandscape?: boolean;
-  onAction: (
-    action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock',
-  ) => void;
+  onAction: (action: MedBayActionType) => void;
 }
 
 export function BioMedBayView({
@@ -344,12 +351,31 @@ export function BioMedBayView({
               ? t.medbayNurseIdleCritical
               : t.medbayNurseIdleNominal;
 
-  const triggerAction = (
-    action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock',
-  ) => {
+  const triggerAction = (action: MedBayActionType) => {
     setPulseCount((c) => c + 1);
     onAction(action);
   };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === '1') {
+        e.preventDefault();
+        triggerAction('heal');
+      } else if (e.key === '2') {
+        e.preventDefault();
+        triggerAction('calibrate_max_hp');
+      } else if (e.key === '3') {
+        e.preventDefault();
+        triggerAction('salvage_credits');
+      } else if (e.key === '4' && !overclockMaxed) {
+        e.preventDefault();
+        triggerAction('tile_overclock');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  });
 
   return (
     <main
@@ -395,10 +421,6 @@ export function BioMedBayView({
               isCompactLandscape ? '-mt-3 px-2 py-1' : '-mt-4 px-3 py-1.5'
             }`}
           >
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#10F5A0] opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-[#10F5A0]" />
-            </span>
             <div className="flex flex-col text-left">
               <span className="font-display text-xs font-bold tracking-wide text-pink-200 group-hover:text-pink-100">
                 {t.medbayNurseName}
@@ -419,79 +441,75 @@ export function BioMedBayView({
           className={`chrome-glass relative z-10 flex-1 min-w-0 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col justify-between ${
             isCompactLandscape
               ? 'p-2.5 gap-2 max-h-[360px]'
-              : 'p-3.5 sm:p-5 lg:p-6 gap-3 sm:gap-4'
+              : 'p-3.5 sm:p-5 gap-3'
           }`}
         >
-          <div className="flex flex-col gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-mono-tabular text-xs font-bold uppercase tracking-wider">
-                {t.medbayTitle}
-              </span>
-              {isFundedClinic && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-lime-500/20 border border-lime-400/60 text-lime-300 font-mono-tabular text-xs font-bold uppercase tracking-wider animate-pulse">
-                  {t.bountyFundedClinicBadge}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-mono-tabular text-xs font-bold uppercase tracking-wider">
+                  {t.medbayTitle}
                 </span>
-              )}
-              <span className="text-xs font-mono-tabular text-slate-300">
-                {t.hpLabel}: {run.heroine.hp}/{run.heroine.maxHp} · {t.creditsLabel}: {run.heroine.credits} · {t.nanitesShort}: {nanites}
+                <h1
+                  className={`chrome-text-shimmer font-display font-bold ${
+                    isCompactLandscape ? 'text-sm sm:text-base' : 'text-base md:text-xl'
+                  }`}
+                >
+                  {t.medbaySubtitle.replace('{name}', charMeta.name)}
+                </h1>
+                {isFundedClinic && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lime-500/20 border border-lime-400/60 text-lime-300 font-mono-tabular text-[10px] font-bold uppercase tracking-wider">
+                    {t.bountyFundedClinicBadge}
+                  </span>
+                )}
+              </div>
+              <span className="text-xs font-mono-tabular font-bold text-slate-200">
+                ♥ {run.heroine.hp}/{run.heroine.maxHp} · ◈ {run.heroine.credits} · 💎 {nanites}
               </span>
             </div>
 
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5">
-              <h1
-                className={`chrome-text-shimmer font-display font-bold ${
-                  isCompactLandscape ? 'text-base sm:text-lg' : 'text-lg md:text-2xl'
-                }`}
-              >
-                {t.medbaySubtitle.replace('{name}', charMeta.name)}
-              </h1>
-            </div>
-
-            {/* Live Reactive Nurse Diagnostic Bar */}
+            {/* Unified Nurse Diagnostic & Status Bar (consolidates funded/greedy/risk notices into 1 row) */}
             <div
               data-testid="medbay-nurse-dialogue"
-              className="flex items-center gap-2 rounded-xl border border-pink-400/35 bg-gradient-to-r from-pink-950/45 via-slate-900/75 to-emerald-950/35 px-3 py-1.5 text-xs text-pink-100"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-pink-400/35 bg-gradient-to-r from-pink-950/45 via-slate-900/75 to-emerald-950/35 px-3 py-1.5 text-xs text-pink-100"
             >
-              <span className="shrink-0 font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-pink-300">
-                [{t.medbayNurseName}]:
-              </span>
-              <span className="truncate font-mono-tabular text-[11px] sm:text-xs text-slate-100">
-                “{nurseQuote}”
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="shrink-0 font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-pink-300">
+                  [{t.medbayNurseName}]:
+                </span>
+                <span className="truncate font-mono-tabular text-[11px] sm:text-xs text-slate-100">
+                  “{nurseQuote}”
+                </span>
+              </div>
+              <span className="shrink-0 font-mono-tabular text-[10px] font-bold text-emerald-300">
+                {isFundedClinic
+                  ? `✦ ${t.fundedClinicAllActionsNote}`
+                  : isHighHp
+                    ? `⚡ ${t.greedyClinicNotice}`
+                    : isCriticalHp
+                      ? `⚠ ${t.opportunityCostNotice}`
+                      : ''}
               </span>
             </div>
-
-            {/* Funded Clinic Global Notice + Greedy Clinic Dilemma vs Opportunity Cost Callout */}
-            {isFundedClinic && (
-              <div className="rounded-xl bg-lime-950/45 border border-lime-400/50 px-3 py-1 text-[11px] text-lime-200 font-mono-tabular">
-                ✦ {t.fundedClinicAllActionsNote}
-              </div>
-            )}
-            {!isCompactLandscape && isHighHp ? (
-              <div className="rounded-xl bg-emerald-950/40 border border-emerald-400/40 px-3 py-1 text-[11px] text-emerald-200 font-mono-tabular">
-                ⚡ {t.greedyClinicNotice}
-              </div>
-            ) : !isCompactLandscape && isCriticalHp ? (
-              <div className="rounded-xl bg-amber-950/40 border border-amber-400/40 px-3 py-1 text-[11px] text-amber-200 font-mono-tabular">
-                ⚠ {t.opportunityCostNotice}
-              </div>
-            ) : null}
           </div>
 
-            {/* 4 Procedure Cards */}
+          {/* 4 Full-Card Clickable Procedure Cards */}
+          <div
+            className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 ${
+              isCompactLandscape ? 'gap-2' : 'gap-2.5'
+            }`}
+          >
+            {/* Option 1: Bio-Repair */}
             <div
-              className={`grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 ${
-                isCompactLandscape ? 'gap-2' : 'gap-2.5 sm:gap-3'
+              onMouseEnter={() => setFocusedOption('heal')}
+              onMouseLeave={() => setFocusedOption(null)}
+              onClick={() => triggerAction('heal')}
+              className={`chrome-pill flex flex-col justify-between rounded-xl border-[#10F5A0]/50 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
+                isCompactLandscape ? 'p-2' : 'p-3'
               }`}
             >
-              {/* Option 1: Bio-Repair */}
-              <div
-                onMouseEnter={() => setFocusedOption('heal')}
-                onMouseLeave={() => setFocusedOption(null)}
-                className={`chrome-pill flex flex-col justify-between rounded-xl border-[#10F5A0]/50 transition-transform duration-150 hover:-translate-y-0.5 ${
-                  isCompactLandscape ? 'p-2' : 'p-3'
-                }`}
-              >
-                <div>
+              <div>
+                <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#10F5A0] ${
                       isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
@@ -499,35 +517,42 @@ export function BioMedBayView({
                   >
                     {t.medbayHealTitle}
                   </h2>
-                  <p className="mt-1 text-[11px] leading-snug text-slate-200">
-                    {t.medbayHealDesc.replace('{name}', charMeta.name)}
-                  </p>
-                  <div className="mt-1.5 font-mono-tabular text-xs font-bold text-white">
-                    {run.heroine.hp} → {healedHp} / {run.heroine.maxHp} {t.hpLabel}
-                  </div>
+                  <span className="font-mono-tabular text-[10px] font-bold text-emerald-300/80">[1]</span>
                 </div>
-                <button
-                  type="button"
-                  onFocus={() => setFocusedOption('heal')}
-                  onBlur={() => setFocusedOption(null)}
-                  onClick={() => triggerAction('heal')}
-                  className={`mt-2.5 w-full rounded-lg bg-gradient-to-r from-[#10F5A0] to-[#6EE7B7] font-bold text-slate-950 shadow-[0_0_20px_rgba(16,245,160,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
-                    isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
-                  }`}
-                >
-                  {t.applyRepair}
-                </button>
+                <div className="mt-1.5 font-mono-tabular text-sm font-black text-[#F4F4F6]">
+                  ♥ {run.heroine.hp} → {healedHp} / {run.heroine.maxHp}
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-300">
+                  {t.medbayHealDesc.replace('{name}', charMeta.name)}
+                </p>
               </div>
-
-              {/* Option 2: Chassis Reinforcement */}
-              <div
-                onMouseEnter={() => setFocusedOption('calibrate_max_hp')}
-                onMouseLeave={() => setFocusedOption(null)}
-                className={`chrome-pill flex flex-col justify-between rounded-xl border-[#00F0FF]/50 transition-transform duration-150 hover:-translate-y-0.5 ${
-                  isCompactLandscape ? 'p-2' : 'p-3'
+              <button
+                type="button"
+                onFocus={() => setFocusedOption('heal')}
+                onBlur={() => setFocusedOption(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerAction('heal');
+                }}
+                className={`mt-2 w-full rounded-lg bg-gradient-to-r from-[#10F5A0] to-[#6EE7B7] font-bold text-slate-950 shadow-[0_0_20px_rgba(16,245,160,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
                 }`}
               >
-                <div>
+                {t.applyRepair}
+              </button>
+            </div>
+
+            {/* Option 2: Chassis Reinforcement */}
+            <div
+              onMouseEnter={() => setFocusedOption('calibrate_max_hp')}
+              onMouseLeave={() => setFocusedOption(null)}
+              onClick={() => triggerAction('calibrate_max_hp')}
+              className={`chrome-pill flex flex-col justify-between rounded-xl border-[#00F0FF]/50 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
+                isCompactLandscape ? 'p-2' : 'p-3'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#00F0FF] ${
                       isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
@@ -535,38 +560,45 @@ export function BioMedBayView({
                   >
                     {t.medbayCalibrateTitle}
                   </h2>
-                  <p className="mt-1 text-[11px] leading-snug text-slate-200">
-                    {t.medbayCalibrateDesc}
-                  </p>
-                  <div className="mt-1.5 font-mono-tabular text-xs font-bold text-white">
-                    {run.heroine.maxHp} → {calibratedMaxHp} Max {t.hpLabel}
-                    {isFundedClinic && (
-                      <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
-                    )}
-                  </div>
+                  <span className="font-mono-tabular text-[10px] font-bold text-cyan-300/80">[2]</span>
                 </div>
-                <button
-                  type="button"
-                  onFocus={() => setFocusedOption('calibrate_max_hp')}
-                  onBlur={() => setFocusedOption(null)}
-                  onClick={() => triggerAction('calibrate_max_hp')}
-                  className={`chrome-btn-primary mt-2.5 w-full rounded-lg font-bold transition-all cursor-pointer ${
-                    isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
-                  }`}
-                >
-                  {t.applyCalibrate}
-                </button>
+                <div className="mt-1.5 font-mono-tabular text-sm font-black text-[#F4F4F6]">
+                  ♥ {run.heroine.maxHp} → {calibratedMaxHp} Max
+                  {isFundedClinic && (
+                    <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-300">
+                  {t.medbayCalibrateDesc}
+                </p>
               </div>
-
-              {/* Option 3: Resource Salvage */}
-              <div
-                onMouseEnter={() => setFocusedOption('salvage_credits')}
-                onMouseLeave={() => setFocusedOption(null)}
-                className={`chrome-pill flex flex-col justify-between rounded-xl border-[#FFC700]/50 transition-transform duration-150 hover:-translate-y-0.5 ${
-                  isCompactLandscape ? 'p-2' : 'p-3'
+              <button
+                type="button"
+                onFocus={() => setFocusedOption('calibrate_max_hp')}
+                onBlur={() => setFocusedOption(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerAction('calibrate_max_hp');
+                }}
+                className={`chrome-btn-primary mt-2 w-full rounded-lg font-bold transition-all cursor-pointer ${
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
                 }`}
               >
-                <div>
+                {t.applyCalibrate}
+              </button>
+            </div>
+
+            {/* Option 3: Resource Salvage */}
+            <div
+              onMouseEnter={() => setFocusedOption('salvage_credits')}
+              onMouseLeave={() => setFocusedOption(null)}
+              onClick={() => triggerAction('salvage_credits')}
+              className={`chrome-pill flex flex-col justify-between rounded-xl border-[#FFC700]/50 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
+                isCompactLandscape ? 'p-2' : 'p-3'
+              }`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#FFC700] ${
                       isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
@@ -574,76 +606,138 @@ export function BioMedBayView({
                   >
                     {t.medbaySalvageTitle}
                   </h2>
-                  <p className="mt-1 text-[11px] leading-snug text-slate-200">
-                    {t.medbaySalvageDesc}
-                  </p>
-                  <div className="mt-1.5 font-mono-tabular text-xs font-bold text-white">
-                    {run.heroine.credits} → {run.heroine.credits + 35} {t.creditsLabel}
-                    {isFundedClinic && (
-                      <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
-                    )}
-                  </div>
+                  <span className="font-mono-tabular text-[10px] font-bold text-amber-300/80">[3]</span>
                 </div>
-                <button
-                  type="button"
-                  onFocus={() => setFocusedOption('salvage_credits')}
-                  onBlur={() => setFocusedOption(null)}
-                  onClick={() => triggerAction('salvage_credits')}
-                  className={`mt-2.5 w-full rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] font-bold text-slate-950 shadow-[0_0_20px_rgba(255,199,0,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
-                    isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
-                  }`}
-                >
-                  {t.applySalvage}
-                </button>
+                <div className="mt-1.5 font-mono-tabular text-sm font-black text-[#F4F4F6]">
+                  ◈ {run.heroine.credits} → {run.heroine.credits + 35} CR
+                  {isFundedClinic && (
+                    <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-300">
+                  {t.medbaySalvageDesc}
+                </p>
               </div>
-
-              {/* Option 4: Neural Overclock & Tile Tuning */}
-              <div
-                onMouseEnter={() => setFocusedOption('tile_overclock')}
-                onMouseLeave={() => setFocusedOption(null)}
-                className={`chrome-pill flex flex-col justify-between rounded-xl border-fuchsia-500/50 bg-fuchsia-950/20 transition-transform duration-150 hover:-translate-y-0.5 ${
-                  isCompactLandscape ? 'p-2' : 'p-3'
+              <button
+                type="button"
+                onFocus={() => setFocusedOption('salvage_credits')}
+                onBlur={() => setFocusedOption(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerAction('salvage_credits');
+                }}
+                className={`mt-2 w-full rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] font-bold text-slate-950 shadow-[0_0_20px_rgba(255,199,0,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
                 }`}
               >
-                <div>
-                  <div className="flex items-center justify-between gap-1.5">
-                    <h2
-                      className={`font-display font-bold text-fuchsia-300 ${
-                        isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
-                      }`}
-                    >
-                      {t.medbayOverclockTitle}
-                    </h2>
-                    <span className="font-mono-tabular text-[10px] font-bold text-fuchsia-200 border border-fuchsia-400/40 rounded px-1.5 py-0.5">
-                      {overclockStacks}/{MAX_OVERCLOCK_STACKS}
-                    </span>
-                  </div>
-                  <p className="mt-1 text-[11px] leading-snug text-slate-200">
-                    {t.medbayOverclockDesc}
-                  </p>
-                  <div className="mt-1.5 font-mono-tabular text-xs font-bold text-fuchsia-200">
-                    {lang === 'cs' ? '+1 ATK (×2) / +20% OD / Čištění' : '+1 ATK (×2) / +20% OD / Cleanse'}
-                    {isFundedClinic && (
-                      <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
-                    )}
-                  </div>
+                {t.applySalvage}
+              </button>
+            </div>
+
+            {/* Option 4: Neural Overclock & Tile Tuning */}
+            <div
+              onMouseEnter={() => setFocusedOption('tile_overclock')}
+              onMouseLeave={() => setFocusedOption(null)}
+              onClick={() => {
+                if (!overclockMaxed) triggerAction('tile_overclock');
+              }}
+              className={`chrome-pill flex flex-col justify-between rounded-xl border-fuchsia-500/50 bg-fuchsia-950/20 transition-transform duration-150 hover:-translate-y-0.5 ${
+                overclockMaxed ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
+              } ${isCompactLandscape ? 'p-2' : 'p-3'}`}
+            >
+              <div>
+                <div className="flex items-center justify-between gap-1.5">
+                  <h2
+                    className={`font-display font-bold text-fuchsia-300 ${
+                      isCompactLandscape ? 'text-xs' : 'text-xs sm:text-sm'
+                    }`}
+                  >
+                    {t.medbayOverclockTitle}
+                  </h2>
+                  <span className="font-mono-tabular text-[10px] font-bold text-fuchsia-200 border border-fuchsia-400/40 rounded px-1.5 py-0.5">
+                    {overclockStacks}/{MAX_OVERCLOCK_STACKS} · [4]
+                  </span>
                 </div>
-                <button
-                  type="button"
-                  disabled={overclockMaxed}
-                  onFocus={() => setFocusedOption('tile_overclock')}
-                  onBlur={() => setFocusedOption(null)}
-                  onClick={() => triggerAction('tile_overclock')}
-                  className={`mt-2.5 w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all hover:brightness-110 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
-                    isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
-                  }`}
-                >
-                  {overclockMaxed ? (lang === 'cs' ? 'Max (2/2)' : 'Maxed (2/2)') : t.applyOverclock}
-                </button>
+                <div className="mt-1.5 font-mono-tabular text-xs font-black text-[#F4F4F6]">
+                  {lang === 'cs' ? '⚔+1 (×2) · ⚡+20% OD · Čištění' : '⚔+1 (×2) · ⚡+20% OD · Cleanse'}
+                  {isFundedClinic && (
+                    <span className="ml-1 text-lime-300 text-[10px]">({t.fundedBonusHpTag})</span>
+                  )}
+                </div>
+                <p className="mt-0.5 text-[10px] text-slate-300">
+                  {t.medbayOverclockDesc}
+                </p>
               </div>
+              <button
+                type="button"
+                disabled={overclockMaxed}
+                onFocus={() => setFocusedOption('tile_overclock')}
+                onBlur={() => setFocusedOption(null)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  triggerAction('tile_overclock');
+                }}
+                className={`mt-2 w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all hover:brightness-110 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
+                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-xs'
+                }`}
+              >
+                {overclockMaxed ? (lang === 'cs' ? 'Max (2/2)' : 'Maxed (2/2)') : t.applyOverclock}
+              </button>
             </div>
           </div>
+
+          {/* Streamlined Single-Row Smart-Hearth Quick Bar */}
+          <div
+            data-testid="medbay-smart-hearth-panel"
+            className="flex flex-wrap items-center gap-1.5 rounded-xl border border-amber-400/35 bg-slate-950/65 px-2.5 py-2"
+          >
+            <span className="font-mono-tabular text-[10px] font-bold uppercase tracking-wider text-amber-300 shrink-0 mr-1">
+              🏡 {lang === 'cs' ? 'Rodinný Krb:' : 'Hearth:'}
+            </span>
+            <button
+              type="button"
+              data-testid="hearth-grandparents-btn"
+              onClick={() => triggerAction('hearth_grandparents')}
+              className="chrome-pill flex-1 min-w-[160px] flex items-center justify-between gap-1.5 rounded-lg border border-amber-300/45 bg-amber-950/25 px-2.5 py-1.5 text-left hover:border-amber-300 cursor-pointer"
+            >
+              <span className="font-display text-[11px] font-bold text-amber-200 whitespace-nowrap">
+                👵 {lang === 'cs' ? 'Prarodiče' : 'Grandparents'}
+              </span>
+              <span className="font-mono-tabular text-[10px] font-bold text-[#F4F4F6] truncate">
+                {lang === 'cs' ? 'Vadný→★ · 💚+10 HP' : 'Dud→★ · 💚+10 HP'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="hearth-spouse-btn"
+              onClick={() => triggerAction('hearth_spouse')}
+              className="chrome-pill flex-1 min-w-[160px] flex items-center justify-between gap-1.5 rounded-lg border border-cyan-300/45 bg-cyan-950/25 px-2.5 py-1.5 text-left hover:border-cyan-300 cursor-pointer"
+            >
+              <span className="font-display text-[11px] font-bold text-cyan-200 whitespace-nowrap">
+                💍 {lang === 'cs' ? 'Partner' : 'Spouse'}
+              </span>
+              <span className="font-mono-tabular text-[10px] font-bold text-[#F4F4F6] truncate">
+                {lang === 'cs' ? 'ATK×DEF +3 · 💚+14 HP' : 'ATK×DEF +3 · 💚+14 HP'}
+              </span>
+            </button>
+
+            <button
+              type="button"
+              data-testid="hearth-kids-btn"
+              onClick={() => triggerAction('hearth_kids')}
+              className="chrome-pill flex-1 min-w-[160px] flex items-center justify-between gap-1.5 rounded-lg border border-emerald-300/45 bg-emerald-950/25 px-2.5 py-1.5 text-left hover:border-emerald-300 cursor-pointer"
+            >
+              <span className="font-display text-[11px] font-bold text-emerald-200 whitespace-nowrap">
+                🧒 {lang === 'cs' ? 'Děti' : 'The Kids'}
+              </span>
+              <span className="font-mono-tabular text-[10px] font-bold text-[#F4F4F6] truncate">
+                💚+26 HP · ⚡+30% OD
+              </span>
+            </button>
+          </div>
         </div>
+      </div>
     </main>
   );
 }

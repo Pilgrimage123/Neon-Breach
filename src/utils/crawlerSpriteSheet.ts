@@ -1,3 +1,4 @@
+import type { CutInPoseOverride } from '../components/combat/SpriteJuiceFeedbackHandler';
 import type { EnemyArchetype } from '../engine/types';
 import type { SpriteRect } from './spriteCutout';
 
@@ -88,6 +89,7 @@ export function sampleCrawlerFrame(
   anim: CrawlerAnimInput | undefined,
   elapsed: number,
   instanceIndex = 0,
+  poseOverride: CutInPoseOverride = 'none',
 ): CrawlerFrameSample {
   const frames = CRAWLER_FRAMES_BY_VARIANT[variant];
 
@@ -103,6 +105,18 @@ export function sampleCrawlerFrame(
       frameIndex,
       frame: frames[frameIndex],
       alpha,
+    };
+  }
+
+  // 1.5 Darkest Dungeon-style dramatic cut-in static pose override
+  if (poseOverride !== 'none') {
+    const frameIndex =
+      poseOverride === 'attack_pose' ? 4 : poseOverride === 'brace_pose' ? 1 : 9;
+    return {
+      variant,
+      frameIndex,
+      frame: frames[frameIndex],
+      alpha: 1,
     };
   }
 

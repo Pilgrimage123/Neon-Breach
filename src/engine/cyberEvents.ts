@@ -6,13 +6,12 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
     id: 'rogue_ai_cache',
     title: 'Sub-Canopy AI Core',
     subtitle: 'Decommissioned Surveillance Sub-Routine',
-    story:
-      'A flickering military terminal hums behind a shattered bulkhead. Its quantum storage contains unencrypted corporate telemetry and live power conduits.',
+    story: 'Abandoned military terminal with live conduits.',
     choices: [
       {
         id: 'ai_overclock',
         label: 'Overclock Neural Tap',
-        description: 'Take 6 HP bio-burn to siphon raw data credits and combat charge.',
+        description: '💔 -6 HP · 🪙 +40 CR · ⚡ +25% Overdrive',
         hpCost: 6,
         rewardCredits: 40,
         rewardOverdrive: 25,
@@ -20,14 +19,14 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
       {
         id: 'ai_siphon',
         label: 'Siphon Emergency Bio-Cell',
-        description: 'Reroute emergency bio-cells to restore +8 HP and gain +10% Overdrive.',
+        description: '💚 +8 HP · ⚡ +10% Overdrive',
         rewardHp: 8,
         rewardOverdrive: 10,
       },
       {
         id: 'ai_nanites',
         label: 'Extract Nanite Memory Core',
-        description: 'Carefully extract +2 Nanite Cores for permanent meta-progression.',
+        description: '💎 +2 Nanites · 🪙 +10 CR',
         rewardNanites: 2,
         rewardCredits: 10,
       },
@@ -37,26 +36,25 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
     id: 'black_market_smuggler',
     title: 'Black Market Smuggler',
     subtitle: 'Shadow Catwalk Arms Dealer',
-    story:
-      'A cloaked courier emerges from the steam vents with customized combat stims and prototype hardware salvaged from the lower canopy breach.',
+    story: 'Shadow courier offering Lower-Canopy military hardware.',
     choices: [
       {
         id: 'smuggler_booster',
-        label: 'Purchase Experimental Booster (-25 CR)',
-        description: 'Pay 25 Credits to permanently tune weapons for +20% Damage Boost.',
+        label: 'Purchase Combat Booster',
+        description: '🪙 -25 CR · ⚔ +20% DMG boost',
         costCredits: 25,
         rewardDamageBoostPct: 20,
       },
       {
         id: 'smuggler_sell',
-        label: 'Sell Surplus Scrap & Ordnance',
-        description: 'Trade excess ammunition and scrap telemetry for +30 Credits.',
+        label: 'Sell Surplus Telemetry',
+        description: '🪙 +30 CR for scrap telemetry',
         rewardCredits: 30,
       },
       {
         id: 'smuggler_bypass',
-        label: 'Decline & Scavenge Periphery',
-        description: 'Politely pass by and scavenge dropped conduit components (+8 Credits).',
+        label: 'Scavenge Dropped Components',
+        description: '🪙 +8 CR scavenged safely',
         rewardCredits: 8,
       },
     ],
@@ -64,26 +62,25 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
   {
     id: 'derelict_combat_drone',
     title: 'Derelict Combat Drone',
-    subtitle: 'Crash-Landed Aegis Vanguard Unit',
-    story:
-      'An intact combat drone hangs suspended from severed magnetic cables above the bridge chasm, its plasma core still pulsing with residual energy.',
+    subtitle: 'Suspended Vanguard Plasma Chassis',
+    story: 'Intact combat drone suspended above chasm.',
     choices: [
       {
         id: 'drone_hotwire',
         label: 'Hotwire Plasma Core',
-        description: 'Immediately supercharge your Plasma Overdrive to 100% capacity.',
+        description: '⚡ Fill Overdrive to 100%',
         rewardOverdrive: 100,
       },
       {
         id: 'drone_repair',
         label: 'Salvage Nano-Armor Plates',
-        description: 'Integrate the drone’s undamaged chassis plates to restore +20 HP.',
+        description: '💚 +20 HP chassis integration',
         rewardHp: 20,
       },
       {
         id: 'drone_components',
         label: 'Strip Rare Core Components',
-        description: 'Extract specialized Nanite Cores (+2 Nanites) and +15 Credits.',
+        description: '💎 +2 Nanites · 🪙 +15 CR',
         rewardNanites: 2,
         rewardCredits: 15,
       },
@@ -93,28 +90,27 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
     id: 'tachyon_terminal',
     title: 'Quantum Anomaly Terminus',
     subtitle: 'Tachyon Grid Distortion',
-    story:
-      'A localized quantum disruption has warped the sky-bridge sensor arrays. Interfacing with the core allows spatial reality manipulation.',
+    story: 'Warped tachyon sensors pulsing spatial energy.',
     choices: [
       {
         id: 'tachyon_extract',
         label: 'Deep System Extraction',
-        description: 'Endure 5 HP bio-trauma to extract high-value data (+45 Credits, +1 Nanite).',
+        description: '💔 -5 HP · 🪙 +45 CR · 💎 +1 Nanite',
         hpCost: 5,
         rewardCredits: 45,
         rewardNanites: 1,
       },
       {
         id: 'tachyon_recalibrate',
-        label: 'Harmonic Pulse Calibration',
-        description: 'Stabilize the local field to repair +14 HP and gain +15 Credits.',
+        label: 'Harmonic Field Calibration',
+        description: '💚 +14 HP · 🪙 +15 CR',
         rewardHp: 14,
         rewardCredits: 15,
       },
       {
         id: 'tachyon_charge',
-        label: 'Harness Field Energy',
-        description: 'Channel warp radiation into a +10% Damage Boost and +30% Overdrive.',
+        label: 'Harness Warp Energy',
+        description: '⚔ +10% DMG · ⚡ +30% Overdrive',
         rewardDamageBoostPct: 10,
         rewardOverdrive: 30,
       },
@@ -133,84 +129,230 @@ const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
   rogue_ai_cache: {
     title: 'AI Jádro pod Klenbou',
     subtitle: 'Vyřazená sledovací subrutina',
-    story:
-      'Za prasklou přepážkou hučí blikající vojenský terminál. Jeho kvantová paměť ukrývá nešifrovanou firemní telemetrii a živé napájecí okruhy.',
+    story: 'Opuštěný vojenský terminál s živými okruhy.',
     choices: {
       ai_overclock: {
         label: 'Přetaktovat neurální odběr',
-        description: 'Obětuj 6 HP bio-popálením a získej datové kredity a bojový náboj.',
+        description: '💔 -6 HP · 🪙 +40 CR · ⚡ +25% Overdrive',
       },
       ai_siphon: {
-        label: 'Odsát nouzový bio-článek',
-        description: 'Přesměruj záložní bio-články pro obnovu +8 HP a zisk +10% Overdrive.',
+        label: 'Odsát záložní článek',
+        description: '💚 +8 HP · ⚡ +10% Overdrive',
       },
       ai_nanites: {
-        label: 'Extrahovat nanitové paměťové jádro',
-        description: 'Opatrně extrahuj +2 nanitová jádra pro trvalý postup.',
+        label: 'Extrahovat paměťové jádro',
+        description: '💎 +2 Nanity · 🪙 +10 CR',
       },
     },
   },
   black_market_smuggler: {
     title: 'Pašerák z černého trhu',
-    subtitle: 'Obchodník se zbraněmi ze stínové lávky',
-    story:
-      'Z parních průduchů vystupuje zahalený kurýr s upravenými bojovými stimulanty a prototypovým vybavením zachráněným z dolní klenby.',
+    subtitle: 'Překupník ze stínové lávky',
+    story: 'Stínový kurýr nabízející zbraně z klenby.',
     choices: {
       smuggler_booster: {
-        label: 'Koupit experimentální posilovač (-25 CR)',
-        description: 'Zaplať 25 kreditů za trvalé vyladění zbraní (+20% k poškození).',
+        label: 'Koupit bojový posilovač',
+        description: '🪙 -25 CR · ⚔ +20% k poškození',
       },
       smuggler_sell: {
-        label: 'Prodat přebytečný šrot a munici',
-        description: 'Vyměň nadbytečnou munici a telemetrii za +30 kreditů.',
+        label: 'Prodat přebytečný šrot',
+        description: '🪙 +30 CR za šrot a data',
       },
       smuggler_bypass: {
-        label: 'Odmítnout a prohledat okolí',
-        description: 'Zdvořile projdi kolem a posbírej spadlé součástky (+8 kreditů).',
+        label: 'Posbírat součástky kolem',
+        description: '🪙 +8 CR bezpečný sběr',
       },
     },
   },
   derelict_combat_drone: {
     title: 'Vrak bojového drona',
-    subtitle: 'Havarovaná jednotka Aegis Vanguard',
-    story:
-      'Neponičený bojový dron visí na přetržených magnetických kabelech nad propastí mostu a jeho plazmové jádro stále pulzuje zbytkovou energií.',
+    subtitle: 'Havarovaný Vanguard pod mostem',
+    story: 'Neponičený dron visící nad hlubokou propastí.',
     choices: {
       drone_hotwire: {
         label: 'Zkratovat plazmové jádro',
-        description: 'Okamžitě nabij svůj plazmový Overdrive na plných 100% kapacity.',
+        description: '⚡ Nabij Overdrive na 100%',
       },
       drone_repair: {
         label: 'Vytěžit nano-pancíř',
-        description: 'Integruj nepoškozené pláty šasi drona a obnov si +20 HP.',
+        description: '💚 +20 HP oprava šasi',
       },
       drone_components: {
         label: 'Rozebrat vzácné jádro',
-        description: 'Extrahuj specializovaná nanitová jádra (+2 nanity) a +15 kreditů.',
+        description: '💎 +2 Nanity · 🪙 +15 CR',
       },
     },
   },
   tachyon_terminal: {
     title: 'Terminál kvantové anomálie',
     subtitle: 'Zkreslení tachyonové sítě',
-    story:
-      'Lokální kvantová porucha pokřivila senzorová pole mostu. Napojení na jádro umožňuje manipulovat s energií reality.',
+    story: 'Zkreslená pole pulzující prostorovou energií.',
     choices: {
       tachyon_extract: {
         label: 'Hloubková extrakce dat',
-        description: 'Snášej 5 HP bio-traumatu a vytěž cenná data (+45 kreditů, +1 nanit).',
+        description: '💔 -5 HP · 🪙 +45 CR · 💎 +1 Nanit',
       },
       tachyon_recalibrate: {
-        label: 'Kalibrace harmonického pulzu',
-        description: 'Stabilizuj lokální pole pro opravu +14 HP a zisk +15 kreditů.',
+        label: 'Kalibrace harmonického pole',
+        description: '💚 +14 HP · 🪙 +15 CR',
       },
       tachyon_charge: {
         label: 'Pohltit energii pole',
-        description: 'Usmerni záření do +10% bonusu k poškození a +30% Overdrive.',
+        description: '⚔ +10% DMG · ⚡ +30% Overdrive',
+      },
+    },
+  },
+  matchmakers_gala: {
+    title: 'Galavečer Dohazovačů',
+    subtitle: 'Ples kybernetických rodových aliancí',
+    story: 'Ples, kde rodové dynastie domlouvají spojenectví.',
+    choices: {
+      gala_solaris_marriage: {
+        label: 'Aliance: Rod Solaris',
+        description: '⚔ +25% DMG · 🪙 +45 CR Věno',
+      },
+      gala_valkyr_marriage: {
+        label: 'Aliance: Rod Valkyr',
+        description: '💚 +18 HP · 🎛 Kyber-Implantát zdarma',
+      },
+      gala_toast: {
+        label: 'Přípitek budoucím generacím',
+        description: '⚡ +35% Overdrive · 🪙 +20 CR',
+      },
+    },
+  },
+  mutual_aid_coop: {
+    title: 'Družstvo Vzájemné Pomoci',
+    subtitle: 'Sousedská burza otevřeného hardwaru',
+    story: 'Komunitní inženýři sdílející hardware a rave.',
+    choices: {
+      coop_bandwidth_vow: {
+        label: 'Slib šířky pásma',
+        description: '🎛 Kyber-Implantát zdarma · slib na 2 boje',
+      },
+      coop_algo_rave: {
+        label: 'Rytmus Algo-Rave DJ',
+        description: '⚡ +2 UpCharge (3 uzly) · 🪙 +15 CR',
+      },
+      coop_donate_scrap: {
+        label: 'Sdílet otevřená data',
+        description: '🪙 +30 CR · 💚 +10 HP péče',
+      },
+    },
+  },
+  ectogenesis_nursery_gala: {
+    title: 'Slavnost Čapí Kliniky',
+    subtitle: 'Neonatální biotechnologické centrum',
+    story: 'Oslava nové generace a rodového dědictví.',
+    choices: {
+      nursery_bless_heirloom: {
+        label: 'Posvětit Rodové Dědictví',
+        description: '👑 +2 Stupně Dědictví · 💚 +12 HP',
+      },
+      nursery_vitality_feast: {
+        label: 'Rodinná hostina vitality',
+        description: '💚 +24 HP · ⚡ +30% Overdrive (2 boje)',
+      },
+      nursery_grant: {
+        label: 'Přijmout rodový grant',
+        description: '🪙 +40 CR · 💎 +2 Nanity',
       },
     },
   },
 };
+
+export const DYNASTY_EVENT_TEMPLATES: CyberEvent[] = [
+  {
+    id: 'matchmakers_gala',
+    title: 'Matchmaker’s Gala',
+    subtitle: 'Cyber-Clan Alliance Ball',
+    story: 'Sky-ball where cyber-dynasties form marital alliances.',
+    choices: [
+      {
+        id: 'gala_solaris_marriage',
+        label: 'Alliance: House Solaris',
+        description: '⚔ +25% DMG · 🪙 +45 CR Dowry',
+        rewardCredits: 45,
+        rewardDamageBoostPct: 25,
+        rewardScionHouse: 'house_solaris',
+      },
+      {
+        id: 'gala_valkyr_marriage',
+        label: 'Alliance: House Valkyr',
+        description: '💚 +18 HP · 🎛 Free Cyber Implant',
+        rewardHp: 18,
+        rewardScionHouse: 'house_valkyr',
+        rewardFreeImplant: true,
+      },
+      {
+        id: 'gala_toast',
+        label: 'Toast Lineage Future',
+        description: '⚡ +35% Overdrive · 🪙 +20 CR',
+        rewardOverdrive: 35,
+        rewardCredits: 20,
+      },
+    ],
+  },
+  {
+    id: 'mutual_aid_coop',
+    title: 'Mutual Aid Co-op',
+    subtitle: 'Homestead Open-Hardware Exchange',
+    story: 'Community hackers sharing hardware and rave beats.',
+    choices: [
+      {
+        id: 'coop_bandwidth_vow',
+        label: 'Bandwidth Vow Pledge',
+        description: '🎛 Free Cyber Implant · 2-combat vow',
+        rewardFreeImplant: true,
+        applyTempoRule: 'bandwidth_vow',
+      },
+      {
+        id: 'coop_algo_rave',
+        label: 'Algo-Rave Beat Sync',
+        description: '⚡ +2 UpCharge (3 nodes) · 🪙 +15 CR',
+        rewardCredits: 15,
+        applyTempoRule: 'algo_rave_surge',
+      },
+      {
+        id: 'coop_donate_scrap',
+        label: 'Share Open Schematics',
+        description: '🪙 +30 CR · 💚 +10 HP',
+        rewardCredits: 30,
+        rewardHp: 10,
+      },
+    ],
+  },
+  {
+    id: 'ectogenesis_nursery_gala',
+    title: 'Stork Nursery Jubilee',
+    subtitle: 'Neonatal Biotech Pavilion',
+    story: 'Biotech pavilion celebrating newborn cyber-prodigies.',
+    choices: [
+      {
+        id: 'nursery_bless_heirloom',
+        label: 'Consecrate Heirloom',
+        description: '👑 +2 Heirloom Stacks · 💚 +12 HP',
+        rewardHp: 12,
+        rewardHeirloomStacks: 2,
+      },
+      {
+        id: 'nursery_vitality_feast',
+        label: 'Dynasty Vitality Feast',
+        description: '💚 +24 HP · ⚡ +30% Overdrive (2 combats)',
+        rewardHp: 24,
+        rewardOverdrive: 30,
+        applyTempoRule: 'kids_vitality_boost',
+      },
+      {
+        id: 'nursery_grant',
+        label: 'Claim Homestead Grant',
+        description: '🪙 +40 CR · 💎 +2 Nanites',
+        rewardCredits: 40,
+        rewardNanites: 2,
+      },
+    ],
+  },
+];
 
 export function localizeCyberEvent(event: CyberEvent, lang: Language = 'en'): CyberEvent {
   if (lang !== 'cs') {
@@ -249,4 +391,8 @@ export function getCyberEventForNode(
   const hash = Math.abs(seed * 31 + node.layer * 13 + node.lane * 7);
   const template = CYBER_EVENT_TEMPLATES[hash % CYBER_EVENT_TEMPLATES.length];
   return localizeCyberEvent(template, lang);
+}
+
+export function getDynastyEvents(lang: Language = 'en'): CyberEvent[] {
+  return DYNASTY_EVENT_TEMPLATES.map((tpl) => localizeCyberEvent(tpl, lang));
 }

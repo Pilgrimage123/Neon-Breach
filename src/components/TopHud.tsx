@@ -236,10 +236,10 @@ export function TopHud({
                     ? 'Vrátit tah zpět (U)'
                     : 'Undo turn (U)'
               }
-              className="flex items-center gap-1 rounded-lg border border-cyan-300/50 bg-cyan-950/55 px-2.5 py-1 font-mono-tabular text-xs font-extrabold text-[#F4F4F6] transition hover:border-cyan-200 hover:bg-cyan-900/70 disabled:opacity-30 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer"
+              className="flex items-center gap-1 rounded-lg border border-cyan-300/50 bg-cyan-950/55 px-2 sm:px-2.5 py-1 font-mono-tabular text-xs font-extrabold text-[#F4F4F6] transition hover:border-cyan-200 hover:bg-cyan-900/70 disabled:opacity-30 disabled:pointer-events-none whitespace-nowrap shrink-0 cursor-pointer"
             >
               <span className="text-cyan-300">↶</span>
-              <span>{lang === 'cs' ? 'Zpět' : 'Undo'}</span>
+              <span className="hidden sm:inline">{lang === 'cs' ? 'Zpět' : 'Undo'}</span>
             </button>
           )}
 

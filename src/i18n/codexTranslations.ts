@@ -370,19 +370,19 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Shield Debuff',
         summary: 'Caustic debuff that reduces Shield gained from resolving Defense tiles.',
         mechanics:
-          'Every point of Corrode subtracts 1 Shield from the total Shield generated when you resolve a Defense stack (minimum 0 Shield). Decays naturally by -1 at the end of each round. Does not reduce Shield gained from TECH tiles or Overdrives.',
+          'Every point of Corrode subtracts 1 Shield from the total Shield generated when you resolve a Defense stack (minimum 0 Shield). Inflicted by Bile Spitter’s Pustule Rupture (+2 COR when surviving non-Surge Attacks) and Beat 2 Caustic Claw Rend (+2 COR). Decays naturally by -1 at round end and does not reduce TECH or Overdrive Shield.',
         tacticalTip:
-          'Cleanse Corrode quickly using Cryo-Purge Module (-2 COR) or Aurelia/Zuri’s Overdrives (-2 COR), or rely on TECH Shield tiles while Corrode fades.',
-        keywords: ['corrode', 'cor', 'acid', 'debuff', 'shield', 'cleanse'],
+          'Cleanse Corrode quickly using Cryo-Purge Module (-2 COR) or Aurelia/Zuri’s Overdrives (-2 COR), trigger Attack Surge to avoid Pustule Rupture, or rely on TECH Shield tiles.',
+        keywords: ['corrode', 'cor', 'acid', 'pustule', 'debuff', 'shield', 'cleanse'],
       },
       jammed_tile: {
         term: 'Jammed Tile',
         shortTag: 'Board Lockout',
         summary: 'A tile disabled for 1 turn by Bile Spitter or Boss Acid Spit.',
         mechanics:
-          'If an enemy with Caustic Web-Jam deals at least 1 unblocked HP damage with Acid Spit, 1 unjammed tile on your board becomes JAMMED. It cannot be resolved, does not count toward Stack Surge, and unjams automatically after your next color resolution (or immediately if you trigger Overdrive).',
+          'If an enemy with Pustule Rupture & Caustic Hex deals at least 1 unblocked HP damage with Acid Spit, 1 unjammed tile on your board becomes JAMMED. It cannot be resolved, does not count toward Stack Surge, and unjams automatically after your next color resolution (or immediately if you trigger Overdrive).',
         tacticalTip:
-          'Raise enough Shield to absorb Acid Spit completely—if 0 HP damage gets through, no tile is jammed.',
+          'Raise enough Shield to absorb Acid Spit completely—blocking all HP damage prevents Jamming, Slag, and Beat 2 Claw Armor.',
         keywords: ['jammed', 'jam', 'lock', 'spitter', 'acid', 'web'],
       },
       spike_retaliate: {
@@ -420,7 +420,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: '16+ Burst Interrupt',
         summary: 'Dealing 16+ HP/Armor damage in a single turn interrupts Heavy or Charge attacks.',
         mechanics:
-          'When a Pyre Stinger (charging), Carapace Brute (Heavy slam), or Xenomorph Matriarch (Heavy strike) takes 16+ combined HP and Armor damage in 1 turn without dying, it becomes STAGGERED: its upcoming attack becomes 0 DMG recovery and Thermal Charge resets to 2T.',
+          'When a Pyre Stinger (charging), Carapace Brute (2-slot juggernaut winding up a 14 DMG Heavy crush), or Xenomorph Matriarch (Heavy strike) takes 16+ combined HP and Armor damage in 1 turn without dying, it becomes STAGGERED: its upcoming attack becomes 0 DMG recovery and Thermal Charge resets to 2T.',
         tacticalTip:
           'Watch for the ⚡ STAGGER! preview badge on enemy pods when hovering high-burst Attacks or Overdrive.',
         keywords: ['stagger', 'interrupt', '16', 'burst', 'charge', 'heavy', 'brute', 'stinger', 'boss'],
@@ -731,10 +731,10 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Oslabený štít',
         summary: 'Žíravý postih snižující Štít získaný z dlaždic Obrany.',
         mechanics:
-          'Každý bod Koroze odečte 1 Štít z celkového Štítu získaného při aktivaci sady Obrany (minimálně 0). Na konci každého kola sama klesne o 1. Neovlivňuje Štít z TECH modulů ani z Overdrive.',
+          'Každý bod Koroze odečte 1 Štít z celkového Štítu získaného při aktivaci sady Obrany (minimálně 0). Uděluje ji Prasknutí pustul Žlučového plivače (+2 KOR při přežití běžného Útoku bez Přetížení) i jeho 2. fáze drápů (+2 KOR). Na konci kola klesne o 1 a neovlivňuje Štít z TECH ani Overdrive.',
         tacticalTip:
-          'Korozi rychle odstraň Kryo-čisticím modulem (-2 KOR) nebo Overdrive Aurelie/Zuri (-2 KOR).',
-        keywords: ['koroze', 'kor', 'kyselina', 'štít', 'očista'],
+          'Korozi odstraň Kryo-čisticím modulem (-2 KOR) či Overdrive Aurelie/Zuri (-2 KOR) a proti Plivači spouštěj Přetížení Útoku.',
+        keywords: ['koroze', 'kor', 'kyselina', 'pustuly', 'štít', 'očista'],
       },
       jammed_tile: {
         term: 'Blokovaná dlaždice (BLOK)',
@@ -743,7 +743,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         mechanics:
           'Pokud Žlučový plivač nebo Matriarcha udělí Žíravým plivancem alespoň 1 poškození do Zdraví, 1 dlaždice na desce se zablokuje. Nelze ji zahrát ani započítat do Přetížení; odblokuje se po tvé příští akci (nebo ihned při Overdrive).',
         tacticalTip:
-          'Vykryj kyselinu Štítem na 100 % — při 0 ztráty Zdraví se žádná dlaždice nezablokuje.',
+          'Vykryj útok Štítem na 100 % — při 0 ztráty Zdraví se žádná dlaždice nezablokuje a drápy nepřidají +3 Brnění.',
         keywords: ['blokovaná', 'blok', 'jammed', 'plivač', 'kyselina'],
       },
       spike_retaliate: {

@@ -5,6 +5,7 @@ import {
   getBossTelegraphIntel,
   getConnectingPathNodeIds,
   getLaneClusterProfiles,
+  getMetropolisDistricts,
   getNodeEconomyMetrics,
   getNodeEncounterIntel,
   getReachableNodeIds,
@@ -32,7 +33,111 @@ interface SectorMapViewProps {
   effectiveWidth?: number;
   onSelectNode: (nodeId: string) => void;
   onOpenLoadout: () => void;
+  onRerouteMeshNet?: (targetNodeId: string) => void;
+  onCharterEstate?: (layer?: number) => void;
+  onRideMagLev?: (targetNodeId?: string) => void;
 }
+
+const DISTRICT_BADGE_LABELS: Record<
+  NonNullable<MapNode['districtBadge']>,
+  { en: string; cs: string; colorClass: string }
+> = {
+  stork_nursery: {
+    en: 'STORK NURSERY',
+    cs: 'ČAPÍ JESLE',
+    colorClass: 'bg-pink-500/25 border-pink-300/60 text-pink-200',
+  },
+  pedigree_lab: {
+    en: 'PEDIGREE LAB',
+    cs: 'RODOKMEN LAB',
+    colorClass: 'bg-cyan-500/25 border-cyan-300/60 text-cyan-200',
+  },
+  charter_academy: {
+    en: 'CHARTER ACADEMY',
+    cs: 'AKADEMIE DÍLKŮ',
+    colorClass: 'bg-indigo-500/25 border-indigo-300/60 text-indigo-200',
+  },
+  open_fablab: {
+    en: 'OPEN FABLAB',
+    cs: 'OPEN FABLAB',
+    colorClass: 'bg-teal-500/25 border-teal-300/60 text-teal-200',
+  },
+  upcycle_kiosk: {
+    en: 'UPCYCLE KIOSK',
+    cs: 'UPCYCLE KIOSEK',
+    colorClass: 'bg-lime-500/25 border-lime-300/60 text-lime-200',
+  },
+  smart_hearth: {
+    en: 'SMART-HEARTH',
+    cs: 'CHYTRÝ KRB',
+    colorClass: 'bg-emerald-500/25 border-emerald-300/60 text-emerald-200',
+  },
+  rooftop_cafe: {
+    en: 'HYDRO-CAFE',
+    cs: 'HYDRO-KAVÁRNA',
+    colorClass: 'bg-teal-500/25 border-teal-300/60 text-teal-100',
+  },
+  suburban_dome: {
+    en: 'SUBURBAN DOME',
+    cs: 'RODINNÝ DÓM',
+    colorClass: 'bg-emerald-500/30 border-emerald-300/65 text-emerald-100',
+  },
+  nanny_showroom: {
+    en: 'NANNY-BOT SHOP',
+    cs: 'CHŮVA-BOTI',
+    colorClass: 'bg-amber-500/25 border-amber-300/60 text-amber-200',
+  },
+  beta_arcade: {
+    en: 'BETA ARCADE',
+    cs: 'BETA HERNA',
+    colorClass: 'bg-violet-500/25 border-violet-300/60 text-violet-200',
+  },
+  heirloom_forge: {
+    en: 'HEIRLOOM FORGE',
+    cs: 'RODOVÁ KOVÁRNA',
+    colorClass: 'bg-yellow-500/25 border-yellow-300/60 text-yellow-200',
+  },
+  matchmakers_gala: {
+    en: 'MATCHMAKER GALA',
+    cs: 'GALA ALIANCÍ',
+    colorClass: 'bg-fuchsia-500/25 border-fuchsia-300/60 text-fuchsia-200',
+  },
+  mutual_aid_coop: {
+    en: 'MUTUAL-AID CO-OP',
+    cs: 'SOUSEDSKÝ CO-OP',
+    colorClass: 'bg-purple-500/25 border-purple-300/60 text-purple-200',
+  },
+  synth_rave: {
+    en: 'SYNTH-RAVE',
+    cs: 'ALGO-RAVE',
+    colorClass: 'bg-fuchsia-500/30 border-fuchsia-300/65 text-fuchsia-100',
+  },
+  mesh_relay: {
+    en: 'MESH-NET RELAY',
+    cs: 'MESH-NET VĚŽ',
+    colorClass: 'bg-sky-500/25 border-sky-300/60 text-sky-200',
+  },
+  ar_graffiti_wall: {
+    en: 'AR GRAFFITI WALL',
+    cs: 'AR HOLO-ZEĎ',
+    colorClass: 'bg-pink-500/30 border-pink-300/65 text-pink-100',
+  },
+  vanguard_escort: {
+    en: 'CRADLE ESCORT',
+    cs: 'ESKORTA KOLÉBKY',
+    colorClass: 'bg-amber-500/30 border-amber-300/70 text-amber-100',
+  },
+  data_liberation: {
+    en: 'DATA LIBERATION',
+    cs: 'OSVOBOZENÍ DAT',
+    colorClass: 'bg-cyan-500/30 border-cyan-300/70 text-cyan-100',
+  },
+  maglev_hub: {
+    en: 'MAG-LEV HUB',
+    cs: 'MAG-LEV UZEL',
+    colorClass: 'bg-sky-500/25 border-sky-300/60 text-sky-200',
+  },
+};
 
 const NODE_STYLE: Record<
   MapNodeType,
@@ -140,20 +245,20 @@ function NodeEmblem({ type }: { type: MapNodeType }) {
   );
 }
 
-const LAYER_INDICES = [0, 1, 2, 3, 4] as const;
 const ROW_INDICES = [0, 1, 2] as const;
 const LANE_TRACK_Y = [72, 216, 360] as const;
 
-function getVisualRow(node: MapNode): number {
-  return node.layer === 0 || node.layer === 4 ? 1 : node.lane;
+function getVisualRow(node: MapNode, maxLayer: number): number {
+  return node.layer === 0 || node.layer === maxLayer ? 1 : node.lane;
 }
 
-function getPortCoords(node: MapNode) {
-  const colSpan = 177.6; // (1000 - 4 * 28) / 5
-  const colGap = 28;
+function getPortCoords(node: MapNode, totalCols: number) {
+  const maxLayer = totalCols - 1;
+  const colGap = totalCols > 5 ? 16 : 28;
+  const colSpan = (1000 - (totalCols - 1) * colGap) / totalCols;
   const colLeft = node.layer * (colSpan + colGap);
   const colRight = colLeft + colSpan;
-  const rowIndex = getVisualRow(node);
+  const rowIndex = getVisualRow(node, maxLayer);
   const rowY = rowIndex === 0 ? 72 : rowIndex === 1 ? 216 : 360;
   return {
     leftX: colLeft + 2,
@@ -176,6 +281,9 @@ export function SectorMapView({
   effectiveWidth = 1280,
   onSelectNode,
   onOpenLoadout,
+  onRerouteMeshNet,
+  onCharterEstate,
+  onRideMagLev,
 }: SectorMapViewProps) {
   const t = TRANSLATIONS[lang];
   const lod = useMemo(
@@ -184,6 +292,16 @@ export function SectorMapView({
   );
   const hcBorderClass = highContrastBorders || tacticalView ? 'tactical-hc-border' : '';
   const lastPointerTypeRef = useRef<string>('mouse');
+  const maxLayer = useMemo(
+    () => run.mapNodes.reduce((acc, n) => Math.max(acc, n.layer), 4),
+    [run.mapNodes],
+  );
+  const layerIndices = useMemo(
+    () => Array.from({ length: maxLayer + 1 }, (_, idx) => idx),
+    [maxLayer],
+  );
+  const totalCols = layerIndices.length;
+
   const availableNodes = useMemo(
     () => getAvailableNextNodes(run.mapNodes, run.currentNodeId),
     [run.mapNodes, run.currentNodeId],
@@ -283,10 +401,10 @@ export function SectorMapView({
 
   const layers = useMemo(
     () =>
-      LAYER_INDICES.map((layer) =>
+      layerIndices.map((layer) =>
         run.mapNodes.filter((n) => n.layer === layer).sort((a, b) => a.lane - b.lane),
       ),
-    [run.mapNodes],
+    [layerIndices, run.mapNodes],
   );
 
   const nodeById = useMemo(() => new Map(run.mapNodes.map((n) => [n.id, n])), [run.mapNodes]);
@@ -295,17 +413,6 @@ export function SectorMapView({
     () => getEquippedEquipmentWeight(run.heroine),
     [run.heroine],
   );
-
-  const adviceText =
-    advice.reasonKey === 'low_hp_medbay'
-      ? t.mapAdviceLowHp
-      : advice.reasonKey === 'elite_power_spike'
-        ? t.mapAdviceElite
-        : advice.reasonKey === 'clinic_socket'
-          ? t.mapAdviceClinic
-          : advice.reasonKey === 'boss_engage'
-            ? t.mapAdviceBoss
-            : t.mapAdviceCombat;
 
   const getRewardLabel = (type: MapNodeType): string => {
     switch (type) {
@@ -526,7 +633,7 @@ export function SectorMapView({
                 }`}
               />
             )}
-            {node.layer < 4 && (
+            {node.layer < maxLayer && (
               <span
                 aria-hidden="true"
                 className={`hidden sm:block absolute -right-1.5 top-1/2 h-2 w-2 md:h-2.5 md:w-2.5 -translate-y-1/2 rounded-full border ${
@@ -580,10 +687,20 @@ export function SectorMapView({
             {/* Middle Row: Node Title & Squad / Facility Subtitle */}
             <div className="my-0.5 min-w-0">
               <div className="flex items-center gap-1 min-w-0 flex-wrap sm:flex-wrap">
-                <div className={`font-display text-xs sm:text-sm font-bold leading-tight truncate ${style.accent}`}>
+                <div className={`font-display text-[11px] sm:text-xs font-bold leading-tight truncate ${style.accent}`}>
                   {t.nodes[node.type]}
                 </div>
                 <div className="flex items-center gap-1 min-w-0 flex-nowrap sm:flex-wrap overflow-hidden">
+                  {/* Dynasty & Civic-Tech District Badge */}
+                  {node.districtBadge && DISTRICT_BADGE_LABELS[node.districtBadge] && (
+                    <span
+                      className={`shrink-0 whitespace-nowrap px-1 py-0.2 rounded border text-[6.5px] sm:text-[7px] font-bold font-mono-tabular leading-tight ${DISTRICT_BADGE_LABELS[node.districtBadge].colorClass}`}
+                    >
+                      {lang === 'cs'
+                        ? DISTRICT_BADGE_LABELS[node.districtBadge].cs
+                        : DISTRICT_BADGE_LABELS[node.districtBadge].en}
+                    </span>
+                  )}
                   {/* Hot-Spot Bounty Modifier Badges */}
                   {node.modifier === 'golden_bounty' && (
                     <span className="shrink-0 whitespace-nowrap px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[7px] sm:text-[7.5px] font-bold font-mono-tabular leading-tight">
@@ -632,19 +749,19 @@ export function SectorMapView({
                   )}
                 </div>
               </div>
-              <p className="mt-0.5 line-clamp-1 text-[9px] sm:text-[11px] leading-tight sm:leading-snug text-slate-200/90">
+              <p className="mt-0.5 line-clamp-1 text-[9px] sm:text-[10.5px] leading-tight sm:leading-snug text-slate-200/90">
                 {squadNames}
               </p>
             </div>
 
             {/* Bottom Row: Threat HP / Status + Reward Metadata */}
-            <div className="flex w-full items-center justify-between gap-2 border-t border-white/15 pt-0.5 sm:pt-1 text-[9px] sm:text-[10px] font-mono-tabular min-w-0">
+            <div className="flex w-full items-center justify-between gap-1.5 border-t border-white/15 pt-0.5 sm:pt-1 text-[8.5px] sm:text-[9.5px] font-mono-tabular min-w-0">
               <div className="flex items-center gap-1 shrink-0">
                 <span className="whitespace-nowrap font-bold text-white">{bottomMetric}</span>
                 {econ.tensionHpPct !== 0 && (
                   <span
                     title={econ.opportunityCost}
-                    className={`px-1 py-0.2 rounded text-[7.5px] sm:text-[8px] font-bold shrink-0 ${
+                    className={`px-1 py-0.2 rounded text-[7px] sm:text-[7.5px] font-bold shrink-0 ${
                       econ.tensionHpPct > 20
                         ? 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
                         : econ.tensionHpPct > 0
@@ -666,7 +783,63 @@ export function SectorMapView({
     );
   };
 
-  const needsHorizontalPan = isNarrowPortrait || effectiveWidth < 560;
+  const scrollContainerRef = useRef<HTMLDivElement | null>(null);
+  const metropolisDistricts = useMemo(
+    () => getMetropolisDistricts(totalCols, lang),
+    [totalCols, lang],
+  );
+  const currentLayer = useMemo(() => {
+    const cur = run.mapNodes.find((n) => n.id === run.currentNodeId);
+    if (cur) return cur.layer;
+    const cleared = run.mapNodes.filter((n) => n.cleared);
+    return cleared.length > 0 ? Math.max(...cleared.map((n) => n.layer)) : 0;
+  }, [run.mapNodes, run.currentNodeId]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || totalCols <= 5) return;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    if (maxScroll <= 0) return;
+    const targetRatio = Math.max(0, Math.min(1, currentLayer / Math.max(1, totalCols - 1)));
+    container.scrollTo({
+      left: Math.round(maxScroll * targetRatio * 0.85),
+      behavior: 'smooth',
+    });
+  }, [currentLayer, totalCols]);
+
+  const scrollToDistrict = (startLayer: number) => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const maxScroll = container.scrollWidth - container.clientWidth;
+    if (maxScroll <= 0) return;
+    const ratio = Math.max(0, Math.min(1, startLayer / Math.max(1, totalCols - 2)));
+    container.scrollTo({
+      left: Math.round(maxScroll * ratio),
+      behavior: 'smooth',
+    });
+  };
+
+  const needsHorizontalPan =
+    totalCols > 7 || isNarrowPortrait || effectiveWidth < (totalCols > 5 ? 920 : 560);
+  const gridColsClass =
+    totalCols === 12
+      ? 'grid-cols-12'
+      : totalCols === 7
+        ? 'grid-cols-7'
+        : 'grid-cols-5';
+  const clearedNodes = run.mapNodes.filter((n) => n.cleared);
+  const maxClearedLayer =
+    clearedNodes.length > 0 ? Math.max(...clearedNodes.map((n) => n.layer)) : 0;
+  const nextCharterLayer = Math.min(maxLayer, maxClearedLayer + 1);
+  const estateAlreadyChartered = Boolean(
+    run.heroine.familyEstates?.includes(nextCharterLayer),
+  );
+  const canRideMagLev =
+    !run.heroine.maglevUsed &&
+    clearedNodes.length > 0 &&
+    maxClearedLayer + 2 <= maxLayer - 1;
+  const maxMeshReroutes = totalCols >= 7 ? 2 : 1;
+  const meshReroutesRemaining = Math.max(0, maxMeshReroutes - (run.heroine.meshReroutesUsed ?? 0));
 
   return (
     <main
@@ -675,17 +848,17 @@ export function SectorMapView({
       }`}
     >
       <div
-        className={`mx-auto flex w-full max-w-[1380px] flex-1 min-h-0 flex-col justify-between ${
+        className={`mx-auto flex w-full max-w-[1440px] flex-1 min-h-0 flex-col justify-between ${
           isCompactLandscape ? 'gap-1' : 'gap-2 sm:gap-2.5'
         }`}
       >
-        {/* Unified Single-Row Sector Command Bar: Layer Progress · Boss Intel · Advisor · Loadout */}
+        {/* Unified Single-Row Sector Command Bar: Layer Progress · Dynasty Status · Active Route Tools · Loadout */}
         <div
           className={`chrome-glass flex shrink-0 flex-wrap lg:flex-nowrap items-center justify-between gap-2 rounded-xl ${
             isCompactLandscape ? 'px-2.5 py-1' : 'px-3.5 py-2 sm:px-4'
           }`}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
             <h1
               className={`chrome-text-shimmer font-display font-bold tracking-wide whitespace-nowrap ${
                 isCompactLandscape ? 'text-sm' : 'text-base sm:text-lg'
@@ -693,8 +866,11 @@ export function SectorMapView({
             >
               {t.sectorMapTitle}
             </h1>
-            <span className="font-mono-tabular text-xs font-bold text-[#00F0FF] whitespace-nowrap">
-              {Math.min(5, (nodeById.get(run.currentNodeId ?? '')?.layer ?? 0) + 2)}/5
+            <span
+              data-testid="map-stage-counter"
+              className="font-mono-tabular text-xs font-bold text-[#00F0FF] whitespace-nowrap"
+            >
+              {Math.min(totalCols, (nodeById.get(run.currentNodeId ?? '')?.layer ?? 0) + 2)}/{totalCols}
             </span>
             <span aria-hidden="true" className="hidden sm:inline text-slate-500">
               ·
@@ -705,16 +881,90 @@ export function SectorMapView({
             >
               ☠ {bossTelegraph.name} ({bossTelegraph.hp} HP)
             </span>
+
+            {/* Active Dynasty & Civic-Tech Status Badges */}
+            {run.heroine.incubatingTile && (
+              <span
+                data-testid="map-stork-pod-badge"
+                className="px-2 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 font-mono-tabular text-[10px] font-bold text-pink-200 whitespace-nowrap"
+              >
+                🍼 {lang === 'cs' ? 'Čapí kapsle' : 'Stork Pod'}: {run.heroine.incubatingTile.nodesRemaining}n
+              </span>
+            )}
+            {run.heroine.bloodlineCrest && (
+              <span
+                data-testid="map-bloodline-badge"
+                className="px-2 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 font-mono-tabular text-[10px] font-bold text-cyan-200 whitespace-nowrap uppercase"
+              >
+                ⚜ {run.heroine.bloodlineCrest.primary.slice(0, 3)}×{run.heroine.bloodlineCrest.secondary.slice(0, 3)} +{run.heroine.bloodlineCrest.bonusValue}
+              </span>
+            )}
+            {run.heroine.nannyBotInstalled && (
+              <span
+                data-testid="map-nannybot-badge"
+                className="px-2 py-0.5 rounded bg-emerald-500/20 border border-emerald-400/50 font-mono-tabular text-[10px] font-bold text-emerald-200 whitespace-nowrap"
+              >
+                🤖 {run.heroine.nannyBotInstalled.replace('_nanny', '').toUpperCase()}
+              </span>
+            )}
+            {(run.heroine.heirloomStacks ?? 0) > 0 && (
+              <span
+                data-testid="map-heirloom-badge"
+                className="px-2 py-0.5 rounded bg-amber-500/20 border border-amber-400/50 font-mono-tabular text-[10px] font-bold text-amber-200 whitespace-nowrap"
+              >
+                🗡 {lang === 'cs' ? 'Dědictví' : 'Heirloom'} +{run.heroine.heirloomStacks}
+              </span>
+            )}
           </div>
 
-          <div className="flex flex-wrap lg:flex-nowrap items-center justify-end gap-2 min-w-0">
-            <span className="hidden xl:inline text-xs font-medium text-amber-200/95 truncate max-w-[34ch]">
-              ★{' '}
-              {advice.recommendedNodeId
-                ? `${t.nodes[nodeById.get(advice.recommendedNodeId)?.type ?? 'COMBAT']}: `
-                : ''}
-              {adviceText}
-            </span>
+          <div className="flex flex-wrap lg:flex-nowrap items-center justify-end gap-1.5 min-w-0">
+            {/* Suburban Dome Estate Charter Button */}
+            {onCharterEstate && (
+              <button
+                type="button"
+                data-testid="map-charter-estate-btn"
+                disabled={estateAlreadyChartered || run.heroine.credits < 20}
+                onClick={() => onCharterEstate(nextCharterLayer)}
+                title={
+                  lang === 'cs'
+                    ? 'Založit Rodinnou usedlost na další vrstvě (+5 HP ihned, +12 CR a +5 HP při vstupu)'
+                    : 'Charter a Family Estate on the next stage (+5 HP now, +12 CR & +5 HP on entry)'
+                }
+                className="chrome-pill rounded-lg border-emerald-400/50 px-2 py-1 font-mono-tabular text-[10px] font-bold text-emerald-200 hover:border-emerald-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+              >
+                🏡 {estateAlreadyChartered
+                  ? lang === 'cs'
+                    ? `Usedlost S0${nextCharterLayer + 1} ✓`
+                    : `Estate S0${nextCharterLayer + 1} ✓`
+                  : lang === 'cs'
+                    ? `Usedlost S0${nextCharterLayer + 1} (20 CR)`
+                    : `Charter Estate S0${nextCharterLayer + 1} (20 CR)`}
+              </button>
+            )}
+
+            {/* Mag-Lev Express Line Skip Button */}
+            {onRideMagLev && (
+              <button
+                type="button"
+                data-testid="map-maglev-express-btn"
+                disabled={!canRideMagLev}
+                onClick={() => onRideMagLev()}
+                title={
+                  lang === 'cs'
+                    ? 'Expresní Mag-Lev linka: přemostí o 2 vrstvy vpřed (+25 CR, -2 Koroze, +1 krok Čapí inkubace)'
+                    : 'Mag-Lev Express Line: bridge 2 stages ahead (+25 CR, -2 Corrode, +1 Stork Pod step)'
+                }
+                className="chrome-pill rounded-lg border-sky-400/55 px-2 py-1 font-mono-tabular text-[10px] font-bold text-sky-200 hover:border-sky-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
+              >
+                🚄 {run.heroine.maglevUsed
+                  ? lang === 'cs'
+                    ? 'Mag-Lev Využit ✓'
+                    : 'Mag-Lev Used ✓'
+                  : lang === 'cs'
+                    ? 'Mag-Lev Expres (+25 CR)'
+                    : 'Mag-Lev Express (+25 CR)'}
+              </button>
+            )}
 
             <button
               type="button"
@@ -739,67 +989,125 @@ export function SectorMapView({
           </div>
         </div>
 
-        {/* Main 5-Sector x 3-Lane Horizontal Sky-Bridge Tactical Schematic */}
+        {/* Main 12-Stage (or 7/5-Stage) x 3-Lane Horizontal Sky-Bridge Tactical Schematic */}
         <div
           className={`chrome-glass relative flex flex-1 min-h-0 flex-col rounded-xl ${
             isCompactLandscape ? 'p-1.5' : 'p-2 sm:p-3'
           }`}
         >
+          {/* 4-District Metropolis Navigator Bar (shown on Extended 12-Stage / 7-Stage Maps) */}
+          {metropolisDistricts.length > 1 && (
+            <div
+              data-testid="metropolis-district-navigator"
+              className="mb-1.5 grid grid-cols-2 sm:grid-cols-4 gap-1.5 shrink-0"
+            >
+              {metropolisDistricts.map((dist) => {
+                const isActiveDistrict =
+                  currentLayer + 1 >= dist.startLayer && currentLayer <= dist.endLayer;
+                return (
+                  <button
+                    key={dist.code}
+                    type="button"
+                    data-testid={`district-nav-${dist.code}`}
+                    onClick={() => scrollToDistrict(dist.startLayer)}
+                    className={`flex items-center justify-between gap-1.5 rounded-lg border px-2.5 py-1 text-left transition-all cursor-pointer ${
+                      isActiveDistrict
+                        ? 'border-cyan-300/75 bg-cyan-950/60 text-white shadow-[0_0_12px_rgba(0,240,255,0.2)]'
+                        : 'border-white/15 bg-slate-950/55 text-slate-300 hover:border-cyan-400/50 hover:text-white'
+                    }`}
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          style={{ color: dist.accentColor }}
+                          className="font-mono-tabular text-[9px] font-black uppercase tracking-wider shrink-0"
+                        >
+                          {dist.code}
+                        </span>
+                        <span className="font-display text-[10px] sm:text-[11px] font-bold truncate">
+                          {dist.title}
+                        </span>
+                      </div>
+                      {!isCompactLandscape && (
+                        <div className="font-mono-tabular text-[8.5px] text-slate-400 truncate">
+                          {dist.subtitle}
+                        </div>
+                      )}
+                    </div>
+                    <span className="font-mono-tabular text-[9px] font-bold text-cyan-300 shrink-0">
+                      S{String(dist.startLayer + 1).padStart(2, '0')}–S{String(dist.endLayer + 1).padStart(2, '0')}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           <div
+            ref={scrollContainerRef}
             className={`flex flex-1 min-h-0 flex-col ${
               needsHorizontalPan ? 'overflow-x-auto overflow-y-auto pb-1' : 'overflow-x-hidden overflow-y-auto'
             }`}
           >
             <div
               className={`flex flex-1 min-h-0 flex-col ${
-                needsHorizontalPan ? 'min-w-[880px] min-h-[340px]' : 'w-full min-h-[310px]'
+                needsHorizontalPan
+                  ? totalCols >= 12
+                    ? 'min-w-[1860px] min-h-[340px]'
+                    : totalCols > 5
+                      ? 'min-w-[1060px] min-h-[340px]'
+                      : 'min-w-[880px] min-h-[340px]'
+                  : 'w-full min-h-[310px]'
               }`}
             >
               {/* Column Sector Headers (offset matches Left Lane Rail) */}
               <div
                 className={`flex items-stretch shrink-0 ${
-                  isCompactLandscape ? 'mb-1 gap-2' : 'mb-1.5 gap-2 sm:mb-2 sm:gap-3'
+                  isCompactLandscape ? 'mb-1 gap-2' : 'mb-1.5 gap-2 sm:mb-2 sm:gap-2.5'
                 }`}
               >
                 <div
                   className={`flex items-center justify-center rounded-md border border-cyan-500/30 bg-slate-950/60 font-mono-tabular uppercase tracking-wider text-cyan-300 font-bold shrink-0 ${
                     isCompactLandscape
-                      ? 'w-28 px-1.5 py-0.5 text-[8px]'
-                      : 'w-28 md:w-36 lg:w-44 px-2 py-0.5 text-[9px] sm:text-[10px]'
+                      ? 'w-24 px-1.5 py-0.5 text-[8px]'
+                      : 'w-24 sm:w-28 px-2 py-0.5 text-[9px] sm:text-[10px]'
                   }`}
                 >
                   {t.laneShortPrefix} · {t.yieldLabel}
                 </div>
                 <div
-                  className={`grid flex-1 grid-cols-5 ${
-                    isCompactLandscape ? 'gap-2' : 'gap-3 sm:gap-7'
+                  className={`grid flex-1 ${gridColsClass} ${
+                    isCompactLandscape ? 'gap-1.5' : totalCols > 5 ? 'gap-2 sm:gap-2.5' : 'gap-3 sm:gap-7'
                   }`}
                 >
-                  {LAYER_INDICES.map((layerIdx) => {
+                  {layerIndices.map((layerIdx) => {
                     const isCurrentLayer =
                       nodeById.get(run.currentNodeId ?? '')?.layer === layerIdx;
                     const isNextLayer =
                       (nodeById.get(run.currentNodeId ?? '')?.layer ?? -1) + 1 === layerIdx;
+                    const hasEstate = Boolean(run.heroine.familyEstates?.includes(layerIdx));
                     return (
                       <div
                         key={`header_${layerIdx}`}
                         className={`flex items-center justify-between rounded-md border ${
                           isCompactLandscape
-                            ? 'px-1.5 py-0.5 text-[9px]'
-                            : 'px-2 py-0.5 sm:px-2.5 sm:py-1 text-[10px] sm:text-[11px]'
+                            ? 'px-1.5 py-0.5 text-[8.5px]'
+                            : 'px-1.5 py-0.5 sm:px-2 sm:py-1 text-[9.5px] sm:text-[10.5px]'
                         } font-mono-tabular uppercase tracking-wider ${
                           isNextLayer
                             ? 'border-[#00F0FF]/65 bg-cyan-500/20 text-white font-bold shadow-[0_0_14px_rgba(0,240,255,0.2)]'
                             : isCurrentLayer
                               ? 'border-[#FFC700]/50 bg-amber-500/15 text-amber-200 font-semibold'
-                              : 'border-white/15 bg-slate-950/55 text-slate-300'
+                              : hasEstate
+                                ? 'border-emerald-400/55 bg-emerald-950/45 text-emerald-200 font-semibold'
+                                : 'border-white/15 bg-slate-950/55 text-slate-300'
                         }`}
                       >
-                        <span>
-                          {t.layerLabel} 0{layerIdx + 1}
+                        <span className="truncate">
+                          {t.layerLabel} {String(layerIdx + 1).padStart(2, '0')} {hasEstate ? '🏡' : ''}
                         </span>
-                        <span className="text-[8px] sm:text-[10px] opacity-80">
-                          {(layerIdx + 1) * 0.5} KM
+                        <span className="text-[8px] sm:text-[9px] opacity-80 shrink-0">
+                          {((layerIdx + 1) * 0.5).toFixed(1)}KM
                         </span>
                       </div>
                     );
@@ -807,10 +1115,10 @@ export function SectorMapView({
                 </div>
               </div>
 
-              {/* Left 3-Row Lane Archetype Rail + 5x3 Matrix & Aligned SVG Spline Overlay */}
+              {/* Left 3-Row Lane Archetype Rail + Dynamic Matrix & Aligned SVG Spline Overlay */}
               <div
                 className={`flex flex-1 min-h-0 w-full ${
-                  isCompactLandscape ? 'gap-2' : 'gap-2 sm:gap-3'
+                  isCompactLandscape ? 'gap-2' : 'gap-2 sm:gap-2.5'
                 }`}
               >
                 {/* Concise 3-Row Lane Archetype Rail */}
@@ -818,7 +1126,7 @@ export function SectorMapView({
                   className={`grid grid-rows-3 shrink-0 ${
                     isCompactLandscape
                       ? 'w-24 gap-y-1'
-                      : 'w-24 sm:w-32 gap-y-1.5 sm:gap-y-2'
+                      : 'w-24 sm:w-28 gap-y-1.5 sm:gap-y-2'
                   }`}
                 >
                   {laneProfiles.map((profile) => {
@@ -867,7 +1175,7 @@ export function SectorMapView({
                   })}
                 </div>
 
-                {/* 5x3 Matrix + Exact Port-to-Port SVG Spline Overlay */}
+                {/* Dynamic Columns x 3 Rows Matrix + Exact Port-to-Port SVG Spline Overlay */}
                 <div className="relative flex-1 min-h-0">
                   <svg
                     viewBox="0 0 1000 432"
@@ -879,18 +1187,18 @@ export function SectorMapView({
                     {LANE_TRACK_Y.map((yPos, idx) => (
                       <g key={`track_${idx}`}>
                         <line
-                          x1="80"
+                          x1="60"
                           y1={yPos}
-                          x2="920"
+                          x2="940"
                           y2={yPos}
                           stroke="rgba(56, 189, 248, 0.14)"
                           strokeWidth="16"
                           strokeLinecap="round"
                         />
                         <line
-                          x1="80"
+                          x1="60"
                           y1={yPos}
-                          x2="920"
+                          x2="940"
                           y2={yPos}
                           stroke="rgba(224, 242, 254, 0.22)"
                           strokeWidth="1"
@@ -901,11 +1209,11 @@ export function SectorMapView({
 
                     {/* Node-to-Node Cubic Bezier Conduit Edges */}
                     {run.mapNodes.map((node) => {
-                      const p1 = getPortCoords(node);
+                      const p1 = getPortCoords(node, totalCols);
                       return node.nextIds.map((nextId) => {
                         const target = nodeById.get(nextId);
                         if (!target) return null;
-                        const p2 = getPortCoords(target);
+                        const p2 = getPortCoords(target, totalCols);
 
                         const isImmediateAvailable =
                           node.id === run.currentNodeId && availableIds.has(target.id);
@@ -972,22 +1280,24 @@ export function SectorMapView({
                     })}
                   </svg>
 
-                  {/* 5 Columns x 3 Rows Deterministic Node Matrix */}
+                  {/* Dynamic Columns x 3 Rows Deterministic Node Matrix */}
                   <div
-                    className={`relative z-10 grid h-full w-full grid-cols-5 grid-rows-3 ${
+                    className={`relative z-10 grid h-full w-full ${gridColsClass} grid-rows-3 ${
                       isCompactLandscape
-                        ? 'gap-x-2 gap-y-1'
-                        : 'gap-x-3 gap-y-1.5 sm:gap-x-7 sm:gap-y-2'
+                        ? 'gap-x-1.5 gap-y-1'
+                        : totalCols > 5
+                          ? 'gap-x-2 gap-y-1.5 sm:gap-x-3 sm:gap-y-2'
+                          : 'gap-x-3 gap-y-1.5 sm:gap-x-7 sm:gap-y-2'
                     }`}
                   >
                     {ROW_INDICES.map((rowIdx) =>
-                      LAYER_INDICES.map((colIdx) => {
+                      layerIndices.map((colIdx) => {
                         const node =
-                          colIdx === 0 || colIdx === 4
+                          colIdx === 0 || colIdx === maxLayer
                             ? rowIdx === 1
-                              ? layers[colIdx][0]
+                              ? layers[colIdx]?.[0]
                               : undefined
-                            : layers[colIdx].find((n) => n.lane === rowIdx);
+                            : layers[colIdx]?.find((n) => n.lane === rowIdx);
 
                         if (!node) {
                           return (
@@ -1035,6 +1345,13 @@ export function SectorMapView({
                         .join(' | ')
                     : null;
 
+          const canMeshRerouteToBriefing =
+            Boolean(onRerouteMeshNet) &&
+            !availableIds.has(briefingNode.id) &&
+            !briefingNode.cleared &&
+            meshReroutesRemaining > 0 &&
+            briefingNode.layer === maxClearedLayer + 1;
+
           return (
             <div
               className={`chrome-panel-bright flex shrink-0 flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl ${
@@ -1051,12 +1368,15 @@ export function SectorMapView({
                 <span className="font-display text-xs sm:text-sm font-bold text-white">
                   {t.nodes[briefingNode.type]}
                 </span>
-                <span aria-hidden="true" className="hidden sm:inline text-slate-500">
-                  ·
-                </span>
-                <span className="hidden sm:inline text-slate-200 truncate max-w-md">
-                  {t.nodeDescs[briefingNode.type]}
-                </span>
+                {briefingNode.districtBadge && DISTRICT_BADGE_LABELS[briefingNode.districtBadge] && (
+                  <span
+                    className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[9px] font-bold ${DISTRICT_BADGE_LABELS[briefingNode.districtBadge].colorClass}`}
+                  >
+                    {lang === 'cs'
+                      ? DISTRICT_BADGE_LABELS[briefingNode.districtBadge].cs
+                      : DISTRICT_BADGE_LABELS[briefingNode.districtBadge].en}
+                  </span>
+                )}
                 <span className="rounded bg-slate-900/80 border border-white/10 px-1.5 py-0.5 font-mono-tabular text-[10px] font-bold text-[#FFC700]">
                   {getRewardLabel(briefingNode.type)}
                 </span>
@@ -1095,23 +1415,36 @@ export function SectorMapView({
                 )}
               </div>
 
-              {availableIds.has(briefingNode.id) ? (
-                <button
-                  type="button"
-                  onClick={() => onSelectNode(briefingNode.id)}
-                  className={`chrome-btn-primary rounded-lg font-display font-bold transition-transform hover:-translate-y-0.5 cursor-pointer shrink-0 whitespace-nowrap ${
-                    isCompactLandscape
-                      ? 'w-auto px-3 py-1 text-xs'
-                      : 'w-full sm:w-auto px-4 py-1.5 text-xs sm:text-sm'
-                  }`}
-                >
-                  {t.enterNode}: {t.nodes[briefingNode.type]} [Enter]
-                </button>
-              ) : (
-                <span className="font-mono-tabular text-xs text-slate-400 font-bold px-3 py-1 rounded bg-slate-800/60 border border-slate-700/50 shrink-0">
-                  {t.mapMultiHopLabel}
-                </span>
-              )}
+              <div className="flex items-center gap-2 shrink-0">
+                {canMeshRerouteToBriefing && onRerouteMeshNet && (
+                  <button
+                    type="button"
+                    data-testid="map-mesh-reroute-btn"
+                    onClick={() => onRerouteMeshNet(briefingNode.id)}
+                    className="chrome-pill rounded-lg border-cyan-400/60 bg-cyan-500/20 px-3 py-1.5 font-mono-tabular text-xs font-bold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer whitespace-nowrap"
+                  >
+                    📡 {lang === 'cs' ? `Mesh-Net Přesměrování (${meshReroutesRemaining})` : `Mesh-Net Reroute (${meshReroutesRemaining})`}
+                  </button>
+                )}
+
+                {availableIds.has(briefingNode.id) ? (
+                  <button
+                    type="button"
+                    onClick={() => onSelectNode(briefingNode.id)}
+                    className={`chrome-btn-primary rounded-lg font-display font-bold transition-transform hover:-translate-y-0.5 cursor-pointer shrink-0 whitespace-nowrap ${
+                      isCompactLandscape
+                        ? 'w-auto px-3 py-1 text-xs'
+                        : 'w-full sm:w-auto px-4 py-1.5 text-xs sm:text-sm'
+                    }`}
+                  >
+                    {t.enterNode}: {t.nodes[briefingNode.type]} [Enter]
+                  </button>
+                ) : (
+                  <span className="font-mono-tabular text-xs text-slate-400 font-bold px-3 py-1 rounded bg-slate-800/60 border border-slate-700/50 shrink-0">
+                    {t.mapMultiHopLabel}
+                  </span>
+                )}
+              </div>
             </div>
           );
         })()}

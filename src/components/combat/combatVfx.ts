@@ -1,12 +1,21 @@
 import type { AnimationCue, CombatState, EnemyArchetype, HeroineState } from '../../engine/types';
 import { triggerCharacterAnimation } from '../../utils/aureliaSpriteSheet';
-import { computeEffectiveSlotCount } from './combatEnemyUi';
+import type { CameraActorBounds } from './ActionCameraController';
+import {
+  type CombatPresentationConfig,
+  DEFAULT_COMBAT_PRESENTATION_CONFIG,
+  computeNonCutInBeatMs,
+  computePackTempoScale,
+} from './combatPresentationConfig';
+import type { CutInActionKind, CutInStagingMode } from './CombatActionSequencer';
+import { computeEnemySlotLayout } from './combatEnemyUi';
 import {
   BLOOD_DROP_POOL_SIZE,
   BOLT_POOL_SIZE,
   COVER_BLOOD_POOL_SIZE,
   EDGE_DRIP_POOL_SIZE,
   FLOOR_BLOOD_POOL_SIZE,
+  FLOOR_FISSURE_POOL_SIZE,
   PARTICLE_POOL_SIZE,
   SCREEN_BLOOD_POOL_SIZE,
   TEXT_POOL_SIZE,
@@ -56,6 +65,116 @@ export function spawnBurst(
     p.size = sizeBase + Math.random() * sizeVar;
     p.color = color;
     p.shape = shape;
+    p.rot = Math.random() * Math.PI * 2;
+    p.vRot = shape === 1 ? (Math.random() - 0.5) * 10 : 0;
+    p.gravity = 280;
+    p.floorY = 9999;
+    p.bounced = false;
+  }
+}
+
+export function addGroundFissure(
+  sim: CombatStageSim,
+  x: number,
+  y: number,
+  scale = 1,
+  heatIntensity = 1,
+): void {
+  const { w, h } = sim.size;
+  const groundY = getBridgeGroundY(h);
+  const edgeY = getBridgeEdgeY(sim);
+  const backY = getBridgeBackY(sim);
+  const clampedX = Math.max(36, Math.min(w - 36, x));
+  const clampedY = Math.max(backY + 4, Math.min(Math.max(groundY + 12, edgeY - 4), y));
+
+  const fissure = sim.floorFissures[sim.floorFissureCursor];
+  sim.floorFissureCursor = (sim.floorFissureCursor + 1) % FLOOR_FISSURE_POOL_SIZE;
+  fissure.active = true;
+  fissure.x = clampedX;
+  fissure.y = clampedY;
+  fissure.scale = Math.max(0.65, Math.min(1.6, scale));
+  fissure.seed = (fissure.seed + 1.37) % 100 || Math.random() * 50;
+  fissure.createdTurn = sim.currentTurn;
+  fissure.visualTurnAge = 0;
+  fissure.age = 0;
+  fissure.alpha = 0.96;
+  fissure.heatIntensity = Math.max(0.2, Math.min(1.25, heatIntensity));
+}
+
+export function spawnBruteKineticShards(
+  sim: CombatStageSim,
+  cx: number,
+  cy: number,
+  floorY: number,
+  count: number,
+  palette: 'seismic' | 'chitin' | 'vial' = 'seismic',
+  dir = -1,
+): void {
+  const colors =
+    palette === 'chitin'
+      ? ['#FB923C', '#EA580C', '#FDBA74', '#FEF3C7']
+      : palette === 'vial'
+        ? ['#4ADE80', '#22C55E', '#A7F3D0', '#E0F2FE']
+        : ['#67E8F9', '#E0F2FE', '#FB923C', '#FACC15'];
+  for (let i = 0; i < count; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const spreadAngle =
+      palette === 'seismic'
+        ? -Math.PI * 0.5 + (Math.random() - 0.5) * 1.95
+        : -Math.PI * 0.48 + dir * 0.32 + (Math.random() - 0.5) * 1.5;
+    const spd =
+      palette === 'seismic'
+        ? 110 + Math.random() * 210
+        : palette === 'chitin'
+          ? 125 + Math.random() * 220
+          : 75 + Math.random() * 140;
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * (palette === 'seismic' ? 42 : 24);
+    p.y = cy + (Math.random() - 0.5) * 12;
+    p.vx = Math.cos(spreadAngle) * spd;
+    p.vy = Math.sin(spreadAngle) * spd - (palette === 'seismic' ? 75 : 55);
+    p.life = 0;
+    p.maxLife = 0.52 + Math.random() * 0.42;
+    p.size = palette === 'seismic' ? 3.8 + Math.random() * 4.5 : 3.2 + Math.random() * 4.0;
+    p.color = colors[i % colors.length];
+    p.shape = 3;
+    p.rot = Math.random() * Math.PI * 2;
+    p.vRot = (Math.random() - 0.5) * 18;
+    p.gravity = 540;
+    p.floorY = floorY + (Math.random() - 0.5) * 6;
+    p.bounced = false;
+  }
+}
+
+export function spawnBruteMutagenMist(
+  sim: CombatStageSim,
+  cx: number,
+  cy: number,
+  count: number,
+  intensity = 1,
+): void {
+  const mistColors = ['#A3E635', '#4ADE80', '#BEF264', '#22C55E'];
+  for (let i = 0; i < count; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const ang = -Math.PI * 0.5 + (Math.random() - 0.5) * 2.1;
+    const spd = (28 + Math.random() * 64) * Math.max(0.75, intensity);
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * 26;
+    p.y = cy + (Math.random() - 0.5) * 18;
+    p.vx = Math.cos(ang) * spd;
+    p.vy = Math.sin(ang) * spd - 24;
+    p.life = 0;
+    p.maxLife = 0.72 + Math.random() * 0.58;
+    p.size = (12 + Math.random() * 14) * Math.max(0.85, Math.min(1.4, intensity));
+    p.color = mistColors[i % mistColors.length];
+    p.shape = 4;
+    p.rot = Math.random() * Math.PI * 2;
+    p.vRot = (Math.random() - 0.5) * 1.4;
+    p.gravity = -42; // Rising buoyant toxic vapor
+    p.floorY = 9999;
+    p.bounced = false;
   }
 }
 
@@ -728,7 +847,7 @@ function triggerEnemyHitStagger(
   );
 }
 
-function spawnFloatingText(
+export function spawnFloatingText(
   sim: CombatStageSim,
   cx: number,
   cy: number,
@@ -776,7 +895,7 @@ export function spawnBolt(
 
 export function drainTriggerImpacts(
   sim: CombatStageSim,
-  trigger: 'shot1' | 'shot2' | 'kick',
+  trigger: 'shot1' | 'shot2' | 'kick' | 'cutin_impact',
 ): (() => void) | undefined {
   const matched: PendingImpact[] = [];
   for (let i = sim.pendingImpacts.length - 1; i >= 0; i--) {
@@ -808,6 +927,9 @@ function ensureEnemyAnim(sim: CombatStageSim, id: string): ActorAnim {
       bleedSpurtTimer: 0,
       attackAnimTimer: 0,
       attackAnimDuration: 0.52,
+      bristleTimer: 0,
+      bristleDuration: 0.5,
+      bristleKind: 'armor',
     };
     sim.enemyAnims.set(id, ea);
   }
@@ -817,7 +939,7 @@ function ensureEnemyAnim(sim: CombatStageSim, id: string): ActorAnim {
 function syncCombatBloodState(sim: CombatStageSim, combat: CombatState): void {
   const { w, h } = sim.size;
   const groundY = getBridgeGroundY(h);
-  const slotCount = computeEffectiveSlotCount(
+  const { slotCenters, effectiveSlotCount: slotCount } = computeEnemySlotLayout(
     combat.enemies,
     combat.director?.pendingReinforcements,
   );
@@ -862,12 +984,13 @@ function syncCombatBloodState(sim: CombatStageSim, combat: CombatState): void {
       sim.enemyInitialArmor.set(enemy.id, enemy.armor);
     }
 
+    const slotCenter = slotCenters[idx] ?? idx;
     const prevSlot = sim.prevEnemySlots.get(enemy.id);
-    if (prevSlot !== undefined && prevSlot !== idx) {
+    if (prevSlot !== undefined && Math.abs(prevSlot - slotCenter) > 0.01) {
       const status = getEnemyStatusVisualFlags(enemy, sim.enemyInitialArmor.get(enemy.id));
       if (status.isBleeding || status.isShredded) {
         const oldX = enemyBaseX + prevSlot * enemyStepX;
-        const newX = enemyBaseX + idx * enemyStepX;
+        const newX = enemyBaseX + slotCenter * enemyStepX;
         const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
         spawnStatusTrail(
           sim,
@@ -880,7 +1003,7 @@ function syncCombatBloodState(sim: CombatStageSim, combat: CombatState): void {
         sim.needsRedraw = true;
       }
     }
-    sim.prevEnemySlots.set(enemy.id, idx);
+    sim.prevEnemySlots.set(enemy.id, slotCenter);
   }
 
   // Clean up any departed enemies
@@ -891,10 +1014,17 @@ function syncCombatBloodState(sim: CombatStageSim, combat: CombatState): void {
   });
 }
 
+export interface ApplyCombatCuesOptions {
+  presentationConfig?: CombatPresentationConfig;
+  tacticalViewActive?: boolean;
+  onSequenceComplete?: (batchKey: string) => void;
+}
+
 export function applyCombatCues(
   sim: CombatStageSim,
   combat: CombatState,
   heroine: HeroineState,
+  options?: ApplyCombatCuesOptions,
 ): void {
   syncCombatBloodState(sim, combat);
 
@@ -907,18 +1037,25 @@ export function applyCombatCues(
   const batchKey = cues.map((c) => c.id).join('|');
   if (batchKey === sim.lastCueBatchKey) return;
   sim.lastCueBatchKey = batchKey;
+  sim.batchActiveKey = batchKey;
+  sim.onBatchComplete = options?.onSequenceComplete;
+  sim.batchMicroTimerRemaining = 0;
   sim.needsRedraw = true;
 
   const { w, h } = sim.size;
   const charId = heroine.characterId ?? 'kira';
   const equippedDefIds = getEquippedDefIds(heroine);
   const groundY = getBridgeGroundY(h);
-  const heroX = w * 0.22;
-  const slotCount = computeEffectiveSlotCount(
+  const heroX = w < 460 ? w * 0.19 : w * 0.22;
+  const { slotCenters, dropCenters, effectiveSlotCount: slotCount } = computeEnemySlotLayout(
     combat.enemies,
     combat.director?.pendingReinforcements,
   );
   const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, slotCount);
+  const presCfg = options?.presentationConfig ?? DEFAULT_COMBAT_PRESENTATION_CONFIG;
+  const tacticalViewActive = Boolean(options?.tacticalViewActive);
+  const livingEnemyCount = Math.max(1, combat.enemies.filter((e) => e.hp > 0).length);
+  const tempoScale = computePackTempoScale(livingEnemyCount, presCfg.adaptivePackSpeedup);
 
   const getEnemyArch = (targetId?: string): EnemyArchetype => {
     const found = combat.enemies.find((e) => e.id === targetId);
@@ -930,10 +1067,48 @@ export function applyCombatCues(
     const safeIdx = idx >= 0 ? idx : 0;
     const staggerY = safeIdx % 2 === 1 ? -6 : 0;
     const enemyGroundY = groundY + staggerY;
+    const centerSlot = slotCenters[safeIdx] ?? safeIdx;
     return {
-      x: enemyBaseX + safeIdx * enemyStepX,
+      x: enemyBaseX + centerSlot * enemyStepX,
       y: enemyGroundY - 88,
       groundY: enemyGroundY,
+    };
+  };
+
+  const buildActorBounds = (actorId: string): CameraActorBounds => {
+    if (actorId === 'hero') {
+      const heroHeight = Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
+      return {
+        id: 'hero',
+        x: heroX,
+        groundY,
+        widthPx: heroHeight * 0.72,
+        heightPx: heroHeight,
+      };
+    }
+    const pos = getEnemyPos(actorId);
+    const arch = getEnemyArch(actorId);
+    const crowdScale = slotCount >= 5 ? 0.78 : slotCount === 4 ? 0.86 : 1;
+    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
+    const archScale =
+      arch === 'boss'
+        ? 1.24
+        : arch === 'brute'
+          ? 1.32
+          : arch === 'larva'
+            ? 0.76
+            : arch === 'skitter'
+              ? 0.88
+              : arch === 'stinger'
+                ? 0.96
+                : 0.94;
+    const heightPx = baseEnemySize * archScale;
+    return {
+      id: actorId,
+      x: pos.x,
+      groundY: pos.groundY,
+      widthPx: heightPx * 0.82,
+      heightPx,
     };
   };
 
@@ -958,11 +1133,17 @@ export function applyCombatCues(
     }
   });
 
+  const allActorIds: string[] = [
+    'hero',
+    ...combat.enemies.filter((e) => e.hp > 0 || koIds.has(e.id)).map((e) => e.id),
+  ];
+
   const slashCues = cues.filter((c) => c.kind === 'hero_slash');
   const primarySlashCue = slashCues.find((c) => !c.id.endsWith('_def_pulse'));
   const hasOverdrive = cues.some((c) => c.kind === 'hero_overdrive');
 
   let primaryAttackMode: 'dash_kick' | 'shoot' | null = null;
+  let cutInStarted = false;
   if (primarySlashCue) {
     const pos = getEnemyPos(primarySlashCue.targetId);
     sim.pendingShotTargetX = pos.x;
@@ -975,6 +1156,59 @@ export function applyCombatCues(
     sim.attackToggle += 1;
     primaryAttackMode = useKick ? 'dash_kick' : 'shoot';
     sim.heroState = triggerCharacterAnimation(sim.heroState, primaryAttackMode, charId);
+
+    if (!tacticalViewActive && presCfg.enabled && !hasOverdrive) {
+      const targetIds = Array.from(
+        new Set(
+          slashCues
+            .map((c) => c.targetId)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      );
+      if (targetIds.length > 0) {
+        cutInStarted = true;
+        const isCrit =
+          Boolean(primarySlashCue.surge) ||
+          (primarySlashCue.targetId ? koIds.has(primarySlashCue.targetId) : false) ||
+          (primarySlashCue.value ?? 0) >= 18;
+        const actionKind: CutInActionKind = isCrit
+          ? 'crit'
+          : targetIds.length > 1
+            ? 'aoe'
+            : 'normal';
+        const stagingMode: CutInStagingMode =
+          primaryAttackMode === 'dash_kick'
+            ? 'melee'
+            : targetIds.length > 1
+              ? 'ranged_aoe'
+              : 'ranged_fast';
+        void sim.actionSequencer
+          .playCutIn(
+            {
+              id: batchKey,
+              actionKind,
+              stagingMode,
+              attackerId: 'hero',
+              targetIds,
+              allActorIds,
+              attackerBounds: buildActorBounds('hero'),
+              targetBounds: targetIds.map((id) => buildActorBounds(id)),
+              tempoScale: 1.0,
+              waitForExternalImpact: true,
+              replaceQueue: true,
+            },
+            presCfg,
+            w,
+            h,
+          )
+          .then(() => {
+            if (sim.batchActiveKey === batchKey) {
+              sim.lastCompletedBatchKey = batchKey;
+              sim.onBatchComplete?.(batchKey);
+            }
+          });
+      }
+    }
   }
 
   const triggerEnemyKo = (
@@ -1153,6 +1387,36 @@ export function applyCombatCues(
 
       for (const e of livingOrKo) ensureEnemyAnim(sim, e.id);
 
+      if (!tacticalViewActive && presCfg.enabled && !cutInStarted && livingOrKo.length > 0) {
+        cutInStarted = true;
+        const targetIds = livingOrKo.map((e) => e.id);
+        void sim.actionSequencer
+          .playCutIn(
+            {
+              id: batchKey,
+              actionKind: 'overdrive',
+              stagingMode: 'ranged_aoe',
+              attackerId: 'hero',
+              targetIds,
+              allActorIds,
+              attackerBounds: buildActorBounds('hero'),
+              targetBounds: targetIds.map((id) => buildActorBounds(id)),
+              tempoScale: 1.0,
+              waitForExternalImpact: true,
+              replaceQueue: true,
+            },
+            presCfg,
+            w,
+            h,
+          )
+          .then(() => {
+            if (sim.batchActiveKey === batchKey) {
+              sim.lastCompletedBatchKey = batchKey;
+              sim.onBatchComplete?.(batchKey);
+            }
+          });
+      }
+
       sim.pendingImpacts.push({
         triggerOn: 'kick',
         delayRemaining: 0,
@@ -1200,12 +1464,33 @@ export function applyCombatCues(
       const attacker = combat.enemies.find((e) => e.id === cue.targetId);
       const attackerArch = attacker?.archetype ?? 'larva';
       const attackerPos = getEnemyPos(cue.targetId);
+      const blocked = cue.blocked ?? 0;
+      const hpDamage = cue.hpDamage ?? (cue.value ?? 0);
+      const reflected = cue.reflectedDamage ?? 0;
+      const isAcid = cue.kind === 'enemy_acid';
+      const isSpitterClawRend = attackerArch === 'spitter' && !isAcid && Boolean(cue.clawRend);
+      const isBruteHeavy = attackerArch === 'brute' && !isAcid && Boolean(cue.heavySmash);
       if (cue.targetId) {
         const ea = ensureEnemyAnim(sim, cue.targetId);
         ea.lunge = 1;
         ea.lungeDir = -1;
-        ea.attackAnimDuration = 0.52;
-        ea.attackAnimTimer = 0.52;
+        const animDur =
+          attackerArch === 'spitter'
+            ? isAcid
+              ? 0.78
+              : 0.56
+            : attackerArch === 'brute'
+              ? isBruteHeavy
+                ? 0.74
+                : 0.58
+              : 0.52;
+        ea.attackAnimDuration = animDur;
+        ea.attackAnimTimer = animDur;
+        if (attackerArch === 'spitter') {
+          ea.spitterAttackKind = isAcid ? 'spit' : 'claw';
+        } else if (attackerArch === 'brute') {
+          ea.bruteAttackKind = isBruteHeavy ? 'heavy' : 'attack';
+        }
         if (attacker) {
           const status = getEnemyStatusVisualFlags(attacker, sim.enemyInitialArmor.get(attacker.id));
           if (status.isBleeding || status.isShredded) {
@@ -1220,10 +1505,7 @@ export function applyCombatCues(
           }
         }
       }
-      const blocked = cue.blocked ?? 0;
-      const hpDamage = cue.hpDamage ?? (cue.value ?? 0);
-      const reflected = cue.reflectedDamage ?? 0;
-      const isAcid = cue.kind === 'enemy_acid';
+      const isStalkerAmbush = attackerArch === 'stalker' && blocked + hpDamage >= 10;
       const isLethal = heroine.hp <= 0;
       const lowHp = heroine.hp <= heroine.maxHp * 0.35;
 
@@ -1231,10 +1513,93 @@ export function applyCombatCues(
         sim.heroState = triggerCharacterAnimation(sim.heroState, 'defeat', charId);
       }
 
+      if (isAcid && attackerArch === 'spitter') {
+        const mouthX = attackerPos.x - 42;
+        const mouthY = attackerPos.groundY - 116;
+        // Initial throat-sac condensation sparks
+        spawnBurst(sim, mouthX, mouthY, 8, '#FEF08A', 2, 0.7);
+        // Synchronized jaw-spray eruption at u = 0.22 (0.17s into 0.78s anim)
+        sim.pendingImpacts.push({
+          triggerOn: 'delay',
+          delayRemaining: 0.17,
+          execute: () => {
+            spawnBurst(sim, mouthX - 8, mouthY, 16, '#FACC15', 2, 1.05);
+            spawnBurst(sim, mouthX - 14, mouthY + 2, 12, '#A3E635', 2, 0.95);
+            spawnBurst(sim, mouthX - 6, mouthY - 2, 8, '#FEF08A', 0, 0.85);
+            emitBloodDroplets(
+              sim,
+              mouthX - 12,
+              mouthY,
+              attackerPos.groundY,
+              10,
+              1.15,
+              'spitter',
+              'kinetic',
+              -1,
+            );
+          },
+        });
+      }
+
+      const impactDelay = isAcid && attackerArch === 'spitter' ? 0.28 : 0.085;
+      const useCutInForEnemy = !tacticalViewActive && presCfg.enabled && Boolean(cue.targetId) && !cutInStarted;
+      if (useCutInForEnemy && cue.targetId) {
+        cutInStarted = true;
+        const isCritEnemy =
+          Boolean(cue.heavySmash) ||
+          attackerArch === 'boss' ||
+          isStalkerAmbush ||
+          isLethal ||
+          hpDamage >= 12;
+        const enemyActionKind: CutInActionKind = isCritEnemy ? 'crit' : 'normal';
+        const enemyStagingMode: CutInStagingMode = isAcid ? 'ranged_fast' : 'melee';
+        void sim.actionSequencer
+          .playCutIn(
+            {
+              id: batchKey,
+              actionKind: enemyActionKind,
+              stagingMode: enemyStagingMode,
+              attackerId: cue.targetId,
+              targetIds: ['hero'],
+              allActorIds,
+              attackerBounds: buildActorBounds(cue.targetId),
+              targetBounds: [buildActorBounds('hero')],
+              tempoScale,
+              waitForExternalImpact: false,
+              replaceQueue: true,
+              onImpactFrame: () => {
+                const runCutIn = drainTriggerImpacts(sim, 'cutin_impact');
+                if (runCutIn) runCutIn();
+              },
+            },
+            presCfg,
+            w,
+            h,
+          )
+          .then(() => {
+            if (sim.batchActiveKey === batchKey) {
+              sim.lastCompletedBatchKey = batchKey;
+              sim.onBatchComplete?.(batchKey);
+            }
+          });
+      }
+
       sim.pendingImpacts.push({
-        triggerOn: 'delay',
-        delayRemaining: 0.085,
+        triggerOn: useCutInForEnemy ? 'cutin_impact' : 'delay',
+        delayRemaining: useCutInForEnemy ? 0 : impactDelay,
         execute: () => {
+          if (isStalkerAmbush) {
+            spawnBurst(sim, heroX + 20, groundY - 92, 16, '#FF2E7E', 1, 1.25);
+          }
+          if (isSpitterClawRend) {
+            spawnBurst(sim, heroX + 18, groundY - 92, 12, '#A3E635', 2, 0.95);
+            spawnBurst(sim, heroX + 14, groundY - 88, 10, '#C026D3', 1, 1.0);
+            if (hpDamage > 0 && attacker && !koIds.has(attacker.id) && cue.textLabel) {
+              spawnBurst(sim, attackerPos.x - 4, attackerPos.groundY - 98, 14, '#A3E635', 1, 0.9);
+              spawnBurst(sim, attackerPos.x, attackerPos.groundY - 92, 8, '#FFC700', 1, 0.7);
+              spawnFloatingText(sim, attackerPos.x, attackerPos.y - 42, cue.textLabel, '#BEF264', 0.98);
+            }
+          }
           if (!isLethal) {
             if (hpDamage === 0) {
               sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
@@ -1242,12 +1607,12 @@ export function applyCombatCues(
               sim.trauma = Math.min(1, sim.trauma + 0.14);
               spawnBurst(sim, heroX + 38, groundY - 95, 16, '#00E5FF', 1, 0.9);
               if (isAcid) {
-                const acidProfile = getBloodBiologyProfile(attackerArch);
-                spawnBurst(sim, heroX + 44, groundY - 82, 8, acidProfile.freshEmissive, 2, 0.65);
-                addOrGrowFloorBlood(sim, heroX + 32, groundY + 2, 3.2, 0, {
+                spawnBurst(sim, heroX + 36, groundY - 84, 16, '#FACC15', 2, 0.95);
+                spawnBurst(sim, heroX + 32, groundY - 82, 12, '#A3E635', 2, 0.85);
+                addOrGrowFloorBlood(sim, heroX + 28, groundY + 2, 3.6, 0, {
                   owner: attackerArch,
                   shapeKind: 'scorch_ring',
-                  plasmaColor: acidProfile.freshEmissive,
+                  plasmaColor: '#FACC15',
                 });
               }
               spawnFloatingText(sim, heroX, groundY - 145, 'BLOCKED', '#38BDF8', 0.95);
@@ -1258,37 +1623,62 @@ export function applyCombatCues(
               }
               sim.heroState = triggerCharacterAnimation(sim.heroState, 'hit', charId, { lowHpHit: lowHp });
               sim.heroAnim.flashTimer = 0.085;
-              sim.trauma = Math.min(1, sim.trauma + 0.35);
-              spawnBurst(sim, heroX, groundY - 85, 14, isAcid ? '#84CC16' : '#FB7185', isAcid ? 2 : 0, 0.9);
+              sim.trauma = Math.min(1, sim.trauma + (isBruteHeavy ? 0.54 : isStalkerAmbush ? 0.48 : 0.35));
+              spawnBurst(
+                sim,
+                heroX + (isAcid ? 14 : 0),
+                groundY - 85,
+                isBruteHeavy || isStalkerAmbush || isAcid ? 22 : 14,
+                isAcid ? '#FACC15' : isBruteHeavy ? '#FB923C' : isStalkerAmbush ? '#FF2E7E' : '#FB7185',
+                isAcid ? 2 : 0,
+                isBruteHeavy || isAcid ? 1.08 : 0.9,
+              );
+              if (isAcid) {
+                spawnBurst(sim, heroX + 18, groundY - 88, 16, '#A3E635', 2, 0.98);
+                spawnBurst(sim, heroX + 16, groundY - 84, 10, '#FEF08A', 0, 0.88);
+              }
+              if (isBruteHeavy) {
+                spawnBurst(sim, heroX + 24, groundY - 12, 14, '#FACC15', 1, 1.0);
+                const smashX = attackerPos.x - 44;
+                addGroundFissure(sim, smashX, attackerPos.groundY + 1, 1.1, 1.0);
+                spawnBruteKineticShards(sim, smashX, attackerPos.groundY - 10, attackerPos.groundY + 2, 16, 'seismic', -1);
+              }
               spawnAlienBloodImpact(
                 sim,
-                heroX,
+                heroX + (isAcid ? 12 : 0),
                 groundY - 78,
                 groundY,
-                isAcid ? 'hero_corrode' : 'hero_blood',
+                isAcid ? 'spitter' : 'hero_blood',
                 isAcid ? 'plasma' : 'melee',
-                0.75,
+                isBruteHeavy ? 1.05 : isStalkerAmbush || isAcid ? 0.95 : 0.75,
                 false,
                 -1,
-                isAcid ? '#A3E635' : '#FB7185',
+                isAcid ? '#FACC15' : '#FB7185',
               );
-              spawnFloatingText(sim, heroX, groundY - 140, `-${hpDamage}`, isAcid ? '#A3E635' : '#FDA4AF', 1.0);
+              spawnFloatingText(
+                sim,
+                heroX,
+                groundY - 140,
+                isStalkerAmbush ? `AMBUSH -${hpDamage}` : `-${hpDamage}`,
+                isAcid ? '#FACC15' : isBruteHeavy ? '#FB923C' : isStalkerAmbush ? '#FF2E7E' : '#FDA4AF',
+                isBruteHeavy || isStalkerAmbush ? 1.15 : 1.0,
+              );
             }
           } else {
             sim.heroAnim.flashTimer = 0.1;
             sim.trauma = Math.min(1, sim.trauma + 0.55);
-            spawnBurst(sim, heroX, groundY - 80, 20, isAcid ? '#84CC16' : '#FB7185', isAcid ? 2 : 0, 1.0);
+            spawnBurst(sim, heroX, groundY - 80, 22, isAcid ? '#FACC15' : '#FB7185', isAcid ? 2 : 0, 1.05);
             spawnAlienBloodImpact(
               sim,
               heroX,
               groundY - 74,
               groundY,
-              isAcid ? 'hero_corrode' : 'hero_blood',
+              isAcid ? 'spitter' : 'hero_blood',
               isAcid ? 'plasma' : 'melee',
               1.15,
               true,
               -1,
-              isAcid ? '#A3E635' : '#FB7185',
+              isAcid ? '#FACC15' : '#FB7185',
             );
             if (hpDamage > 0) {
               spawnFloatingText(sim, heroX, groundY - 140, `-${hpDamage}`, '#FB7185', 1.15);
@@ -1316,9 +1706,36 @@ export function applyCombatCues(
       });
     } else if (cue.kind === 'enemy_armor') {
       const pos = getEnemyPos(cue.targetId);
-      spawnBurst(sim, pos.x, pos.y, 10, '#A3E635', 1, 0.7);
-      if (cue.value) {
-        spawnFloatingText(sim, pos.x, pos.y - 35, `+${cue.value} ARM`, '#BEF264', 0.95);
+      const arch = getEnemyArch(cue.targetId);
+      if (arch === 'stalker' && cue.targetId) {
+        const ea = ensureEnemyAnim(sim, cue.targetId);
+        ea.bristleKind = 'armor';
+        ea.bristleDuration = 0.58;
+        ea.bristleTimer = 0.58;
+        spawnBurst(sim, pos.x + 6, pos.y - 12, 14, '#FF2E7E', 1, 0.85);
+        spawnBurst(sim, pos.x, pos.y - 8, 8, '#FFC700', 1, 0.65);
+        if (cue.value) {
+          spawnFloatingText(sim, pos.x, pos.y - 40, `+${cue.value} THORN ARM`, '#FF85B3', 0.98);
+        }
+      } else if (arch === 'brute' && cue.targetId) {
+        const ea = ensureEnemyAnim(sim, cue.targetId);
+        ea.bristleKind = 'armor';
+        ea.bristleDuration = 0.72;
+        ea.bristleTimer = 0.72;
+        spawnBurst(sim, pos.x - 8, pos.y - 6, 14, '#22C55E', 2, 0.9);
+        spawnBurst(sim, pos.x + 18, pos.y - 26, 12, '#FB923C', 1, 0.85);
+        spawnBruteMutagenMist(sim, pos.x - 10, pos.y - 16, 12, 1.0);
+        spawnBruteKineticShards(sim, pos.x - 10, pos.y - 14, pos.groundY + 2, 7, 'vial', -1);
+        const label =
+          cue.secondaryHeal && cue.secondaryHeal > 0
+            ? `+${cue.value ?? 6} ARM · +${cue.secondaryHeal} HP`
+            : `+${cue.value ?? 6} ARM`;
+        spawnFloatingText(sim, pos.x, pos.y - 44, label, '#4ADE80', 1.02);
+      } else {
+        spawnBurst(sim, pos.x, pos.y, 10, '#A3E635', 1, 0.7);
+        if (cue.value) {
+          spawnFloatingText(sim, pos.x, pos.y - 35, `+${cue.value} ARM`, '#BEF264', 0.95);
+        }
       }
     } else if (cue.kind === 'enemy_bolster') {
       const bolsterVal = cue.value ?? 4;
@@ -1386,39 +1803,99 @@ export function applyCombatCues(
       const stalkerPos = getEnemyPos(cue.targetId);
       const retHpDmg = cue.hpDamage ?? (cue.value ?? 3);
       const retBlocked = cue.blocked ?? 0;
+      if (cue.targetId) {
+        const ea = ensureEnemyAnim(sim, cue.targetId);
+        ea.bristleKind = 'retaliate';
+        ea.bristleDuration = 0.48;
+        ea.bristleTimer = 0.48;
+      }
+      const quillSx = stalkerPos.x + 8;
+      const quillSy = stalkerPos.y - 24;
+      spawnBurst(sim, quillSx, quillSy, 14, '#FF2E7E', 1, 1.05);
+
+      const quillTargets = [
+        { delay: 0.09, dy: -102, color: '#FF2E7E', final: false },
+        { delay: 0.13, dy: -82, color: '#FF85B3', final: false },
+        { delay: 0.17, dy: -90, color: '#FF2E7E', final: true },
+      ] as const;
+
+      for (let q = 0; q < quillTargets.length; q++) {
+        const qt = quillTargets[q];
+        sim.pendingImpacts.push({
+          triggerOn: 'delay',
+          delayRemaining: qt.delay,
+          execute: () => {
+            spawnBolt(sim, quillSx, quillSy, heroX + 22, groundY + qt.dy, qt.color, () => {
+              if (!qt.final) {
+                spawnBurst(
+                  sim,
+                  heroX + 18,
+                  groundY + qt.dy,
+                  6,
+                  retHpDmg > 0 ? '#FF2E7E' : '#00E5FF',
+                  1,
+                  0.75,
+                );
+                return;
+              }
+              sim.trauma = Math.min(1, sim.trauma + 0.28);
+              if (retHpDmg > 0) {
+                sim.heroAnim.flashTimer = 0.08;
+                spawnBurst(sim, heroX, groundY - 85, 14, '#FB7185', 1, 0.95);
+                spawnAlienBloodImpact(
+                  sim,
+                  heroX,
+                  groundY - 76,
+                  groundY,
+                  'hero_blood',
+                  'kinetic',
+                  0.65,
+                  false,
+                  -1,
+                );
+                spawnFloatingText(
+                  sim,
+                  heroX,
+                  groundY - 135,
+                  `-${retHpDmg} SPIKE`,
+                  '#FDA4AF',
+                  1.0,
+                );
+              } else if (retBlocked > 0) {
+                sim.shieldDomeTimer = 0.32;
+                spawnBurst(sim, heroX + 34, groundY - 92, 12, '#00E5FF', 1, 0.85);
+                spawnFloatingText(sim, heroX, groundY - 135, 'SPIKE BLOCKED', '#38BDF8', 0.95);
+              }
+            });
+          },
+        });
+      }
+    } else if (cue.kind === 'enemy_pustule_rupture') {
+      const spitterPos = getEnemyPos(cue.targetId);
+      const corAmt = cue.value ?? 2;
+      if (cue.targetId) {
+        const ea = ensureEnemyAnim(sim, cue.targetId);
+        ea.bristleKind = 'pustule_rupture';
+        ea.bristleDuration = 0.52;
+        ea.bristleTimer = 0.52;
+      }
+      const pusSx = spitterPos.x - 10;
+      const pusSy = spitterPos.groundY - 104;
+      spawnBurst(sim, pusSx, pusSy, 16, '#A3E635', 2, 1.05);
+      spawnBurst(sim, pusSx + 4, pusSy - 4, 8, '#C026D3', 1, 0.85);
       sim.pendingImpacts.push({
         triggerOn: 'delay',
-        delayRemaining: 0.16,
+        delayRemaining: 0.14,
         execute: () => {
-          spawnBolt(sim, stalkerPos.x - 16, stalkerPos.y, heroX + 24, groundY - 88, '#FF2E7E', () => {
-            sim.trauma = Math.min(1, sim.trauma + 0.28);
-            if (retHpDmg > 0) {
-              sim.heroAnim.flashTimer = 0.08;
-              spawnBurst(sim, heroX, groundY - 85, 14, '#FB7185', 1, 0.95);
-              spawnAlienBloodImpact(
-                sim,
-                heroX,
-                groundY - 76,
-                groundY,
-                'hero_blood',
-                'kinetic',
-                0.65,
-                false,
-                -1,
-              );
-              spawnFloatingText(
-                sim,
-                heroX,
-                groundY - 135,
-                `-${retHpDmg} SPIKE`,
-                '#FDA4AF',
-                1.0,
-              );
-            } else if (retBlocked > 0) {
-              sim.shieldDomeTimer = 0.32;
-              spawnBurst(sim, heroX + 34, groundY - 92, 12, '#00E5FF', 1, 0.85);
-              spawnFloatingText(sim, heroX, groundY - 135, 'SPIKE BLOCKED', '#38BDF8', 0.95);
-            }
+          spawnBolt(sim, pusSx, pusSy, heroX + 16, groundY - 88, '#A3E635', () => {
+            sim.trauma = Math.min(1, sim.trauma + 0.18);
+            spawnBurst(sim, heroX + 8, groundY - 86, 12, '#A3E635', 2, 0.85);
+            addOrGrowFloorBlood(sim, heroX + 14, groundY + 2, 2.8, 0, {
+              owner: 'hero_corrode',
+              shapeKind: 'scorch_ring',
+              plasmaColor: '#A3E635',
+            });
+            spawnFloatingText(sim, heroX, groundY - 134, `☣ +${corAmt} COR`, '#BEF264', 0.98);
           });
         },
       });
@@ -1451,8 +1928,10 @@ export function applyCombatCues(
       }
     } else if (cue.kind === 'enemy_telegraph') {
       const pending = combat.director?.pendingReinforcements ?? [];
-      const drop = pending[pending.length - 1];
-      const dropX = drop ? enemyBaseX + drop.slotIndex * enemyStepX : enemyBaseX + enemyStepX;
+      const dropIdx = Math.max(0, pending.length - 1);
+      const drop = pending[dropIdx];
+      const dropCenter = drop ? (dropCenters[dropIdx] ?? drop.slotIndex) : 1;
+      const dropX = drop ? enemyBaseX + dropCenter * enemyStepX : enemyBaseX + enemyStepX;
       spawnBurst(sim, dropX, groundY - 24, 16, '#FB923C', 1, 0.9);
       spawnFloatingText(
         sim,
@@ -1474,11 +1953,55 @@ export function applyCombatCues(
     } else if (cue.kind === 'enemy_stagger' && cue.targetId) {
       const pos = getEnemyPos(cue.targetId);
       const arch = getEnemyArch(cue.targetId);
-      sim.trauma = Math.min(1, sim.trauma + 0.34);
-      triggerEnemyHitStagger(sim, cue.targetId, pos, arch, 'melee', 1.3, false, 1);
-      spawnBurst(sim, pos.x, pos.y, 20, '#00F0FF', 1, 1.1);
-      spawnBurst(sim, pos.x, pos.y, 12, '#FFC700', 1, 0.9);
-      spawnFloatingText(sim, pos.x, pos.y - 54, '⚡ STAGGERED!', '#67E8F9', 1.15);
+      const isWeaponBreak = Boolean(cue.textLabel?.includes('WEAPON BROKEN'));
+      const isSleep = Boolean(cue.textLabel?.startsWith('SLEEPING'));
+      const isRecoverZero = Boolean(cue.textLabel?.includes('0 DMG'));
+      if (isSleep) {
+        spawnBurst(sim, pos.x, pos.y - 16, 10, '#A5B4FC', 2, 0.55);
+        spawnFloatingText(
+          sim,
+          pos.x,
+          pos.y - 48,
+          cue.textLabel ?? 'SLEEPING',
+          '#C7D2FE',
+          1.0,
+        );
+      } else if (isRecoverZero) {
+        triggerEnemyHitStagger(sim, cue.targetId, pos, arch, 'melee', 0.72, false, 1);
+        spawnBurst(sim, pos.x, pos.y, 10, '#00F0FF', 1, 0.75);
+        spawnFloatingText(
+          sim,
+          pos.x,
+          pos.y - 48,
+          cue.textLabel ?? 'STAGGERED · 0 DMG',
+          '#67E8F9',
+          1.02,
+        );
+      } else {
+        sim.trauma = Math.min(1, sim.trauma + (isWeaponBreak ? 0.52 : 0.34));
+        triggerEnemyHitStagger(sim, cue.targetId, pos, arch, 'melee', isWeaponBreak ? 1.55 : 1.3, false, 1);
+        spawnBurst(sim, pos.x, pos.y, isWeaponBreak ? 26 : 20, '#00F0FF', 1, 1.1);
+        spawnBurst(sim, pos.x, pos.y, isWeaponBreak ? 18 : 12, '#FFC700', 1, 0.95);
+        if (arch === 'brute') {
+          spawnBruteKineticShards(
+            sim,
+            pos.x - 6,
+            pos.y - 16,
+            pos.groundY + 2,
+            isWeaponBreak ? 20 : 11,
+            'chitin',
+            1,
+          );
+        }
+        spawnFloatingText(
+          sim,
+          pos.x,
+          pos.y - 54,
+          isWeaponBreak ? '⚔ WEAPON BROKEN!' : '⚡ STAGGERED!',
+          isWeaponBreak ? '#FB923C' : '#67E8F9',
+          isWeaponBreak ? 1.22 : 1.15,
+        );
+      }
     } else if (cue.kind === 'tile_hex') {
       const pos = getEnemyPos(cue.targetId);
       spawnBurst(sim, pos.x, pos.y, 16, '#C084FC', 1, 1.0);
@@ -1503,19 +2026,73 @@ export function applyCombatCues(
       spawnFloatingText(sim, heroX, groundY - 142, 'OVERHEAT JAM', '#FB923C', 1.0);
     }
   }
+
+  if (!cutInStarted) {
+    const cueKinds = cues.map((c) => c.kind);
+    sim.batchMicroTimerRemaining =
+      computeNonCutInBeatMs(cueKinds, livingEnemyCount, presCfg.adaptivePackSpeedup) / 1000;
+  }
 }
 
-export function stepCombatSimulation(sim: CombatStageSim, dt: number): number {
+export interface StepCombatSimulationOptions {
+  tacticalViewActive?: boolean;
+  reducedMotion?: boolean;
+  idleZoom?: number;
+  idlePanX?: number;
+  idlePanY?: number;
+}
+
+export function stepCombatSimulation(
+  sim: CombatStageSim,
+  dt: number,
+  options?: StepCombatSimulationOptions,
+): number {
+  const seqFrame = sim.actionSequencer.step(dt, sim.size.w, sim.size.h, {
+    tacticalViewActive: Boolean(options?.tacticalViewActive),
+    reducedMotion: Boolean(options?.reducedMotion),
+    idleZoom: options?.idleZoom,
+    idlePanX: options?.idlePanX,
+    idlePanY: options?.idlePanY,
+  });
+  sim.lastSeqFrame = seqFrame;
+  sim.cameraZoom = seqFrame.cameraZoom;
+  sim.cameraPanX = seqFrame.cameraPanX;
+  sim.cameraPanY = seqFrame.cameraPanY;
+  sim.cameraRotRad = seqFrame.cameraRotRad;
+
+  if (!seqFrame.active) {
+    for (let i = sim.pendingImpacts.length - 1; i >= 0; i--) {
+      if (sim.pendingImpacts[i].triggerOn === 'cutin_impact') {
+        const pi = sim.pendingImpacts.splice(i, 1)[0];
+        pi.execute();
+      }
+    }
+  }
+
+  if (sim.batchMicroTimerRemaining > 0) {
+    sim.batchMicroTimerRemaining = Math.max(0, sim.batchMicroTimerRemaining - dt);
+    if (
+      sim.batchMicroTimerRemaining === 0 &&
+      sim.batchActiveKey &&
+      sim.lastCompletedBatchKey !== sim.batchActiveKey
+    ) {
+      sim.lastCompletedBatchKey = sim.batchActiveKey;
+      sim.onBatchComplete?.(sim.batchActiveKey);
+    }
+  }
+
   sim.trauma = Math.max(0, sim.trauma - dt * 2.4);
   if (sim.heroAnim.flashTimer > 0) sim.heroAnim.flashTimer = Math.max(0, sim.heroAnim.flashTimer - dt);
   sim.enemyAnims.forEach((ea) => {
     if (ea.flashTimer > 0) ea.flashTimer = Math.max(0, ea.flashTimer - dt);
   });
 
-  let simDt = dt;
+  let simDt = seqFrame.isHitStopped ? 0 : dt;
   if (sim.hitstop > 0) {
     sim.hitstop = Math.max(0, sim.hitstop - dt);
-    simDt = 0;
+    if (!seqFrame.isHitStopped) {
+      simDt = 0;
+    }
   }
 
   sim.slashArcTimer = Math.max(0, sim.slashArcTimer - simDt);
@@ -1544,6 +2121,9 @@ export function stepCombatSimulation(sim: CombatStageSim, dt: number): number {
     ea.lunge = Math.max(0, ea.lunge - simDt * 5.2);
     if (ea.attackAnimTimer > 0) {
       ea.attackAnimTimer = Math.max(0, ea.attackAnimTimer - simDt);
+    }
+    if (ea.bristleTimer > 0) {
+      ea.bristleTimer = Math.max(0, ea.bristleTimer - simDt);
     }
     if (ea.staggerTimer > 0) {
       ea.staggerTimer = Math.max(0, ea.staggerTimer - simDt);
@@ -1593,7 +2173,35 @@ export function stepCombatSimulation(sim: CombatStageSim, dt: number): number {
     }
     p.x += p.vx * simDt;
     p.y += p.vy * simDt;
-    p.vy += 280 * simDt;
+    p.vy += p.gravity * simDt;
+    p.rot += p.vRot * simDt;
+    if (p.shape === 4) {
+      p.vx *= Math.max(0, 1 - 1.6 * simDt);
+    }
+    if (p.shape === 3 && !p.bounced && p.vy > 0 && p.y >= p.floorY) {
+      p.y = p.floorY;
+      p.vy = -Math.abs(p.vy) * 0.42;
+      p.vx *= 0.68;
+      p.vRot *= 0.65;
+      p.bounced = true;
+    }
+  }
+
+  // Step persistent ground seismic fissures (molten glow cools over 1-2 turns into dark deck fractures)
+  const fissureAgeLerp = Math.min(1, simDt * 3.2);
+  for (let i = 0; i < FLOOR_FISSURE_POOL_SIZE; i++) {
+    const f = sim.floorFissures[i];
+    if (!f.active) continue;
+    f.age += simDt;
+    const targetTurnAge = Math.max(0, sim.currentTurn - f.createdTurn);
+    f.visualTurnAge += (targetTurnAge - f.visualTurnAge) * fissureAgeLerp;
+    f.heatIntensity = Math.max(0, f.heatIntensity - simDt * 0.085);
+    if (f.visualTurnAge >= 2.2 || f.age > 24) {
+      f.alpha -= simDt * 0.28;
+    }
+    if (f.alpha <= 0.02) {
+      f.active = false;
+    }
   }
 
   const { w, h } = sim.size;

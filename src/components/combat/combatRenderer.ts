@@ -1,4 +1,5 @@
 import { previewHeroineThreat } from '../../engine/gameEngine';
+import { getEffectiveEnemyIntentValue } from '../../engine/reinforcementDirector';
 import type {
   CharacterId,
   CombatState,
@@ -8,6 +9,18 @@ import type {
   TurnPreview,
 } from '../../engine/types';
 import { AURELIA_CANONICAL_HEIGHT, AURELIA_SHEET_FRAMES } from '../../utils/aureliaSpriteSheet';
+import {
+  BRUTE_CANONICAL_HEIGHT,
+  BRUTE_SHEET_FRAMES,
+  type BruteFrameSample,
+  sampleBruteFrame,
+} from '../../utils/bruteSpriteSheet';
+import {
+  type BruteJuiceSample,
+  DEFAULT_BRUTE_JUICE_CONFIG,
+  createBruteJuiceState,
+  stepBruteJuice,
+} from '../../utils/bruteJuiceController';
 import {
   CRAWLER_ARCH_SCALE,
   CRAWLER_CANONICAL_HEIGHT,
@@ -19,6 +32,23 @@ import {
   HEROINE_SHEET_FRAMES,
   type HeroineFrameSample,
 } from '../../utils/heroineSpriteSheet';
+import {
+  SPITTER_CANONICAL_HEIGHT,
+  SPITTER_SHEET_FRAMES,
+  type SpitterFrameSample,
+  sampleSpitterFrame,
+} from '../../utils/spitterSpriteSheet';
+import {
+  DEFAULT_SPITTER_JUICE_CONFIG,
+  type SpitterJuiceSample,
+  createSpitterJuiceState,
+  stepSpitterJuice,
+} from '../../utils/spitterJuiceController';
+import {
+  STALKER_CANONICAL_HEIGHT,
+  type StalkerFrameSample,
+  sampleStalkerFrame,
+} from '../../utils/stalkerSpriteSheet';
 import {
   ZURI_CANONICAL_HEIGHT,
   ZURI_SHEET_FRAMES,
@@ -37,13 +67,21 @@ import {
   EDGE_DRIP_POOL_SIZE,
   ENEMY_FOOT_DEFAULTS,
   FLOOR_BLOOD_POOL_SIZE,
+  FLOOR_FISSURE_POOL_SIZE,
   type FloorBloodPuddle,
+  type FloorFissure,
   PARTICLE_POOL_SIZE,
   SCREEN_BLOOD_POOL_SIZE,
   TEXT_POOL_SIZE,
   getStageLayoutMetrics,
 } from './combatStageTypes';
-import { computeEffectiveSlotCount, computeEnemyArmorPreview } from './combatEnemyUi';
+import {
+  addGroundFissure,
+  spawnBruteKineticShards,
+  spawnBruteMutagenMist,
+  spawnBurst,
+} from './combatVfx';
+import { computeEnemyArmorPreview, computeEnemySlotLayout } from './combatEnemyUi';
 import {
   computeBloodWeatheringState,
   getBloodBiologyProfile,
@@ -51,6 +89,22 @@ import {
   hexToRgba,
   sampleWeatheredBloodColors,
 } from './mutantBlood';
+import {
+  renderCutInForegroundVfx,
+  type SequencerFrameState,
+} from './CombatActionSequencer';
+import {
+  type ActorJuiceSnapshot,
+  NEUTRAL_ACTOR_JUICE_SNAPSHOT,
+} from './SpriteJuiceFeedbackHandler';
+import {
+  type StageRenderOptions,
+  createDefaultShaderUniforms,
+  createIdentityControlPoints,
+  deriveEnemyDeformAndUniforms,
+  deriveHeroineDeformAndUniforms,
+  hexToRgbNorm,
+} from './stageSpriteAdapter';
 
 interface StaggerKinematics {
   dx: number;
@@ -502,6 +556,99 @@ function renderTacticalCoverBarriersAndDecals(
   ctx.restore();
 }
 
+function drawCanvas2DCutInFlash(
+  ctx: CanvasRenderingContext2D,
+  flashRgba: readonly [number, number, number, number] | undefined,
+  radius: number,
+  centerYOffset: number,
+): void {
+  if (!flashRgba || flashRgba[3] <= 0.02) return;
+  const [fr, fg, fb, fa] = flashRgba;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = `rgba(${Math.round(fr * 255)}, ${Math.round(fg * 255)}, ${Math.round(fb * 255)}, ${Math.min(0.85, fa * 0.72)})`;
+  ctx.beginPath();
+  ctx.arc(0, centerYOffset, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
+export function computeAutoFocusTarget(params: {
+  w: number;
+  h: number;
+  enemies: CombatState['enemies'];
+  pendingDrops: NonNullable<CombatState['director']>['pendingReinforcements'];
+  hoveredColor: TileType | null;
+  inspectedEnemyId: string | null;
+  autoFocusCamera: boolean;
+  tacticalViewActive: boolean;
+}): { zoom: number; panX: number; panY: number } {
+  const {
+    w,
+    h,
+    enemies,
+    pendingDrops,
+    hoveredColor,
+    inspectedEnemyId,
+    autoFocusCamera,
+    tacticalViewActive,
+  } = params;
+  if (!autoFocusCamera || tacticalViewActive || w <= 0 || h <= 0) {
+    return { zoom: 1, panX: 0, panY: 0 };
+  }
+  const { slotCenters, effectiveSlotCount } = computeEnemySlotLayout(enemies, pendingDrops);
+  const heroBaseX = w < 460 ? w * 0.19 : w * 0.22;
+  const { enemyBaseX, enemyStepX } = getStageLayoutMetrics(
+    w,
+    h,
+    effectiveSlotCount,
+    0,
+    0,
+    0,
+    1,
+    HEROINE_CANONICAL_HEIGHT,
+  );
+  const groundY = Math.round(h * 0.785);
+  const cx = w * 0.5;
+  const cy = h * 0.5;
+  const focusY = Math.max(h * 0.35, Math.min(h * 0.72, groundY - h * 0.22));
+
+  const frontLivingIdx = enemies.findIndex((e) => e.hp > 0);
+  const frontEnemyX =
+    frontLivingIdx >= 0
+      ? enemyBaseX + (slotCenters[frontLivingIdx] ?? frontLivingIdx) * enemyStepX
+      : enemyBaseX;
+  const inspectedIdx = inspectedEnemyId
+    ? enemies.findIndex((e) => e.id === inspectedEnemyId && e.hp > 0)
+    : -1;
+  const inspectedEnemyX =
+    inspectedIdx >= 0 ? enemyBaseX + (slotCenters[inspectedIdx] ?? inspectedIdx) * enemyStepX : null;
+
+  if (inspectedEnemyX !== null) {
+    return {
+      zoom: 1.2,
+      panX: (cx - inspectedEnemyX) * 0.38,
+      panY: (cy - focusY) * 0.32,
+    };
+  }
+  if (hoveredColor === 'attack') {
+    const midX = heroBaseX * 0.32 + frontEnemyX * 0.68;
+    return {
+      zoom: 1.18,
+      panX: (cx - midX) * 0.35,
+      panY: (cy - focusY) * 0.28,
+    };
+  }
+  if (hoveredColor === 'defense' || hoveredColor === 'tech') {
+    return {
+      zoom: 1.16,
+      panX: (cx - (heroBaseX + 18)) * 0.34,
+      panY: (cy - focusY) * 0.26,
+    };
+  }
+  return { zoom: 1, panX: 0, panY: 0 };
+}
+
 export function renderCombatStage(
   ctx: CanvasRenderingContext2D,
   sim: CombatStageSim,
@@ -521,9 +668,30 @@ export function renderCombatStage(
     revealArchetype: true,
     revealSlot: true,
   },
+  renderOptions?: StageRenderOptions,
 ): void {
   const { w, h } = sim.size;
   const dpr = sim.dpr;
+  const webglRenderer =
+    renderOptions?.rendererMode === 'webgl2' && renderOptions.webglRenderer?.isReady
+      ? renderOptions.webglRenderer
+      : null;
+  const baseCtx = ctx;
+  const useWebGL = Boolean(webglRenderer);
+  const fgCtx = useWebGL && renderOptions?.fgCtx ? renderOptions.fgCtx : baseCtx;
+  const debugMeshWireframe = Boolean(renderOptions?.debugMeshWireframe);
+  const spitterJuiceConfig = renderOptions?.spitterJuiceConfig ?? DEFAULT_SPITTER_JUICE_CONFIG;
+  const spitterLabActive = Boolean(renderOptions?.spitterLabActive);
+  const bruteJuiceConfig = renderOptions?.bruteJuiceConfig ?? DEFAULT_BRUTE_JUICE_CONFIG;
+  const bruteLabActive = Boolean(renderOptions?.bruteLabActive);
+  const reducedMotion = Boolean(renderOptions?.reducedMotion);
+  const seqFrame: SequencerFrameState | null =
+    renderOptions?.sequencerFrame ?? sim.lastSeqFrame ?? null;
+  const getActorJuice = (actorId: string): ActorJuiceSnapshot => {
+    if (tacticalViewActive) return NEUTRAL_ACTOR_JUICE_SNAPSHOT;
+    if (renderOptions?.getActorJuice) return renderOptions.getActorJuice(actorId);
+    return sim.actionSequencer.getActorJuice(actorId);
+  };
   const enemies = combat.enemies;
   const heroFrame = heroSample.frame;
   const charId: CharacterId = heroine.characterId ?? 'kira';
@@ -542,7 +710,10 @@ export function renderCombatStage(
         ? ZURI_CANONICAL_HEIGHT
         : HEROINE_CANONICAL_HEIGHT;
   const pendingDrops = combat.director?.pendingReinforcements ?? [];
-  const effectiveSlotCount = computeEffectiveSlotCount(enemies, pendingDrops);
+  const { slotCenters, dropCenters, effectiveSlotCount } = computeEnemySlotLayout(
+    enemies,
+    pendingDrops,
+  );
   const {
     groundY,
     heroBaseX,
@@ -569,58 +740,78 @@ export function renderCombatStage(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
 
-  // Auto-Framing Camera ("Auto-Focus Active Area"): smoothly pans & zooms ~18% into active quadrant
-  const frontLivingIdxForCam = enemies.findIndex((e) => e.hp > 0);
-  const frontEnemyXForCam =
-    frontLivingIdxForCam >= 0 ? enemyBaseX + frontLivingIdxForCam * enemyStepX : enemyBaseX;
-  const inspectedIdxForCam = inspectedEnemyId
-    ? enemies.findIndex((e) => e.id === inspectedEnemyId && e.hp > 0)
-    : -1;
-  const inspectedEnemyXForCam =
-    inspectedIdxForCam >= 0 ? enemyBaseX + inspectedIdxForCam * enemyStepX : null;
-
-  let targetZoom = 1;
-  let targetPanX = 0;
-  let targetPanY = 0;
-  if (autoFocusCamera && w > 0 && h > 0) {
-    const cx = w * 0.5;
-    const cy = h * 0.5;
-    const focusY = Math.max(h * 0.35, Math.min(h * 0.72, groundY - h * 0.22));
-    if (inspectedEnemyXForCam !== null) {
-      targetZoom = 1.2;
-      targetPanX = (cx - inspectedEnemyXForCam) * 0.38;
-      targetPanY = (cy - focusY) * 0.32;
-    } else if (hoveredColor === 'attack') {
-      targetZoom = 1.18;
-      const midX = heroX * 0.32 + frontEnemyXForCam * 0.68;
-      targetPanX = (cx - midX) * 0.35;
-      targetPanY = (cy - focusY) * 0.28;
-    } else if (hoveredColor === 'defense' || hoveredColor === 'tech') {
-      targetZoom = 1.16;
-      targetPanX = (cx - (heroX + 18)) * 0.34;
-      targetPanY = (cy - focusY) * 0.26;
-    }
+  if (!seqFrame) {
+    const autoTarget = computeAutoFocusTarget({
+      w,
+      h,
+      enemies,
+      pendingDrops,
+      hoveredColor,
+      inspectedEnemyId,
+      autoFocusCamera,
+      tacticalViewActive,
+    });
+    const camLerp = tacticalViewActive ? 1 : 0.22;
+    sim.cameraZoom = (sim.cameraZoom || 1) + (autoTarget.zoom - (sim.cameraZoom || 1)) * camLerp;
+    sim.cameraPanX = (sim.cameraPanX || 0) + (autoTarget.panX - (sim.cameraPanX || 0)) * camLerp;
+    sim.cameraPanY = (sim.cameraPanY || 0) + (autoTarget.panY - (sim.cameraPanY || 0)) * camLerp;
+    sim.cameraRotRad = 0;
   }
 
-  const camLerp = tacticalViewActive ? 1 : 0.22;
-  sim.cameraZoom = (sim.cameraZoom || 1) + (targetZoom - (sim.cameraZoom || 1)) * camLerp;
-  sim.cameraPanX = (sim.cameraPanX || 0) + (targetPanX - (sim.cameraPanX || 0)) * camLerp;
-  sim.cameraPanY = (sim.cameraPanY || 0) + (targetPanY - (sim.cameraPanY || 0)) * camLerp;
+  const camZoom = tacticalViewActive ? 1 : seqFrame?.cameraZoom ?? sim.cameraZoom ?? 1;
+  const camPanX = tacticalViewActive ? 0 : seqFrame?.cameraPanX ?? sim.cameraPanX ?? 0;
+  const camPanY = tacticalViewActive ? 0 : seqFrame?.cameraPanY ?? sim.cameraPanY ?? 0;
+  const camRotRad =
+    tacticalViewActive || reducedMotion
+      ? 0
+      : (seqFrame?.cameraRotRad ?? sim.cameraRotRad ?? 0) + (seqFrame?.shakeRotRad ?? 0);
+  const worldUiAlpha = tacticalViewActive ? 1 : (seqFrame?.worldUiAlpha ?? 1);
 
-  if (
-    Math.abs(sim.cameraZoom - 1) > 0.004 ||
-    Math.abs(sim.cameraPanX) > 0.5 ||
-    Math.abs(sim.cameraPanY) > 0.5
-  ) {
-    ctx.translate(w * 0.5 + sim.cameraPanX, h * 0.5 + sim.cameraPanY);
-    ctx.scale(sim.cameraZoom, sim.cameraZoom);
+  // Combine ActionCameraController Perlin shake with legacy trauma burst shake
+  const legacyShakeMag = tacticalViewActive || reducedMotion ? 0 : sim.trauma * sim.trauma * 10;
+  const legacyShakeX = legacyShakeMag > 0.1 ? (Math.random() * 2 - 1) * legacyShakeMag : 0;
+  const legacyShakeY = legacyShakeMag > 0.1 ? (Math.random() * 2 - 1) * legacyShakeMag : 0;
+  const totalShakeX =
+    tacticalViewActive || reducedMotion ? 0 : (seqFrame?.shakeOffsetX ?? 0) + legacyShakeX;
+  const totalShakeY =
+    tacticalViewActive || reducedMotion ? 0 : (seqFrame?.shakeOffsetY ?? 0) + legacyShakeY;
+
+  const hasCamTransform =
+    Math.abs(camZoom - 1) > 0.004 ||
+    Math.abs(camPanX) > 0.5 ||
+    Math.abs(camPanY) > 0.5 ||
+    Math.abs(camRotRad) > 0.0004;
+  if (hasCamTransform) {
+    ctx.translate(w * 0.5 + camPanX, h * 0.5 + camPanY);
+    if (Math.abs(camRotRad) > 0.0004) {
+      ctx.rotate(camRotRad);
+    }
+    ctx.scale(camZoom, camZoom);
     ctx.translate(-w * 0.5, -h * 0.5);
   }
+  if (Math.abs(totalShakeX) > 0.05 || Math.abs(totalShakeY) > 0.05) {
+    ctx.translate(totalShakeX, totalShakeY);
+  }
 
-  // Camera shake offset (trauma * trauma) — suppressed in Tactical View
-  const shakeMag = tacticalViewActive ? 0 : sim.trauma * sim.trauma * 11;
-  if (shakeMag > 0.1) {
-    ctx.translate((Math.random() * 2 - 1) * shakeMag, (Math.random() * 2 - 1) * shakeMag);
+  // If a separate foreground Canvas2D overlay is active (in hybrid WebGL2 mode), clear & sync its camera transform
+  if (fgCtx !== ctx) {
+    fgCtx.save();
+    fgCtx.setTransform(1, 0, 0, 1, 0, 0);
+    fgCtx.clearRect(0, 0, Math.ceil(w * dpr) + 2, Math.ceil(h * dpr) + 2);
+    fgCtx.scale(dpr, dpr);
+    fgCtx.imageSmoothingEnabled = true;
+    fgCtx.imageSmoothingQuality = 'high';
+    if (hasCamTransform) {
+      fgCtx.translate(w * 0.5 + camPanX, h * 0.5 + camPanY);
+      if (Math.abs(camRotRad) > 0.0004) {
+        fgCtx.rotate(camRotRad);
+      }
+      fgCtx.scale(camZoom, camZoom);
+      fgCtx.translate(-w * 0.5, -h * 0.5);
+    }
+    if (Math.abs(totalShakeX) > 0.05 || Math.abs(totalShakeY) > 0.05) {
+      fgCtx.translate(totalShakeX, totalShakeY);
+    }
   }
 
   // 1. Backdrop with cached scaled surface & bridge-deck coordinate alignment
@@ -663,7 +854,8 @@ export function renderCombatStage(
       sim.backdropCacheW = w;
       sim.backdropCacheH = h;
     }
-    const parallaxX = tacticalViewActive ? 0 : Math.sin(elapsed * 0.35) * 4;
+    const parallaxX =
+      tacticalViewActive || seqFrame?.active ? 0 : Math.sin(elapsed * 0.35) * 4;
     ctx.drawImage(sim.backdropCache, -16 + parallaxX, -8);
 
     // Tactical View Rule 1: Dim background art and decorative foliage by 60%
@@ -734,7 +926,7 @@ export function renderCombatStage(
   const frontLivingIdxForDrones = enemies.findIndex((e) => e.hp > 0);
   const droneTargetX =
     frontLivingIdxForDrones >= 0
-      ? enemyBaseX + frontLivingIdxForDrones * enemyStepX
+      ? enemyBaseX + (slotCenters[frontLivingIdxForDrones] ?? frontLivingIdxForDrones) * enemyStepX
       : sim.pendingShotTargetX;
   const droneTargetMidY =
     groundY - (frontLivingIdxForDrones >= 0 && frontLivingIdxForDrones % 2 === 1 ? 6 : 0) - 88;
@@ -753,6 +945,28 @@ export function renderCombatStage(
         })
       : null;
 
+  // Initialize WebGL2 frame pass now that deckBackY and deckFrontY are resolved
+  if (webglRenderer) {
+    const viewProjMatrix =
+      seqFrame && legacyShakeMag <= 0.1 && !tacticalViewActive
+        ? sim.actionSequencer.camera.buildWebGLViewProjMatrix(w, h)
+        : undefined;
+    webglRenderer.beginFrame({
+      width: w,
+      height: h,
+      dpr,
+      cameraZoom: camZoom,
+      cameraPanX: camPanX,
+      cameraPanY: camPanY,
+      cameraRotRad: camRotRad,
+      shakeOffsetX: totalShakeX,
+      shakeOffsetY: totalShakeY,
+      deckBackY,
+      deckFrontY,
+      viewProjMatrix,
+    });
+  }
+
   // 2. Batched Planar Glass Walkway Reflections (Single clip for Heroine + Enemies)
   ctx.save();
   ctx.beginPath();
@@ -764,18 +978,294 @@ export function renderCombatStage(
     const frameCanvas = rawCanvas || activeFrames[0];
     const refFrame = rawCanvas ? heroFrame : defaultRefFrame;
     if (frameCanvas) {
-      ctx.save();
-      ctx.globalAlpha = 0.13;
-      ctx.translate(heroX, groundY + 1);
-      ctx.scale(1, -0.32 * heroSample.breathScaleY);
-      ctx.drawImage(
-        frameCanvas,
-        -refFrame.anchorX * heroDrawScale,
-        -refFrame.bottomY * heroDrawScale,
-        refFrame.w * heroDrawScale,
-        refFrame.h * heroDrawScale,
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: 'refl:hero',
+          primarySource: frameCanvas,
+          worldX: heroX,
+          worldY: groundY + 1,
+          widthPx: refFrame.w * heroDrawScale,
+          heightPx: refFrame.h * heroDrawScale,
+          anchorOffsetXPx: refFrame.anchorX * heroDrawScale,
+          anchorOffsetYPx: refFrame.bottomY * heroDrawScale,
+          facingSign: 1,
+          verticalScaleSign: -0.32 * heroSample.breathScaleY,
+          rotationRad: 0,
+          alpha: 0.13,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.13;
+        ctx.translate(heroX, groundY + 1);
+        ctx.scale(1, -0.32 * heroSample.breathScaleY);
+        ctx.drawImage(
+          frameCanvas,
+          -refFrame.anchorX * heroDrawScale,
+          -refFrame.bottomY * heroDrawScale,
+          refFrame.w * heroDrawScale,
+          refFrame.h * heroDrawScale,
+        );
+        ctx.restore();
+      }
+    }
+  }
+
+  const projectedShield = precomputedThreat?.shieldAfterPlayer ?? heroine.shield;
+  const isAttackHoverNonSurge =
+    hoveredColor === 'attack' && !(activePreview?.surgeTriggered ?? false);
+  const stalkerSamples = new Map<string, StalkerFrameSample>();
+  if (sim.stalkerFrames) {
+    const dtStep = sim.lastFrameDt > 0 ? sim.lastFrameDt : 0.016;
+    for (let idx = 0; idx < enemies.length; idx++) {
+      const enemy = enemies[idx];
+      if (enemy.archetype !== 'stalker') continue;
+      const ea = sim.enemyAnims.get(enemy.id);
+      const isDead = enemy.hp <= 0;
+      if (isDead && (!ea || !ea.dead || ea.koProgress >= 1)) continue;
+      const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
+      const ambushPrimed =
+        !isDead &&
+        !enemy.staggered &&
+        !(enemy.sleepCounter && enemy.sleepCounter > 0) &&
+        activeIntent?.condition === 'if_no_shield' &&
+        projectedShield === 0;
+      const retaliateHover =
+        !isDead &&
+        isAttackHoverNonSurge &&
+        enemy.passive === 'spike_retaliate' &&
+        idx === frontLivingIdxForDrones;
+      const armoredGuard = !isDead && enemy.armor > 0;
+      const prevTrans = sim.stalkerTransitions.get(enemy.id);
+      const stalkerCutIn = getActorJuice(enemy.id);
+      const sample = sampleStalkerFrame(
+        ea
+          ? {
+              dead: ea.dead,
+              koProgress: ea.koProgress,
+              staggerTimer: ea.staggerTimer,
+              staggerDuration: ea.staggerDuration,
+              attackAnimTimer: ea.attackAnimTimer,
+              attackAnimDuration: ea.attackAnimDuration,
+              bristleTimer: ea.bristleTimer,
+              bristleDuration: ea.bristleDuration,
+              bristleKind: ea.bristleKind === 'retaliate' ? 'retaliate' : 'armor',
+              ambushPrimed,
+              armoredGuard,
+              retaliateHover,
+            }
+          : undefined,
+        tacticalViewActive ? 0 : elapsed,
+        idx,
+        prevTrans,
+        tacticalViewActive ? 0 : dtStep,
+        stalkerCutIn.poseOverride,
       );
-      ctx.restore();
+      sim.stalkerTransitions.set(enemy.id, sample.transitionState);
+      stalkerSamples.set(enemy.id, sample);
+    }
+  }
+
+  const spitterSamples = new Map<string, SpitterFrameSample>();
+  const spitterJuiceSamples = new Map<string, SpitterJuiceSample>();
+  if (sim.spitterFrames) {
+    const dtStep = sim.lastFrameDt > 0 ? sim.lastFrameDt : 0.016;
+    for (let idx = 0; idx < enemies.length; idx++) {
+      const enemy = enemies[idx];
+      if (enemy.archetype !== 'spitter') continue;
+      const ea = sim.enemyAnims.get(enemy.id);
+      const isDead = enemy.hp <= 0;
+      if (isDead && (!ea || !ea.dead || ea.koProgress >= 1)) continue;
+      const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
+      const blightPrimed =
+        !isDead &&
+        !enemy.staggered &&
+        !(enemy.sleepCounter && enemy.sleepCounter > 0) &&
+        activeIntent?.kind === 'acid';
+      const hoverWillKill =
+        activePreview && isAttackHoverNonSurge && idx === frontLivingIdxForDrones
+          ? computeEnemyArmorPreview(enemy, idx, frontLivingIdxForDrones, activePreview, enemies)
+              .willDie
+          : false;
+      const pustuleHover =
+        !isDead &&
+        isAttackHoverNonSurge &&
+        !hoverWillKill &&
+        enemy.passive === 'acid_jam' &&
+        idx === frontLivingIdxForDrones;
+      const armoredGuard = !isDead && enemy.armor > 0;
+      const prevTrans = sim.spitterTransitions.get(enemy.id);
+      const sample = sampleSpitterFrame(
+        ea
+          ? {
+              dead: ea.dead,
+              koProgress: ea.koProgress,
+              staggerTimer: ea.staggerTimer,
+              staggerDuration: ea.staggerDuration,
+              attackAnimTimer: ea.attackAnimTimer,
+              attackAnimDuration: ea.attackAnimDuration,
+              spitterAttackKind: ea.spitterAttackKind,
+              bristleTimer: ea.bristleTimer,
+              bristleDuration: ea.bristleDuration,
+              bristleKind: ea.bristleKind,
+              blightPrimed,
+              armoredGuard,
+              pustuleHover,
+            }
+          : undefined,
+        tacticalViewActive ? 0 : elapsed,
+        idx,
+        prevTrans,
+        tacticalViewActive ? 0 : dtStep,
+      );
+
+      // Step 4-Layer Procedural "Juice" & Spring Physics Controller for this Bile Spitter
+      let juiceState = sim.spitterJuiceStates.get(enemy.id);
+      if (!juiceState) {
+        juiceState = createSpitterJuiceState();
+        sim.spitterJuiceStates.set(enemy.id, juiceState);
+      }
+      const juiceSample = stepSpitterJuice(
+        juiceState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        spitterJuiceConfig,
+        {
+          dead: ea?.dead,
+          koProgress: ea?.koProgress,
+          attackAnimTimer: ea?.attackAnimTimer,
+          attackAnimDuration: ea?.attackAnimDuration,
+          spitterAttackKind: ea?.spitterAttackKind,
+          staggerTimer: ea?.staggerTimer,
+          staggerDuration: ea?.staggerDuration,
+          bristleTimer: ea?.bristleTimer,
+          bristleDuration: ea?.bristleDuration,
+          blightPrimed,
+          armoredGuard,
+          pustuleHover,
+          staggeredStatus: Boolean(enemy.staggered),
+          instanceIndex: idx,
+        },
+      );
+      // Unify frame & glow authority from the 4-Layer Bile Spitter Juice Controller
+      sample.frameIndex = juiceSample.frameIndex;
+      sample.frame = SPITTER_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
+      sample.prevFrameIndex = juiceSample.prevFrameIndex;
+      sample.prevFrame = SPITTER_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
+      sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
+      sample.pustuleGlowIntensity = juiceSample.pustuleGlowIntensity;
+      sample.spitStreamProgress = Math.max(sample.spitStreamProgress, juiceSample.spitStreamProgress);
+
+      sim.spitterTransitions.set(enemy.id, sample.transitionState);
+      spitterSamples.set(enemy.id, sample);
+      spitterJuiceSamples.set(enemy.id, juiceSample);
+    }
+  }
+
+  const bruteSamples = new Map<string, BruteFrameSample>();
+  const bruteJuiceSamples = new Map<string, BruteJuiceSample>();
+  if (sim.bruteFrames) {
+    const dtStep = sim.lastFrameDt > 0 ? sim.lastFrameDt : 0.016;
+    for (let idx = 0; idx < enemies.length; idx++) {
+      const enemy = enemies[idx];
+      if (enemy.archetype !== 'brute') continue;
+      const ea = sim.enemyAnims.get(enemy.id);
+      const isDead = enemy.hp <= 0;
+      if (isDead && (!ea || !ea.dead || ea.koProgress >= 1)) continue;
+      const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
+      const heavyPrimed =
+        !isDead &&
+        !enemy.staggered &&
+        !(enemy.sleepCounter && enemy.sleepCounter > 0) &&
+        activeIntent?.kind === 'heavy';
+      const hoverArmorPrev =
+        !isDead &&
+        activePreview &&
+        activePreview.color === 'attack' &&
+        idx === frontLivingIdxForDrones
+          ? computeEnemyArmorPreview(enemy, idx, frontLivingIdxForDrones, activePreview, enemies)
+          : null;
+      const staggerHover = Boolean(hoverArmorPrev?.willStagger);
+      const armoredGuard = !isDead && enemy.armor > 0;
+      const prevTrans = sim.bruteTransitions.get(enemy.id);
+      const sample = sampleBruteFrame(
+        ea
+          ? {
+              dead: ea.dead,
+              koProgress: ea.koProgress,
+              staggerTimer: ea.staggerTimer,
+              staggerDuration: ea.staggerDuration,
+              attackAnimTimer: ea.attackAnimTimer,
+              attackAnimDuration: ea.attackAnimDuration,
+              bruteAttackKind: ea.bruteAttackKind,
+              bristleTimer: ea.bristleTimer,
+              bristleDuration: ea.bristleDuration,
+              bristleKind: ea.bristleKind,
+              heavyPrimed,
+              armoredGuard,
+              staggered: Boolean(enemy.staggered),
+              staggerHover,
+            }
+          : {
+              dead: false,
+              koProgress: 0,
+              staggerTimer: 0,
+              staggerDuration: 0.44,
+              attackAnimTimer: 0,
+              attackAnimDuration: 0.58,
+              heavyPrimed,
+              armoredGuard,
+              staggered: Boolean(enemy.staggered),
+              staggerHover,
+            },
+        tacticalViewActive ? 0 : elapsed,
+        idx,
+        prevTrans,
+        tacticalViewActive ? 0 : dtStep,
+      );
+
+      let juiceState = sim.bruteJuiceStates.get(enemy.id);
+      if (!juiceState) {
+        juiceState = createBruteJuiceState();
+        sim.bruteJuiceStates.set(enemy.id, juiceState);
+      }
+      const juiceSample = stepBruteJuice(
+        juiceState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        bruteJuiceConfig,
+        {
+          dead: ea?.dead,
+          koProgress: ea?.koProgress,
+          attackAnimTimer: ea?.attackAnimTimer,
+          attackAnimDuration: ea?.attackAnimDuration,
+          bruteAttackKind: ea?.bruteAttackKind,
+          staggerTimer: ea?.staggerTimer,
+          staggerDuration: ea?.staggerDuration,
+          bristleTimer: ea?.bristleTimer,
+          bristleDuration: ea?.bristleDuration,
+          heavyPrimed,
+          armoredGuard,
+          staggerHover,
+          staggeredStatus: Boolean(enemy.staggered),
+          weaponBroken: Boolean(enemy.weaponBroken),
+          instanceIndex: idx,
+        },
+      );
+      sample.frameIndex = juiceSample.frameIndex;
+      sample.frame = BRUTE_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
+      sample.prevFrameIndex = juiceSample.prevFrameIndex;
+      sample.prevFrame = BRUTE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
+      sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
+      sample.vialGlowIntensity = juiceSample.vialGlowIntensity;
+      sample.shellGlowIntensity = juiceSample.shellGlowIntensity;
+      sample.shockwaveIntensity = Math.max(sample.shockwaveIntensity, juiceSample.shockwaveIntensity);
+
+      sim.bruteTransitions.set(enemy.id, sample.transitionState);
+      bruteSamples.set(enemy.id, sample);
+      bruteJuiceSamples.set(enemy.id, juiceSample);
     }
   }
 
@@ -788,33 +1278,53 @@ export function renderCombatStage(
     const crawlerSample = isCrawlerArchetype(arch)
       ? sampleCrawlerFrame(arch, ea, elapsed, idx)
       : null;
+    const stalkerSample = arch === 'stalker' ? stalkerSamples.get(enemy.id) : undefined;
+    const spitterSample = arch === 'spitter' ? spitterSamples.get(enemy.id) : undefined;
+    const bruteSample = arch === 'brute' ? bruteSamples.get(enemy.id) : undefined;
     const koAlpha = isDead
       ? ea
         ? ea.dead
           ? crawlerSample
             ? crawlerSample.alpha
-            : Math.max(0, 1 - ea.koProgress)
+            : stalkerSample
+              ? stalkerSample.alpha
+              : spitterSample
+                ? spitterSample.alpha
+                : bruteSample
+                  ? bruteSample.alpha
+                  : Math.max(0, 1 - ea.koProgress)
           : 1
         : 0
       : 1;
     if (koAlpha <= 0.01) continue;
 
     const stagger = getEnemyStaggerKinematics(ea);
-    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+    const crowdScale = effectiveSlotCount >= 5 ? 0.78 : effectiveSlotCount === 4 ? 0.86 : 1;
+    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
     const archScale = isCrawlerArchetype(arch)
       ? CRAWLER_ARCH_SCALE[arch]
       : arch === 'boss'
         ? 1.24
         : arch === 'brute'
-          ? 1.08
+          ? 1.32
           : 0.94;
     const size = baseEnemySize * archScale;
-    const lunge = ea ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09) : 0;
-    const ex = enemyBaseX + idx * enemyStepX + lunge + stagger.dx;
+    const hasCustomSheetMotion =
+      (arch === 'stalker' && Boolean(stalkerSample)) ||
+      (arch === 'spitter' && Boolean(spitterSample)) ||
+      (arch === 'brute' && Boolean(bruteSample));
+    const lunge = ea && !hasCustomSheetMotion ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09) : 0;
+    const ex =
+      enemyBaseX +
+      (slotCenters[idx] ?? idx) * enemyStepX +
+      lunge +
+      (hasCustomSheetMotion && ea?.dead ? 0 : stagger.dx);
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
-    const breathScaleY = (1 + breathPhase * 0.018) * stagger.scaleYMul;
-    const breathScaleX = (1 - breathPhase * 0.009) * stagger.scaleXMul;
+    const breathScaleY =
+      hasCustomSheetMotion && ea?.dead ? 1 : (1 + breathPhase * 0.018) * stagger.scaleYMul;
+    const breathScaleX =
+      hasCustomSheetMotion && ea?.dead ? 1 : (1 - breathPhase * 0.009) * stagger.scaleXMul;
 
     if (isCrawlerArchetype(arch) && crawlerSample) {
       const cFrames = sim.crawlerFrames.get(arch);
@@ -822,37 +1332,228 @@ export function renderCombatStage(
       if (!cCanvas) continue;
       const cf = crawlerSample.frame;
       const drawScale = size / CRAWLER_CANONICAL_HEIGHT;
-      ctx.save();
-      ctx.globalAlpha = 0.12 * koAlpha;
-      ctx.translate(ex, enemyGroundY + 1);
-      ctx.scale(breathScaleX, -0.3 * breathScaleY);
-      ctx.drawImage(
-        cCanvas,
-        -cf.anchorX * drawScale,
-        -cf.bottomY * drawScale,
-        cf.w * drawScale,
-        cf.h * drawScale,
-      );
-      ctx.restore();
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: cCanvas,
+          worldX: ex,
+          worldY: enemyGroundY + 1,
+          widthPx: cf.w * drawScale * breathScaleX,
+          heightPx: cf.h * drawScale,
+          anchorOffsetXPx: cf.anchorX * drawScale * breathScaleX,
+          anchorOffsetYPx: cf.bottomY * drawScale,
+          facingSign: 1,
+          verticalScaleSign: -0.3 * breathScaleY,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.translate(ex, enemyGroundY + 1);
+        ctx.scale(breathScaleX, -0.3 * breathScaleY);
+        ctx.drawImage(
+          cCanvas,
+          -cf.anchorX * drawScale,
+          -cf.bottomY * drawScale,
+          cf.w * drawScale,
+          cf.h * drawScale,
+        );
+        ctx.restore();
+      }
+      continue;
+    }
+
+    if (arch === 'stalker' && stalkerSample && sim.stalkerFrames) {
+      const sCanvas = sim.stalkerFrames[stalkerSample.frameIndex] ?? sim.stalkerFrames[0];
+      if (!sCanvas) continue;
+      const sf = stalkerSample.frame;
+      const drawScale = size / STALKER_CANONICAL_HEIGHT;
+      const rx = ex + stalkerSample.xOffsetRatio * size;
+      if (webglRenderer) {
+        const sx = breathScaleX * stalkerSample.breathScaleX;
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: sCanvas,
+          worldX: rx,
+          worldY: enemyGroundY + 1,
+          widthPx: sf.w * drawScale * sx,
+          heightPx: sf.h * drawScale,
+          anchorOffsetXPx: sf.anchorX * drawScale * sx,
+          anchorOffsetYPx: sf.bottomY * drawScale,
+          facingSign: -1,
+          verticalScaleSign: -0.3 * breathScaleY * stalkerSample.breathScaleY,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.translate(rx, enemyGroundY + 1);
+        ctx.scale(
+          -breathScaleX * stalkerSample.breathScaleX,
+          -0.3 * breathScaleY * stalkerSample.breathScaleY,
+        );
+        ctx.drawImage(
+          sCanvas,
+          -sf.anchorX * drawScale,
+          -sf.bottomY * drawScale,
+          sf.w * drawScale,
+          sf.h * drawScale,
+        );
+        ctx.restore();
+      }
+      continue;
+    }
+
+    if (arch === 'spitter' && spitterSample && sim.spitterFrames) {
+      const spitterJuice = spitterJuiceSamples.get(enemy.id);
+      const spCanvas = sim.spitterFrames[spitterSample.frameIndex] ?? sim.spitterFrames[0];
+      if (!spCanvas) continue;
+      const sf = spitterSample.frame;
+      const drawScale = size / SPITTER_CANONICAL_HEIGHT;
+      const rx =
+        ex +
+        (spitterJuice
+          ? spitterJuice.offsetX * drawScale
+          : spitterSample.xOffsetRatio * size);
+      const facing = spitterJuice ? spitterJuice.facingScale : -1;
+      const sx = spitterJuice
+        ? stagger.scaleXMul * spitterJuice.springScaleX
+        : breathScaleX * spitterSample.breathScaleX;
+      const sy = spitterJuice
+        ? stagger.scaleYMul * spitterJuice.springScaleY
+        : breathScaleY * spitterSample.breathScaleY;
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: spCanvas,
+          worldX: rx,
+          worldY: enemyGroundY + 1,
+          widthPx: sf.w * drawScale * sx,
+          heightPx: sf.h * drawScale,
+          anchorOffsetXPx: sf.anchorX * drawScale * sx,
+          anchorOffsetYPx: sf.bottomY * drawScale,
+          facingSign: facing,
+          verticalScaleSign: -0.3 * sy,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.translate(rx, enemyGroundY + 1);
+        ctx.scale(facing * sx, -0.3 * sy);
+        ctx.drawImage(
+          spCanvas,
+          -sf.anchorX * drawScale,
+          -sf.bottomY * drawScale,
+          sf.w * drawScale,
+          sf.h * drawScale,
+        );
+        ctx.restore();
+      }
+      continue;
+    }
+
+    if (arch === 'brute' && bruteSample && sim.bruteFrames) {
+      const bruteJuice = bruteJuiceSamples.get(enemy.id);
+      const bCanvas = sim.bruteFrames[bruteSample.frameIndex] ?? sim.bruteFrames[0];
+      if (!bCanvas) continue;
+      const bf = bruteSample.frame;
+      const drawScale = size / BRUTE_CANONICAL_HEIGHT;
+      const rx =
+        ex +
+        (bruteJuice
+          ? bruteJuice.offsetX * drawScale
+          : bruteSample.xOffsetRatio * size);
+      const facing = bruteJuice ? bruteJuice.facingScale : -1;
+      const sx = bruteJuice
+        ? stagger.scaleXMul * bruteJuice.springScaleX
+        : breathScaleX * bruteSample.breathScaleX;
+      const sy = bruteJuice
+        ? stagger.scaleYMul * bruteJuice.springScaleY
+        : breathScaleY * bruteSample.breathScaleY;
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: bCanvas,
+          worldX: rx,
+          worldY: enemyGroundY + 1,
+          widthPx: bf.w * drawScale * sx,
+          heightPx: bf.h * drawScale,
+          anchorOffsetXPx: bf.anchorX * drawScale * sx,
+          anchorOffsetYPx: bf.bottomY * drawScale,
+          facingSign: facing,
+          verticalScaleSign: -0.3 * sy,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha;
+        ctx.translate(rx, enemyGroundY + 1);
+        ctx.scale(facing * sx, -0.3 * sy);
+        ctx.drawImage(
+          bCanvas,
+          -bf.anchorX * drawScale,
+          -bf.bottomY * drawScale,
+          bf.w * drawScale,
+          bf.h * drawScale,
+        );
+        ctx.restore();
+      }
       continue;
     }
 
     const entry = sim.enemyCutouts.get(enemy.archetype);
     if (!entry) continue;
 
-    ctx.save();
-    ctx.globalAlpha = 0.12 * koAlpha;
-    ctx.translate(ex, enemyGroundY + 1);
-    ctx.rotate(-stagger.rot * 0.45);
-    ctx.scale(enemy.archetype === 'brute' ? -breathScaleX : breathScaleX, -0.3 * breathScaleY);
-    ctx.drawImage(
-      entry.canvas,
-      -size * entry.bounds.centerXRatio,
-      -size * entry.bounds.bottomRatio,
-      size,
-      size,
-    );
-    ctx.restore();
+    if (webglRenderer) {
+      webglRenderer.drawSprite({
+        id: `refl:enemy:${enemy.id}`,
+        primarySource: entry.canvas,
+        worldX: ex,
+        worldY: enemyGroundY + 1,
+        widthPx: size * breathScaleX,
+        heightPx: size,
+        anchorOffsetXPx: size * entry.bounds.centerXRatio * breathScaleX,
+        anchorOffsetYPx: size * entry.bounds.bottomRatio,
+        facingSign: enemy.archetype === 'brute' ? -1 : 1,
+        verticalScaleSign: -0.3 * breathScaleY,
+        rotationRad: -stagger.rot * 0.45,
+        alpha: 0.12 * koAlpha,
+        isReflection: true,
+        deform: createIdentityControlPoints(),
+        uniforms: createDefaultShaderUniforms(),
+      });
+    } else {
+      ctx.save();
+      ctx.globalAlpha = 0.12 * koAlpha;
+      ctx.translate(ex, enemyGroundY + 1);
+      ctx.rotate(-stagger.rot * 0.45);
+      ctx.scale(enemy.archetype === 'brute' ? -breathScaleX : breathScaleX, -0.3 * breathScaleY);
+      ctx.drawImage(
+        entry.canvas,
+        -size * entry.bounds.centerXRatio,
+        -size * entry.bounds.bottomRatio,
+        size,
+        size,
+      );
+      ctx.restore();
+    }
   }
   ctx.restore();
 
@@ -862,6 +1563,13 @@ export function renderCombatStage(
     const fp = sim.floorBlood[i];
     if (!fp.active || fp.alpha <= 0.01) continue;
     renderFloorBloodDecal(ctx, fp, i, elapsed, tacticalViewActive);
+  }
+
+  // 2.52 Persistent Seismic Glass-Bridge Fissures (etched by Brute Seismic Crush, glowing orange/amber and cooling over turns)
+  for (let i = 0; i < FLOOR_FISSURE_POOL_SIZE; i++) {
+    const ff = sim.floorFissures[i];
+    if (!ff.active || ff.alpha <= 0.01) continue;
+    renderBruteGroundFissure(ctx, ff, i, elapsed, tacticalViewActive);
   }
 
   // 2.55 Front Curb Wall Splatters
@@ -1013,6 +1721,15 @@ export function renderCombatStage(
   }
   ctx.restore();
 
+  // Darkest Dungeon Cut-In Spotlight Stage Dimmer Veil (drawn behind focal WebGL sprites and dimmed bystanders)
+  const dimmerAlpha = tacticalViewActive ? 0 : seqFrame?.dimmerAlpha ?? 0;
+  if (dimmerAlpha > 0.01) {
+    baseCtx.save();
+    baseCtx.fillStyle = `rgba(3, 7, 18, ${dimmerAlpha.toFixed(3)})`;
+    baseCtx.fillRect(-160, -160, w + 320, h + 320);
+    baseCtx.restore();
+  }
+
   // 3. Heroine Contact Shadows, Preview Aura & Sprite
   const shadowRadiusX = isProne ? heroTargetHeight * 0.54 : heroTargetHeight * 0.32;
   ctx.fillStyle = 'rgba(3, 7, 18, 0.68)';
@@ -1098,7 +1815,7 @@ export function renderCombatStage(
     } else if (hoveredColor === 'attack' && (heroFrame.muzzleRel || zuriDrones)) {
       const frontIdx = enemies.findIndex((e) => e.hp > 0);
       if (frontIdx !== -1) {
-        const targetX = enemyBaseX + frontIdx * enemyStepX;
+        const targetX = enemyBaseX + (slotCenters[frontIdx] ?? frontIdx) * enemyStepX;
         const targetY = groundY - (frontIdx % 2 === 1 ? 6 : 0) - 88;
         const mx = zuriDrones
           ? zuriDrones.strike.muzzleX
@@ -1135,21 +1852,46 @@ export function renderCombatStage(
       const gf = sheetFrames[g.frameIndex] ?? defaultRefFrame;
       const gCanvas = activeFrames[g.frameIndex];
       if (!gCanvas) continue;
-      ctx.save();
-      ctx.globalAlpha = g.alpha * 0.45;
-      ctx.translate(g.x, g.y);
-      ctx.drawImage(
-        gCanvas,
-        -gf.anchorX * g.drawScale,
-        -gf.bottomY * g.drawScale,
-        gf.w * g.drawScale,
-        gf.h * g.drawScale,
-      );
-      ctx.restore();
+      if (webglRenderer) {
+        const ghostUniforms = createDefaultShaderUniforms();
+        ghostUniforms.tintRgba = [0.65, 0.95, 1.0, 1.0];
+        ghostUniforms.uvDistortAmp = [0.004, 0.002];
+        ghostUniforms.uvDistortFreq = 18;
+        ghostUniforms.uvDistortPhase = elapsed * 10 + i;
+        webglRenderer.drawSprite({
+          id: `ghost:${i}`,
+          primarySource: gCanvas,
+          worldX: g.x,
+          worldY: g.y,
+          widthPx: gf.w * g.drawScale,
+          heightPx: gf.h * g.drawScale,
+          anchorOffsetXPx: gf.anchorX * g.drawScale,
+          anchorOffsetYPx: gf.bottomY * g.drawScale,
+          facingSign: 1,
+          rotationRad: 0,
+          alpha: g.alpha * 0.45,
+          deform: createIdentityControlPoints(),
+          uniforms: ghostUniforms,
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = g.alpha * 0.45;
+        ctx.translate(g.x, g.y);
+        ctx.drawImage(
+          gCanvas,
+          -gf.anchorX * g.drawScale,
+          -gf.bottomY * g.drawScale,
+          gf.w * g.drawScale,
+          gf.h * g.drawScale,
+        );
+        ctx.restore();
+      }
     }
   }
 
-  // Main Heroine Sprite (with sub-frame pose cross-blending & C1 micro-kinematics)
+  // Main Heroine Sprite (with sub-frame pose cross-blending & C1 micro-kinematics + cut-in presentation)
+  const heroCutIn = getActorJuice('hero');
+  const heroCutInDrawX = heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
   if (activeFrames) {
     const rawCanvas = activeFrames[heroSample.frameIndex];
     const frameCanvas = rawCanvas || activeFrames[charId === 'zuri' ? 8 : 0] || activeFrames[0];
@@ -1157,51 +1899,90 @@ export function renderCombatStage(
     const drawScale = (heroTargetHeight / canonicalHeight) * drawFrame.rowScale;
 
     if (frameCanvas) {
-      ctx.save();
-      ctx.translate(heroX, heroY);
-      if (Math.abs(heroSample.tiltRad) > 0.0005) {
-        ctx.rotate(heroSample.tiltRad);
-      }
-      ctx.scale(heroSample.breathScaleX, heroSample.breathScaleY);
-
       const blendA = heroSample.frameBlendAlpha;
       const canCrossBlend =
         !heroSample.isDashing &&
         blendA < 0.99 &&
         heroSample.prevFrameIndex !== heroSample.frameIndex;
       const prevCanvas = canCrossBlend ? activeFrames[heroSample.prevFrameIndex] : null;
+      const heroTotalTiltRad = heroSample.tiltRad + heroCutIn.leanRad;
 
-      if (prevCanvas) {
-        const pf = heroSample.prevFrame;
-        const prevScale = (heroTargetHeight / canonicalHeight) * pf.rowScale;
-        ctx.globalAlpha = Math.min(1, (1 - blendA) * 0.52);
+      if (webglRenderer) {
+        const { deform, uniforms } = deriveHeroineDeformAndUniforms({
+          mode: heroSample.state.mode,
+          breathScaleX: heroSample.breathScaleX,
+          breathScaleY: heroSample.breathScaleY,
+          tiltRad: heroSample.tiltRad,
+          frameBlendAlpha: canCrossBlend ? blendA : 1,
+          flashTimer: sim.heroAnim.flashTimer,
+          corrode: heroine.corrode,
+          hoveredColor,
+          elapsed: tacticalViewActive ? 0 : elapsed,
+          isProne,
+          cutIn: heroCutIn,
+        });
+        webglRenderer.drawSprite({
+          id: 'hero',
+          primarySource: frameCanvas,
+          secondarySource: prevCanvas,
+          worldX: heroCutInDrawX,
+          worldY: heroY,
+          widthPx: drawFrame.w * drawScale,
+          heightPx: drawFrame.h * drawScale,
+          anchorOffsetXPx: drawFrame.anchorX * drawScale,
+          anchorOffsetYPx: drawFrame.bottomY * drawScale,
+          facingSign: 1,
+          rotationRad: Math.abs(heroTotalTiltRad) > 0.0005 ? heroTotalTiltRad : 0,
+          alpha: 1,
+          drawPriority: heroCutIn.drawPriority,
+          deform,
+          uniforms,
+        });
+      } else {
+        ctx.save();
+        if (heroCutIn.role === 'bystander' && dimmerAlpha > 0.01) {
+          ctx.globalAlpha = Math.max(0.24, 1 - dimmerAlpha * 0.92);
+        }
+        ctx.translate(heroCutInDrawX, heroY);
+        if (Math.abs(heroTotalTiltRad) > 0.0005) {
+          ctx.rotate(heroTotalTiltRad);
+        }
+        ctx.scale(heroSample.breathScaleX * heroCutIn.scaleX, heroSample.breathScaleY * heroCutIn.scaleY);
+
+        if (prevCanvas) {
+          const pf = heroSample.prevFrame;
+          const prevScale = (heroTargetHeight / canonicalHeight) * pf.rowScale;
+          ctx.globalAlpha = Math.min(1, (1 - blendA) * 0.52);
+          ctx.drawImage(
+            prevCanvas,
+            -pf.anchorX * prevScale,
+            -pf.bottomY * prevScale,
+            pf.w * prevScale,
+            pf.h * prevScale,
+          );
+          ctx.globalAlpha = Math.min(1, 0.84 + blendA * 0.16);
+        }
+
         ctx.drawImage(
-          prevCanvas,
-          -pf.anchorX * prevScale,
-          -pf.bottomY * prevScale,
-          pf.w * prevScale,
-          pf.h * prevScale,
+          frameCanvas,
+          -drawFrame.anchorX * drawScale,
+          -drawFrame.bottomY * drawScale,
+          drawFrame.w * drawScale,
+          drawFrame.h * drawScale,
         );
-        ctx.globalAlpha = Math.min(1, 0.84 + blendA * 0.16);
-      }
+        ctx.globalAlpha = 1;
 
-      ctx.drawImage(
-        frameCanvas,
-        -drawFrame.anchorX * drawScale,
-        -drawFrame.bottomY * drawScale,
-        drawFrame.w * drawScale,
-        drawFrame.h * drawScale,
-      );
-      ctx.globalAlpha = 1;
-
-      if (sim.heroAnim.flashTimer > 0) {
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.fillStyle = 'rgba(255, 160, 190, 0.38)';
-        ctx.beginPath();
-        ctx.arc(0, -heroTargetHeight * 0.48, heroTargetHeight * 0.34, 0, Math.PI * 2);
-        ctx.fill();
+        if (heroCutIn.flashRgba) {
+          drawCanvas2DCutInFlash(ctx, heroCutIn.flashRgba, heroTargetHeight * 0.36, -heroTargetHeight * 0.48);
+        } else if (sim.heroAnim.flashTimer > 0) {
+          ctx.globalCompositeOperation = 'lighter';
+          ctx.fillStyle = 'rgba(255, 160, 190, 0.38)';
+          ctx.beginPath();
+          ctx.arc(0, -heroTargetHeight * 0.48, heroTargetHeight * 0.34, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.restore();
       }
-      ctx.restore();
     }
   }
 
@@ -1221,37 +2002,37 @@ export function renderCombatStage(
 
       // Subtle holographic command data-link line when Zuri is actively commanding this drone
       if (pose.activeGlow > 0.5) {
-        ctx.save();
-        ctx.strokeStyle =
+        fgCtx.save();
+        fgCtx.strokeStyle =
           pose.id === 'strike'
             ? `rgba(255, 46, 126, ${0.32 * pose.activeGlow})`
             : pose.id === 'shield'
               ? `rgba(0, 240, 255, ${0.32 * pose.activeGlow})`
               : `rgba(16, 185, 129, ${0.35 * pose.activeGlow})`;
-        ctx.setLineDash([5, 4]);
-        ctx.lineWidth = 1.4;
-        ctx.beginPath();
-        ctx.moveTo(controllerX, controllerY);
-        ctx.lineTo(pose.x, pose.y);
-        ctx.stroke();
-        ctx.restore();
+        fgCtx.setLineDash([5, 4]);
+        fgCtx.lineWidth = 1.4;
+        fgCtx.beginPath();
+        fgCtx.moveTo(controllerX, controllerY);
+        fgCtx.lineTo(pose.x, pose.y);
+        fgCtx.stroke();
+        fgCtx.restore();
       }
 
       // Bio-Med Drone green nanite repair cone onto Zuri during TECH / Overdrive
       if (pose.id === 'med' && (heroSample.state.mode === 'upgrade' || heroSample.state.mode === 'overdrive')) {
-        ctx.save();
-        const medBeamGrad = ctx.createLinearGradient(pose.x, pose.y, heroX, heroY - heroTargetHeight * 0.45);
+        fgCtx.save();
+        const medBeamGrad = fgCtx.createLinearGradient(pose.x, pose.y, heroX, heroY - heroTargetHeight * 0.45);
         medBeamGrad.addColorStop(0, 'rgba(16, 185, 129, 0.44)');
         medBeamGrad.addColorStop(1, 'rgba(16, 185, 129, 0.03)');
-        ctx.fillStyle = medBeamGrad;
-        ctx.beginPath();
-        ctx.moveTo(pose.x - 10 * baseScale, pose.y + 10 * baseScale);
-        ctx.lineTo(pose.x + 10 * baseScale, pose.y + 10 * baseScale);
-        ctx.lineTo(heroX + 26 * baseScale, heroY - heroTargetHeight * 0.25);
-        ctx.lineTo(heroX - 26 * baseScale, heroY - heroTargetHeight * 0.25);
-        ctx.closePath();
-        ctx.fill();
-        ctx.restore();
+        fgCtx.fillStyle = medBeamGrad;
+        fgCtx.beginPath();
+        fgCtx.moveTo(pose.x - 10 * baseScale, pose.y + 10 * baseScale);
+        fgCtx.lineTo(pose.x + 10 * baseScale, pose.y + 10 * baseScale);
+        fgCtx.lineTo(heroX + 26 * baseScale, heroY - heroTargetHeight * 0.25);
+        fgCtx.lineTo(heroX - 26 * baseScale, heroY - heroTargetHeight * 0.25);
+        fgCtx.closePath();
+        fgCtx.fill();
+        fgCtx.restore();
       }
 
       // Contact shadow on bridge deck under Shield Quad-Walker Drone
@@ -1264,19 +2045,46 @@ export function renderCombatStage(
         ctx.restore();
       }
 
-      ctx.save();
-      ctx.translate(pose.x, pose.y);
-      if (Math.abs(pose.tiltRad) > 0.001) {
-        ctx.rotate(pose.tiltRad);
+      if (webglRenderer) {
+        const droneUniforms = createDefaultShaderUniforms();
+        if (pose.activeGlow > 0.65) {
+          droneUniforms.flashRgba =
+            pose.id === 'strike'
+              ? [1.0, 0.35, 0.6, 0.22]
+              : pose.id === 'shield'
+                ? [0.2, 0.95, 1.0, 0.22]
+                : [0.2, 0.95, 0.65, 0.22];
+        }
+        webglRenderer.drawSprite({
+          id: `drone:${pose.id}`,
+          primarySource: dCanvas,
+          worldX: pose.x,
+          worldY: pose.y,
+          widthPx: spec.w * dScale,
+          heightPx: spec.h * dScale,
+          anchorOffsetXPx: spec.anchorX * dScale,
+          anchorOffsetYPx: spec.anchorY * dScale,
+          facingSign: 1,
+          rotationRad: Math.abs(pose.tiltRad) > 0.001 ? pose.tiltRad : 0,
+          alpha: 1,
+          deform: createIdentityControlPoints(),
+          uniforms: droneUniforms,
+        });
+      } else {
+        ctx.save();
+        ctx.translate(pose.x, pose.y);
+        if (Math.abs(pose.tiltRad) > 0.001) {
+          ctx.rotate(pose.tiltRad);
+        }
+        ctx.drawImage(
+          dCanvas,
+          -spec.anchorX * dScale,
+          -spec.anchorY * dScale,
+          spec.w * dScale,
+          spec.h * dScale,
+        );
+        ctx.restore();
       }
-      ctx.drawImage(
-        dCanvas,
-        -spec.anchorX * dScale,
-        -spec.anchorY * dScale,
-        spec.w * dScale,
-        spec.h * dScale,
-      );
-      ctx.restore();
     }
   }
 
@@ -1285,28 +2093,29 @@ export function renderCombatStage(
     const rawPulse = sim.shieldDomeTimer > 0 ? 0.5 + 0.5 * (sim.shieldDomeTimer / 0.48) : 0.22;
     const pulse = zuriDrones ? rawPulse * 0.55 : rawPulse;
     const domeCenterX = zuriDrones ? zuriDrones.shield.x + 16 * baseScale : heroX + 8;
-    ctx.save();
-    ctx.translate(domeCenterX, groundY - heroTargetHeight * 0.48);
-    ctx.strokeStyle = `rgba(0, 229, 255, ${pulse})`;
-    ctx.lineWidth = sim.shieldDomeTimer > 0 ? 2.5 : 1.5;
-    ctx.beginPath();
+    fgCtx.save();
+    fgCtx.translate(domeCenterX, groundY - heroTargetHeight * 0.48);
+    fgCtx.strokeStyle = `rgba(0, 229, 255, ${pulse})`;
+    fgCtx.lineWidth = sim.shieldDomeTimer > 0 ? 2.5 : 1.5;
+    fgCtx.beginPath();
     const r = heroTargetHeight * (zuriDrones ? 0.42 : 0.46);
     for (let k = 0; k < 6; k++) {
       const ang = (Math.PI / 3) * k - Math.PI / 6;
       const px = Math.cos(ang) * r;
       const py = Math.sin(ang) * r;
-      if (k === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
+      if (k === 0) fgCtx.moveTo(px, py);
+      else fgCtx.lineTo(px, py);
     }
-    ctx.closePath();
-    ctx.fillStyle = `rgba(0, 229, 255, ${pulse * (zuriDrones ? 0.07 : 0.14)})`;
-    ctx.fill();
-    ctx.stroke();
-    ctx.restore();
+    fgCtx.closePath();
+    fgCtx.fillStyle = `rgba(0, 229, 255, ${pulse * (zuriDrones ? 0.07 : 0.14)})`;
+    fgCtx.fill();
+    fgCtx.stroke();
+    fgCtx.restore();
   }
 
   // On-stage Kira Lifebar + Enemy-Inflicted Damage & Lethal Death Preview directly under Kira's feet
-  if (heroine.hp > 0 && !isProne && !heroSample.isDashing) {
+  ctx = fgCtx;
+  if (heroine.hp > 0 && !isProne && !heroSample.isDashing && worldUiAlpha > 0.02) {
     const kiraThreat = precomputedThreat ?? previewHeroineThreat(combat, heroine, activePreview);
     const hasThreatOrHeal =
       kiraThreat.hpDamageTaken > 0 ||
@@ -1322,6 +2131,7 @@ export function renderCombatStage(
     const pulse = 0.55 + 0.45 * Math.sin(elapsed * 10);
 
     ctx.save();
+    ctx.globalAlpha *= worldUiAlpha;
     ctx.fillStyle = 'rgba(2, 6, 23, 0.88)';
     ctx.fillRect(barX - 1, barY - 1, barW + 2, barH + 2);
 
@@ -1389,49 +2199,97 @@ export function renderCombatStage(
     }
     ctx.restore();
   }
+  ctx = baseCtx;
 
   // 4. Enemy Sprites, Stagger Recoil, Contact Shadows & Tactical Under-Foot Lifebar Preview
   const frontLivingIdx = enemies.findIndex((e) => e.hp > 0);
   for (let idx = 0; idx < enemies.length; idx++) {
     const enemy = enemies[idx];
     const ea = sim.enemyAnims.get(enemy.id);
+    const enemyCutIn = getActorJuice(enemy.id);
     const isDead = enemy.hp <= 0;
     const arch = enemy.archetype;
     const isCrawler = isCrawlerArchetype(arch);
-    const crawlerSample = isCrawlerArchetype(arch)
-      ? sampleCrawlerFrame(arch, ea, elapsed, idx)
+    const isStalker = arch === 'stalker';
+    const isSpitter = arch === 'spitter';
+    const isBrute = arch === 'brute';
+    const crawlerSample = isCrawler
+      ? sampleCrawlerFrame(arch, ea, elapsed, idx, enemyCutIn.poseOverride)
       : null;
+    const stalkerSample = isStalker ? stalkerSamples.get(enemy.id) : undefined;
+    const spitterSample = isSpitter ? spitterSamples.get(enemy.id) : undefined;
+    const bruteSample = isBrute ? bruteSamples.get(enemy.id) : undefined;
     // Keep enemy visible while attack animation is en route, then dissolve/collapse once impact sets ea.dead = true
     const koAlpha = isDead
       ? ea
         ? ea.dead
           ? crawlerSample
             ? crawlerSample.alpha
-            : Math.max(0, 1 - ea.koProgress)
+            : stalkerSample
+              ? stalkerSample.alpha
+              : spitterSample
+                ? spitterSample.alpha
+                : bruteSample
+                  ? bruteSample.alpha
+                  : Math.max(0, 1 - ea.koProgress)
           : 1
         : 0
       : 1;
     if (koAlpha <= 0.01) continue;
 
     const stagger = getEnemyStaggerKinematics(ea);
-    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+    const crowdScale = effectiveSlotCount >= 5 ? 0.78 : effectiveSlotCount === 4 ? 0.86 : 1;
+    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
     const archScale = isCrawlerArchetype(arch)
       ? CRAWLER_ARCH_SCALE[arch]
       : arch === 'boss'
         ? 1.24
         : arch === 'brute'
-          ? 1.08
+          ? 1.32
           : 0.94;
     const size = baseEnemySize * archScale;
-    const lunge = ea ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09) : 0;
-    const ex = enemyBaseX + idx * enemyStepX + lunge + (isCrawler && ea?.dead ? 0 : stagger.dx);
+    const hasSheetSample =
+      (isCrawler && Boolean(crawlerSample)) ||
+      (isStalker && Boolean(stalkerSample)) ||
+      (isSpitter && Boolean(spitterSample)) ||
+      (isBrute && Boolean(bruteSample));
+    const lunge =
+      ea && !(isStalker && stalkerSample) && !(isSpitter && spitterSample) && !(isBrute && bruteSample)
+        ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09)
+        : 0;
+    const cutInShiftX = enemyCutIn.active ? enemyCutIn.clashSlideX + enemyCutIn.knockbackX : 0;
+    const canvasBystanderMul =
+      !webglRenderer && enemyCutIn.role === 'bystander' && dimmerAlpha > 0.01
+        ? Math.max(0.24, 1 - dimmerAlpha * 0.92)
+        : 1;
+    const ex =
+      enemyBaseX +
+      (slotCenters[idx] ?? idx) * enemyStepX +
+      lunge +
+      (hasSheetSample && ea?.dead ? 0 : stagger.dx);
+    const spitterJuiceForPos = isSpitter ? spitterJuiceSamples.get(enemy.id) : undefined;
+    const bruteJuiceForPos = isBrute ? bruteJuiceSamples.get(enemy.id) : undefined;
+    const spriteX =
+      ex +
+      cutInShiftX +
+      (stalkerSample
+        ? stalkerSample.xOffsetRatio * size
+        : spitterJuiceForPos
+          ? spitterJuiceForPos.offsetX * (size / SPITTER_CANONICAL_HEIGHT)
+          : spitterSample
+            ? spitterSample.xOffsetRatio * size
+            : bruteJuiceForPos
+              ? bruteJuiceForPos.offsetX * (size / BRUTE_CANONICAL_HEIGHT)
+              : bruteSample
+                ? bruteSample.xOffsetRatio * size
+                : 0);
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
     const breathScaleY =
-      isCrawler && ea?.dead ? 1 : (1 + breathPhase * 0.018) * stagger.scaleYMul;
+      hasSheetSample && ea?.dead ? 1 : (1 + breathPhase * 0.018) * stagger.scaleYMul;
     const breathScaleX =
-      isCrawler && ea?.dead ? 1 : (1 - breathPhase * 0.009) * stagger.scaleXMul;
-    const koOffsetY = !isCrawler && isDead && ea?.dead ? (1 - koAlpha) * 24 : 0;
+      hasSheetSample && ea?.dead ? 1 : (1 - breathPhase * 0.009) * stagger.scaleXMul;
+    const koOffsetY = !hasSheetSample && isDead && ea?.dead ? (1 - koAlpha) * 24 : 0;
 
     const entry = sim.enemyCutouts.get(arch);
     const defaults = ENEMY_FOOT_DEFAULTS[arch];
@@ -1442,18 +2300,22 @@ export function renderCombatStage(
     ctx.save();
     ctx.globalAlpha = koAlpha;
 
+    const shadowHalfW = isBrute ? size * 0.44 : size * 0.32;
+    const ringHalfW = isBrute ? size * 0.46 : size * 0.34;
+    const footSpread = isBrute ? 0.18 : 0.13;
+
     ctx.fillStyle = 'rgba(3, 7, 18, 0.65)';
     ctx.beginPath();
-    ctx.ellipse(ex, enemyGroundY - farFootOffsetPx * 0.35, size * 0.32, 7.5, 0, 0, Math.PI * 2);
+    ctx.ellipse(spriteX, enemyGroundY - farFootOffsetPx * 0.35, shadowHalfW, isBrute ? 9.5 : 7.5, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = 'rgba(2, 5, 14, 0.84)';
     ctx.beginPath();
-    ctx.ellipse(ex - size * 0.12, enemyGroundY - farFootOffsetPx, size * 0.13, 3.8, 0, 0, Math.PI * 2);
+    ctx.ellipse(spriteX - size * footSpread, enemyGroundY - farFootOffsetPx, size * (isBrute ? 0.16 : 0.13), 3.8, 0, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.beginPath();
-    ctx.ellipse(ex + size * 0.14, enemyGroundY - 1, size * 0.14, 4.2, 0, 0, Math.PI * 2);
+    ctx.ellipse(spriteX + size * (footSpread + 0.02), enemyGroundY - 1, size * (isBrute ? 0.17 : 0.14), 4.2, 0, 0, Math.PI * 2);
     ctx.fill();
 
     const roleStroke =
@@ -1468,11 +2330,16 @@ export function renderCombatStage(
               : enemy.roleColor === 'violet'
                 ? 'rgba(192, 132, 252, 0.46)'
                 : 'rgba(163, 230, 53, 0.44)';
-    ctx.strokeStyle = roleStroke;
-    ctx.lineWidth = arch === 'boss' || arch === 'brute' ? 2.2 : 1.5;
-    ctx.beginPath();
-    ctx.ellipse(ex, enemyGroundY - farFootOffsetPx * 0.3, size * 0.34, 8.5, 0, 0, Math.PI * 2);
-    ctx.stroke();
+    if (worldUiAlpha > 0.02) {
+      ctx.save();
+      ctx.globalAlpha *= worldUiAlpha;
+      ctx.strokeStyle = roleStroke;
+      ctx.lineWidth = arch === 'boss' || arch === 'brute' ? 2.2 : 1.5;
+      ctx.beginPath();
+      ctx.ellipse(spriteX, enemyGroundY - farFootOffsetPx * 0.3, ringHalfW, isBrute ? 10.5 : 8.5, 0, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
 
     // Status Effect Visual: Bleeding / Shredded ground oozing droplets & micro-splatter tracker
     const enemyBio = getBloodBiologyProfile(arch);
@@ -1505,10 +2372,11 @@ export function renderCombatStage(
 
     // Time-Bomb Thermal Charge Windup Reticle (Pyre Stinger)
     const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
-    if (!isDead && activeIntent?.kind === 'charge') {
+    if (!isDead && activeIntent?.kind === 'charge' && worldUiAlpha > 0.02) {
       const chargePulse = 0.55 + 0.45 * Math.sin(elapsed * 8.5);
       ctx.save();
-      ctx.translate(ex, enemyGroundY - size * 0.48);
+      ctx.globalAlpha *= worldUiAlpha;
+      ctx.translate(spriteX, enemyGroundY - size * 0.48);
       ctx.rotate(elapsed * 1.4);
       ctx.strokeStyle = `rgba(251, 146, 60, ${0.55 + 0.35 * chargePulse})`;
       ctx.setLineDash([7, 5]);
@@ -1520,28 +2388,40 @@ export function renderCombatStage(
     }
 
     // SOS Flare Beacon Pulse on stalling lone enemy
-    if (!isDead && enemy.sosCharging) {
+    if (!isDead && enemy.sosCharging && worldUiAlpha > 0.02) {
       const sosPulse = (elapsed * 1.4) % 1;
       ctx.save();
+      ctx.globalAlpha *= worldUiAlpha;
       ctx.strokeStyle = `rgba(251, 146, 60, ${0.75 * (1 - sosPulse)})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(ex, enemyGroundY - 2, size * (0.28 + sosPulse * 0.25), 9 + sosPulse * 6, 0, 0, Math.PI * 2);
+      ctx.ellipse(spriteX, enemyGroundY - 2, size * (0.28 + sosPulse * 0.25), 9 + sosPulse * 6, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
     // Overtime Desperation Enrage Aura (+ATK)
-    if (!isDead && (enemy.enrageAtkBonus ?? 0) > 0) {
+    if (!isDead && (enemy.enrageAtkBonus ?? 0) > 0 && worldUiAlpha > 0.02) {
       const enragePulse = 0.6 + 0.4 * Math.sin(elapsed * 7 + idx);
       ctx.save();
+      ctx.globalAlpha *= worldUiAlpha;
       ctx.strokeStyle = `rgba(255, 46, 126, ${0.42 + 0.28 * enragePulse})`;
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.ellipse(ex, enemyGroundY - 2, size * 0.38, 10.5, 0, 0, Math.PI * 2);
+      ctx.ellipse(spriteX, enemyGroundY - 2, size * 0.38, 10.5, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
+
+    const bioEmissiveRgb = hexToRgbNorm(enemyBio.freshEmissive);
+    const isPrimedOrCharging =
+      !isDead &&
+      !enemy.staggered &&
+      (activeIntent?.kind === 'heavy' || activeIntent?.kind === 'charge');
+    const isAcidOrPustuleActive =
+      !isDead &&
+      (activeIntent?.kind === 'acid' ||
+        Boolean(spitterSample && spitterSample.pustuleGlowIntensity > 0.45));
 
     if (isCrawlerArchetype(arch) && crawlerSample) {
       const cFrames = sim.crawlerFrames.get(arch);
@@ -1549,77 +2429,813 @@ export function renderCombatStage(
       if (cCanvas) {
         const cf = crawlerSample.frame;
         const drawScale = size / CRAWLER_CANONICAL_HEIGHT;
-        ctx.save();
-        ctx.translate(ex, enemyGroundY + (ea?.dead ? 0 : stagger.dy * 0.45));
-        if (!ea?.dead) {
-          ctx.rotate(stagger.rot * 0.35);
+        const crawlerX = ex + cutInShiftX;
+        if (webglRenderer) {
+          const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+            archetype: arch,
+            idx,
+            ea,
+            isDead,
+            staggerShearPx: stagger.shearPx,
+            staggerBioFlashAlpha: stagger.bioFlashAlpha,
+            breathScaleX,
+            breathScaleY,
+            frameBlendAlpha: 1,
+            bioEmissiveRgb,
+            isPrimedOrCharging,
+            isAcidOrPustuleActive,
+            isStaggeredStatus: Boolean(enemy.staggered),
+            elapsed,
+            tacticalViewActive,
+            cutIn: enemyCutIn,
+          });
+          webglRenderer.drawSprite({
+            id: `enemy:${enemy.id}`,
+            primarySource: cCanvas,
+            worldX: crawlerX,
+            worldY: enemyGroundY + (ea?.dead ? 0 : stagger.dy * 0.45),
+            widthPx: cf.w * drawScale,
+            heightPx: cf.h * drawScale,
+            anchorOffsetXPx: cf.anchorX * drawScale,
+            anchorOffsetYPx: cf.bottomY * drawScale,
+            facingSign: 1,
+            rotationRad: !ea?.dead ? stagger.rot * 0.35 + enemyCutIn.leanRad : 0,
+            alpha: koAlpha,
+            drawPriority: enemyCutIn.drawPriority,
+            deform,
+            uniforms,
+          });
+        } else {
+          ctx.save();
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+          ctx.translate(crawlerX, enemyGroundY + (ea?.dead ? 0 : stagger.dy * 0.45));
+          if (!ea?.dead) {
+            ctx.rotate(stagger.rot * 0.35 + enemyCutIn.leanRad);
+          }
+          ctx.scale(breathScaleX * enemyCutIn.scaleX, breathScaleY * enemyCutIn.scaleY);
+          ctx.drawImage(
+            cCanvas,
+            -cf.anchorX * drawScale,
+            -cf.bottomY * drawScale,
+            cf.w * drawScale,
+            cf.h * drawScale,
+          );
+
+          if ((ea && ea.flashTimer > 0) || (!ea?.dead && stagger.bioFlashAlpha > 0.04) || enemyCutIn.flashRgba) {
+            ctx.globalCompositeOperation = 'lighter';
+            if (enemyCutIn.flashRgba) {
+              drawCanvas2DCutInFlash(ctx, enemyCutIn.flashRgba, size * 0.36, -size * 0.42);
+            } else if (ea && ea.flashTimer > 0) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
+              ctx.beginPath();
+              ctx.arc(0, -size * 0.42, size * 0.34, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            if (!ea?.dead && stagger.bioFlashAlpha > 0.04) {
+              ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
+              ctx.beginPath();
+              ctx.ellipse(3, -size * 0.42, size * 0.28, size * 0.34, 0.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
         }
-        ctx.scale(breathScaleX, breathScaleY);
-        ctx.drawImage(
-          cCanvas,
-          -cf.anchorX * drawScale,
-          -cf.bottomY * drawScale,
-          cf.w * drawScale,
-          cf.h * drawScale,
+      }
+    } else if (isStalker && stalkerSample && sim.stalkerFrames) {
+      const sCanvas = sim.stalkerFrames[stalkerSample.frameIndex] ?? sim.stalkerFrames[0];
+      if (sCanvas) {
+        const sf = stalkerSample.frame;
+        const drawScale = size / STALKER_CANONICAL_HEIGHT;
+        const hopY = ea?.dead ? 0 : stalkerSample.yHopPx * drawScale;
+
+        if (stalkerSample.spineGlowIntensity > 0.45 && !ea?.dead && !tacticalViewActive) {
+          const glowAlpha = Math.min(0.75, (stalkerSample.spineGlowIntensity - 0.3) * 0.95);
+          fgCtx.save();
+          fgCtx.globalCompositeOperation = 'lighter';
+          const gx = spriteX - sf.quillOriginRel.dx * drawScale;
+          const gy = enemyGroundY + hopY + sf.quillOriginRel.dy * drawScale;
+          const rad = size * (stalkerSample.mode === 'bristle' || stalkerSample.frameIndex === 10 ? 0.56 : 0.44);
+          const grad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, rad);
+          grad.addColorStop(0, `rgba(255, 46, 126, ${glowAlpha})`);
+          grad.addColorStop(0.5, `rgba(255, 46, 126, ${glowAlpha * 0.4})`);
+          grad.addColorStop(1, 'rgba(255, 46, 126, 0)');
+          fgCtx.fillStyle = grad;
+          fgCtx.beginPath();
+          fgCtx.arc(gx, gy, rad, 0, Math.PI * 2);
+          fgCtx.fill();
+
+          if (stalkerSample.mode === 'bristle' || (stalkerSample.mode === 'guard' && stalkerSample.frameIndex === 10)) {
+            const rayLen = size * (stalkerSample.mode === 'bristle' ? 0.42 : 0.34);
+            fgCtx.strokeStyle = `rgba(255, 92, 160, ${0.42 + 0.28 * glowAlpha})`;
+            fgCtx.lineWidth = 1.8;
+            const angles = [-0.95, -0.58, -0.24, 0.08];
+            for (let r = 0; r < angles.length; r++) {
+              const ang = angles[r];
+              const rx0 = gx + Math.cos(ang) * (size * 0.08);
+              const ry0 = gy + Math.sin(ang) * (size * 0.08);
+              const rx1 = gx + Math.cos(ang) * rayLen;
+              const ry1 = gy + Math.sin(ang) * rayLen;
+              fgCtx.beginPath();
+              fgCtx.moveTo(rx0, ry0);
+              fgCtx.lineTo(rx1, ry1);
+              fgCtx.stroke();
+            }
+          }
+          fgCtx.restore();
+        }
+
+        const blendA = stalkerSample.frameBlendAlpha;
+        const canCrossBlend =
+          !ea?.dead &&
+          blendA < 0.99 &&
+          stalkerSample.prevFrameIndex !== stalkerSample.frameIndex;
+        const prevCanvas = canCrossBlend ? sim.stalkerFrames[stalkerSample.prevFrameIndex] : null;
+
+        if (webglRenderer) {
+          const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+            archetype: arch,
+            idx,
+            ea,
+            isDead,
+            staggerShearPx: stagger.shearPx,
+            staggerBioFlashAlpha: stagger.bioFlashAlpha,
+            breathScaleX: breathScaleX * stalkerSample.breathScaleX,
+            breathScaleY: breathScaleY * stalkerSample.breathScaleY,
+            frameBlendAlpha: canCrossBlend ? blendA : 1,
+            bioEmissiveRgb,
+            isPrimedOrCharging: isPrimedOrCharging || stalkerSample.spineGlowIntensity > 0.65,
+            isAcidOrPustuleActive: false,
+            isStaggeredStatus: Boolean(enemy.staggered),
+            elapsed,
+            tacticalViewActive,
+            cutIn: enemyCutIn,
+          });
+          webglRenderer.drawSprite({
+            id: `enemy:${enemy.id}`,
+            primarySource: sCanvas,
+            secondarySource: prevCanvas,
+            worldX: spriteX,
+            worldY: enemyGroundY + hopY + (ea?.dead ? 0 : stagger.dy * 0.45),
+            widthPx: sf.w * drawScale,
+            heightPx: sf.h * drawScale,
+            anchorOffsetXPx: sf.anchorX * drawScale,
+            anchorOffsetYPx: sf.bottomY * drawScale,
+            facingSign: -1,
+            rotationRad: !ea?.dead ? stagger.rot * 0.32 + stalkerSample.tiltRad + enemyCutIn.leanRad : 0,
+            alpha: koAlpha,
+            drawPriority: enemyCutIn.drawPriority,
+            deform,
+            uniforms,
+          });
+        } else {
+          ctx.save();
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+          ctx.translate(spriteX, enemyGroundY + hopY + (ea?.dead ? 0 : stagger.dy * 0.45));
+          if (!ea?.dead) {
+            ctx.rotate(stagger.rot * 0.32 + stalkerSample.tiltRad + enemyCutIn.leanRad);
+          }
+          ctx.scale(
+            -breathScaleX * stalkerSample.breathScaleX * enemyCutIn.scaleX,
+            breathScaleY * stalkerSample.breathScaleY * enemyCutIn.scaleY,
+          );
+
+          if (prevCanvas) {
+            const pf = stalkerSample.prevFrame;
+            ctx.globalAlpha = koAlpha * canvasBystanderMul * Math.min(1, (1 - blendA) * 0.5);
+            ctx.drawImage(
+              prevCanvas,
+              -pf.anchorX * drawScale,
+              -pf.bottomY * drawScale,
+              pf.w * drawScale,
+              pf.h * drawScale,
+            );
+            ctx.globalAlpha = koAlpha * canvasBystanderMul * Math.min(1, 0.84 + blendA * 0.16);
+          }
+
+          ctx.drawImage(
+            sCanvas,
+            -sf.anchorX * drawScale,
+            -sf.bottomY * drawScale,
+            sf.w * drawScale,
+            sf.h * drawScale,
+          );
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+
+          if (!ea?.dead && Math.abs(stagger.shearPx) > 0.5) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(
+              -sf.w * drawScale * 0.55,
+              -sf.bottomY * drawScale,
+              sf.w * drawScale * 1.1,
+              sf.h * drawScale * 0.48,
+            );
+            ctx.clip();
+            ctx.translate(-stagger.shearPx, -2);
+            ctx.drawImage(
+              sCanvas,
+              -sf.anchorX * drawScale,
+              -sf.bottomY * drawScale,
+              sf.w * drawScale,
+              sf.h * drawScale,
+            );
+            ctx.restore();
+          }
+
+          if ((ea && ea.flashTimer > 0) || (!ea?.dead && stagger.bioFlashAlpha > 0.04) || enemyCutIn.flashRgba) {
+            ctx.globalCompositeOperation = 'lighter';
+            if (enemyCutIn.flashRgba) {
+              drawCanvas2DCutInFlash(ctx, enemyCutIn.flashRgba, size * 0.36, -size * 0.44);
+            } else if (ea && ea.flashTimer > 0) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
+              ctx.beginPath();
+              ctx.arc(0, -size * 0.44, size * 0.34, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            if (!ea?.dead && stagger.bioFlashAlpha > 0.04) {
+              ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
+              ctx.beginPath();
+              ctx.ellipse(2, -size * 0.44, size * 0.28, size * 0.34, 0.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        }
+      }
+    } else if (isSpitter && spitterSample && sim.spitterFrames) {
+      const spitterJuice = spitterJuiceSamples.get(enemy.id);
+      const spCanvas = sim.spitterFrames[spitterSample.frameIndex] ?? sim.spitterFrames[0];
+      if (spCanvas) {
+        const sf = spitterSample.frame;
+        const pf = spitterSample.prevFrame;
+        const drawScale = size / SPITTER_CANONICAL_HEIGHT;
+        const juiceHopY = spitterJuice ? spitterJuice.hopYPx * drawScale : spitterSample.yHopPx * drawScale;
+        const juiceRot = spitterJuice ? spitterJuice.rotationRad : spitterSample.tiltRad;
+        const juiceFacing = spitterJuice ? spitterJuice.facingScale : -1;
+        const spitterWorldX = spriteX;
+        const hopY = ea?.dead ? 0 : juiceHopY;
+        const windupProg = spitterJuice?.spitWindupProgress ?? 0;
+        const streamProg = Math.max(
+          spitterSample.spitStreamProgress,
+          spitterJuice?.spitStreamProgress ?? 0,
         );
 
-        if ((ea && ea.flashTimer > 0) || (!ea?.dead && stagger.bioFlashAlpha > 0.04)) {
-          ctx.globalCompositeOperation = 'lighter';
-          if (ea && ea.flashTimer > 0) {
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
-            ctx.beginPath();
-            ctx.arc(0, -size * 0.42, size * 0.34, 0, Math.PI * 2);
-            ctx.fill();
+        // Persistent, non-flickering yellow-chartreuse slime puddle anchored under the Bile Spitter's feet
+        renderSpitterGroundPuddle(
+          baseCtx,
+          ex + (spitterWorldX - ex) * 0.28,
+          enemyGroundY + 1,
+          size,
+          koAlpha,
+          spitterSample.pustuleGlowIntensity,
+          Math.max(windupProg, streamProg),
+          elapsed,
+          idx,
+        );
+
+        if (spitterSample.pustuleGlowIntensity > 0.45 && !ea?.dead && !tacticalViewActive) {
+          const glowAlpha = Math.min(0.74, (spitterSample.pustuleGlowIntensity - 0.3) * 0.92);
+          fgCtx.save();
+          fgCtx.globalCompositeOperation = 'lighter';
+          const gx = spitterWorldX + sf.pustuleOriginRel.dx * drawScale * (-juiceFacing);
+          const gy = enemyGroundY + hopY + sf.pustuleOriginRel.dy * drawScale;
+          const rad = size * (spitterSample.mode === 'rupture' || spitterSample.frameIndex === 10 ? 0.46 : 0.36);
+          const grad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, rad);
+          grad.addColorStop(0, `rgba(254, 240, 138, ${glowAlpha})`);
+          grad.addColorStop(0.45, `rgba(163, 230, 53, ${glowAlpha * 0.52})`);
+          grad.addColorStop(1, 'rgba(163, 230, 53, 0)');
+          fgCtx.fillStyle = grad;
+          fgCtx.beginPath();
+          fgCtx.arc(gx, gy, rad, 0, Math.PI * 2);
+          fgCtx.fill();
+
+          if (spitterSample.mode === 'rupture' || (spitterSample.mode === 'guard' && spitterSample.frameIndex === 10)) {
+            const sprayLen = size * (spitterSample.mode === 'rupture' ? 0.36 : 0.28);
+            fgCtx.strokeStyle = `rgba(250, 204, 21, ${0.44 + 0.3 * glowAlpha})`;
+            fgCtx.lineWidth = 1.8;
+            const angles = [-2.55, -2.18, -1.78, -1.38];
+            for (let r = 0; r < angles.length; r++) {
+              const ang = angles[r];
+              const rx0 = gx + Math.cos(ang) * (size * 0.06);
+              const ry0 = gy + Math.sin(ang) * (size * 0.06);
+              const rx1 = gx + Math.cos(ang) * sprayLen;
+              const ry1 = gy + Math.sin(ang) * sprayLen;
+              fgCtx.beginPath();
+              fgCtx.moveTo(rx0, ry0);
+              fgCtx.lineTo(rx1, ry1);
+              fgCtx.stroke();
+            }
           }
-          if (!ea?.dead && stagger.bioFlashAlpha > 0.04) {
-            ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
+          fgCtx.restore();
+        }
+
+        const blendA = spitterSample.frameBlendAlpha;
+        const canCrossBlend =
+          !ea?.dead &&
+          blendA < 0.99 &&
+          spitterSample.prevFrameIndex !== spitterSample.frameIndex;
+        const prevCanvas = canCrossBlend ? sim.spitterFrames[spitterSample.prevFrameIndex] : null;
+
+        if (webglRenderer) {
+          const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+            archetype: arch,
+            idx,
+            ea,
+            isDead,
+            staggerShearPx: stagger.shearPx,
+            staggerBioFlashAlpha: stagger.bioFlashAlpha,
+            breathScaleX: spitterJuice ? stagger.scaleXMul : breathScaleX * spitterSample.breathScaleX,
+            breathScaleY: spitterJuice ? stagger.scaleYMul : breathScaleY * spitterSample.breathScaleY,
+            frameBlendAlpha: canCrossBlend ? blendA : 1,
+            bioEmissiveRgb,
+            isPrimedOrCharging,
+            isAcidOrPustuleActive,
+            isStaggeredStatus: Boolean(enemy.staggered),
+            elapsed,
+            tacticalViewActive,
+            spitterJuice,
+            cutIn: enemyCutIn,
+          });
+          webglRenderer.drawSprite({
+            id: `enemy:${enemy.id}`,
+            primarySource: spCanvas,
+            secondarySource: prevCanvas,
+            worldX: spitterWorldX,
+            worldY: enemyGroundY + hopY + (ea?.dead ? 0 : stagger.dy * 0.45),
+            widthPx: sf.w * drawScale,
+            heightPx: sf.h * drawScale,
+            anchorOffsetXPx: sf.anchorX * drawScale,
+            anchorOffsetYPx: sf.bottomY * drawScale,
+            secondaryWidthPx: pf.w * drawScale,
+            secondaryHeightPx: pf.h * drawScale,
+            secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
+            secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
+            facingSign: juiceFacing,
+            rotationRad: !ea?.dead ? stagger.rot * 0.32 + juiceRot + enemyCutIn.leanRad : 0,
+            alpha: koAlpha,
+            drawPriority: enemyCutIn.drawPriority,
+            deform,
+            uniforms,
+          });
+        } else {
+          ctx.save();
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+          ctx.translate(spitterWorldX, enemyGroundY + hopY + (ea?.dead ? 0 : stagger.dy * 0.45));
+          if (!ea?.dead) {
+            ctx.rotate(stagger.rot * 0.32 + juiceRot + enemyCutIn.leanRad);
+          }
+          const scaleX = (spitterJuice
+            ? stagger.scaleXMul * spitterJuice.springScaleX
+            : breathScaleX * spitterSample.breathScaleX) * enemyCutIn.scaleX;
+          const scaleY = (spitterJuice
+            ? stagger.scaleYMul * spitterJuice.springScaleY
+            : breathScaleY * spitterSample.breathScaleY) * enemyCutIn.scaleY;
+          ctx.scale(juiceFacing * scaleX, scaleY);
+
+          if (prevCanvas) {
+            ctx.globalAlpha = koAlpha * canvasBystanderMul * Math.min(1, (1 - blendA) * 0.5);
+            ctx.drawImage(
+              prevCanvas,
+              -pf.anchorX * drawScale,
+              -pf.bottomY * drawScale,
+              pf.w * drawScale,
+              pf.h * drawScale,
+            );
+            ctx.globalAlpha = koAlpha * canvasBystanderMul * Math.min(1, 0.84 + blendA * 0.16);
+          }
+
+          ctx.drawImage(
+            spCanvas,
+            -sf.anchorX * drawScale,
+            -sf.bottomY * drawScale,
+            sf.w * drawScale,
+            sf.h * drawScale,
+          );
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+
+          if (!ea?.dead && Math.abs(stagger.shearPx) > 0.5) {
+            ctx.save();
             ctx.beginPath();
-            ctx.ellipse(3, -size * 0.42, size * 0.28, size * 0.34, 0.2, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.rect(
+              -sf.w * drawScale * 0.55,
+              -sf.bottomY * drawScale,
+              sf.w * drawScale * 1.1,
+              sf.h * drawScale * 0.48,
+            );
+            ctx.clip();
+            ctx.translate(-stagger.shearPx, -2);
+            ctx.drawImage(
+              spCanvas,
+              -sf.anchorX * drawScale,
+              -sf.bottomY * drawScale,
+              sf.w * drawScale,
+              sf.h * drawScale,
+            );
+            ctx.restore();
+          }
+
+          if ((ea && ea.flashTimer > 0) || (!ea?.dead && stagger.bioFlashAlpha > 0.04) || spitterJuice?.flashRgba || enemyCutIn.flashRgba) {
+            ctx.globalCompositeOperation = 'lighter';
+            const flashRgb = enemyCutIn.flashRgba ?? spitterJuice?.flashRgba;
+            if (flashRgb) {
+              drawCanvas2DCutInFlash(ctx, flashRgb, size * 0.36, -size * 0.44);
+            } else if (ea && ea.flashTimer > 0) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
+              ctx.beginPath();
+              ctx.arc(0, -size * 0.44, size * 0.34, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            if (!ea?.dead && stagger.bioFlashAlpha > 0.04) {
+              ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
+              ctx.beginPath();
+              ctx.ellipse(2, -size * 0.44, size * 0.28, size * 0.34, 0.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        }
+
+        // Smooth Pressurized Yellow Bile Spit Stream & Particle Effects from Spitter's mouth all the way to the Heroine
+        if (!ea?.dead && !tacticalViewActive && (windupProg > 0.02 || streamProg > 0.01)) {
+          const headDeformDx = spitterJuice ? spitterJuice.deform.head.dx * drawScale * juiceFacing : 0;
+          const headDeformDy = spitterJuice ? spitterJuice.deform.head.dy * drawScale : 0;
+          const mouthX = spitterWorldX + sf.mouthOriginRel.dx * drawScale * (-juiceFacing) + headDeformDx;
+          const mouthY = enemyGroundY + hopY + sf.mouthOriginRel.dy * drawScale + headDeformDy;
+          const heroImpactX = heroX + 18 * baseScale;
+          const heroImpactY = groundY - heroTargetHeight * 0.48;
+          renderSpitterBileTorrent(fgCtx, sim, {
+            mouthX,
+            mouthY,
+            targetX: heroImpactX,
+            targetY: heroImpactY,
+            groundY,
+            baseScale,
+            windupProgress: windupProg,
+            streamProgress: streamProg,
+            elapsed,
+            seed: idx,
+          });
+        }
+      }
+    } else if (isBrute && bruteSample && sim.bruteFrames) {
+      const bruteJuice = bruteJuiceSamples.get(enemy.id);
+      const bCanvas = sim.bruteFrames[bruteSample.frameIndex] ?? sim.bruteFrames[0];
+      if (bCanvas) {
+        const bf = bruteSample.frame;
+        const pf = bruteSample.prevFrame;
+        const drawScale = size / BRUTE_CANONICAL_HEIGHT;
+        const juiceHopY = bruteJuice ? bruteJuice.hopYPx * drawScale : bruteSample.yHopPx * drawScale;
+        const juiceRot = bruteJuice ? bruteJuice.rotationRad : bruteSample.tiltRad;
+        const juiceFacing = bruteJuice ? bruteJuice.facingScale : -1;
+        const hopY = ea?.dead ? 0 : juiceHopY;
+
+        // Trigger procedural Brute VFX on rising-edge state events (Single Transform Authority)
+        if (!ea?.dead && !tacticalViewActive && bruteJuice && sim.lastFrameDt > 0) {
+          const fistX = spriteX + bf.impactOriginRel.dx * drawScale * (-juiceFacing);
+          const chestVialX = spriteX + bf.vialOriginRel.dx * drawScale * (-juiceFacing);
+          const chestVialY = enemyGroundY + hopY + bf.vialOriginRel.dy * drawScale;
+
+          if (bruteJuice.seismicImpactTriggered) {
+            sim.trauma = Math.min(1, sim.trauma + 0.44 * bruteJuiceConfig.seismicImpactStrength);
+            addGroundFissure(sim, fistX, enemyGroundY + 1, 1.08 * bruteJuiceConfig.seismicImpactStrength, 1.0);
+            spawnBruteKineticShards(
+              sim,
+              fistX,
+              enemyGroundY - 10,
+              enemyGroundY + 2,
+              15,
+              'seismic',
+              juiceFacing,
+            );
+          }
+          if (bruteJuice.vialShatterTriggered) {
+            spawnBruteMutagenMist(sim, chestVialX, chestVialY, 14, 1.0);
+            spawnBruteKineticShards(sim, chestVialX, chestVialY, enemyGroundY + 2, 8, 'vial', juiceFacing);
+          }
+          if (bruteJuice.chitinShardTriggered) {
+            spawnBruteKineticShards(
+              sim,
+              spriteX,
+              enemyGroundY - size * 0.46,
+              enemyGroundY + 2,
+              enemy.weaponBroken ? 18 : 11,
+              'chitin',
+              -juiceFacing,
+            );
+          }
+          if (bruteJuice.footPlantTriggered) {
+            spawnBurst(sim, spriteX - 14, enemyGroundY - 2, 7, '#94A3B8', 0, 0.55, 22, 0.24, 0.16, 2.0, 2.2);
+          }
+          if (bruteJuice.mutagenMistProgress > 0.12) {
+            const emitCount = bruteJuice.mutagenMistProgress > 0.45 ? 2 : 1;
+            spawnBruteMutagenMist(sim, chestVialX, chestVialY, emitCount, bruteJuice.mutagenMistProgress);
           }
         }
-        ctx.restore();
+
+        // 1. Emerald pocket-vial & mutagen vein bio-glow
+        if (bruteSample.vialGlowIntensity > 0.32 && !ea?.dead && !tacticalViewActive) {
+          const vialAlpha = Math.min(0.68, (bruteSample.vialGlowIntensity - 0.25) * 0.85);
+          fgCtx.save();
+          fgCtx.globalCompositeOperation = 'lighter';
+          const gx = spriteX + bf.vialOriginRel.dx * drawScale * (-juiceFacing);
+          const gy = enemyGroundY + hopY + bf.vialOriginRel.dy * drawScale;
+          const vRad = size * (bruteSample.mode === 'brace' || bruteJuice?.activeTrigger === 'mutagen_brace' ? 0.38 : 0.22);
+          const vGrad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, vRad);
+          vGrad.addColorStop(0, `rgba(74, 222, 128, ${vialAlpha})`);
+          vGrad.addColorStop(0.5, `rgba(34, 197, 94, ${vialAlpha * 0.48})`);
+          vGrad.addColorStop(1, 'rgba(34, 197, 94, 0)');
+          fgCtx.fillStyle = vGrad;
+          fgCtx.beginPath();
+          fgCtx.arc(gx, gy, vRad, 0, Math.PI * 2);
+          fgCtx.fill();
+
+          if (bruteSample.mode === 'brace' || bruteJuice?.activeTrigger === 'mutagen_brace') {
+            fgCtx.fillStyle = `rgba(134, 239, 172, ${0.5 + 0.35 * vialAlpha})`;
+            for (let d = 0; d < 4; d++) {
+              const ang = -Math.PI * 0.8 + d * 0.55 + elapsed * 3.2;
+              const dist = size * (0.09 + 0.05 * Math.sin(elapsed * 8 + d));
+              fgCtx.beginPath();
+              fgCtx.arc(gx + Math.cos(ang) * dist, gy + Math.sin(ang) * dist, 2.6, 0, Math.PI * 2);
+              fgCtx.fill();
+            }
+          }
+          fgCtx.restore();
+        }
+
+        // 2. Fiery orange-amber dorsal carapace flare (Mutagen Brace flare, Heavy primed, Stagger warning, Heavy smash)
+        if (bruteSample.shellGlowIntensity > 0.32 && !ea?.dead && !tacticalViewActive) {
+          const shellAlpha = Math.min(0.72, (bruteSample.shellGlowIntensity - 0.25) * 0.88);
+          fgCtx.save();
+          fgCtx.globalCompositeOperation = 'lighter';
+          const sx = spriteX + bf.shellOriginRel.dx * drawScale * (-juiceFacing);
+          const sy = enemyGroundY + hopY + bf.shellOriginRel.dy * drawScale;
+          const sRad = size * (bruteSample.mode === 'staggerHover' || bruteSample.mode === 'heavySmash' || bruteJuice?.activeTrigger === 'seismic_smash' ? 0.46 : 0.34);
+          const sGrad = fgCtx.createRadialGradient(sx, sy, 2, sx, sy, sRad);
+          sGrad.addColorStop(0, `rgba(250, 204, 21, ${shellAlpha * 0.9})`);
+          sGrad.addColorStop(0.45, `rgba(251, 146, 60, ${shellAlpha * 0.52})`);
+          sGrad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+          fgCtx.fillStyle = sGrad;
+          fgCtx.beginPath();
+          fgCtx.arc(sx, sy, sRad, 0, Math.PI * 2);
+          fgCtx.fill();
+
+          if (
+            bruteSample.mode === 'heavyPrimed' ||
+            bruteSample.mode === 'staggerHover' ||
+            bruteSample.mode === 'heavySmash' ||
+            bruteJuice?.activeTrigger === 'seismic_smash' ||
+            ((bruteSample.mode === 'brace' || bruteJuice?.activeTrigger === 'mutagen_brace') && bruteSample.frameIndex === 6)
+          ) {
+            const rayLen = size * (bruteSample.mode === 'heavySmash' || bruteJuice?.activeTrigger === 'seismic_smash' ? 0.38 : 0.28);
+            fgCtx.strokeStyle = `rgba(253, 186, 116, ${0.42 + 0.3 * shellAlpha})`;
+            fgCtx.lineWidth = 2;
+            const angles = [-2.25, -1.8, -1.3, -0.82];
+            for (let r = 0; r < angles.length; r++) {
+              const ang = angles[r];
+              fgCtx.beginPath();
+              fgCtx.moveTo(sx + Math.cos(ang) * (size * 0.08), sy + Math.sin(ang) * (size * 0.08));
+              fgCtx.lineTo(sx + Math.cos(ang) * rayLen, sy + Math.sin(ang) * rayLen);
+              fgCtx.stroke();
+            }
+          }
+          fgCtx.restore();
+        }
+
+        // 3. Ground seismic shockwave rings on Heavy Smash impact
+        if (bruteSample.shockwaveIntensity > 0.08 && !ea?.dead && !tacticalViewActive) {
+          const sw = bruteSample.shockwaveIntensity;
+          const ix = spriteX + bf.impactOriginRel.dx * drawScale * (-juiceFacing);
+          const iy = enemyGroundY + 2;
+          fgCtx.save();
+          fgCtx.strokeStyle = `rgba(251, 146, 60, ${0.78 * Math.min(1, sw)})`;
+          fgCtx.lineWidth = 3 * Math.min(1.3, sw);
+          fgCtx.beginPath();
+          fgCtx.ellipse(ix, iy, size * (0.28 + (1 - Math.min(1, sw)) * 0.34), 10 + (1 - Math.min(1, sw)) * 8, 0, 0, Math.PI * 2);
+          fgCtx.stroke();
+
+          fgCtx.strokeStyle = `rgba(250, 204, 21, ${0.62 * Math.min(1, sw)})`;
+          fgCtx.lineWidth = 1.6;
+          fgCtx.beginPath();
+          fgCtx.ellipse(ix, iy, size * (0.16 + (1 - Math.min(1, sw)) * 0.22), 6 + (1 - Math.min(1, sw)) * 5, 0, 0, Math.PI * 2);
+          fgCtx.stroke();
+          fgCtx.restore();
+        }
+
+        const blendA = bruteSample.frameBlendAlpha;
+        const canCrossBlend =
+          !ea?.dead &&
+          blendA < 0.99 &&
+          bruteSample.prevFrameIndex !== bruteSample.frameIndex;
+        const prevCanvas = canCrossBlend ? sim.bruteFrames[bruteSample.prevFrameIndex] : null;
+
+        if (webglRenderer) {
+          const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+            archetype: arch,
+            idx,
+            ea,
+            isDead,
+            staggerShearPx: stagger.shearPx,
+            staggerBioFlashAlpha: stagger.bioFlashAlpha,
+            breathScaleX: bruteJuice ? stagger.scaleXMul : breathScaleX * bruteSample.breathScaleX,
+            breathScaleY: bruteJuice ? stagger.scaleYMul : breathScaleY * bruteSample.breathScaleY,
+            frameBlendAlpha: canCrossBlend ? blendA : 1,
+            bioEmissiveRgb,
+            isPrimedOrCharging: isPrimedOrCharging || bruteSample.shellGlowIntensity > 0.6,
+            isAcidOrPustuleActive: false,
+            isStaggeredStatus: Boolean(enemy.staggered),
+            elapsed,
+            tacticalViewActive,
+            bruteJuice,
+            cutIn: enemyCutIn,
+          });
+          webglRenderer.drawSprite({
+            id: `enemy:${enemy.id}`,
+            primarySource: bCanvas,
+            secondarySource: prevCanvas,
+            worldX: spriteX,
+            worldY: enemyGroundY + hopY + (ea?.dead ? 0 : stagger.dy * 0.45),
+            widthPx: bf.w * drawScale,
+            heightPx: bf.h * drawScale,
+            anchorOffsetXPx: bf.anchorX * drawScale,
+            anchorOffsetYPx: bf.bottomY * drawScale,
+            secondaryWidthPx: pf.w * drawScale,
+            secondaryHeightPx: pf.h * drawScale,
+            secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
+            secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
+            facingSign: juiceFacing,
+            rotationRad: !ea?.dead ? stagger.rot * 0.28 + juiceRot + enemyCutIn.leanRad : 0,
+            alpha: koAlpha,
+            drawPriority: enemyCutIn.drawPriority,
+            deform,
+            uniforms,
+          });
+        } else {
+          ctx.save();
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+          ctx.translate(spriteX, enemyGroundY + hopY + (ea?.dead ? 0 : stagger.dy * 0.45));
+          if (!ea?.dead) {
+            ctx.rotate(stagger.rot * 0.28 + juiceRot + enemyCutIn.leanRad);
+          }
+          const scaleX = (bruteJuice
+            ? stagger.scaleXMul * bruteJuice.springScaleX
+            : breathScaleX * bruteSample.breathScaleX) * enemyCutIn.scaleX;
+          const scaleY = (bruteJuice
+            ? stagger.scaleYMul * bruteJuice.springScaleY
+            : breathScaleY * bruteSample.breathScaleY) * enemyCutIn.scaleY;
+          ctx.scale(juiceFacing * scaleX, scaleY);
+
+          if (prevCanvas) {
+            ctx.globalAlpha = koAlpha * canvasBystanderMul * Math.min(1, (1 - blendA) * 0.55);
+            ctx.drawImage(
+              prevCanvas,
+              -pf.anchorX * drawScale,
+              -pf.bottomY * drawScale,
+              pf.w * drawScale,
+              pf.h * drawScale,
+            );
+            ctx.globalAlpha = koAlpha * canvasBystanderMul * Math.min(1, 0.85 + blendA * 0.15);
+          }
+
+          ctx.drawImage(
+            bCanvas,
+            -bf.anchorX * drawScale,
+            -bf.bottomY * drawScale,
+            bf.w * drawScale,
+            bf.h * drawScale,
+          );
+          ctx.globalAlpha = koAlpha * canvasBystanderMul;
+
+          if (!ea?.dead && Math.abs(stagger.shearPx) > 0.5) {
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(
+              -bf.w * drawScale * 0.55,
+              -bf.bottomY * drawScale,
+              bf.w * drawScale * 1.1,
+              bf.h * drawScale * 0.48,
+            );
+            ctx.clip();
+            ctx.translate(-stagger.shearPx, -2);
+            ctx.drawImage(
+              bCanvas,
+              -bf.anchorX * drawScale,
+              -bf.bottomY * drawScale,
+              bf.w * drawScale,
+              bf.h * drawScale,
+            );
+            ctx.restore();
+          }
+
+          if ((ea && ea.flashTimer > 0) || (!ea?.dead && stagger.bioFlashAlpha > 0.04) || bruteJuice?.flashRgba || enemyCutIn.flashRgba) {
+            ctx.globalCompositeOperation = 'lighter';
+            const flashRgb = enemyCutIn.flashRgba ?? bruteJuice?.flashRgba;
+            if (flashRgb) {
+              drawCanvas2DCutInFlash(ctx, flashRgb, size * 0.38, -size * 0.44);
+            } else if (ea && ea.flashTimer > 0) {
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.52)';
+              ctx.beginPath();
+              ctx.arc(0, -size * 0.44, size * 0.36, 0, Math.PI * 2);
+              ctx.fill();
+            }
+            if (!ea?.dead && stagger.bioFlashAlpha > 0.04) {
+              ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
+              ctx.beginPath();
+              ctx.ellipse(2, -size * 0.44, size * 0.3, size * 0.36, 0.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
+          ctx.restore();
+        }
       }
     } else if (entry) {
-      ctx.save();
-      ctx.translate(ex, enemyGroundY + koOffsetY + stagger.dy);
-      ctx.rotate(stagger.rot);
-      ctx.scale(enemy.archetype === 'brute' ? -breathScaleX : breathScaleX, breathScaleY);
-      ctx.drawImage(entry.canvas, -size * centerXRatio, -size * bottomRatio, size, size);
-
-      // Upper-torso stagger slice displacement & biology-matched bio-wound flash on hit
-      if (Math.abs(stagger.shearPx) > 0.5) {
+      const bossWorldX = ex + cutInShiftX;
+      if (webglRenderer) {
+        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+          archetype: arch,
+          idx,
+          ea,
+          isDead,
+          staggerShearPx: stagger.shearPx,
+          staggerBioFlashAlpha: stagger.bioFlashAlpha,
+          breathScaleX,
+          breathScaleY,
+          frameBlendAlpha: 1,
+          bioEmissiveRgb,
+          isPrimedOrCharging,
+          isAcidOrPustuleActive,
+          isStaggeredStatus: Boolean(enemy.staggered),
+          elapsed,
+          tacticalViewActive,
+          cutIn: enemyCutIn,
+        });
+        webglRenderer.drawSprite({
+          id: `enemy:${enemy.id}`,
+          primarySource: entry.canvas,
+          worldX: bossWorldX,
+          worldY: enemyGroundY + koOffsetY + stagger.dy,
+          widthPx: size,
+          heightPx: size,
+          anchorOffsetXPx: size * centerXRatio,
+          anchorOffsetYPx: size * bottomRatio,
+          facingSign: enemy.archetype === 'brute' ? -1 : 1,
+          rotationRad: stagger.rot + enemyCutIn.leanRad,
+          alpha: koAlpha,
+          drawPriority: enemyCutIn.drawPriority,
+          deform,
+          uniforms,
+        });
+      } else {
         ctx.save();
-        ctx.beginPath();
-        ctx.rect(-size * 0.6, -size * 0.95, size * 1.2, size * 0.48);
-        ctx.clip();
-        ctx.translate(stagger.shearPx, -2);
+        ctx.globalAlpha = koAlpha * canvasBystanderMul;
+        ctx.translate(bossWorldX, enemyGroundY + koOffsetY + stagger.dy);
+        ctx.rotate(stagger.rot + enemyCutIn.leanRad);
+        ctx.scale(
+          (enemy.archetype === 'brute' ? -breathScaleX : breathScaleX) * enemyCutIn.scaleX,
+          breathScaleY * enemyCutIn.scaleY,
+        );
         ctx.drawImage(entry.canvas, -size * centerXRatio, -size * bottomRatio, size, size);
+
+        // Upper-torso stagger slice displacement & biology-matched bio-wound flash on hit
+        if (Math.abs(stagger.shearPx) > 0.5) {
+          ctx.save();
+          ctx.beginPath();
+          ctx.rect(-size * 0.6, -size * 0.95, size * 1.2, size * 0.48);
+          ctx.clip();
+          ctx.translate(stagger.shearPx, -2);
+          ctx.drawImage(entry.canvas, -size * centerXRatio, -size * bottomRatio, size, size);
+          ctx.restore();
+        }
+
+        if ((ea && ea.flashTimer > 0) || stagger.bioFlashAlpha > 0.04 || enemyCutIn.flashRgba) {
+          ctx.globalCompositeOperation = 'lighter';
+          if (enemyCutIn.flashRgba) {
+            drawCanvas2DCutInFlash(ctx, enemyCutIn.flashRgba, size * 0.36, -size * 0.44);
+          } else if (ea && ea.flashTimer > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
+            ctx.beginPath();
+            ctx.arc(0, -size * 0.44, size * 0.34, 0, Math.PI * 2);
+            ctx.fill();
+          }
+          if (stagger.bioFlashAlpha > 0.04) {
+            ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
+            ctx.beginPath();
+            ctx.ellipse(4, -size * 0.46, size * 0.28, size * 0.36, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
         ctx.restore();
       }
-
-      if ((ea && ea.flashTimer > 0) || stagger.bioFlashAlpha > 0.04) {
-        ctx.globalCompositeOperation = 'lighter';
-        if (ea && ea.flashTimer > 0) {
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.55)';
-          ctx.beginPath();
-          ctx.arc(0, -size * 0.44, size * 0.34, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        if (stagger.bioFlashAlpha > 0.04) {
-          ctx.fillStyle = hexToRgba(enemyBio.freshEmissive, stagger.bioFlashAlpha);
-          ctx.beginPath();
-          ctx.ellipse(4, -size * 0.46, size * 0.28, size * 0.36, 0.2, 0, Math.PI * 2);
-          ctx.fill();
-        }
-      }
-      ctx.restore();
     }
+
+    ctx.restore();
+    ctx = fgCtx;
+    ctx.save();
+    ctx.globalAlpha = koAlpha;
 
     const isHighlighted = !isDead && (hoveredEnemyId === enemy.id || inspectedEnemyId === enemy.id);
     if (isHighlighted) {
       const isInspected = inspectedEnemyId === enemy.id;
-      const bracketW = Math.max(48, size * (isCrawler ? 0.78 : 0.74));
+      const bracketW = Math.max(48, size * (isCrawler ? 0.78 : isBrute ? 0.92 : 0.74));
       const bracketH = Math.max(48, size * Math.min(0.95, bottomRatio));
       const bx0 = Math.max(4, ex - bracketW * 0.5);
       const bx1 = Math.min(w - 4, ex + bracketW * 0.5);
@@ -1657,13 +3273,15 @@ export function renderCombatStage(
         : 'rgba(165, 243, 252, 0.4)';
       ctx.lineWidth = isInspected ? 2 : 1.25;
       ctx.beginPath();
-      ctx.ellipse(ex, enemyGroundY - farFootOffsetPx * 0.3, size * 0.38, 10, 0, 0, Math.PI * 2);
+      ctx.ellipse(ex, enemyGroundY - farFootOffsetPx * 0.3, isBrute ? size * 0.48 : size * 0.38, isBrute ? 12 : 10, 0, 0, Math.PI * 2);
       ctx.stroke();
       ctx.restore();
     }
 
     // On-stage Enemy Lifebar + Prominent Armor Plate Bar + Damage/Death Preview directly under enemy feet
-    if (!isDead) {
+    if (!isDead && worldUiAlpha > 0.02) {
+      ctx.save();
+      ctx.globalAlpha *= worldUiAlpha;
       const armorPreview = computeEnemyArmorPreview(
         enemy,
         idx,
@@ -1703,14 +3321,20 @@ export function renderCombatStage(
         w < 460
           ? enemy.archetype === 'boss'
             ? 70
-            : 56
+            : enemy.archetype === 'brute'
+              ? 64
+              : 56
           : h < 220
             ? enemy.archetype === 'boss'
               ? 82
-              : 66
+              : enemy.archetype === 'brute'
+                ? 78
+                : 66
             : enemy.archetype === 'boss'
               ? 96
-              : 76;
+              : enemy.archetype === 'brute'
+                ? 88
+                : 76;
       const barH = rawPreviewDmg > 0 ? 7 : 5;
       const barX = Math.max(hasArmor ? 18 : 4, Math.min(w - barW - 4, Math.round(ex - barW * 0.5)));
       const minTopOffset = hasArmor ? 14 : 6;
@@ -1913,31 +3537,383 @@ export function renderCombatStage(
         ctx.fillText('☠', ex, skullY + 1);
         ctx.restore();
       }
+      ctx.restore();
     }
 
     ctx.restore();
+    ctx = baseCtx;
   }
 
+  // 4.05 On-Demand Bile Spitter 4-Layer Juice Lab Specimen (when Spitter Lab is open on a node without a living Spitter)
+  const hasLivingSpitter = enemies.some((e) => e.archetype === 'spitter' && e.hp > 0);
+  if (spitterLabActive && !hasLivingSpitter && sim.spitterFrames) {
+    const dtStep = sim.lastFrameDt > 0 ? sim.lastFrameDt : 0.016;
+    let labState = sim.spitterJuiceStates.get('spitter_lab_specimen');
+    if (!labState) {
+      labState = createSpitterJuiceState();
+      sim.spitterJuiceStates.set('spitter_lab_specimen', labState);
+    }
+    const labJuice = stepSpitterJuice(labState, dtStep, elapsed, spitterJuiceConfig, {
+      instanceIndex: 0,
+    });
+    const spCanvas = sim.spitterFrames[labJuice.frameIndex] ?? sim.spitterFrames[0];
+    if (spCanvas) {
+      const sf = SPITTER_SHEET_FRAMES[labJuice.frameIndex] ?? SPITTER_SHEET_FRAMES[0];
+      const pf = SPITTER_SHEET_FRAMES[labJuice.prevFrameIndex] ?? sf;
+      const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+      const size = baseEnemySize * 0.98;
+      const drawScale = size / SPITTER_CANONICAL_HEIGHT;
+      const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.58);
+      const labWorldX = labBaseX + labJuice.offsetX * drawScale;
+      const labGroundY = groundY - 2;
+      const labHopY = labJuice.hopYPx * drawScale;
+
+      // Ground contact shadow + persistent caustic slime puddle + specimen holo-ring on baseCtx
+      baseCtx.save();
+      baseCtx.fillStyle = 'rgba(3, 7, 18, 0.68)';
+      baseCtx.beginPath();
+      baseCtx.ellipse(labWorldX, labGroundY - 2, size * 0.34, 8, 0, 0, Math.PI * 2);
+      baseCtx.fill();
+      baseCtx.strokeStyle = 'rgba(163, 230, 53, 0.72)';
+      baseCtx.lineWidth = 1.8;
+      baseCtx.setLineDash([5, 3]);
+      baseCtx.beginPath();
+      baseCtx.ellipse(labWorldX, labGroundY - 2, size * 0.38, 9.5, 0, 0, Math.PI * 2);
+      baseCtx.stroke();
+      baseCtx.restore();
+
+      renderSpitterGroundPuddle(
+        baseCtx,
+        labBaseX + (labWorldX - labBaseX) * 0.28,
+        labGroundY + 1,
+        size,
+        1,
+        labJuice.pustuleGlowIntensity,
+        Math.max(labJuice.spitWindupProgress, labJuice.spitStreamProgress),
+        elapsed,
+        0,
+      );
+
+      // Pustule glow on fgCtx
+      if (labJuice.pustuleGlowIntensity > 0.35 && !tacticalViewActive) {
+        const glowAlpha = Math.min(0.75, (labJuice.pustuleGlowIntensity - 0.25) * 0.9);
+        fgCtx.save();
+        fgCtx.globalCompositeOperation = 'lighter';
+        const gx = labWorldX + sf.pustuleOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const gy = labGroundY + labHopY + sf.pustuleOriginRel.dy * drawScale;
+        const rad = size * 0.38;
+        const grad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, rad);
+        grad.addColorStop(0, `rgba(254, 240, 138, ${glowAlpha})`);
+        grad.addColorStop(0.45, `rgba(163, 230, 53, ${glowAlpha * 0.52})`);
+        grad.addColorStop(1, 'rgba(163, 230, 53, 0)');
+        fgCtx.fillStyle = grad;
+        fgCtx.beginPath();
+        fgCtx.arc(gx, gy, rad, 0, Math.PI * 2);
+        fgCtx.fill();
+        fgCtx.restore();
+      }
+
+      const prevCanvas =
+        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
+          ? sim.spitterFrames[labJuice.prevFrameIndex]
+          : null;
+
+      if (webglRenderer) {
+        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+          archetype: 'spitter',
+          idx: 0,
+          ea: undefined,
+          isDead: false,
+          staggerShearPx: 0,
+          staggerBioFlashAlpha: 0,
+          breathScaleX: 1,
+          breathScaleY: 1,
+          frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
+          bioEmissiveRgb: [0.64, 0.9, 0.21],
+          isPrimedOrCharging: labJuice.activeTrigger === 'cast_charge',
+          isAcidOrPustuleActive: labJuice.activeTrigger === 'cast_charge',
+          isStaggeredStatus: false,
+          elapsed,
+          tacticalViewActive,
+          spitterJuice: labJuice,
+        });
+        webglRenderer.drawSprite({
+          id: 'enemy:spitter_lab_specimen',
+          primarySource: spCanvas,
+          secondarySource: prevCanvas,
+          worldX: labWorldX,
+          worldY: labGroundY + labHopY,
+          widthPx: sf.w * drawScale,
+          heightPx: sf.h * drawScale,
+          anchorOffsetXPx: sf.anchorX * drawScale,
+          anchorOffsetYPx: sf.bottomY * drawScale,
+          secondaryWidthPx: pf.w * drawScale,
+          secondaryHeightPx: pf.h * drawScale,
+          secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
+          secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
+          facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          alpha: 1,
+          deform,
+          uniforms,
+        });
+      } else {
+        baseCtx.save();
+        baseCtx.translate(labWorldX, labGroundY + labHopY);
+        baseCtx.rotate(labJuice.rotationRad);
+        baseCtx.scale(
+          labJuice.facingScale * labJuice.springScaleX,
+          labJuice.springScaleY,
+        );
+        baseCtx.drawImage(
+          spCanvas,
+          -sf.anchorX * drawScale,
+          -sf.bottomY * drawScale,
+          sf.w * drawScale,
+          sf.h * drawScale,
+        );
+        baseCtx.restore();
+      }
+
+      if (
+        !tacticalViewActive &&
+        (labJuice.spitWindupProgress > 0.02 || labJuice.spitStreamProgress > 0.01)
+      ) {
+        const headDeformDx = labJuice.deform.head.dx * drawScale * labJuice.facingScale;
+        const headDeformDy = labJuice.deform.head.dy * drawScale;
+        const mouthX = labWorldX + sf.mouthOriginRel.dx * drawScale * (-labJuice.facingScale) + headDeformDx;
+        const mouthY = labGroundY + labHopY + sf.mouthOriginRel.dy * drawScale + headDeformDy;
+        const heroImpactX = heroX + 18 * baseScale;
+        const heroImpactY = groundY - heroTargetHeight * 0.48;
+        renderSpitterBileTorrent(fgCtx, sim, {
+          mouthX,
+          mouthY,
+          targetX: heroImpactX,
+          targetY: heroImpactY,
+          groundY,
+          baseScale,
+          windupProgress: labJuice.spitWindupProgress,
+          streamProgress: labJuice.spitStreamProgress,
+          elapsed,
+          seed: 7,
+        });
+      }
+    }
+  }
+
+  // 4.06 On-Demand Carapace Brute 4-Layer Juice Lab Specimen (when Brute Lab is active on a node without a living Brute)
+  const hasLivingBrute = enemies.some((e) => e.archetype === 'brute' && e.hp > 0);
+  if (bruteLabActive && !hasLivingBrute && sim.bruteFrames) {
+    const dtStep = sim.lastFrameDt > 0 ? sim.lastFrameDt : 0.016;
+    let labState = sim.bruteJuiceStates.get('brute_lab_specimen');
+    if (!labState) {
+      labState = createBruteJuiceState();
+      sim.bruteJuiceStates.set('brute_lab_specimen', labState);
+    }
+    const labJuice = stepBruteJuice(labState, dtStep, elapsed, bruteJuiceConfig, {
+      instanceIndex: 0,
+    });
+    const bCanvas = sim.bruteFrames[labJuice.frameIndex] ?? sim.bruteFrames[0];
+    if (bCanvas) {
+      const bf = BRUTE_SHEET_FRAMES[labJuice.frameIndex] ?? BRUTE_SHEET_FRAMES[1];
+      const pf = BRUTE_SHEET_FRAMES[labJuice.prevFrameIndex] ?? bf;
+      const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+      const size = baseEnemySize * 1.28;
+      const drawScale = size / BRUTE_CANONICAL_HEIGHT;
+      const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.62);
+      const labWorldX = labBaseX + labJuice.offsetX * drawScale;
+      const labGroundY = groundY - 2;
+      const labHopY = labJuice.hopYPx * drawScale;
+
+      if (!tacticalViewActive && sim.lastFrameDt > 0) {
+        const fistX = labWorldX + bf.impactOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const chestVialX = labWorldX + bf.vialOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const chestVialY = labGroundY + labHopY + bf.vialOriginRel.dy * drawScale;
+
+        if (labJuice.seismicImpactTriggered) {
+          sim.trauma = Math.min(1, sim.trauma + 0.44 * bruteJuiceConfig.seismicImpactStrength);
+          addGroundFissure(sim, fistX, labGroundY + 1, 1.12 * bruteJuiceConfig.seismicImpactStrength, 1.0);
+          spawnBruteKineticShards(sim, fistX, labGroundY - 10, labGroundY + 2, 16, 'seismic', labJuice.facingScale);
+        }
+        if (labJuice.vialShatterTriggered) {
+          spawnBruteMutagenMist(sim, chestVialX, chestVialY, 14, 1.0);
+          spawnBruteKineticShards(sim, chestVialX, chestVialY, labGroundY + 2, 8, 'vial', labJuice.facingScale);
+        }
+        if (labJuice.chitinShardTriggered) {
+          spawnBruteKineticShards(sim, labWorldX, labGroundY - size * 0.46, labGroundY + 2, 14, 'chitin', -labJuice.facingScale);
+        }
+        if (labJuice.footPlantTriggered) {
+          spawnBurst(sim, labWorldX - 12, labGroundY - 2, 7, '#94A3B8', 0, 0.55, 22, 0.24, 0.16, 2.0, 2.2);
+        }
+        if (labJuice.mutagenMistProgress > 0.12) {
+          const emitCount = labJuice.mutagenMistProgress > 0.45 ? 2 : 1;
+          spawnBruteMutagenMist(sim, chestVialX, chestVialY, emitCount, labJuice.mutagenMistProgress);
+        }
+      }
+
+      // Ground contact shadow + specimen amber/crimson tactical holo-ring on baseCtx
+      baseCtx.save();
+      baseCtx.fillStyle = 'rgba(3, 7, 18, 0.72)';
+      baseCtx.beginPath();
+      baseCtx.ellipse(labWorldX, labGroundY - 1, size * 0.44, 9.5, 0, 0, Math.PI * 2);
+      baseCtx.fill();
+      baseCtx.strokeStyle = 'rgba(251, 146, 60, 0.75)';
+      baseCtx.lineWidth = 2;
+      baseCtx.setLineDash([6, 3]);
+      baseCtx.beginPath();
+      baseCtx.ellipse(labWorldX, labGroundY - 1, size * 0.46, 10.5, 0, 0, Math.PI * 2);
+      baseCtx.stroke();
+      baseCtx.restore();
+
+      if (labJuice.vialGlowIntensity > 0.34 && !tacticalViewActive) {
+        const vialAlpha = Math.min(0.68, (labJuice.vialGlowIntensity - 0.25) * 0.85);
+        fgCtx.save();
+        fgCtx.globalCompositeOperation = 'lighter';
+        const gx = labWorldX + bf.vialOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const gy = labGroundY + labHopY + bf.vialOriginRel.dy * drawScale;
+        const vRad = size * (labJuice.activeTrigger === 'mutagen_brace' ? 0.38 : 0.24);
+        const vGrad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, vRad);
+        vGrad.addColorStop(0, `rgba(74, 222, 128, ${vialAlpha})`);
+        vGrad.addColorStop(0.5, `rgba(34, 197, 94, ${vialAlpha * 0.48})`);
+        vGrad.addColorStop(1, 'rgba(34, 197, 94, 0)');
+        fgCtx.fillStyle = vGrad;
+        fgCtx.beginPath();
+        fgCtx.arc(gx, gy, vRad, 0, Math.PI * 2);
+        fgCtx.fill();
+        fgCtx.restore();
+      }
+
+      if (labJuice.shellGlowIntensity > 0.34 && !tacticalViewActive) {
+        const shellAlpha = Math.min(0.72, (labJuice.shellGlowIntensity - 0.25) * 0.88);
+        fgCtx.save();
+        fgCtx.globalCompositeOperation = 'lighter';
+        const sx = labWorldX + bf.shellOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const sy = labGroundY + labHopY + bf.shellOriginRel.dy * drawScale;
+        const sRad = size * (labJuice.activeTrigger === 'seismic_smash' ? 0.46 : 0.34);
+        const sGrad = fgCtx.createRadialGradient(sx, sy, 2, sx, sy, sRad);
+        sGrad.addColorStop(0, `rgba(250, 204, 21, ${shellAlpha * 0.9})`);
+        sGrad.addColorStop(0.45, `rgba(251, 146, 60, ${shellAlpha * 0.52})`);
+        sGrad.addColorStop(1, 'rgba(251, 146, 60, 0)');
+        fgCtx.fillStyle = sGrad;
+        fgCtx.beginPath();
+        fgCtx.arc(sx, sy, sRad, 0, Math.PI * 2);
+        fgCtx.fill();
+        fgCtx.restore();
+      }
+
+      if (labJuice.shockwaveIntensity > 0.08 && !tacticalViewActive) {
+        const sw = Math.min(1.2, labJuice.shockwaveIntensity);
+        const ix = labWorldX + bf.impactOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const iy = labGroundY + 2;
+        fgCtx.save();
+        fgCtx.strokeStyle = `rgba(251, 146, 60, ${0.8 * Math.min(1, sw)})`;
+        fgCtx.lineWidth = 3 * sw;
+        fgCtx.beginPath();
+        fgCtx.ellipse(ix, iy, size * (0.28 + (1 - Math.min(1, sw)) * 0.34), 10 + (1 - Math.min(1, sw)) * 8, 0, 0, Math.PI * 2);
+        fgCtx.stroke();
+        fgCtx.restore();
+      }
+
+      const prevCanvas =
+        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
+          ? sim.bruteFrames[labJuice.prevFrameIndex]
+          : null;
+
+      if (webglRenderer) {
+        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+          archetype: 'brute',
+          idx: 0,
+          ea: undefined,
+          isDead: false,
+          staggerShearPx: 0,
+          staggerBioFlashAlpha: 0,
+          breathScaleX: 1,
+          breathScaleY: 1,
+          frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
+          bioEmissiveRgb: [0.98, 0.57, 0.24],
+          isPrimedOrCharging: labJuice.activeTrigger === 'mutagen_brace' || labJuice.activeTrigger === 'seismic_smash',
+          isAcidOrPustuleActive: false,
+          isStaggeredStatus: false,
+          elapsed,
+          tacticalViewActive,
+          bruteJuice: labJuice,
+        });
+        webglRenderer.drawSprite({
+          id: 'enemy:brute_lab_specimen',
+          primarySource: bCanvas,
+          secondarySource: prevCanvas,
+          worldX: labWorldX,
+          worldY: labGroundY + labHopY,
+          widthPx: bf.w * drawScale,
+          heightPx: bf.h * drawScale,
+          anchorOffsetXPx: bf.anchorX * drawScale,
+          anchorOffsetYPx: bf.bottomY * drawScale,
+          secondaryWidthPx: pf.w * drawScale,
+          secondaryHeightPx: pf.h * drawScale,
+          secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
+          secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
+          facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          alpha: 1,
+          deform,
+          uniforms,
+        });
+      } else {
+        baseCtx.save();
+        baseCtx.translate(labWorldX, labGroundY + labHopY);
+        baseCtx.rotate(labJuice.rotationRad);
+        baseCtx.scale(
+          labJuice.facingScale * labJuice.springScaleX,
+          labJuice.springScaleY,
+        );
+        baseCtx.drawImage(
+          bCanvas,
+          -bf.anchorX * drawScale,
+          -bf.bottomY * drawScale,
+          bf.w * drawScale,
+          bf.h * drawScale,
+        );
+        baseCtx.restore();
+      }
+    }
+  }
+
+  // Route all foreground VFX, trajectory arcs, bolts, particles, tactical plaques, and floating numbers to fgCtx
+  ctx = fgCtx;
+
   // 4.15 Telegraph Enemy Intent Directly on the Board (Glowing red/amber trajectory vectors + big dark-outlined damage numbers)
-  if (heroine.hp > 0) {
+  if (heroine.hp > 0 && worldUiAlpha > 0.02) {
     const heroTargetX = heroX + 18 * baseScale;
     const heroTargetY = groundY - heroTargetHeight * 0.46;
     for (let idx = 0; idx < enemies.length; idx++) {
       const enemy = enemies[idx];
-      if (enemy.hp <= 0) continue;
+      if (
+        enemy.hp <= 0 ||
+        enemy.escaped ||
+        enemy.propKind ||
+        enemy.isLootRunner ||
+        enemy.staggered ||
+        (enemy.sleepCounter !== undefined && enemy.sleepCounter > 0)
+      ) {
+        continue;
+      }
       const intent = enemy.intentCycle[enemy.currentIntentIndex];
       if (!intent) continue;
       const isOffensive =
         intent.kind === 'attack' ||
         intent.kind === 'heavy' ||
         intent.kind === 'acid' ||
-        intent.kind === 'charge' ||
         intent.kind === 'leech';
       if (!isOffensive) continue;
 
-      const ex = enemyBaseX + idx * enemyStepX;
+      const ex = enemyBaseX + (slotCenters[idx] ?? idx) * enemyStepX;
       const ey = groundY - (idx % 2 === 1 ? 6 : 0) - 68 * baseScale;
-      const effectiveVal = intent.value + (enemy.enrageAtkBonus ?? 0);
+      const effectiveVal = getEffectiveEnemyIntentValue(enemy, intent, {
+        shieldAfterPlayer: precomputedThreat?.shieldAfterPlayer ?? heroine.shield,
+        colorPlayed: activePreview?.tileCount ? activePreview.color : null,
+        battlefieldRule: combat.battlefieldRule,
+      });
+      if (effectiveVal <= 0) continue;
       const isAcid = intent.kind === 'acid';
       const strokeRgb = isAcid ? '132, 204, 22' : '255, 46, 126';
       const pulse = 0.55 + 0.45 * Math.sin(elapsed * 4.5 + idx);
@@ -1945,6 +3921,7 @@ export function renderCombatStage(
       const ctrlY = Math.min(ey, heroTargetY) - (26 + idx * 14);
 
       ctx.save();
+      ctx.globalAlpha *= worldUiAlpha;
       ctx.strokeStyle = `rgba(${strokeRgb}, ${tacticalViewActive ? 0.85 : 0.42 + 0.25 * pulse})`;
       ctx.lineWidth = tacticalViewActive ? 2.6 : 2.0;
       ctx.setLineDash([7, 5]);
@@ -2003,8 +3980,8 @@ export function renderCombatStage(
     if (livingIndices.length >= 2) {
       const idxA = livingIndices[0];
       const idxB = livingIndices[1];
-      const xA = enemyBaseX + idxA * enemyStepX;
-      const xB = enemyBaseX + idxB * enemyStepX;
+      const xA = enemyBaseX + (slotCenters[idxA] ?? idxA) * enemyStepX;
+      const xB = enemyBaseX + (slotCenters[idxB] ?? idxB) * enemyStepX;
       const yArc = groundY - 112 * baseScale;
       const midSwapX = (xA + xB) * 0.5;
 
@@ -2087,9 +4064,10 @@ export function renderCombatStage(
       continue;
     }
 
-    const dx = enemyBaseX + drop.slotIndex * enemyStepX;
+    const dx = enemyBaseX + (dropCenters[dIdx] ?? drop.slotIndex) * enemyStepX;
     const dy = groundY - (drop.slotIndex % 2 === 1 ? 6 : 0);
     const pulse = 0.55 + 0.45 * Math.sin(elapsed * 5.2 + dIdx * 1.4);
+    const isTwoSlotDrop = drop.archetype === 'brute';
 
     ctx.save();
     // Vertical orbital drop beam
@@ -2098,14 +4076,15 @@ export function renderCombatStage(
     beamGrad.addColorStop(0.55, `rgba(${beamColor}, ${0.12 + 0.1 * pulse})`);
     beamGrad.addColorStop(1, `rgba(${beamColor}, ${0.28 + 0.14 * pulse})`);
     ctx.fillStyle = beamGrad;
-    ctx.fillRect(dx - 18, Math.max(18, dy - 155), 36, Math.min(155, dy - 18));
+    const beamHalfW = isTwoSlotDrop ? 28 : 18;
+    ctx.fillRect(dx - beamHalfW, Math.max(18, dy - 155), beamHalfW * 2, Math.min(155, dy - 18));
 
     // Ground landing zone ring
     ctx.strokeStyle = `rgba(${beamColor}, ${0.65 + 0.3 * pulse})`;
     ctx.setLineDash([6, 4]);
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.ellipse(dx, dy - 1, 28 + pulse * 4, 8, 0, 0, Math.PI * 2);
+    ctx.ellipse(dx, dy - 1, (isTwoSlotDrop ? 44 : 28) + pulse * 4, isTwoSlotDrop ? 10 : 8, 0, 0, Math.PI * 2);
     ctx.stroke();
     ctx.setLineDash([]);
 
@@ -2261,9 +4240,11 @@ export function renderCombatStage(
     for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
       const pt = sim.particles[i];
       if (!pt.active) continue;
-      ctx.globalAlpha = Math.max(0, 1 - pt.life / pt.maxLife);
+      const lifeNorm = Math.min(1, pt.life / Math.max(0.01, pt.maxLife));
+      const fade = Math.max(0, 1 - lifeNorm);
       ctx.fillStyle = pt.color;
       if (pt.shape === 1) {
+        ctx.globalAlpha = fade;
         const half = pt.size * 0.6;
         const ang = pt.life * 8;
         const c = Math.cos(ang);
@@ -2279,7 +4260,43 @@ export function renderCombatStage(
         ctx.lineTo(pt.x - dx2, pt.y - dy2);
         ctx.closePath();
         ctx.fill();
+      } else if (pt.shape === 3) {
+        // Spinning angular glass / chitin splinter shard
+        ctx.save();
+        ctx.globalAlpha = fade * 0.94;
+        ctx.translate(pt.x, pt.y);
+        ctx.rotate(pt.rot);
+        const sz = pt.size;
+        ctx.fillStyle = pt.color;
+        ctx.beginPath();
+        ctx.moveTo(-sz * 0.95, -sz * 0.3);
+        ctx.lineTo(sz * 0.35, -sz * 0.55);
+        ctx.lineTo(sz * 1.05, sz * 0.12);
+        ctx.lineTo(-sz * 0.25, sz * 0.5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+        ctx.lineWidth = 0.8;
+        ctx.stroke();
+        ctx.restore();
+      } else if (pt.shape === 4) {
+        // Buoyant mutagen bio-nanite aerosol cloud
+        ctx.save();
+        const mistAlpha = Math.sin(lifeNorm * Math.PI) * 0.66;
+        const rad = pt.size * (0.75 + lifeNorm * 0.8);
+        const grad = ctx.createRadialGradient(pt.x, pt.y, 1, pt.x, pt.y, rad);
+        grad.addColorStop(0, '#DCFCE7');
+        grad.addColorStop(0.32, pt.color);
+        grad.addColorStop(0.7, 'rgba(34, 197, 94, 0.42)');
+        grad.addColorStop(1, 'rgba(34, 197, 94, 0)');
+        ctx.globalAlpha = Math.max(0, mistAlpha);
+        ctx.fillStyle = grad;
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, rad, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       } else {
+        ctx.globalAlpha = fade;
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, pt.size, 0, Math.PI * 2);
         ctx.fill();
@@ -2314,7 +4331,7 @@ export function renderCombatStage(
     for (let idx = 0; idx < enemies.length; idx++) {
       const enemy = enemies[idx];
       if (enemy.hp <= 0) continue;
-      const ex = enemyBaseX + idx * enemyStepX;
+      const ex = enemyBaseX + (slotCenters[idx] ?? idx) * enemyStepX;
       const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
       const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
       const ePlaqueW = 114;
@@ -2364,12 +4381,16 @@ export function renderCombatStage(
             ? '#BEF264'
             : '#FDE047';
       const intentVal = intent.value + (enemy.enrageAtkBonus ?? 0);
+      const corTag = intent.corrodeAmount ? ` +${intent.corrodeAmount}C` : '';
+      const armTag = intent.armorOnHit ? ` +${intent.armorOnHit}A` : '';
       const intentTxt =
         intent.kind === 'charge'
           ? `★ CHG (${intent.secondaryValue ?? 1}T→${intentVal})`
           : intent.kind === 'armor' || intent.kind === 'bolster'
-            ? `● +${intent.value} ARM`
-            : `◆ ${intentVal} DMG`;
+            ? intent.secondaryValue && intent.secondaryValue > 0
+              ? `● +${intent.value}A +${intent.secondaryValue}HP`
+              : `● +${intent.value} ARM`
+            : `◆ ${intentVal} DMG${corTag}${armTag}`;
       ctx.fillText(intentTxt, epx + ePlaqueW * 0.5, epy + 26);
     }
     ctx.restore();
@@ -2392,11 +4413,27 @@ export function renderCombatStage(
   }
   ctx.globalAlpha = 1;
 
-  ctx.restore();
+  // Flush WebGL2 MeshSprite queue & optional 4x6 anatomical debug wireframe overlay
+  if (webglRenderer) {
+    webglRenderer.endFrame(debugMeshWireframe ? fgCtx : null);
+  }
+
+  if (fgCtx !== baseCtx) {
+    fgCtx.restore();
+  }
+  baseCtx.restore();
 
   // 10. Fourth-Wall Cyber-Visor Screen Blood Drops (screen-space outside camera shake/zoom; hidden in Tactical View)
   if (!tacticalViewActive) {
-    renderScreenBloodDrops(ctx, sim, elapsed);
+    renderScreenBloodDrops(fgCtx, sim, elapsed);
+  }
+
+  // 11. Darkest Dungeon Cut-In Speed-Lines & Crit Invert Impact Flash (screen-space)
+  if (seqFrame && !tacticalViewActive && !reducedMotion && (seqFrame.speedLinesAlpha > 0.02 || seqFrame.invertFlashAlpha > 0.01)) {
+    fgCtx.save();
+    fgCtx.scale(dpr, dpr);
+    renderCutInForegroundVfx(fgCtx, seqFrame, w, h, elapsed);
+    fgCtx.restore();
   }
 }
 
@@ -2507,3 +4544,507 @@ function renderScreenBloodDrops(
 
   ctx.restore();
 }
+
+/**
+ * Renders a persistent, non-flickering yellow-chartreuse slime puddle on `baseCtx`
+ * directly underneath a Bile Spitter's claws so the floor puddle never pops in/out
+ * when frames change.
+ */
+function renderSpitterGroundPuddle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  alpha: number,
+  pustuleGlow: number,
+  chargeIntensity: number,
+  elapsed: number,
+  seed: number,
+): void {
+  if (alpha <= 0.01) return;
+  const breath = Math.sin(elapsed * 2.2 + seed * 1.3);
+  const expand = 1 + breath * 0.025 + chargeIntensity * 0.08;
+  const rx = size * 0.36 * expand;
+  const ry = Math.max(5.5, size * 0.052 * expand);
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
+
+  // 1. Dark olive-charcoal outer meniscus rim
+  ctx.fillStyle = 'rgba(26, 46, 5, 0.78)';
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx + 2.5, ry + 1.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(x - rx * 0.48, y + 1.2, rx * 0.42, ry * 0.68, -0.08, 0, Math.PI * 2);
+  ctx.ellipse(x + rx * 0.46, y + 0.8, rx * 0.38, ry * 0.64, 0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Main viscous chartreuse-green slime body
+  const bodyGrad = ctx.createRadialGradient(x, y - 0.5, 2, x, y, rx);
+  bodyGrad.addColorStop(0, '#FACC15');
+  bodyGrad.addColorStop(0.45, '#A3E635');
+  bodyGrad.addColorStop(0.82, '#65A30D');
+  bodyGrad.addColorStop(1, '#365314');
+  ctx.fillStyle = bodyGrad;
+  ctx.beginPath();
+  ctx.ellipse(x, y, rx, ry, 0, 0, Math.PI * 2);
+  ctx.ellipse(x - rx * 0.46, y + 1.0, rx * 0.39, ry * 0.6, -0.08, 0, Math.PI * 2);
+  ctx.ellipse(x + rx * 0.44, y + 0.6, rx * 0.35, ry * 0.56, 0.08, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 3. Luminous sulfur-yellow bile core pool
+  const coreAlpha = Math.min(0.92, 0.48 + pustuleGlow * 0.35 + chargeIntensity * 0.2);
+  ctx.globalAlpha = alpha * coreAlpha;
+  ctx.fillStyle = '#FEF08A';
+  ctx.beginPath();
+  ctx.ellipse(x - rx * 0.06, y - 0.4, rx * 0.52, ry * 0.48, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 4. Gently simmering yellow-cream caustic bubbles (continuous phase, zero popping)
+  for (let b = 0; b < 4; b++) {
+    const bPhase = (elapsed * (0.95 + b * 0.18) + seed * 0.41 + b * 0.27) % 1;
+    const bFade = Math.sin(bPhase * Math.PI);
+    const bx = x + Math.cos(b * 1.9 + seed) * rx * 0.56;
+    const by = y + Math.sin(b * 2.3 + seed) * ry * 0.36 - bPhase * 2.2;
+    const br = (1.2 + (b % 2) * 0.9) * (0.5 + 0.6 * bFade);
+    ctx.globalAlpha = alpha * bFade * 0.82;
+    ctx.fillStyle = b % 2 === 0 ? '#FEF9C3' : '#FACC15';
+    ctx.beginPath();
+    ctx.arc(bx, by, br, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Renders the Bile Spitter's pressurized yellow-chartreuse bile torrent from its open jaws
+ * all the way to the Heroine, and emits live yellow-bile particles and falling acid droplets
+ * into `sim.particles` and `sim.bloodDrops`.
+ */
+function renderSpitterBileTorrent(
+  ctx: CanvasRenderingContext2D,
+  sim: CombatStageSim,
+  params: {
+    mouthX: number;
+    mouthY: number;
+    targetX: number;
+    targetY: number;
+    groundY: number;
+    baseScale: number;
+    windupProgress: number;
+    streamProgress: number;
+    elapsed: number;
+    seed: number;
+  },
+): void {
+  const {
+    mouthX,
+    mouthY,
+    targetX,
+    targetY,
+    groundY,
+    baseScale,
+    windupProgress,
+    streamProgress,
+    elapsed,
+    seed,
+  } = params;
+
+  ctx.save();
+
+  // 1. Throat/Jaw Pressurized Yellow Bile Condensation Orb during Windup & Spit
+  const jawOrbIntensity =
+    streamProgress > 0.01 && streamProgress < 0.72
+      ? 1.0
+      : windupProgress > 0.02
+        ? windupProgress
+        : 0;
+  if (jawOrbIntensity > 0.02) {
+    const orbR = (6 + 9 * jawOrbIntensity + Math.sin(elapsed * 22 + seed) * 1.6) * baseScale;
+    const grad = ctx.createRadialGradient(mouthX, mouthY, 1, mouthX, mouthY, orbR * 2.1);
+    grad.addColorStop(0, `rgba(254, 249, 195, ${0.95 * jawOrbIntensity})`);
+    grad.addColorStop(0.35, `rgba(250, 204, 21, ${0.86 * jawOrbIntensity})`);
+    grad.addColorStop(0.7, `rgba(163, 230, 53, ${0.48 * jawOrbIntensity})`);
+    grad.addColorStop(1, 'rgba(163, 230, 53, 0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(mouthX, mouthY, orbR * 2.1, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Inward-churning yellow bile droplets around the jaws during windup
+    if (streamProgress <= 0.01) {
+      for (let i = 0; i < 6; i++) {
+        const p = (elapsed * 2.8 + i / 6) % 1;
+        const ang = i * ((Math.PI * 2) / 6) + elapsed * 3.2;
+        const dist = (1 - p) * 22 * baseScale;
+        const dx = mouthX + Math.cos(ang) * dist;
+        const dy = mouthY + Math.sin(ang) * dist * 0.75;
+        ctx.globalAlpha = Math.sin(p * Math.PI) * jawOrbIntensity * 0.88;
+        ctx.fillStyle = i % 2 === 0 ? '#FEF08A' : '#FACC15';
+        ctx.beginPath();
+        ctx.arc(dx, dy, (1.6 + (i % 2) * 0.8) * baseScale, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // 2. Active Pressurized Yellow-Chartreuse Bile Stream Erupting from Jaws to Heroine
+  if (streamProgress > 0.01) {
+    const p = Math.max(0, Math.min(1, streamProgress));
+    // Stream head races from mouth (t=0) to heroine (t=1) in first 30% of spit window
+    const headT = Math.min(1, Math.pow(p / 0.30, 0.75));
+    // Stream tail stays anchored inside the Spitter's open jaws throughout Frames 5 and 6 (up to p=0.76)
+    // so an unbroken pressurized yellow bile jet connects the Spitter's mouth all the way to the heroine
+    const tailT = p <= 0.76 ? 0 : Math.min(0.95, Math.pow((p - 0.76) / 0.24, 1.1));
+    const spanT = Math.max(0.02, headT - tailT);
+    const fadeOut = p > 0.86 ? Math.max(0, (1 - p) / 0.14) : 1;
+
+    const spanX = Math.abs(mouthX - targetX);
+    const ctrlX = (mouthX + targetX) * 0.5;
+    const ctrlY = Math.min(mouthY, targetY) - Math.min(54, spanX * 0.14) * baseScale;
+
+    const evalStreamPoint = (t: number): { x: number; y: number } => {
+      const inv = 1 - t;
+      const bx = inv * inv * mouthX + 2 * inv * t * ctrlX + t * t * targetX;
+      const by = inv * inv * mouthY + 2 * inv * t * ctrlY + t * t * targetY;
+      // Organic peristaltic wave that tapers to 0 at mouth (t=0) and heroine (t=1)
+      const envelope = Math.sin(t * Math.PI);
+      const waveY =
+        (Math.sin(t * 15 - elapsed * 28 + seed) * 4.5 +
+          Math.cos(t * 27 - elapsed * 38) * 2.0) *
+        envelope *
+        baseScale;
+      return { x: bx, y: by + waveY };
+    };
+
+    const steps = 26;
+    const pts: Array<{ x: number; y: number; t: number }> = [];
+    for (let i = 0; i <= steps; i++) {
+      const t = tailT + (i / steps) * spanT;
+      const pt = evalStreamPoint(t);
+      pts.push({ x: pt.x, y: pt.y, t });
+    }
+
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // Trailing saliva/bile filament from open jaws to tailT during final detachment (p > 0.76)
+    if (tailT > 0.02) {
+      ctx.save();
+      ctx.globalAlpha = 0.65 * fadeOut;
+      ctx.strokeStyle = '#FACC15';
+      ctx.lineWidth = 3.2 * baseScale * (1 - tailT * 0.6);
+      ctx.beginPath();
+      ctx.moveTo(mouthX, mouthY);
+      const midTrail = evalStreamPoint(tailT * 0.5);
+      ctx.quadraticCurveTo(midTrail.x, midTrail.y, pts[0].x, pts[0].y);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    // Pass A: Caustic outer yellow-green glow sheath
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.44 * fadeOut;
+    ctx.strokeStyle = '#A3E635';
+    ctx.lineWidth = 19 * baseScale;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      if (i === 0) ctx.moveTo(pts[i].x, pts[i].y);
+      else ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Pass B: Segmented viscous chartreuse-to-golden-yellow bile jet with peristaltic bolus bulges
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i];
+      const p1 = pts[i + 1];
+      const segNorm = i / (pts.length - 1);
+      const taper = Math.sin(Math.max(0.12, Math.min(0.95, segNorm)) * Math.PI);
+      const bolus = 1 + 0.35 * Math.sin(p0.t * 22 - elapsed * 34 + seed);
+      const segW = (5.8 + 6.8 * taper) * bolus * baseScale;
+
+      ctx.globalAlpha = 0.92 * fadeOut;
+      ctx.strokeStyle = i % 3 === 0 ? '#A3E635' : '#EAB308';
+      ctx.lineWidth = segW * 1.38;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+
+      ctx.globalAlpha = 0.98 * fadeOut;
+      ctx.strokeStyle = '#FACC15';
+      ctx.lineWidth = segW;
+      ctx.beginPath();
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+    }
+
+    // Pass C: Incandescent pale-yellow sulfur core stream
+    ctx.globalAlpha = 0.96 * fadeOut;
+    ctx.strokeStyle = '#FEF9C3';
+    ctx.lineWidth = 3.6 * baseScale;
+    ctx.beginPath();
+    for (let i = 0; i < pts.length; i++) {
+      if (i === 0) ctx.moveTo(pts[i].x, pts[i].y);
+      else ctx.lineTo(pts[i].x, pts[i].y);
+    }
+    ctx.stroke();
+
+    // Pass D: 14 Traveling Yellow-Bile Globules & Satellite Droplets along the jet
+    for (let g = 0; g < 14; g++) {
+      const gFrac = ((g / 14 + elapsed * 3.4 + seed * 0.13) % 1);
+      const gt = tailT + gFrac * spanT;
+      const basePt = evalStreamPoint(gt);
+      const nextPt = evalStreamPoint(Math.min(1, gt + 0.03));
+      const ang = Math.atan2(nextPt.y - basePt.y, nextPt.x - basePt.x);
+      const spread = Math.sin(g * 2.7 + elapsed * 14) * (3.8 + (g % 3) * 3.5) * baseScale * Math.sin(gt * Math.PI);
+      const gx = basePt.x - Math.sin(ang) * spread;
+      const gy = basePt.y + Math.cos(ang) * spread;
+      const rx = (3.8 + (g % 3) * 1.9) * baseScale;
+      const ry = rx * 0.58;
+
+      ctx.save();
+      ctx.translate(gx, gy);
+      ctx.rotate(ang);
+      ctx.globalAlpha = 0.94 * fadeOut;
+      ctx.fillStyle = '#65A30D';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx + 1.1, ry + 1.1, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = g % 3 === 0 ? '#A3E635' : '#FACC15';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = '#FEF9C3';
+      ctx.beginPath();
+      ctx.ellipse(-rx * 0.22, -ry * 0.24, rx * 0.42, ry * 0.36, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    }
+
+    // Pass E: Mouth Ejection Spray Cone while stream is actively firing from jaws
+    if (tailT < 0.45) {
+      const coneAlpha = (1 - tailT / 0.45) * fadeOut;
+      for (let s = 0; s < 8; s++) {
+        const sProg = ((elapsed * 5.5 + s * 0.15) % 1);
+        const sAng = Math.PI + (s - 3.5) * 0.15 + Math.sin(elapsed * 18 + s) * 0.05;
+        const dist = (6 + sProg * 32) * baseScale;
+        const sx = mouthX + Math.cos(sAng) * dist;
+        const sy = mouthY + Math.sin(sAng) * dist;
+        ctx.globalAlpha = coneAlpha * (1 - sProg) * 0.92;
+        ctx.fillStyle = s % 2 === 0 ? '#FEF08A' : '#FACC15';
+        ctx.beginPath();
+        ctx.ellipse(sx, sy, 3.4 * baseScale, 1.8 * baseScale, sAng, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Pass F: Heroine Impact Splash & Corrosive Yellow Bile Cascade when stream reaches Heroine
+    if (headT >= 0.82) {
+      const impactAlpha = Math.min(1, (headT - 0.82) / 0.18) * fadeOut;
+      const splashR = (19 + Math.sin(elapsed * 28) * 4) * baseScale;
+      const splashGrad = ctx.createRadialGradient(
+        targetX,
+        targetY,
+        2,
+        targetX,
+        targetY,
+        splashR * 1.65,
+      );
+      splashGrad.addColorStop(0, `rgba(254, 249, 195, ${0.96 * impactAlpha})`);
+      splashGrad.addColorStop(0.4, `rgba(250, 204, 21, ${0.88 * impactAlpha})`);
+      splashGrad.addColorStop(0.75, `rgba(163, 230, 53, ${0.55 * impactAlpha})`);
+      splashGrad.addColorStop(1, 'rgba(163, 230, 53, 0)');
+      ctx.fillStyle = splashGrad;
+      ctx.beginPath();
+      ctx.arc(targetX, targetY, splashR * 1.65, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Splashing yellow-bile globules bursting off the heroine's torso/shield
+      for (let k = 0; k < 12; k++) {
+        const kProg = ((elapsed * 4.2 + k * 0.11) % 1);
+        const kAng = -Math.PI * 0.68 + (k / 11) * (Math.PI * 1.36);
+        const kDist = (6 + kProg * 36) * baseScale;
+        const kx = targetX + Math.cos(kAng) * kDist;
+        const ky = targetY + Math.sin(kAng) * kDist + kProg * kProg * 24 * baseScale;
+        const kr = (2.3 + (k % 3) * 1.15) * (1 - kProg * 0.45) * baseScale;
+        ctx.globalAlpha = impactAlpha * (1 - kProg * 0.7) * 0.94;
+        ctx.fillStyle = k % 3 === 0 ? '#FEF08A' : k % 3 === 1 ? '#FACC15' : '#A3E635';
+        ctx.beginPath();
+        ctx.arc(kx, ky, kr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    // Pass G: Spawn real physics particles (`sim.particles`) & falling acid droplets (`sim.bloodDrops`)
+    if (sim.lastFrameDt > 0 && p < 0.9) {
+      const headPt = pts[pts.length - 1];
+      const midPt = pts[Math.floor(pts.length * (0.25 + (elapsed * 3.7) % 0.65))];
+      const bileColors = ['#FEF08A', '#FACC15', '#EAB308', '#A3E635'];
+
+      // Emit 3 yellow-bile particles per frame across mouth, mid-stream, and heroine impact
+      for (let emitIdx = 0; emitIdx < 3; emitIdx++) {
+        for (let i = 0; i < PARTICLE_POOL_SIZE; i++) {
+          const pt = sim.particles[i];
+          if (!pt.active) {
+            const atImpact = headT >= 0.88 && emitIdx === 1;
+            const atMid = emitIdx === 2;
+            const originX = atImpact ? targetX : atMid ? midPt.x : headPt.x;
+            const originY = atImpact ? targetY : atMid ? midPt.y : headPt.y;
+            const ang = atImpact
+              ? (Math.random() - 0.5) * Math.PI * 1.5
+              : Math.PI + (Math.random() - 0.5) * 0.8;
+            const spd = atImpact ? 60 + Math.random() * 135 : 75 + Math.random() * 145;
+            pt.active = true;
+            pt.x = originX + (Math.random() - 0.5) * 10;
+            pt.y = originY + (Math.random() - 0.5) * 10;
+            pt.vx = Math.cos(ang) * spd;
+            pt.vy = Math.sin(ang) * spd - (atImpact ? 50 : 22);
+            pt.life = 0;
+            pt.maxLife = 0.28 + Math.random() * 0.26;
+            pt.size = 2.8 + Math.random() * 3.4;
+            pt.color = bileColors[(i + emitIdx) % bileColors.length];
+            pt.shape = 2; // Acid droplet shape
+            break;
+          }
+        }
+      }
+
+      // Emit physical falling yellow-bile droplets that splash into floor puddles along the bridge and at Heroine's feet
+      if (Math.random() < 0.72) {
+        for (let i = 0; i < BLOOD_DROP_POOL_SIZE; i++) {
+          const bd = sim.bloodDrops[i];
+          if (!bd.active) {
+            const dropAtHero = headT >= 0.88 && Math.random() < 0.65;
+            bd.active = true;
+            bd.x = (dropAtHero ? targetX : midPt.x) + (Math.random() - 0.5) * 16;
+            bd.y = (dropAtHero ? targetY : midPt.y) + (Math.random() - 0.5) * 8;
+            bd.vx = dropAtHero ? (Math.random() - 0.35) * 95 : -65 - Math.random() * 95;
+            bd.vy = -35 - Math.random() * 65;
+            bd.size = 2.5 + Math.random() * 2.3;
+            bd.color = '#FACC15';
+            bd.highlightColor = '#FEF9C3';
+            bd.owner = 'spitter';
+            bd.shapeKind = 'cone_droplet';
+            bd.createdTurn = sim.currentTurn;
+            bd.floorY = groundY + (Math.random() - 0.5) * 10;
+            bd.life = 0;
+            bd.maxLife = 0.68;
+            bd.splatOnFloor = true;
+            bd.hitCover = false;
+            break;
+          }
+        }
+      }
+    }
+  }
+
+  ctx.restore();
+}
+
+/**
+ * Renders persistent branching seismic ground fissures etched into the Neo-Prague
+ * glass bridge deck when the Carapace Brute's Seismic Smash impacts the ground.
+ * Fresh fissures glow molten amber-red and cool over 1–2 turns into dark deck fractures.
+ */
+function renderBruteGroundFissure(
+  ctx: CanvasRenderingContext2D,
+  f: FloorFissure,
+  index: number,
+  elapsed: number,
+  tacticalViewActive: boolean,
+): void {
+  if (f.alpha <= 0.01) return;
+  const sc = f.scale;
+  const rx = 54 * sc;
+  const ry = 13 * sc;
+  const coolFactor = Math.max(0, 1 - f.visualTurnAge * 0.45);
+  const heatGlow = Math.max(f.heatIntensity, coolFactor * 0.65);
+  const pulse = 0.72 + 0.28 * Math.sin(elapsed * 4.2 + f.seed + index);
+
+  ctx.save();
+  ctx.translate(f.x, f.y);
+  ctx.globalAlpha = tacticalViewActive ? f.alpha * 0.38 : f.alpha;
+
+  // 1. Crater scorch / shattered glass depression disc
+  const craterGrad = ctx.createRadialGradient(0, 0, 3, 0, 0, rx);
+  craterGrad.addColorStop(0, `rgba(15, 23, 42, ${0.82 * f.alpha})`);
+  craterGrad.addColorStop(0.55, `rgba(30, 41, 59, ${0.46 * f.alpha})`);
+  craterGrad.addColorStop(1, 'rgba(15, 23, 42, 0)');
+  ctx.fillStyle = craterGrad;
+  ctx.beginPath();
+  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 2. Molten underglow inside fresh fissure core
+  if (heatGlow > 0.08 && !tacticalViewActive) {
+    const glowGrad = ctx.createRadialGradient(0, 0, 2, 0, 0, rx * 0.85);
+    glowGrad.addColorStop(0, `rgba(253, 224, 71, ${0.72 * heatGlow * pulse})`);
+    glowGrad.addColorStop(0.35, `rgba(251, 146, 60, ${0.62 * heatGlow * pulse})`);
+    glowGrad.addColorStop(0.75, `rgba(239, 68, 68, ${0.34 * heatGlow * pulse})`);
+    glowGrad.addColorStop(1, 'rgba(239, 68, 68, 0)');
+    ctx.fillStyle = glowGrad;
+    ctx.beginPath();
+    ctx.ellipse(0, 0, rx * 0.85, ry * 0.8, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 3. Branching fractal cracks radiating across the glass bridge deck
+  const branchAngles = [-2.72, -2.05, -0.95, -0.28, 0.34, 1.15, 2.25, 2.88];
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let b = 0; b < branchAngles.length; b++) {
+    const baseAng = branchAngles[b] + Math.sin(f.seed + b * 2.1) * 0.14;
+    const len = (28 + ((b * 13 + Math.round(f.seed * 7)) % 26)) * sc;
+    const midFrac = 0.48;
+    const kink = Math.cos(f.seed * 3.1 + b * 1.7) * 5.5 * sc;
+    const mx = Math.cos(baseAng) * len * midFrac + kink * 0.5;
+    const my = Math.sin(baseAng) * len * midFrac * 0.28 + kink * 0.12;
+    const ex = Math.cos(baseAng) * len;
+    const ey = Math.sin(baseAng) * len * 0.28;
+
+    // Dark obsidian fracture trench
+    ctx.strokeStyle = '#020617';
+    ctx.lineWidth = 3.6 * sc;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(mx, my);
+    ctx.lineTo(ex, ey);
+    ctx.stroke();
+
+    // Tempered glass edge cyan glint
+    ctx.strokeStyle = 'rgba(186, 230, 253, 0.52)';
+    ctx.lineWidth = 1.1;
+    ctx.beginPath();
+    ctx.moveTo(mx * 0.4, my * 0.4 - 0.8);
+    ctx.lineTo(ex, ey - 0.8);
+    ctx.stroke();
+
+    // Inner molten amber-gold seam while hot
+    if (heatGlow > 0.12 && !tacticalViewActive) {
+      ctx.strokeStyle = `rgba(251, 146, 60, ${0.92 * heatGlow * pulse})`;
+      ctx.lineWidth = 2.0 * sc;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(mx, my);
+      ctx.lineTo(ex * 0.78, ey * 0.78);
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(254, 240, 138, ${0.78 * heatGlow * pulse})`;
+      ctx.lineWidth = 0.9 * sc;
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(mx, my);
+      ctx.stroke();
+    }
+  }
+
+  ctx.restore();
+}
+

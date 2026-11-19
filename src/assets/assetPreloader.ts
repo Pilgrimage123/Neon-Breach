@@ -14,6 +14,9 @@ import {
   NURSE_FRAMES,
   NURSE_SHEET_OPTIONS,
 } from '../utils/nurseSpriteSheet';
+import { BRUTE_SHEET_FRAMES } from '../utils/bruteSpriteSheet';
+import { SPITTER_SHEET_FRAMES } from '../utils/spitterSpriteSheet';
+import { STALKER_SHEET_FRAMES } from '../utils/stalkerSpriteSheet';
 import {
   ZURI_COMBAT_FRAMES,
   ZURI_DRONES_OPTIONS,
@@ -78,6 +81,42 @@ const CRAWLER_SHEET_OPTIONS: SpriteCutoutOptions = {
   removeInteriorWhite: true,
   minPocketArea: 24,
   defringeStrength: 0.78,
+};
+
+const STALKER_SHEET_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 18,
+  defringeStrength: 0.76,
+};
+
+export const STALKER_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 18,
+  defringeStrength: 0.76,
+  maxDimension: 512,
+};
+
+const SPITTER_SHEET_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 18,
+  defringeStrength: 0.76,
+};
+
+export const SPITTER_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 18,
+  defringeStrength: 0.76,
+  maxDimension: 512,
+};
+
+const BRUTE_SHEET_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 18,
+  defringeStrength: 0.76,
+};
+
+export const BRUTE_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
+  maxDimension: 512,
 };
 
 interface PreloadedEnemyCutout {
@@ -195,9 +234,121 @@ export function loadNurseFrames(): Promise<HTMLCanvasElement[]> {
   );
 }
 
+export function getPreloadedStalkerFrames(): HTMLCanvasElement[] | null {
+  return getCachedSpriteSheetFrames(
+    GAME_ASSETS.stalkerSheet,
+    STALKER_SHEET_FRAMES,
+    STALKER_SHEET_OPTIONS,
+  );
+}
+
+export function loadStalkerFrames(): Promise<HTMLCanvasElement[]> {
+  return loadSpriteSheetFrames(
+    GAME_ASSETS.stalkerSheet,
+    STALKER_SHEET_FRAMES,
+    STALKER_SHEET_OPTIONS,
+  );
+}
+
+export function getPreloadedSpitterFrames(): HTMLCanvasElement[] | null {
+  return getCachedSpriteSheetFrames(
+    GAME_ASSETS.spitterSheet,
+    SPITTER_SHEET_FRAMES,
+    SPITTER_SHEET_OPTIONS,
+  );
+}
+
+export function loadSpitterFrames(): Promise<HTMLCanvasElement[]> {
+  return loadSpriteSheetFrames(
+    GAME_ASSETS.spitterSheet,
+    SPITTER_SHEET_FRAMES,
+    SPITTER_SHEET_OPTIONS,
+  );
+}
+
+export function getPreloadedBruteFrames(): HTMLCanvasElement[] | null {
+  return getCachedSpriteSheetFrames(
+    GAME_ASSETS.bruteSheet,
+    BRUTE_SHEET_FRAMES,
+    BRUTE_SHEET_OPTIONS,
+  );
+}
+
+export function loadBruteFrames(): Promise<HTMLCanvasElement[]> {
+  return loadSpriteSheetFrames(
+    GAME_ASSETS.bruteSheet,
+    BRUTE_SHEET_FRAMES,
+    BRUTE_SHEET_OPTIONS,
+  );
+}
+
+export function getPreloadedEnemyPortrait(arch: EnemyArchetype): PreloadedEnemyCutout | null {
+  const portraitUrl = GAME_ASSETS.enemyPortraits[arch];
+  if (!portraitUrl) return getPreloadedEnemyCutout(arch);
+  const opts =
+    arch === 'brute'
+      ? BRUTE_PORTRAIT_OPTIONS
+      : arch === 'spitter'
+        ? SPITTER_PORTRAIT_OPTIONS
+        : STALKER_PORTRAIT_OPTIONS;
+  const canvas = getCachedSpriteCutout(portraitUrl, opts);
+  if (!canvas) return null;
+  return {
+    canvas,
+    bounds: measureSpriteBounds(canvas),
+  };
+}
+
+export function loadEnemyPortrait(arch: EnemyArchetype): Promise<HTMLCanvasElement> {
+  const portraitUrl = GAME_ASSETS.enemyPortraits[arch];
+  if (portraitUrl) {
+    const opts =
+      arch === 'brute'
+        ? BRUTE_PORTRAIT_OPTIONS
+        : arch === 'spitter'
+          ? SPITTER_PORTRAIT_OPTIONS
+          : STALKER_PORTRAIT_OPTIONS;
+    return loadSpriteCutout(portraitUrl, opts);
+  }
+  if (arch === 'stalker') {
+    return loadStalkerFrames().then((frames) => frames[0]);
+  }
+  if (arch === 'spitter') {
+    return loadSpitterFrames().then((frames) => frames[0]);
+  }
+  if (arch === 'brute') {
+    return loadBruteFrames().then((frames) => frames[0]);
+  }
+  return loadSpriteCutout(GAME_ASSETS.enemies[arch], ENEMY_CUTOUT_OPTIONS);
+}
+
 export function getPreloadedEnemyCutout(arch: EnemyArchetype): PreloadedEnemyCutout | null {
   if (isCrawlerArchetype(arch)) {
     const frames = getPreloadedCrawlerFrames(arch);
+    if (!frames || !frames[0]) return null;
+    return {
+      canvas: frames[0],
+      bounds: measureSpriteBounds(frames[0]),
+    };
+  }
+  if (arch === 'stalker') {
+    const frames = getPreloadedStalkerFrames();
+    if (!frames || !frames[0]) return null;
+    return {
+      canvas: frames[0],
+      bounds: measureSpriteBounds(frames[0]),
+    };
+  }
+  if (arch === 'spitter') {
+    const frames = getPreloadedSpitterFrames();
+    if (!frames || !frames[0]) return null;
+    return {
+      canvas: frames[0],
+      bounds: measureSpriteBounds(frames[0]),
+    };
+  }
+  if (arch === 'brute') {
+    const frames = getPreloadedBruteFrames();
     if (!frames || !frames[0]) return null;
     return {
       canvas: frames[0],
@@ -279,6 +430,12 @@ export function areCriticalCombatAssetsReady(
     const arch = enemyArchetypes[i];
     if (isCrawlerArchetype(arch)) {
       if (!getPreloadedCrawlerFrames(arch)) return false;
+    } else if (arch === 'stalker') {
+      if (!getPreloadedStalkerFrames()) return false;
+    } else if (arch === 'spitter') {
+      if (!getPreloadedSpitterFrames()) return false;
+    } else if (arch === 'brute') {
+      if (!getPreloadedBruteFrames()) return false;
     } else if (!getPreloadedEnemyCutout(arch)) {
       return false;
     }
@@ -345,6 +502,12 @@ async function runBackgroundTask(taskId: string): Promise<void> {
     const arch = taskId.slice(6) as EnemyArchetype;
     if (isCrawlerArchetype(arch)) {
       await loadCrawlerVariantFrames(arch);
+    } else if (arch === 'stalker') {
+      await Promise.all([loadStalkerFrames(), loadEnemyPortrait('stalker')]);
+    } else if (arch === 'spitter') {
+      await Promise.all([loadSpitterFrames(), loadEnemyPortrait('spitter')]);
+    } else if (arch === 'brute') {
+      await Promise.all([loadBruteFrames(), loadEnemyPortrait('brute')]);
     } else {
       await loadSpriteCutout(GAME_ASSETS.enemies[arch], ENEMY_CUTOUT_OPTIONS);
     }
@@ -424,6 +587,12 @@ export async function ensureCombatAssetsReady(
     const arch = critical[i];
     if (isCrawlerArchetype(arch)) {
       criticalPromises.push(loadCrawlerVariantFrames(arch));
+    } else if (arch === 'stalker') {
+      criticalPromises.push(loadStalkerFrames(), loadEnemyPortrait('stalker'));
+    } else if (arch === 'spitter') {
+      criticalPromises.push(loadSpitterFrames(), loadEnemyPortrait('spitter'));
+    } else if (arch === 'brute') {
+      criticalPromises.push(loadBruteFrames(), loadEnemyPortrait('brute'));
     } else {
       criticalPromises.push(loadSpriteCutout(GAME_ASSETS.enemies[arch], ENEMY_CUTOUT_OPTIONS));
     }

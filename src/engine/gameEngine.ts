@@ -4,12 +4,14 @@ import {
   CLINIC_RESTOCK_COST,
   CYBER_IMPLANT_IDS,
   DROPPABLE_EQUIPMENT_IDS,
+  ENEMY_TEMPLATES,
   EQUIPMENT_BY_ID,
   MAX_IMPLANTS,
   MAX_OVERCLOCK_STACKS,
   MAX_UPCHARGE_BOARD_CAPACITY,
   buildEnemiesForNode,
   createBlightTile,
+  createPropUnit,
   createStartingEquipment,
   getEquippedEquipmentWeight,
   getHeroSpec,
@@ -17,7 +19,8 @@ import {
 } from './data';
 import { getDifficultyProfile, getStageSecondaryTurnTarget } from './difficulty';
 import { generateSectorMap } from './mapGenerator';
-import { getCyberEventForNode } from './cyberEvents';
+import { DYNASTY_EVENT_TEMPLATES, CYBER_EVENT_TEMPLATES, getCyberEventForNode } from './cyberEvents';
+import { loadBestRecord, saveInheritedHeirloom } from './persistence';
 import {
   advanceDirectorAtRoundEnd,
   computeVictoryDirectorRewards,
@@ -36,6 +39,7 @@ import type {
   HeroineState,
   HeroineThreatPreview,
   MapNode,
+  NannyBotId,
   OwnedEquipment,
   RunState,
   ScreenPhase,
@@ -47,6 +51,55 @@ import type {
 function markNodeCleared(mapNodes: MapNode[], nodeId: string | null): MapNode[] {
   if (!nodeId) return mapNodes;
   return mapNodes.map((n) => (n.id === nodeId ? { ...n, cleared: true } : n));
+}
+
+export function advanceNodeDynastyProgress(heroine: HeroineState): HeroineState {
+  let nextHeroine = { ...heroine };
+
+  // Ectogenesis Stork Nursery: count down 3 nodes and return as Next-Gen with 2x base stats + inherited trait
+  if (nextHeroine.incubatingTile && nextHeroine.incubatingTile.nodesRemaining > 0) {
+    const rem = nextHeroine.incubatingTile.nodesRemaining - 1;
+    if (rem <= 0) {
+      const maturedTileId = nextHeroine.incubatingTile.tile.id;
+      const trait = nextHeroine.incubatingTile.inheritedTrait;
+      nextHeroine = {
+        ...nextHeroine,
+        incubatingTile: null,
+        maturedNextGenTiles: {
+          ...(nextHeroine.maturedNextGenTiles ?? {}),
+          [maturedTileId]: {
+            bonusMultiplier: 2,
+            inheritedTrait: trait,
+          },
+        },
+      };
+    } else {
+      nextHeroine = {
+        ...nextHeroine,
+        incubatingTile: {
+          ...nextHeroine.incubatingTile,
+          nodesRemaining: rem,
+        },
+      };
+    }
+  }
+
+  // Synth-Rave / Kids Vitality / Mutual Aid Vow countdown
+  if (nextHeroine.activeTempoRule && nextHeroine.activeTempoRule.nodesRemaining > 0) {
+    const rem = nextHeroine.activeTempoRule.nodesRemaining - 1;
+    nextHeroine = {
+      ...nextHeroine,
+      activeTempoRule:
+        rem <= 0
+          ? null
+          : {
+              ...nextHeroine.activeTempoRule,
+              nodesRemaining: rem,
+            },
+    };
+  }
+
+  return nextHeroine;
 }
 
 function applyBioSiphonHeal(heroine: HeroineState, defeatedNow: number): void {
@@ -123,14 +176,21 @@ function resolveCombatVictoryTransition(
 
   if (nextCombat.nodeType === 'BOSS') {
     const bossNanites = computeCombatNaniteReward(nextCombat, run.mapNodes);
+    let bossHeroine: HeroineState = {
+      ...nextHeroine,
+      credits: nextHeroine.credits + nextCombat.rewardCredits,
+      nanites: (nextHeroine.nanites ?? 0) + bossNanites,
+    };
+    if (bossHeroine.heirloomEngravedId) {
+      const engravedId = bossHeroine.heirloomEngravedId;
+      const nextStacks = (bossHeroine.heirloomStacks ?? 0) + 1;
+      bossHeroine = { ...bossHeroine, heirloomStacks: nextStacks };
+      saveInheritedHeirloom(engravedId, Math.max(1, Math.ceil(nextStacks / 2)));
+    }
     return {
       screen: 'victory',
       mapNodes: markNodeCleared(run.mapNodes, nextCombat.nodeId),
-      heroine: {
-        ...nextHeroine,
-        credits: nextHeroine.credits + nextCombat.rewardCredits,
-        nanites: (nextHeroine.nanites ?? 0) + bossNanites,
-      },
+      heroine: bossHeroine,
       combat: nextCombat,
     };
   }
@@ -259,7 +319,8 @@ export function sortTilesByGroup(tiles: Tile[]): Tile[] {
 
 export function getEffectiveTileValue(
   tile: Pick<Tile, 'type' | 'value' | 'isHeldFromPrevTurn' | 'isBlight'>,
-  heroine: Pick<HeroineState, 'characterId' | 'implants'>,
+  heroine: Pick<HeroineState, 'characterId' | 'implants' | 'bloodlineCrest'>,
+  bloodlineResonanceActive?: TileType | null,
 ): { value: number; flatBonus: number } {
   if (tile.isBlight) {
     return { value: 0, flatBonus: 0 };
@@ -279,6 +340,15 @@ export function getEffectiveTileValue(
       flatBonus += heroSpec.heldTileBonus;
     }
     if (hasImplant(implants, 'nano_weave')) flatBonus += 2;
+  }
+
+  if (
+    heroine.bloodlineCrest &&
+    bloodlineResonanceActive &&
+    tile.type === bloodlineResonanceActive &&
+    (tile.type === 'attack' || tile.type === 'defense')
+  ) {
+    flatBonus += heroine.bloodlineCrest.bonusValue;
   }
 
   return {
@@ -314,6 +384,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     techPierceDamage: 0,
     cleanseCorrodeAmount: 0,
     retaliateDamage: 0,
+    pustuleRuptureCorrode: 0,
     upchargeGained: 0,
     dudCount: 0,
   };
@@ -325,12 +396,34 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
   const matching = combat.board.filter((t) => t.type === color && !t.isJammed);
   const cleanMatching = matching.filter((t) => !t.isBlight);
   const blightPurgeCount = color === 'tech' ? matching.filter((t) => t.isBlight).length : 0;
-  const stayCount = combat.board.length - matching.length;
+
+  // Positional Contagion: resolving a tile with isContagion also discards adjacent non-matching board slots (idx - 1, idx + 1)
+  const contagionDiscardIdxSet = new Set<number>();
+  combat.board.forEach((tile, idx) => {
+    if (tile.type === color && !tile.isJammed && tile.isContagion) {
+      for (const adjIdx of [idx - 1, idx + 1]) {
+        const adj = combat.board[adjIdx];
+        if (adj && (adj.type !== color || adj.isJammed)) {
+          contagionDiscardIdxSet.add(adjIdx);
+        }
+      }
+    }
+  });
+  const contagionDiscardedCount = contagionDiscardIdxSet.size;
+  const hotPotatoPassedDamage =
+    matching.filter((t) => Boolean(t.isHotPotato)).length * HOT_POTATO_PASS_DAMAGE;
+  const temptationCleaveBonus =
+    matching.filter((t) => Boolean(t.isTemptation)).length * TEMPTATION_CLEAVE_BONUS;
+
+  const stayCount = Math.max(0, combat.board.length - matching.length - contagionDiscardedCount);
   const surgeTriggered = cleanMatching.length >= surgeThreshold;
   const dudCount = cleanMatching.filter((t) => Boolean(t.isDud)).length;
+  const isBloodlineResonant =
+    Boolean(run.heroine.bloodlineCrest) && combat.bloodlineResonanceActive === color;
   const upchargeGained =
     cleanMatching.reduce((sum, t) => sum + (t.upcharge ?? 0), 0) +
-    dudCount * heroSpec.dudUpchargePerTile;
+    dudCount * heroSpec.dudUpchargePerTile +
+    (isBloodlineResonant && cleanMatching.length > 0 ? 1 : 0);
 
   const activeHexCasterIds = new Set<string>();
   for (const tile of matching) {
@@ -347,10 +440,16 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
   }
 
   const withSurvivingHexBonuses = (preview: TurnPreview): TurnPreview => {
+    const enriched: TurnPreview = {
+      ...preview,
+      hotPotatoPassedDamage,
+      contagionDiscardedCount,
+      temptationCleaveBonus,
+    };
     if (activeHexCasterIds.size === 0) {
-      return { ...preview, hexedHealBonus: 0, hexedArmorBonus: 0 };
+      return { ...enriched, hexedHealBonus: 0, hexedArmorBonus: 0 };
     }
-    const sim = simulatePlayerActionOnEnemies(combat.enemies, combat.turn, preview);
+    const sim = simulatePlayerActionOnEnemies(combat.enemies, combat.turn, enriched);
     let survivingCasters = 0;
     for (const casterId of activeHexCasterIds) {
       if (sim.enemies.some((e) => e.id === casterId && e.hp > 0)) {
@@ -358,7 +457,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       }
     }
     return {
-      ...preview,
+      ...enriched,
       hexedHealBonus: survivingCasters * HEX_HEAL_AMOUNT,
       hexedArmorBonus: survivingCasters * HEX_ARMOR_AMOUNT,
     };
@@ -366,18 +465,43 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
 
   if (color === 'attack') {
     let baseDamage = 0;
+    let hybridShieldBonus = 0;
+    let hybridBoostPct = 0;
     for (const tile of cleanMatching) {
-      baseDamage += getEffectiveTileValue(tile, run.heroine).value;
+      baseDamage += getEffectiveTileValue(
+        tile,
+        run.heroine,
+        combat.bloodlineResonanceActive,
+      ).value;
+      if (tile.secondaryType === 'defense' && (tile.secondaryValue ?? 0) > 0) {
+        hybridShieldBonus += tile.secondaryValue ?? 0;
+      } else if (tile.secondaryType === 'tech') {
+        hybridBoostPct += 10;
+      }
     }
-    const totalDamage = Math.floor(baseDamage * (1 + damageBoostPct / 100));
+    if (run.heroine.scionAlliedHouse === 'house_solaris' && cleanMatching.length > 0) {
+      baseDamage += 2;
+    }
+    const rawTotal = Math.floor(baseDamage * (1 + damageBoostPct / 100));
+    const totalDamage =
+      combat.battlefieldRule === 'volatile_atmosphere' && rawTotal > 0
+        ? Math.round(rawTotal * 1.25)
+        : rawTotal;
     const cleaveDamage = surgeTriggered ? Math.floor(totalDamage * 0.5) : 0;
     const armorPiercing = hasImplant(implants, 'piercing_katana');
     const retaliateDamage = (() => {
       if (surgeTriggered) return 0;
-      const front = combat.enemies.find((e) => e.hp > 0);
+      const front = combat.enemies.find((e) => e.hp > 0 && !e.escaped);
       if (!front || front.passive !== 'spike_retaliate') return 0;
       const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.3 : 0, false);
       return simHit.defeated ? 0 : 3;
+    })();
+    const pustuleRuptureCorrode = (() => {
+      if (surgeTriggered || totalDamage <= 0) return 0;
+      const front = combat.enemies.find((e) => e.hp > 0 && !e.escaped);
+      if (!front || front.passive !== 'acid_jam' || front.propKind) return 0;
+      const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.3 : 0, false);
+      return simHit.defeated ? 0 : PUSTULE_RUPTURE_CORRODE;
     })();
     return withSurvivingHexBonuses({
       color,
@@ -388,8 +512,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       totalDamage,
       cleaveDamage,
       armorPiercing,
-      shieldGained: 0,
-      damageBoostAddedPct: 0,
+      shieldGained: hybridShieldBonus,
+      damageBoostAddedPct: hybridBoostPct,
       healAmount: 0,
       overdriveGained: cleanMatching.length * 4,
       surgeTriggered,
@@ -399,6 +523,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       techPierceDamage: 0,
       cleanseCorrodeAmount: 0,
       retaliateDamage,
+      pustuleRuptureCorrode,
       blightPurgeCount,
       upchargeGained,
       dudCount,
@@ -407,10 +532,26 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
 
   if (color === 'defense') {
     let rawShield = 0;
+    let hybridPierceDamage = 0;
+    let hybridBoostPct = 0;
     for (const tile of cleanMatching) {
-      rawShield += getEffectiveTileValue(tile, run.heroine).value;
+      rawShield += getEffectiveTileValue(
+        tile,
+        run.heroine,
+        combat.bloodlineResonanceActive,
+      ).value;
+      if (tile.secondaryType === 'attack' && (tile.secondaryValue ?? 0) > 0) {
+        hybridPierceDamage += tile.secondaryValue ?? 0;
+      } else if (tile.secondaryType === 'tech') {
+        hybridBoostPct += 10;
+      }
     }
-    const shieldGained = Math.max(0, rawShield - run.heroine.corrode);
+    if (run.heroine.scionAlliedHouse === 'house_valkyr' && cleanMatching.length > 0) {
+      rawShield += 3;
+    }
+    const magneticBonus =
+      combat.battlefieldRule === 'magnetic_surge' && cleanMatching.length > 0 ? 2 : 0;
+    const shieldGained = Math.max(0, rawShield - run.heroine.corrode) + magneticBonus;
     const riposteDamage = cleanMatching.length * heroSpec.defenseRipostePerTile;
     const surgeReflect = surgeTriggered ? 8 : 0;
     return withSurvivingHexBonuses({
@@ -423,14 +564,14 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       cleaveDamage: 0,
       armorPiercing: false,
       shieldGained,
-      damageBoostAddedPct: 0,
+      damageBoostAddedPct: hybridBoostPct,
       healAmount: 0,
       overdriveGained: cleanMatching.length * 4,
       surgeTriggered,
       surgeThreshold,
       reflectOnBlock: riposteDamage + surgeReflect,
       armorShredAmount: 0,
-      techPierceDamage: 0,
+      techPierceDamage: hybridPierceDamage,
       cleanseCorrodeAmount: 0,
       retaliateDamage: 0,
       blightPurgeCount,
@@ -440,7 +581,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
   }
 
   // TECH
-  let damageBoostAddedPct = 0;
+  let damageBoostAddedPct = isBloodlineResonant && cleanMatching.length > 0 ? 15 : 0;
   let healAmount = 0;
   let armorShredAmount = 0;
   let techPierceDamage = 0;
@@ -505,13 +646,29 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
 }
 
 export const VOLATILE_BURST_DAMAGE = 6;
+export const PLASMA_BARREL_BURST_DAMAGE = 10;
 export const SPIKE_RETALIATE_DAMAGE = 3;
+export const PUSTULE_RUPTURE_CORRODE = 2;
 export const STAGGER_BURST_THRESHOLD = 16;
+export const WEAPON_BREAK_THRESHOLD = 22;
+export const HOT_POTATO_PASS_DAMAGE = 8;
+export const HOT_POTATO_SELF_DAMAGE = 6;
+export const TEMPTATION_CLEAVE_BONUS = 14;
+export const MERCY_REWARD_HP = 6;
+export const MERCY_REWARD_CREDITS = 15;
+export const TUG_OF_WAR_PURGE_OD_BONUS = 25;
+export const TUG_OF_WAR_PURGE_CR_BONUS = 10;
 export const BLIGHT_HOLD_CHIP_DAMAGE = 2;
 export const HEX_HEAL_AMOUNT = 4;
 export const HEX_ARMOR_AMOUNT = 3;
 export const MAX_ACTIVE_BLIGHT_TILES = 2;
 export const PHASE_GATE_ARMOR_BONUS = 10;
+
+export function hasHostileLivingEnemies(enemies: readonly EnemyUnit[]): boolean {
+  return enemies.some(
+    (e) => e.hp > 0 && !e.escaped && !e.isMercyTarget && !e.propKind,
+  );
+}
 
 function isDamagingIntent(intent: EnemyUnit['intentCycle'][number] | undefined): boolean {
   if (!intent) return false;
@@ -524,7 +681,7 @@ function isDamagingIntent(intent: EnemyUnit['intentCycle'][number] | undefined):
 }
 
 function clearDeadCasterHexes(board: Tile[], enemies: readonly EnemyUnit[]): Tile[] {
-  const livingIds = new Set(enemies.filter((e) => e.hp > 0).map((e) => e.id));
+  const livingIds = new Set(enemies.filter((e) => e.hp > 0 && !e.escaped).map((e) => e.id));
   return board.map((tile) =>
     tile.hexedByEnemyId && !livingIds.has(tile.hexedByEnemyId)
       ? { ...tile, hexedByEnemyId: undefined }
@@ -546,12 +703,16 @@ export function evaluateReactiveEnemyShifts(
   turn: number,
   cues?: AnimationCue[],
 ): EnemyUnit[] {
-  const livingBeforeCount = enemiesBefore.filter((e) => e.hp > 0).length;
-  const livingAfterCount = enemiesAfter.filter((e) => e.hp > 0).length;
+  const livingBeforeCount = enemiesBefore.filter(
+    (e) => e.hp > 0 && !e.escaped && !e.propKind && !e.isMercyTarget,
+  ).length;
+  const livingAfterCount = enemiesAfter.filter(
+    (e) => e.hp > 0 && !e.escaped && !e.propKind && !e.isMercyTarget,
+  ).length;
   const becameLoneSurvivor = livingBeforeCount >= 2 && livingAfterCount === 1;
 
   return enemiesAfter.map((after) => {
-    if (after.hp <= 0) {
+    if (after.hp <= 0 || after.escaped) {
       return { ...after, staggered: false };
     }
     const before = enemiesBefore.find((b) => b.id === after.id);
@@ -566,23 +727,56 @@ export function evaluateReactiveEnemyShifts(
       turnDamageTaken: nextTurnDmg,
     };
 
-    // Broken Stance: single-turn burst >= 16 staggers Charge or Heavy attacks to 0 DMG recovery
+    // Broken Stance (>=16) & Overkill Weapon-Break (>=22) against Charge or Heavy
     if (
-      !nextEnemy.staggered &&
-      nextTurnDmg >= STAGGER_BURST_THRESHOLD &&
       intent &&
-      (intent.kind === 'charge' || intent.kind === 'heavy')
+      (intent.kind === 'charge' || intent.kind === 'heavy') &&
+      nextTurnDmg >= STAGGER_BURST_THRESHOLD
     ) {
+      const newlyStaggered = !nextEnemy.staggered;
+      const newlyBroken = !nextEnemy.weaponBroken && nextTurnDmg >= WEAPON_BREAK_THRESHOLD;
       nextEnemy = {
         ...nextEnemy,
         staggered: true,
+        ...(newlyBroken ? { weaponBroken: true } : {}),
+      };
+      if (newlyStaggered || newlyBroken) {
+        cues?.push({
+          id: `cue_${turn}_stagger_${nextEnemy.id}`,
+          kind: 'enemy_stagger',
+          targetId: nextEnemy.id,
+          value: nextTurnDmg,
+          textLabel: newlyBroken ? 'WEAPON BROKEN (-3 DMG)' : 'STAGGERED',
+        });
+      }
+    }
+
+    // Desperation Telegraph (<=20% HP): drops passive Armor/Bolster and telegraphs Desperation Strike (+3 DMG)
+    if (
+      !nextEnemy.desperationEnraged &&
+      !nextEnemy.propKind &&
+      !nextEnemy.isLootRunner &&
+      !nextEnemy.isMercyTarget &&
+      (!nextEnemy.sleepCounter || nextEnemy.sleepCounter <= 0) &&
+      dmgDelta > 0 &&
+      nextEnemy.hp <= Math.ceil(nextEnemy.maxHp * 0.2)
+    ) {
+      const currentKind = nextEnemy.intentCycle[nextEnemy.currentIntentIndex]?.kind;
+      const dmgIdx = nextEnemy.intentCycle.findIndex((i) => isDamagingIntent(i));
+      nextEnemy = {
+        ...nextEnemy,
+        desperationEnraged: true,
+        currentIntentIndex:
+          (currentKind === 'armor' || currentKind === 'bolster') && dmgIdx !== -1
+            ? dmgIdx
+            : nextEnemy.currentIntentIndex,
       };
       cues?.push({
-        id: `cue_${turn}_stagger_${nextEnemy.id}`,
-        kind: 'enemy_stagger',
+        id: `cue_${turn}_desperation_${nextEnemy.id}`,
+        kind: 'enemy_enrage',
         targetId: nextEnemy.id,
-        value: nextTurnDmg,
-        textLabel: 'STAGGERED',
+        value: 3,
+        textLabel: 'DESPERATION +3 DMG',
       });
     }
 
@@ -705,12 +899,13 @@ function triggerVolatileBursts(
   newlyDefeatedIds: string[],
   turn: number,
   cues?: AnimationCue[],
-): { enemies: EnemyUnit[]; extraDefeated: number; extraDamageDealt: number } {
+): { enemies: EnemyUnit[]; extraDefeated: number; extraDamageDealt: number; barrelPoppedCount: number } {
   const nextEnemies = enemies.map((e) => ({ ...e }));
   const queue = [...newlyDefeatedIds];
   const processed = new Set<string>();
   let extraDefeated = 0;
   let extraDamageDealt = 0;
+  let barrelPoppedCount = 0;
 
   while (queue.length > 0) {
     const sourceId = queue.shift()!;
@@ -718,11 +913,15 @@ function triggerVolatileBursts(
     processed.add(sourceId);
 
     const sourceEnemy = nextEnemies.find((e) => e.id === sourceId);
-    if (!sourceEnemy || sourceEnemy.passive !== 'volatile_burst') continue;
+    if (!sourceEnemy) continue;
+    const isPlasmaBarrel = sourceEnemy.propKind === 'plasma_barrel';
+    if (sourceEnemy.passive !== 'volatile_burst' && !isPlasmaBarrel) continue;
+    if (isPlasmaBarrel) barrelPoppedCount++;
+    const burstDmg = isPlasmaBarrel ? PLASMA_BARREL_BURST_DAMAGE : VOLATILE_BURST_DAMAGE;
 
     for (let i = 0; i < nextEnemies.length; i++) {
-      if (nextEnemies[i].id === sourceId || nextEnemies[i].hp <= 0) continue;
-      const burstRes = applyDamageToEnemy(nextEnemies[i], VOLATILE_BURST_DAMAGE, 1.0, false);
+      if (nextEnemies[i].id === sourceId || nextEnemies[i].hp <= 0 || nextEnemies[i].escaped) continue;
+      const burstRes = applyDamageToEnemy(nextEnemies[i], burstDmg, 1.0, false);
       nextEnemies[i] = burstRes.enemy;
       extraDamageDealt += burstRes.effectiveDamageDealt;
       if (cues) {
@@ -730,8 +929,12 @@ function triggerVolatileBursts(
           id: `cue_${turn}_burst_${sourceId}_${nextEnemies[i].id}`,
           kind: 'enemy_burst',
           targetId: nextEnemies[i].id,
-          value: VOLATILE_BURST_DAMAGE,
-          textLabel: burstRes.pipCracked ? 'PIP CRACKED' : undefined,
+          value: burstDmg,
+          textLabel: isPlasmaBarrel
+            ? 'PLASMA BARREL!'
+            : burstRes.pipCracked
+              ? 'PIP CRACKED'
+              : undefined,
         });
         if (burstRes.phaseGateHit) {
           cues.push({
@@ -756,7 +959,7 @@ function triggerVolatileBursts(
     }
   }
 
-  return { enemies: nextEnemies, extraDefeated, extraDamageDealt };
+  return { enemies: nextEnemies, extraDefeated, extraDamageDealt, barrelPoppedCount };
 }
 
 interface SimulatedPlayerEnemiesResult {
@@ -765,6 +968,8 @@ interface SimulatedPlayerEnemiesResult {
   newlyDefeatedIds: string[];
   damageDealt: number;
   retaliateDamage: number;
+  pustuleRuptureCorrode: number;
+  barrelPoppedCount: number;
 }
 
 function simulatePlayerActionOnEnemies(
@@ -778,6 +983,7 @@ function simulatePlayerActionOnEnemies(
   const newlyDefeatedIds: string[] = [];
   let damageDealt = 0;
   let retaliateDamage = 0;
+  let pustuleRuptureCorrode = 0;
 
   const applyHit = (
     targetIdx: number,
@@ -786,39 +992,52 @@ function simulatePlayerActionOnEnemies(
     breakArmorFirst: boolean,
     cueId: string,
     surgeFlag: boolean,
+    wakeSleepwalker = false,
   ) => {
     const res = applyDamageToEnemy(nextEnemies[targetIdx], dmg, pierceRatio, breakArmorFirst);
-    nextEnemies[targetIdx] = res.enemy;
+    let updatedTarget = res.enemy;
+    if (
+      wakeSleepwalker &&
+      dmg > 0 &&
+      updatedTarget.sleepCounter !== undefined &&
+      updatedTarget.sleepCounter > 0
+    ) {
+      updatedTarget = {
+        ...updatedTarget,
+        sleepCounter: Math.max(0, updatedTarget.sleepCounter - 1),
+      };
+    }
+    nextEnemies[targetIdx] = updatedTarget;
     damageDealt += res.effectiveDamageDealt;
     cues?.push({
       id: cueId,
       kind: 'hero_slash',
-      targetId: res.enemy.id,
+      targetId: updatedTarget.id,
       value: dmg,
       textLabel: res.pipCracked ? 'PIP CRACKED' : undefined,
       surge: surgeFlag,
     });
     if (res.phaseGateHit) {
       cues?.push({
-        id: `cue_${turn}_phase_${res.enemy.id}`,
+        id: `cue_${turn}_phase_${updatedTarget.id}`,
         kind: 'enemy_phase_gate',
-        targetId: res.enemy.id,
+        targetId: updatedTarget.id,
         value: PHASE_GATE_ARMOR_BONUS,
       });
     }
     if (res.defeated) {
       defeatedNow++;
-      newlyDefeatedIds.push(res.enemy.id);
+      newlyDefeatedIds.push(updatedTarget.id);
       cues?.push({
-        id: `cue_${turn}_ko_${res.enemy.id}`,
+        id: `cue_${turn}_ko_${updatedTarget.id}`,
         kind: 'enemy_ko',
-        targetId: res.enemy.id,
+        targetId: updatedTarget.id,
       });
     }
     return res;
   };
 
-  const frontIdx = nextEnemies.findIndex((e) => e.hp > 0);
+  const frontIdx = nextEnemies.findIndex((e) => e.hp > 0 && !e.escaped);
   if (preview.color === 'attack' && frontIdx !== -1) {
     const pierce = preview.armorPiercing ? 0.3 : 0;
     const frontResult = applyHit(
@@ -828,6 +1047,7 @@ function simulatePlayerActionOnEnemies(
       preview.surgeTriggered,
       `cue_${turn}_atk_front`,
       preview.surgeTriggered,
+      true,
     );
     if (
       !frontResult.defeated &&
@@ -836,19 +1056,28 @@ function simulatePlayerActionOnEnemies(
     ) {
       retaliateDamage = SPIKE_RETALIATE_DAMAGE;
     }
+    if (
+      !frontResult.defeated &&
+      !preview.surgeTriggered &&
+      preview.totalDamage > 0 &&
+      !frontResult.enemy.propKind &&
+      frontResult.enemy.passive === 'acid_jam'
+    ) {
+      pustuleRuptureCorrode = PUSTULE_RUPTURE_CORRODE;
+    }
 
     if (preview.cleaveDamage > 0) {
       for (let i = 0; i < nextEnemies.length; i++) {
-        if (i === frontIdx || nextEnemies[i].hp <= 0) continue;
-        applyHit(i, preview.cleaveDamage, pierce, false, `cue_${turn}_cleave_${i}`, true);
+        if (i === frontIdx || nextEnemies[i].hp <= 0 || nextEnemies[i].escaped) continue;
+        applyHit(i, preview.cleaveDamage, pierce, false, `cue_${turn}_cleave_${i}`, true, true);
       }
     }
   } else if (preview.color === 'defense' && preview.reflectOnBlock > 0 && frontIdx !== -1) {
-    applyHit(frontIdx, preview.reflectOnBlock, 0, false, `cue_${turn}_def_pulse`, true);
+    applyHit(frontIdx, preview.reflectOnBlock, 0, false, `cue_${turn}_def_pulse`, true, false);
   } else if (preview.color === 'tech') {
     if (preview.armorShredAmount > 0) {
       nextEnemies = nextEnemies.map((enemy) =>
-        enemy.hp > 0
+        enemy.hp > 0 && !enemy.escaped
           ? { ...enemy, armor: Math.max(0, enemy.armor - preview.armorShredAmount) }
           : enemy,
       );
@@ -861,15 +1090,50 @@ function simulatePlayerActionOnEnemies(
         false,
         `cue_${turn}_tech_pierce`,
         preview.surgeTriggered,
+        false,
       );
     }
   }
 
+  // Hot Potato Passed Back: deals 8 Pierce DMG to front living enemy
+  if ((preview.hotPotatoPassedDamage ?? 0) > 0) {
+    const hpTargetIdx = nextEnemies.findIndex((e) => e.hp > 0 && !e.escaped);
+    if (hpTargetIdx !== -1) {
+      applyHit(
+        hpTargetIdx,
+        preview.hotPotatoPassedDamage ?? 0,
+        1.0,
+        false,
+        `cue_${turn}_hot_potato_pass`,
+        true,
+        preview.color === 'attack',
+      );
+    }
+  }
+
+  // Temptation / Bargain Cleave Bonus: +14 DMG across all living enemies
+  if ((preview.temptationCleaveBonus ?? 0) > 0) {
+    for (let i = 0; i < nextEnemies.length; i++) {
+      if (nextEnemies[i].hp <= 0 || nextEnemies[i].escaped) continue;
+      applyHit(
+        i,
+        preview.temptationCleaveBonus ?? 0,
+        0.5,
+        false,
+        `cue_${turn}_temptation_${i}`,
+        true,
+        preview.color === 'attack',
+      );
+    }
+  }
+
+  let barrelPoppedCount = 0;
   if (newlyDefeatedIds.length > 0) {
     const burstRes = triggerVolatileBursts(nextEnemies, newlyDefeatedIds, turn, cues);
     nextEnemies = burstRes.enemies;
     defeatedNow += burstRes.extraDefeated;
     damageDealt += burstRes.extraDamageDealt;
+    barrelPoppedCount = burstRes.barrelPoppedCount;
   }
 
   nextEnemies = evaluateReactiveEnemyShifts(enemies, nextEnemies, turn, cues);
@@ -880,6 +1144,8 @@ function simulatePlayerActionOnEnemies(
     newlyDefeatedIds,
     damageDealt,
     retaliateDamage,
+    pustuleRuptureCorrode,
+    barrelPoppedCount,
   };
 }
 
@@ -914,22 +1180,26 @@ export function previewHeroineThreat(
   let baselineIncoming = 0;
   for (let i = 0; i < combat.enemies.length; i++) {
     const enemy = combat.enemies[i];
-    if (enemy.hp <= 0) continue;
+    if (enemy.hp <= 0 || enemy.escaped) continue;
     const intent = enemy.intentCycle[enemy.currentIntentIndex];
     if (isDamagingIntent(intent)) {
-      baselineIncoming += getEffectiveEnemyIntentValue(enemy, intent);
+      baselineIncoming += getEffectiveEnemyIntentValue(enemy, intent, {
+        battlefieldRule: combat.battlefieldRule,
+      });
     }
   }
 
   let simEnemies = combat.enemies.map((e) => ({ ...e }));
   let defeatedNow = 0;
   let retaliateDamage = 0;
+  let pustuleRuptureCorrode = 0;
 
   if (activePreview && activePreview.tileCount > 0) {
     const simResult = simulatePlayerActionOnEnemies(combat.enemies, combat.turn, activePreview);
     simEnemies = simResult.enemies;
     defeatedNow = simResult.defeatedNow;
     retaliateDamage = simResult.retaliateDamage;
+    pustuleRuptureCorrode = simResult.pustuleRuptureCorrode;
   }
 
   const bioSiphonHeal =
@@ -965,7 +1235,7 @@ export function previewHeroineThreat(
   let blockedDamage = 0;
   let armorAbsorbed = 0;
   let hpDamageTaken = 0;
-  let corrodeGained = 0;
+  let corrodeGained = pustuleRuptureCorrode;
   let attackersCount = 0;
   let willJamTile = false;
   let conditionalBonusDamage = 0;
@@ -981,39 +1251,48 @@ export function previewHeroineThreat(
   }
 
   const colorPlayed = activePreview && activePreview.tileCount > 0 ? activePreview.color : null;
+  const hostilesRemain = hasHostileLivingEnemies(simEnemies);
 
-  for (let i = 0; i < simEnemies.length; i++) {
-    const enemy = simEnemies[i];
-    if (enemy.hp <= 0) continue;
-    const intent = enemy.intentCycle[enemy.currentIntentIndex];
-    if (!isDamagingIntent(intent) || enemy.staggered) continue;
+  if (hostilesRemain) {
+    for (let i = 0; i < simEnemies.length; i++) {
+      const enemy = simEnemies[i];
+      if (enemy.hp <= 0 || enemy.escaped) continue;
+      const intent = enemy.intentCycle[enemy.currentIntentIndex];
+      const intentCtx = {
+        shieldAfterPlayer: simShield,
+        colorPlayed,
+        battlefieldRule: combat.battlefieldRule,
+      };
+      const incoming = getEffectiveEnemyIntentValue(enemy, intent, intentCtx);
+      if (!isDamagingIntent(intent) || enemy.staggered || incoming <= 0) continue;
 
-    attackersCount++;
-    const intentCtx = { shieldAfterPlayer: simShield, colorPlayed };
-    const incoming = getEffectiveEnemyIntentValue(enemy, intent, intentCtx);
-    if (isIntentConditionMet(intent, intentCtx)) {
-      conditionalBonusDamage += intent.conditionBonus ?? 0;
-    }
-    rawIncomingDamage += incoming;
-    const abs = absorbHeroDamage(simShield, simArmor, incoming);
-    simShield = abs.nextShield;
-    simArmor = abs.nextArmor;
-    blockedDamage += abs.blockedByShield + abs.blockedByArmor;
-    armorAbsorbed += abs.blockedByArmor;
-    const hpDmg = abs.hpDamage;
-    hpDamageTaken += hpDmg;
-    if (intent.kind === 'acid') {
-      corrodeGained += intent.secondaryValue ?? 2;
-      if (hpDmg > 0 && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
-        willJamTile = true;
+      attackersCount++;
+      if (isIntentConditionMet(intent, intentCtx)) {
+        conditionalBonusDamage += intent.conditionBonus ?? 0;
+      }
+      rawIncomingDamage += incoming;
+      const abs = absorbHeroDamage(simShield, simArmor, incoming);
+      simShield = abs.nextShield;
+      simArmor = abs.nextArmor;
+      blockedDamage += abs.blockedByShield + abs.blockedByArmor;
+      armorAbsorbed += abs.blockedByArmor;
+      const hpDmg = abs.hpDamage;
+      hpDamageTaken += hpDmg;
+      if (intent.kind === 'acid') {
+        corrodeGained += intent.secondaryValue ?? 2;
+        if (hpDmg > 0 && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
+          willJamTile = true;
+        }
+      } else if (intent.corrodeAmount && intent.corrodeAmount > 0) {
+        corrodeGained += intent.corrodeAmount;
       }
     }
   }
 
   // Caustic Slag hold chip damage if not purged via TECH
-  const unpurgedBlightCount = combat.board.filter(
-    (t) => t.isBlight && (colorPlayed !== 'tech' || t.isJammed),
-  ).length;
+  const unpurgedBlightCount = hostilesRemain
+    ? combat.board.filter((t) => t.isBlight && (colorPlayed !== 'tech' || t.isJammed)).length
+    : 0;
   const blightChipDamage = unpurgedBlightCount * BLIGHT_HOLD_CHIP_DAMAGE;
   if (blightChipDamage > 0) {
     rawIncomingDamage += blightChipDamage;
@@ -1025,11 +1304,27 @@ export function previewHeroineThreat(
     hpDamageTaken += absBlight.hpDamage;
   }
 
+  // Hot Potato self-detonation damage if left unresolved on board
+  const unresolvedHotPotatoCount = hostilesRemain
+    ? combat.board.filter((t) => t.isHotPotato && (t.type !== colorPlayed || t.isJammed)).length
+    : 0;
+  const hotPotatoSelfDamage = unresolvedHotPotatoCount * HOT_POTATO_SELF_DAMAGE;
+  if (hotPotatoSelfDamage > 0) {
+    rawIncomingDamage += hotPotatoSelfDamage;
+    const absPotato = absorbHeroDamage(simShield, simArmor, hotPotatoSelfDamage);
+    simShield = absPotato.nextShield;
+    simArmor = absPotato.nextArmor;
+    blockedDamage += absPotato.blockedByShield + absPotato.blockedByArmor;
+    armorAbsorbed += absPotato.blockedByArmor;
+    hpDamageTaken += absPotato.hpDamage;
+  }
+
   const projectedHp = Math.max(0, hpBeforeEnemies - hpDamageTaken);
   const hpLossOnBar = Math.max(0, heroine.hp - projectedHp);
   const preventedDamageByKills = Math.max(
     0,
-    baselineIncoming - (rawIncomingDamage - retaliateDamage - blightChipDamage),
+    baselineIncoming -
+      (rawIncomingDamage - retaliateDamage - blightChipDamage - hotPotatoSelfDamage),
   );
   const willDie = heroine.hp > 0 && hpDamageTaken > 0 && projectedHp <= 0;
 
@@ -1054,6 +1349,7 @@ export function previewHeroineThreat(
     willJamTile,
     conditionalBonusDamage,
     blightChipDamage,
+    hotPotatoSelfDamage,
     hexHealTriggered,
   };
 }
@@ -1065,8 +1361,23 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
 
   const combat = run.combat;
   const resolvedTiles = combat.board.filter((t) => t.type === color && !t.isJammed);
+
+  // Positional Contagion: collect adjacent non-matching board indices discarded by Contagion
+  const contagionDiscardIdxSet = new Set<number>();
+  combat.board.forEach((tile, idx) => {
+    if (tile.type === color && !tile.isJammed && tile.isContagion) {
+      for (const adjIdx of [idx - 1, idx + 1]) {
+        const adj = combat.board[adjIdx];
+        if (adj && (adj.type !== color || adj.isJammed)) {
+          contagionDiscardIdxSet.add(adjIdx);
+        }
+      }
+    }
+  });
+  const contagionDiscardedTiles = combat.board.filter((_, idx) => contagionDiscardIdxSet.has(idx));
+
   let keptTiles: Tile[] = combat.board
-    .filter((t) => t.type !== color || t.isJammed)
+    .filter((t, idx) => (t.type !== color || t.isJammed) && !contagionDiscardIdxSet.has(idx))
     .map((t) => ({ ...t, isJammed: false }));
 
   // Blight/Slag tiles exhaust permanently when resolved via TECH
@@ -1080,8 +1391,30 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
         isHeldFromPrevTurn: false,
         isJammed: false,
         hexedByEnemyId: undefined,
+        isHotPotato: undefined,
+        isContagion: undefined,
+        isTemptation: undefined,
+        isTopDecked: undefined,
+      })),
+    ...contagionDiscardedTiles
+      .filter((t) => !t.isBlight)
+      .map((t) => ({
+        ...t,
+        isHeldFromPrevTurn: false,
+        isJammed: false,
+        hexedByEnemyId: undefined,
+        isHotPotato: undefined,
+        isContagion: undefined,
+        isTemptation: undefined,
+        isTopDecked: undefined,
       })),
   ];
+
+  // Temptation / Bargain Pact: each resolved isTemptation tile injects 2 Caustic Slag curses
+  const temptationCount = resolvedTiles.filter((t) => Boolean(t.isTemptation)).length;
+  for (let i = 0; i < temptationCount * 2; i++) {
+    nextDiscard.push(createBlightTile(combat.turn, combat.totalTilesResolved + 50 + i));
+  }
 
   let nextHeroine = { ...run.heroine };
   if ((preview.upchargeGained ?? 0) > 0) {
@@ -1089,8 +1422,35 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   }
   const cues: AnimationCue[] = [];
 
-  if (color === 'defense') {
+  if (contagionDiscardedTiles.length > 0) {
+    cues.push({
+      id: `cue_${combat.turn}_contagion_discard`,
+      kind: 'tile_hex',
+      value: contagionDiscardedTiles.length,
+      textLabel: `CONTAGION -${contagionDiscardedTiles.length} TILE`,
+    });
+  }
+  if (temptationCount > 0) {
+    cues.push({
+      id: `cue_${combat.turn}_temptation_pact`,
+      kind: 'tile_blight',
+      value: temptationCount * 2,
+      textLabel: `PACT: +${temptationCount * 2} SLAG`,
+    });
+  }
+
+  if (color === 'attack') {
+    if (preview.shieldGained > 0) {
+      nextHeroine.shield += preview.shieldGained;
+    }
+    if (preview.damageBoostAddedPct > 0) {
+      nextHeroine.damageBoostPct += preview.damageBoostAddedPct;
+    }
+  } else if (color === 'defense') {
     nextHeroine.shield += preview.shieldGained;
+    if (preview.damageBoostAddedPct > 0) {
+      nextHeroine.damageBoostPct += preview.damageBoostAddedPct;
+    }
     cues.push({
       id: `cue_${combat.turn}_def`,
       kind: 'hero_shield',
@@ -1118,7 +1478,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   const totalDamageDealt = combat.totalDamageDealt + enemySim.damageDealt;
 
   if (enemySim.retaliateDamage > 0) {
-    const frontEnemy = nextEnemies.find((e) => e.hp > 0);
+    const frontEnemy = nextEnemies.find((e) => e.hp > 0 && !e.escaped);
     const absRet = absorbHeroDamage(
       nextHeroine.shield,
       nextHeroine.armor ?? 0,
@@ -1137,6 +1497,20 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
         value: enemySim.retaliateDamage,
         blocked: retBlocked,
         hpDamage: retHpDmg,
+      });
+    }
+  }
+
+  if (enemySim.pustuleRuptureCorrode > 0) {
+    const frontEnemy = nextEnemies.find((e) => e.hp > 0 && !e.escaped);
+    nextHeroine.corrode += enemySim.pustuleRuptureCorrode;
+    if (frontEnemy) {
+      cues.push({
+        id: `cue_${combat.turn}_pustule_rupture_${frontEnemy.id}`,
+        kind: 'enemy_pustule_rupture',
+        targetId: frontEnemy.id,
+        value: enemySim.pustuleRuptureCorrode,
+        textLabel: `+${enemySim.pustuleRuptureCorrode} COR`,
       });
     }
   }
@@ -1170,7 +1544,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   }
   if (triggeredHexCasterIds.size > 0) {
     nextEnemies = nextEnemies.map((enemy) => {
-      if (enemy.hp <= 0 || !triggeredHexCasterIds.has(enemy.id)) return enemy;
+      if (enemy.hp <= 0 || enemy.escaped || !triggeredHexCasterIds.has(enemy.id)) return enemy;
       cues.push({
         id: `cue_${combat.turn}_hex_heal_${enemy.id}`,
         kind: 'tile_hex',
@@ -1197,7 +1571,50 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
 
   applyBioSiphonHeal(nextHeroine, defeatedNow);
 
-  nextHeroine.overdrive = Math.min(100, nextHeroine.overdrive + preview.overdriveGained);
+  const barrelOdBonus = enemySim.barrelPoppedCount * 20;
+  nextHeroine.overdrive = Math.min(
+    100,
+    nextHeroine.overdrive + preview.overdriveGained + barrelOdBonus,
+  );
+
+  // Loot Runner Bounty: check if any Loot Runner was killed this action
+  let lootBountyEarnedNow = 0;
+  nextEnemies.forEach((afterE, idx) => {
+    const beforeE = combat.enemies[idx];
+    if (
+      afterE.isLootRunner &&
+      !afterE.escaped &&
+      afterE.hp <= 0 &&
+      beforeE &&
+      beforeE.hp > 0
+    ) {
+      lootBountyEarnedNow += afterE.bountyCredits ?? 25;
+    }
+  });
+
+  // Tug-of-War Neural Meter update (+2% per player damage dealt)
+  let nextTugOfWarMeter = combat.tugOfWarMeter;
+  let nextTugOfWarPurged = combat.tugOfWarPurged;
+  let tugOfWarCrBonus = 0;
+  if (nextTugOfWarMeter !== undefined && enemySim.damageDealt > 0) {
+    nextTugOfWarMeter = Math.min(100, nextTugOfWarMeter + enemySim.damageDealt * 2);
+    if (nextTugOfWarMeter >= 100 && !nextTugOfWarPurged) {
+      nextTugOfWarPurged = true;
+      tugOfWarCrBonus = TUG_OF_WAR_PURGE_CR_BONUS;
+      nextHeroine.overdrive = Math.min(100, nextHeroine.overdrive + TUG_OF_WAR_PURGE_OD_BONUS);
+      nextEnemies = nextEnemies.map((e) =>
+        e.hp > 0 && !e.escaped && !e.propKind && !e.isMercyTarget
+          ? { ...e, staggered: true }
+          : e,
+      );
+      cues.push({
+        id: `cue_${combat.turn}_tug_purge`,
+        kind: 'enemy_stagger',
+        value: 100,
+        textLabel: 'NEURAL PURGE! ALL STAGGERED',
+      });
+    }
+  }
 
   if (nextHeroine.hp <= 0) {
     return {
@@ -1215,6 +1632,8 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
         totalDamageDealt,
         totalTilesResolved: combat.totalTilesResolved + resolvedTiles.length,
         lastColorPlayed: color,
+        tugOfWarMeter: nextTugOfWarMeter,
+        tugOfWarPurged: nextTugOfWarPurged,
       },
       enemiesDefeated: run.enemiesDefeated + defeatedNow,
       score: run.score + (totalDamageDealt - combat.totalDamageDealt) * 2 + defeatedNow * 50,
@@ -1230,8 +1649,63 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   );
   nextEnemies = directorActionUpdate.enemies;
 
-  const anyLivingEnemy = nextEnemies.some((e) => e.hp > 0);
+  const anyLivingEnemy = hasHostileLivingEnemies(nextEnemies);
   const nextPhase = anyLivingEnemy ? 'PLAYER_RESOLVED' : 'VICTORY';
+
+  // Mercy / Pacifist Victory check: if all hostile enemies are dead and a Mercy target survived
+  let mercyCrBonus = 0;
+  let nextMercyBonusAwarded = combat.mercyBonusAwarded;
+  if (
+    !anyLivingEnemy &&
+    !nextMercyBonusAwarded &&
+    nextEnemies.some((e) => e.isMercyTarget && e.hp > 0)
+  ) {
+    nextMercyBonusAwarded = true;
+    mercyCrBonus = MERCY_REWARD_CREDITS;
+    nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + MERCY_REWARD_HP);
+  }
+
+  // Gene-Splice Pedigree Lab: resolving one married Tile color activates Bloodline Resonance for its partner color
+  // AND immediately supercharges unconsumed partner-color Tiles sitting on the 6-slot board with +1 UpCharge (⚡)!
+  let nextBloodlineResonance: TileType | null = combat.bloodlineResonanceActive ?? null;
+  if (nextHeroine.bloodlineCrest) {
+    if (color === nextHeroine.bloodlineCrest.primary) {
+      nextBloodlineResonance = nextHeroine.bloodlineCrest.secondary;
+    } else if (color === nextHeroine.bloodlineCrest.secondary) {
+      nextBloodlineResonance = nextHeroine.bloodlineCrest.primary;
+    } else if (color === combat.bloodlineResonanceActive) {
+      nextBloodlineResonance = null;
+    }
+    if (nextBloodlineResonance && nextBloodlineResonance !== color) {
+      keptTiles = keptTiles.map((t) =>
+        t.type === nextBloodlineResonance && !t.isBlight
+          ? { ...t, upcharge: Math.min(MAX_UPCHARGE_BOARD_CAPACITY, (t.upcharge ?? 0) + 1) }
+          : t,
+      );
+    }
+  }
+
+  // Beta-Test Arcade: log resolved tiles toward the 5-play experimental software trial
+  if (nextHeroine.betaTrialChip && !nextHeroine.betaTrialChip.upgraded) {
+    const nextLogged = nextHeroine.betaTrialChip.resolvesLogged + resolvedTiles.length;
+    const newlyUpgraded = nextLogged >= 5;
+    nextHeroine = {
+      ...nextHeroine,
+      betaTrialChip: {
+        ...nextHeroine.betaTrialChip,
+        resolvesLogged: nextLogged,
+        upgraded: newlyUpgraded,
+      },
+      ...(newlyUpgraded
+        ? {
+            overclockCount: Math.min(
+              MAX_OVERCLOCK_STACKS,
+              (nextHeroine.overclockCount ?? 0) + 1,
+            ),
+          }
+        : {}),
+    };
+  }
 
   let updatedCombat: CombatState = {
     ...combat,
@@ -1243,8 +1717,14 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     lastCues: cues,
     totalDamageDealt,
     totalTilesResolved: combat.totalTilesResolved + resolvedTiles.length,
+    rewardCredits: combat.rewardCredits + lootBountyEarnedNow + tugOfWarCrBonus + mercyCrBonus,
     director: directorActionUpdate.director,
     lastColorPlayed: color,
+    tugOfWarMeter: nextTugOfWarMeter,
+    tugOfWarPurged: nextTugOfWarPurged,
+    mercyBonusAwarded: nextMercyBonusAwarded,
+    lootBountyAwarded: (combat.lootBountyAwarded ?? 0) + lootBountyEarnedNow,
+    bloodlineResonanceActive: nextBloodlineResonance,
   };
 
   if (!anyLivingEnemy) {
@@ -1267,7 +1747,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
 
   const damageAdded = totalDamageDealt - combat.totalDamageDealt;
   const rewardedKills = nextEnemies.filter(
-    (e, idx) => e.hp <= 0 && combat.enemies[idx]?.hp > 0 && !e.isZeroReward,
+    (e, idx) => e.hp <= 0 && !e.escaped && combat.enemies[idx]?.hp > 0 && !e.isZeroReward,
   ).length;
   const scoreKillCount = defeatedNow > 0 ? Math.min(defeatedNow, Math.max(rewardedKills, 0)) : 0;
 
@@ -1275,6 +1755,7 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     ...run,
     screen: transition.screen,
     heroine: transition.heroine,
+    masterPool: rebuildMasterPool(transition.heroine),
     mapNodes: transition.mapNodes,
     combat: transition.combat,
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
@@ -1307,7 +1788,7 @@ export function executeOverdrive(run: RunState): RunState {
 
   const armorShred = odSpec.armorShred ?? 0;
   let nextEnemies = combat.enemies.map((enemy) => {
-    if (enemy.hp <= 0) return { ...enemy };
+    if (enemy.hp <= 0 || enemy.escaped || enemy.isMercyTarget) return { ...enemy };
     const preppedEnemy =
       armorShred > 0 ? { ...enemy, armor: Math.max(0, enemy.armor - armorShred) } : enemy;
     const res = applyDamageToEnemy(preppedEnemy, odSpec.damage, 1.0, false);
@@ -1337,6 +1818,9 @@ export function executeOverdrive(run: RunState): RunState {
     nextEnemies = burstRes.enemies;
     defeatedNow += burstRes.extraDefeated;
     totalDamageDealt += burstRes.extraDamageDealt;
+    if (burstRes.barrelPoppedCount > 0) {
+      nextHeroine.overdrive = Math.min(100, nextHeroine.overdrive + burstRes.barrelPoppedCount * 20);
+    }
   }
 
   nextEnemies = evaluateReactiveEnemyShifts(combat.enemies, nextEnemies, combat.turn, cues);
@@ -1352,13 +1836,19 @@ export function executeOverdrive(run: RunState): RunState {
   );
   nextEnemies = directorOdUpdate.enemies;
 
-  const anyLiving = nextEnemies.some((e) => e.hp > 0);
+  const anyLiving = hasHostileLivingEnemies(nextEnemies);
   const nextPhase = anyLiving ? 'PLAYER_IDLE' : 'VICTORY';
 
-  // Overdrive cleanses Jams, Hexes, AND exhausts board Caustic Slag tiles cleanly
+  // Overdrive cleanses Jams, Hexes, Hot Potato, Contagion, AND exhausts board Caustic Slag tiles cleanly
   const cleansedBoard = combat.board
     .filter((t) => !t.isBlight)
-    .map((t) => ({ ...t, isJammed: false, hexedByEnemyId: undefined }));
+    .map((t) => ({
+      ...t,
+      isJammed: false,
+      hexedByEnemyId: undefined,
+      isHotPotato: undefined,
+      isContagion: undefined,
+    }));
 
   let updatedOdCombat: CombatState = {
     ...combat,
@@ -1407,7 +1897,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
   }
 
   const enemy = combat.enemies[enemyIndex];
-  if (!enemy || enemy.hp <= 0) return run;
+  if (!enemy || enemy.hp <= 0 || enemy.escaped) return run;
 
   const nextHeroine = { ...run.heroine };
   const implants = nextHeroine.implants;
@@ -1415,18 +1905,27 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
   let defeatedNow = 0;
   const newlyDefeatedIds: string[] = [];
   let nextBoard = combat.board.map((t) => ({ ...t }));
-  let nextDiscardPile = combat.discardPile.map((t) => ({ ...t }));
+  const nextDrawPile = combat.drawPile.map((t) => ({ ...t }));
+  const nextDiscardPile = combat.discardPile.map((t) => ({ ...t }));
+  let nextTugOfWarMeter = combat.tugOfWarMeter;
+  let nextCradleObjective = combat.cradleObjective ? { ...combat.cradleObjective } : undefined;
 
   const intent = enemy.intentCycle[enemy.currentIntentIndex];
+  const isSleeping = enemy.sleepCounter !== undefined && enemy.sleepCounter > 0;
+  const isPassiveProp =
+    enemy.propKind === 'plasma_barrel' || enemy.propKind === 'bio_husk';
   const nextIndexOnStagger =
     intent.kind === 'charge'
       ? 0
       : (enemy.currentIntentIndex + 1) % enemy.intentCycle.length;
   const updatedEnemy: EnemyUnit = {
     ...enemy,
-    currentIntentIndex: enemy.staggered
-      ? nextIndexOnStagger
-      : (enemy.currentIntentIndex + 1) % enemy.intentCycle.length,
+    currentIntentIndex:
+      isSleeping || isPassiveProp
+        ? enemy.currentIntentIndex
+        : enemy.staggered
+          ? nextIndexOnStagger
+          : (enemy.currentIntentIndex + 1) % enemy.intentCycle.length,
     staggered: false,
     turnDamageTaken: 0,
   };
@@ -1434,7 +1933,17 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
   let reflectedDamage = 0;
   let bolsterAllAmount = 0;
 
-  if (enemy.staggered) {
+  if (isSleeping) {
+    cues.push({
+      id: `cue_e_${combat.turn}_${enemy.id}_sleeping`,
+      kind: 'enemy_stagger',
+      targetId: enemy.id,
+      value: 0,
+      textLabel: `SLEEPING (${enemy.sleepCounter})`,
+    });
+  } else if (isPassiveProp) {
+    // Passive battlefield props do not act during enemy turn
+  } else if (enemy.staggered) {
     cues.push({
       id: `cue_e_${combat.turn}_${enemy.id}_stagger_recover`,
       kind: 'enemy_stagger',
@@ -1443,21 +1952,35 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       textLabel: 'STAGGERED · 0 DMG',
     });
   } else if (intent.kind === 'armor') {
-    updatedEnemy.armor += intent.value;
+    const armorGain = getEffectiveEnemyIntentValue(enemy, intent, {
+      battlefieldRule: combat.battlefieldRule,
+    });
+    updatedEnemy.armor += armorGain;
+    const secondaryHealRaw = intent.secondaryValue ?? 0;
+    const healGain =
+      secondaryHealRaw > 0
+        ? Math.min(updatedEnemy.maxHp - updatedEnemy.hp, secondaryHealRaw)
+        : 0;
+    if (healGain > 0) {
+      updatedEnemy.hp += healGain;
+    }
     cues.push({
       id: `cue_e_${combat.turn}_${enemy.id}_armor`,
       kind: 'enemy_armor',
       targetId: enemy.id,
-      value: intent.value,
+      value: armorGain,
+      ...(healGain > 0 ? { secondaryHeal: healGain } : {}),
     });
   } else if (intent.kind === 'bolster') {
-    bolsterAllAmount = intent.value;
+    bolsterAllAmount = getEffectiveEnemyIntentValue(enemy, intent, {
+      battlefieldRule: combat.battlefieldRule,
+    });
     cues.push({
       id: `cue_e_${combat.turn}_${enemy.id}_bolster`,
       kind: 'enemy_bolster',
       targetId: enemy.id,
-      value: intent.value,
-      textLabel: `+${intent.value} ARM ALL`,
+      value: bolsterAllAmount,
+      textLabel: `+${bolsterAllAmount} ARM ALL`,
     });
   } else if (intent.kind === 'charge') {
     const turnsLeft = intent.secondaryValue ?? 1;
@@ -1472,6 +1995,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
     const incoming = getEffectiveEnemyIntentValue(enemy, intent, {
       shieldAfterPlayer: nextHeroine.shield,
       colorPlayed: combat.lastColorPlayed ?? null,
+      battlefieldRule: combat.battlefieldRule,
     });
     const abs = absorbHeroDamage(nextHeroine.shield, nextHeroine.armor ?? 0, incoming);
     nextHeroine.shield = abs.nextShield;
@@ -1479,6 +2003,16 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
     const blocked = abs.blockedByShield + abs.blockedByArmor;
     const hpDamage = abs.hpDamage;
     nextHeroine.hp = Math.max(0, nextHeroine.hp - hpDamage);
+
+    if (hpDamage > 0 && nextTugOfWarMeter !== undefined) {
+      nextTugOfWarMeter = Math.max(0, nextTugOfWarMeter - hpDamage * 3);
+    }
+
+    // Maternal/Paternal Vanguard Escort: unblocked HP damage also chips the Neonatal Bio-Cradle
+    if (hpDamage > 0 && nextCradleObjective && nextCradleObjective.hp > 0) {
+      const cradleLoss = Math.min(4, Math.ceil(hpDamage * 0.5));
+      nextCradleObjective.hp = Math.max(0, nextCradleObjective.hp - cradleLoss);
+    }
 
     if (blocked > 0 && hasImplant(implants, 'kinetic_reflector')) {
       const refRes = applyDamageToEnemy(updatedEnemy, 3, 0, false);
@@ -1515,22 +2049,30 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
           nextBoard[jamIdx] = { ...nextBoard[jamIdx], isJammed: true };
           jammedTile = true;
         }
-        // Deck Polluter: inject up to MAX_ACTIVE_BLIGHT_TILES Caustic Slag into discardPile
+        // Deck Polluter & Top-Deck Manipulation: inject up to MAX_ACTIVE_BLIGHT_TILES Caustic Slag
         const blightInCombat =
           countTotalBlightTiles({
             board: nextBoard,
-            drawPile: combat.drawPile,
+            drawPile: nextDrawPile,
             discardPile: nextDiscardPile,
           });
         if (blightInCombat < MAX_ACTIVE_BLIGHT_TILES) {
-          nextDiscardPile.push(
-            createBlightTile(combat.turn, combat.totalTilesResolved + enemyIndex + blightInCombat + 1),
+          const useTopDeck = Boolean(intent.topDeckBlight) && nextDrawPile.length > 0;
+          const blightTile = createBlightTile(
+            combat.turn,
+            combat.totalTilesResolved + enemyIndex + blightInCombat + 1,
+            useTopDeck,
           );
+          if (useTopDeck) {
+            nextDrawPile.unshift(blightTile);
+          } else {
+            nextDiscardPile.push(blightTile);
+          }
           cues.push({
             id: `cue_e_${combat.turn}_${enemy.id}_blight`,
             kind: 'tile_blight',
             targetId: enemy.id,
-            textLabel: 'CAUSTIC SLAG',
+            textLabel: useTopDeck ? 'TOP-DECK SLAG!' : 'CAUSTIC SLAG',
           });
         }
       }
@@ -1545,6 +2087,16 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
         textLabel: jammedTile ? 'TILE JAMMED' : undefined,
       });
     } else {
+      if (intent.corrodeAmount && intent.corrodeAmount > 0) {
+        nextHeroine.corrode += intent.corrodeAmount;
+      }
+      const gainedArmorOnHit =
+        intent.armorOnHit && intent.armorOnHit > 0 && hpDamage > 0 && updatedEnemy.hp > 0
+          ? intent.armorOnHit
+          : 0;
+      if (gainedArmorOnHit > 0) {
+        updatedEnemy.armor += gainedArmorOnHit;
+      }
       cues.push({
         id: `cue_e_${combat.turn}_${enemy.id}_atk`,
         kind: 'enemy_attack',
@@ -1553,6 +2105,9 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
         blocked,
         hpDamage,
         reflectedDamage,
+        clawRend: intent.clawRend,
+        heavySmash: intent.kind === 'heavy',
+        textLabel: gainedArmorOnHit > 0 ? `+${gainedArmorOnHit} ARM` : undefined,
       });
     }
 
@@ -1564,7 +2119,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
 
   let nextEnemies = combat.enemies.map((e, idx) => {
     const baseUnit = idx === enemyIndex ? updatedEnemy : { ...e };
-    if (bolsterAllAmount > 0 && baseUnit.hp > 0) {
+    if (bolsterAllAmount > 0 && baseUnit.hp > 0 && !baseUnit.escaped) {
       return { ...baseUnit, armor: baseUnit.armor + bolsterAllAmount };
     }
     return baseUnit;
@@ -1595,10 +2150,13 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
         ...combat,
         phase: 'DEFEAT',
         board: nextBoard,
+        drawPile: nextDrawPile,
         discardPile: nextDiscardPile,
         enemies: nextEnemies,
         lastCues: cues,
         totalDamageDealt,
+        tugOfWarMeter: nextTugOfWarMeter,
+        cradleObjective: nextCradleObjective,
       },
       enemiesDefeated: run.enemiesDefeated + defeatedNow,
       score: run.score + reflectedDamage * 2 + defeatedNow * 50,
@@ -1611,17 +2169,20 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       : { director: combat.director, enemies: nextEnemies };
   nextEnemies = directorReflectUpdate.enemies;
 
-  const anyLiving = nextEnemies.some((e) => e.hp > 0);
+  const anyLiving = hasHostileLivingEnemies(nextEnemies);
   if (!anyLiving) {
     let victoryCombat: CombatState = {
       ...combat,
       phase: 'VICTORY',
       board: nextBoard,
+      drawPile: nextDrawPile,
       discardPile: nextDiscardPile,
       enemies: nextEnemies,
       lastCues: cues,
       totalDamageDealt,
       director: directorReflectUpdate.director,
+      tugOfWarMeter: nextTugOfWarMeter,
+      cradleObjective: nextCradleObjective,
     };
     const victoryRewards = computeVictoryDirectorRewards(
       victoryCombat.rewardCredits,
@@ -1654,11 +2215,14 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       ...combat,
       phase: 'ENEMY_ACTING',
       board: nextBoard,
+      drawPile: nextDrawPile,
       discardPile: nextDiscardPile,
       enemies: nextEnemies,
       lastCues: cues,
       totalDamageDealt,
       director: directorReflectUpdate.director,
+      tugOfWarMeter: nextTugOfWarMeter,
+      cradleObjective: nextCradleObjective,
     },
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
     score: run.score + reflectedDamage * 2 + defeatedNow * 50,
@@ -1709,6 +2273,38 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
     }
   }
 
+  // Lingering Ticking Time-Bomb (Hot Potato) held on board detonates for 6 DMG
+  const lingeringHotPotatoCount = combat.board.filter((t) => Boolean(t.isHotPotato)).length;
+  if (lingeringHotPotatoCount > 0) {
+    const potatoDmg = lingeringHotPotatoCount * HOT_POTATO_SELF_DAMAGE;
+    const absPotato = absorbHeroDamage(nextHeroine.shield, nextHeroine.armor ?? 0, potatoDmg);
+    nextHeroine.shield = absPotato.nextShield;
+    nextHeroine.armor = absPotato.nextArmor;
+    const blockedPotato = absPotato.blockedByShield + absPotato.blockedByArmor;
+    const hpPotato = absPotato.hpDamage;
+    nextHeroine.hp = Math.max(0, nextHeroine.hp - hpPotato);
+    roundEndCues.push({
+      id: `cue_${combat.turn}_hot_potato_boom`,
+      kind: 'tile_blight',
+      value: potatoDmg,
+      blocked: blockedPotato,
+      hpDamage: hpPotato,
+      textLabel: `-${potatoDmg} TIME-BOMB!`,
+    });
+    if (nextHeroine.hp <= 0) {
+      return {
+        ...run,
+        screen: 'gameover',
+        heroine: nextHeroine,
+        combat: {
+          ...combat,
+          phase: 'DEFEAT',
+          lastCues: roundEndCues,
+        },
+      };
+    }
+  }
+
   const aegisRetained = hasImplant(implants, 'aegis_capacitor')
     ? Math.floor(nextHeroine.shield * 0.5)
     : 0;
@@ -1720,8 +2316,33 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
   // Damage boost decays by 10 percentage points at the end of each round
   nextHeroine.damageBoostPct = Math.max(0, nextHeroine.damageBoostPct - 10);
 
+  // Nanny-Bot Showroom automation: Guardian Nanny grants +4 Shield per round; Caretaker Nanny cleanses -1 Corrode & heals +2 HP
+  if (nextHeroine.nannyBotInstalled === 'guardian_nanny') {
+    nextHeroine.shield += 4;
+  } else if (nextHeroine.nannyBotInstalled === 'caretaker_nanny') {
+    nextHeroine.corrode = Math.max(0, nextHeroine.corrode - 1);
+    nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + 2);
+  }
+
+  // Maternal/Paternal Vanguard Escort: advance Neonatal Bio-Cradle survival turns
+  let nextCradleObjective = combat.cradleObjective ? { ...combat.cradleObjective } : undefined;
+  if (nextCradleObjective && nextCradleObjective.hp > 0) {
+    nextCradleObjective.turnsSurvived += 1;
+    if (
+      !nextCradleObjective.liberated &&
+      nextCradleObjective.turnsSurvived >= nextCradleObjective.targetTurns
+    ) {
+      nextCradleObjective.liberated = true;
+      nextHeroine.overdrive = Math.min(100, nextHeroine.overdrive + 20);
+    }
+  }
+
   const nextTurn = combat.turn + 1;
-  const heldBoard = combat.board.map((t) => ({ ...t, isHeldFromPrevTurn: true }));
+  const heldBoard = combat.board.map((t) => ({
+    ...t,
+    isHeldFromPrevTurn: true,
+    isHotPotato: undefined,
+  }));
   const drawTarget = BOARD_CAPACITY + Math.max(0, nextHeroine.pendingUpcharge ?? 0);
   const drawn = drawToSix(
     heldBoard,
@@ -1736,7 +2357,142 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
   const currentNode = run.mapNodes.find((n) => n.id === combat.nodeId);
   const layer = currentNode?.layer ?? 0;
 
-  let nextEnemies: EnemyUnit[] = combat.enemies.map((e) => ({ ...e, turnDamageTaken: 0 }));
+  // Process Loot Runner escape countdown & Bio-Husk corpse persistence / revival
+  const hasNecroCatalyst = combat.enemies.some(
+    (e) =>
+      e.hp > 0 &&
+      !e.escaped &&
+      !e.propKind &&
+      (e.archetype === 'boss' || e.archetype === 'spitter'),
+  );
+
+  let nextEnemies: EnemyUnit[] = combat.enemies.map((e) => {
+    // 1. Loot Runner countdown
+    if (e.hp > 0 && !e.escaped && e.isLootRunner) {
+      const nextEscape = (e.escapeTurnsLeft ?? 3) - 1;
+      if (nextEscape <= 0) {
+        roundEndCues.push({
+          id: `cue_${nextTurn}_escaped_${e.id}`,
+          kind: 'enemy_telegraph',
+          targetId: e.id,
+          value: 0,
+          textLabel: 'ESCAPED!',
+        });
+        return {
+          ...e,
+          hp: 0,
+          escapeTurnsLeft: 0,
+          escaped: true,
+          turnDamageTaken: 0,
+        };
+      }
+      return {
+        ...e,
+        escapeTurnsLeft: nextEscape,
+        turnDamageTaken: 0,
+      };
+    }
+
+    // 2. Bio-Husk revival countdown
+    if (e.hp > 0 && e.propKind === 'bio_husk') {
+      const nextRevive = (e.reviveTimer ?? 2) - 1;
+      if (nextRevive <= 0) {
+        const revArch = e.reviveArchetype ?? e.archetype;
+        const tpl = ENEMY_TEMPLATES[revArch];
+        const revMaxHp = e.reviveMaxHp ?? tpl.maxHp;
+        const revivedHp = Math.max(6, Math.ceil(revMaxHp * 0.5));
+        roundEndCues.push({
+          id: `cue_${nextTurn}_revived_${e.id}`,
+          kind: 'enemy_reinforce',
+          targetId: e.id,
+          value: revivedHp,
+          textLabel: 'HUSK REVIVED!',
+        });
+        return {
+          id: e.id,
+          archetype: revArch,
+          hp: revivedHp,
+          maxHp: revMaxHp,
+          armor: tpl.startingArmor,
+          shieldPips: 0,
+          maxShieldPips: tpl.startingShieldPips,
+          passive: tpl.passive,
+          roleColor: tpl.roleColor,
+          intentCycle: tpl.intentCycle.map((intent) => ({ ...intent })),
+          currentIntentIndex: 0,
+          huskSpawned: true,
+          isZeroReward: true,
+          turnDamageTaken: 0,
+        };
+      }
+      return {
+        ...e,
+        reviveTimer: nextRevive,
+        turnDamageTaken: 0,
+      };
+    }
+
+    // 3. Spawn Bio-Husk on dead non-prop unit when Boss is alive
+    if (
+      e.hp <= 0 &&
+      !e.escaped &&
+      !e.propKind &&
+      !e.huskSpawned &&
+      !e.isLootRunner &&
+      !e.isMercyTarget &&
+      hasNecroCatalyst &&
+      combat.enemies.some((b) => b.hp > 0 && b.archetype === 'boss')
+    ) {
+      const husk = createPropUnit('bio_husk', e.id, {
+        archetype: e.archetype,
+        maxHp: e.maxHp,
+      });
+      return {
+        ...husk,
+        id: e.id,
+        huskSpawned: true,
+      };
+    }
+
+    return { ...e, turnDamageTaken: 0 };
+  });
+
+  // If a lone Loot Runner escaped and no hostile enemies remain, end combat in Victory
+  if (!hasHostileLivingEnemies(nextEnemies)) {
+    let victoryCombat: CombatState = {
+      ...combat,
+      turn: nextTurn,
+      phase: 'VICTORY',
+      board: drawn.board,
+      drawPile: drawn.drawPile,
+      discardPile: drawn.discardPile,
+      enemies: nextEnemies,
+      lastCues: roundEndCues,
+      lastColorPlayed: null,
+      cradleObjective: nextCradleObjective,
+    };
+    const victoryRewards = computeVictoryDirectorRewards(
+      victoryCombat.rewardCredits,
+      victoryCombat.turn,
+      victoryCombat.director,
+    );
+    victoryCombat = {
+      ...victoryCombat,
+      rewardCredits: victoryRewards.totalCredits,
+      rewardBreakdown: victoryRewards.breakdown,
+      director: victoryRewards.director,
+    };
+    const transition = resolveCombatVictoryTransition(run, victoryCombat, nextHeroine);
+    return {
+      ...run,
+      screen: transition.screen,
+      heroine: transition.heroine,
+      mapNodes: transition.mapNodes,
+      combat: transition.combat,
+      turnsCompleted: run.turnsCompleted + 1,
+    };
+  }
+
   let nextBoard = clearDeadCasterHexes(drawn.board, nextEnemies);
   let nextDirector = combat.director;
   let directorCues: AnimationCue[] = [];
@@ -1761,7 +2517,7 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
 
   // Targeted Tile Hex (Turn 2+): living Spitter / Boss marks 1 high-value Attack/Defense tile
   for (const enemy of nextEnemies) {
-    if (enemy.hp <= 0) continue;
+    if (enemy.hp <= 0 || enemy.escaped || enemy.propKind) continue;
     if (enemy.passive !== 'acid_jam' && enemy.archetype !== 'boss') continue;
     const alreadyHasHex = nextBoard.some((t) => t.hexedByEnemyId === enemy.id);
     if (alreadyHasHex) continue;
@@ -1803,6 +2559,7 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
       lastCues: [...roundEndCues, ...directorCues],
       director: nextDirector,
       lastColorPlayed: null,
+      cradleObjective: nextCradleObjective,
     },
     turnsCompleted: run.turnsCompleted + 1,
   };
@@ -1974,14 +2731,28 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   const node: MapNode | undefined = run.mapNodes.find((n) => n.id === nodeId);
   if (!node) return run;
 
-  const ownedDefIds = run.heroine.ownedEquipment.map((eq) => eq.defId);
+  // Suburban Dome Charter: passing through a layer with a chartered Family Estate grants +12 CR & +5 HP dividend
+  let workingHeroine = { ...run.heroine };
+  if (
+    Array.isArray(workingHeroine.familyEstates) &&
+    workingHeroine.familyEstates.includes(node.layer)
+  ) {
+    workingHeroine = {
+      ...workingHeroine,
+      credits: workingHeroine.credits + 12,
+      hp: Math.min(workingHeroine.maxHp, workingHeroine.hp + 5),
+    };
+  }
+
+  const ownedDefIds = workingHeroine.ownedEquipment.map((eq) => eq.defId);
 
   if (node.type === 'CYBER_CLINIC') {
     return {
       ...run,
+      heroine: workingHeroine,
       currentNodeId: node.id,
       screen: 'clinic',
-      clinicChoices: pickClinicChoices(run.heroine.implants, run.seed + node.layer * 17),
+      clinicChoices: pickClinicChoices(workingHeroine.implants, run.seed + node.layer * 17),
       clinicShopChoices: [],
       clinicPurgeUsed: false,
       combat: null,
@@ -1992,6 +2763,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   if (node.type === 'CHIP_DEALER') {
     return {
       ...run,
+      heroine: workingHeroine,
       currentNodeId: node.id,
       screen: 'chip_dealer',
       clinicChoices: [],
@@ -2005,6 +2777,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   if (node.type === 'MED_BAY') {
     return {
       ...run,
+      heroine: workingHeroine,
       currentNodeId: node.id,
       screen: 'medbay',
       combat: null,
@@ -2016,10 +2789,11 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     const event = getCyberEventForNode(
       node,
       run.seed + node.layer * 23 + node.lane * 7,
-      run.heroine,
+      workingHeroine,
     );
     return {
       ...run,
+      heroine: workingHeroine,
       currentNodeId: node.id,
       screen: 'event',
       activeEvent: event,
@@ -2031,7 +2805,10 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     run.masterPool.map((t) => ({ ...t, isHeldFromPrevTurn: false })),
     run.seed + node.layer * 41 + node.lane * 13,
   );
-  const drawn = drawToSix([], initialPile, [], run.seed, 1);
+  const turn1ExtraDraw =
+    (workingHeroine.nannyBotInstalled === 'tutor_nanny' ? 1 : 0) +
+    (workingHeroine.activeTempoRule?.id === 'algo_rave_surge' ? 2 : 0);
+  const drawn = drawToSix([], initialPile, [], run.seed, 1, BOARD_CAPACITY + turn1ExtraDraw);
 
   const difficultyTier = run.difficultyTier ?? 3;
   const diff = getDifficultyProfile(difficultyTier);
@@ -2078,14 +2855,32 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     totalTilesResolved: 0,
     rewardCredits,
     rewardEquipmentChoices,
-    director: createCombatDirector(node.type, node.layer, run.heroine, difficultyTier),
-    startingHeroHp: run.heroine.hp,
+    director: createCombatDirector(node.type, node.layer, workingHeroine, difficultyTier),
+    startingHeroHp: workingHeroine.hp,
     committedUndosUsed: 0,
     battleResetsUsed: 0,
     failedAttempts: 0,
+    ...(node.type === 'ELITE'
+      ? {
+          cradleObjective: {
+            name: 'Neonatal Bio-Cradle',
+            hp: 18,
+            maxHp: 18,
+            turnsSurvived: 0,
+            targetTurns: 4,
+            liberated: false,
+          },
+        }
+      : {}),
   };
 
-  const heroSpec = getHeroSpec(run.heroine.characterId);
+  const heroSpec = getHeroSpec(workingHeroine.characterId);
+  const startShieldBonus =
+    (workingHeroine.nannyBotInstalled === 'guardian_nanny' ? 5 : 0) +
+    (workingHeroine.activeTempoRule?.id === 'kids_vitality_boost' ? 4 : 0);
+  const startOdBonus =
+    workingHeroine.activeTempoRule?.id === 'kids_vitality_boost' ? 25 : 0;
+
   return {
     ...run,
     currentNodeId: node.id,
@@ -2093,9 +2888,10 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     activeEvent: null,
     clinicPurgeUsed: false,
     heroine: {
-      ...run.heroine,
+      ...workingHeroine,
       armor: heroSpec.startingArmor,
-      shield: 0,
+      shield: startShieldBonus,
+      overdrive: Math.min(100, workingHeroine.overdrive + startOdBonus),
       corrode: 0,
       damageBoostPct: 0,
       pendingUpcharge: 0,
@@ -2157,9 +2953,12 @@ export function restockClinicShop(run: RunState): RunState {
 }
 
 export function skipChipDealer(run: RunState): RunState {
+  const nextHeroine = advanceNodeDynastyProgress(run.heroine);
   return {
     ...run,
     screen: 'map',
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
     mapNodes: markNodeCleared(run.mapNodes, run.currentNodeId),
     combat: null,
   };
@@ -2191,6 +2990,386 @@ export function purgeClinicInnateTile(run: RunState, tileId: string): RunState {
   };
 }
 
+/**
+ * Ectogenesis Nursery / Stork Clinic: places a tile into an artificial womb pod for 3 nodes.
+ * While incubating, it leaves the active pool; after 3 nodes, it returns as a Next-Gen Prodigy tile
+ * with 2x base stats and +1 UpCharge.
+ */
+export function incubateStorkTile(run: RunState, tileId: string): RunState {
+  if (run.screen !== 'clinic') return run;
+  if (run.heroine.incubatingTile) return run;
+  if (run.masterPool.length <= 4) return run;
+
+  const targetTile = run.masterPool.find((t) => t.id === tileId);
+  if (!targetTile) return run;
+
+  const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
+  const cost = currentNode?.modifier === 'funded_clinic' ? 0 : 15;
+  if (run.heroine.credits < cost) return run;
+
+  const traits: Array<'upcharge' | 'pierce_boost' | 'shield_aura'> = [
+    'upcharge',
+    'pierce_boost',
+    'shield_aura',
+  ];
+  const inheritedTrait = traits[Math.abs(run.seed + tileId.length) % traits.length];
+
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    credits: run.heroine.credits - cost,
+    incubatingTile: {
+      tile: { ...targetTile },
+      nodesRemaining: 3,
+      inheritedTrait,
+    },
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    score: run.score + 25,
+  };
+}
+
+/**
+ * Gene-Splice Pedigree Lab: marries two distinct tile archetypes into a unified Family Crest.
+ * Playing one archetype charges the married archetype (+2 flat value & +1 UpCharge on its next resolution).
+ */
+export function marryBloodlineCrest(
+  run: RunState,
+  primary: TileType,
+  secondary: TileType,
+): RunState {
+  if (run.screen !== 'clinic' && run.screen !== 'medbay') return run;
+  if (primary === secondary) return run;
+
+  const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
+  const cost = currentNode?.modifier === 'funded_clinic' ? 0 : 20;
+  if (run.heroine.credits < cost) return run;
+
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    credits: run.heroine.credits - cost,
+    bloodlineCrest: {
+      primary,
+      secondary,
+      bonusValue: 2,
+    },
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    score: run.score + 30,
+  };
+}
+
+/**
+ * Charter Academy / Upcycle Kiosk: enrolls an innate or Dud tile to educate it into a specialized
+ * Prodigy tile (value 6+, +1 UpCharge, Dud removed) and buffs adjacent innate tiles by +1.
+ */
+export function enrollCharterProdigyTile(run: RunState, tileId: string): RunState {
+  if (run.screen !== 'clinic') return run;
+  const targetTile = run.masterPool.find((t) => t.id === tileId && t.sourceId === 'innate');
+  if (!targetTile) return run;
+
+  const prevProdigies = run.heroine.prodigyTileIds ?? [];
+  if (prevProdigies.includes(tileId)) return run;
+
+  const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
+  const cost = currentNode?.modifier === 'funded_clinic' ? 0 : 15;
+  if (run.heroine.credits < cost) return run;
+
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    credits: run.heroine.credits - cost,
+    prodigyTileIds: [...prevProdigies, tileId],
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    score: run.score + 25,
+  };
+}
+
+/**
+ * Open-Source FabLab (Dual-Channel Tile Splicing): merges two tiles into one custom Dual-Channel Hybrid Tile
+ * with combined value, +1 UpCharge, and a secondary channel effect on the 6-slot board.
+ */
+export function spliceFabLabTiles(
+  run: RunState,
+  targetTileId: string,
+  consumedTileId: string,
+): RunState {
+  if (run.screen !== 'clinic') return run;
+  if (targetTileId === consumedTileId) return run;
+  if (run.masterPool.length <= 4) return run;
+
+  const targetTile = run.masterPool.find((t) => t.id === targetTileId);
+  const consumedTile = run.masterPool.find((t) => t.id === consumedTileId);
+  if (!targetTile || !consumedTile) return run;
+
+  const prevSplices = run.heroine.splicedTilePairs ?? [];
+  if (
+    prevSplices.some(
+      (p) =>
+        p.targetId === targetTileId ||
+        p.consumedId === consumedTileId ||
+        p.targetId === consumedTileId,
+    )
+  ) {
+    return run;
+  }
+
+  const bonusValue = Math.max(3, Math.ceil(consumedTile.value * 0.75));
+  const secondaryValue = Math.max(3, Math.ceil(consumedTile.value * 0.65));
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    splicedTilePairs: [
+      ...prevSplices,
+      {
+        targetId: targetTileId,
+        consumedId: consumedTileId,
+        bonusValue,
+        bonusUpcharge: 1,
+        secondaryType: consumedTile.type !== targetTile.type ? consumedTile.type : undefined,
+        secondaryValue,
+      },
+    ],
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    score: run.score + 30,
+  };
+}
+
+/**
+ * Heirloom Forge: engraves an owned AI Skill Chip as a Family Heirloom.
+ * Gains +1 stat per combat won this run and is saved to cross-run persistence for future runs.
+ */
+export function engraveHeirloom(run: RunState, targetDefId: string): RunState {
+  const ownsTarget = run.heroine.ownedEquipment.some(
+    (eq) => eq.defId === targetDefId || eq.instanceId === targetDefId,
+  );
+  if (!ownsTarget) return run;
+
+  const resolvedDefId =
+    run.heroine.ownedEquipment.find(
+      (eq) => eq.defId === targetDefId || eq.instanceId === targetDefId,
+    )?.defId ?? targetDefId;
+
+  const nextStacks = Math.max(1, (run.heroine.heirloomStacks ?? 0) + 1);
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    heirloomEngravedId: resolvedDefId,
+    heirloomStacks: nextStacks,
+  };
+  saveInheritedHeirloom(resolvedDefId, nextStacks);
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    score: run.score + 20,
+  };
+}
+
+/**
+ * Nanny-Bot Showroom: installs a persistent domestic automation bot in ChipDealerView.
+ */
+export function adoptNannyBot(run: RunState, botId: NannyBotId): RunState {
+  if (run.screen !== 'chip_dealer') return run;
+  if (run.heroine.nannyBotInstalled === botId) return run;
+
+  const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
+  const cost = currentNode?.modifier === 'flash_sale' ? 16 : 25;
+  if (run.heroine.credits < cost) return run;
+
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    credits: run.heroine.credits - cost,
+    nannyBotInstalled: botId,
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    score: run.score + 25,
+  };
+}
+
+/**
+ * Beta-Test Arcade: claims a free experimental AI Skill Chip for 2 combats.
+ * Resolving 5+ tiles in combat logs bug telemetry and permanently upgrades the Master Tile Pool.
+ */
+export function startBetaTrialChip(run: RunState, defId?: string): RunState {
+  if (run.screen !== 'chip_dealer') return run;
+  if (run.heroine.betaTrialChip) return run;
+
+  const chosenDefId =
+    defId && EQUIPMENT_BY_ID[defId]
+      ? defId
+      : run.clinicShopChoices[0] ?? 'upcharge_pulse_chip';
+
+  const withEq = acquireEquipment(run, chosenDefId, true);
+  const nextHeroine: HeroineState = {
+    ...withEq.heroine,
+    betaTrialChip: {
+      defId: chosenDefId,
+      combatsRemaining: 2,
+      resolvesLogged: 0,
+      upgraded: false,
+    },
+  };
+
+  return {
+    ...withEq,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    score: withEq.score + 15,
+  };
+}
+
+/**
+ * Mesh-Net Relay Tower: active route manipulation on the Sector Map.
+ * Connects the current cleared node to any target node in the next layer so the player can jump across branches.
+ */
+export function rerouteMeshNetNode(run: RunState, targetNodeId: string): RunState {
+  const maxReroutes = run.mapNodes.length >= 17 ? 2 : 1;
+  if ((run.heroine.meshReroutesUsed ?? 0) >= maxReroutes) return run;
+  const targetNode = run.mapNodes.find((n) => n.id === targetNodeId);
+  if (!targetNode || targetNode.cleared) return run;
+
+  const clearedNodes = run.mapNodes.filter((n) => n.cleared);
+  const maxClearedLayer =
+    clearedNodes.length > 0 ? Math.max(...clearedNodes.map((n) => n.layer)) : -1;
+  if (targetNode.layer !== maxClearedLayer + 1) return run;
+
+  const anchorNode =
+    run.mapNodes.find((n) => n.id === run.currentNodeId && n.cleared) ??
+    clearedNodes.find((n) => n.layer === maxClearedLayer);
+  if (!anchorNode) return run;
+  if (anchorNode.nextIds.includes(targetNodeId)) return run;
+
+  const nextMapNodes = run.mapNodes.map((n) =>
+    n.id === anchorNode.id ? { ...n, nextIds: [...n.nextIds, targetNodeId] } : n,
+  );
+
+  return {
+    ...run,
+    heroine: {
+      ...run.heroine,
+      meshReroutesUsed: (run.heroine.meshReroutesUsed ?? 0) + 1,
+    },
+    mapNodes: nextMapNodes,
+    score: run.score + 15,
+  };
+}
+
+/**
+ * Suburban Dome Charter: invests 20 Credits to establish a Family Estate on a map tier,
+ * granting +12 CR and +5 HP dividend whenever entering a node on that tier (plus immediate +5 HP).
+ */
+export function charterSuburbanEstate(run: RunState, layer?: number): RunState {
+  const cost = 20;
+  if (run.heroine.credits < cost) return run;
+
+  const maxLayer = run.mapNodes.reduce((acc, n) => Math.max(acc, n.layer), 4);
+  const clearedNodes = run.mapNodes.filter((n) => n.cleared);
+  const maxClearedLayer =
+    clearedNodes.length > 0 ? Math.max(...clearedNodes.map((n) => n.layer)) : 0;
+  const targetLayer = layer ?? Math.min(maxLayer, maxClearedLayer + 1);
+
+  const prevEstates = run.heroine.familyEstates ?? [];
+  if (prevEstates.includes(targetLayer)) return run;
+
+  const nextHeroine: HeroineState = {
+    ...run.heroine,
+    credits: run.heroine.credits - cost,
+    hp: Math.min(run.heroine.maxHp, run.heroine.hp + 5),
+    familyEstates: [...prevEstates, targetLayer],
+  };
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    score: run.score + 20,
+  };
+}
+
+/**
+ * Mag-Lev Transit Hub (Express Line Skip): connects the current cleared node directly
+ * to a node 2 stages ahead (layer + 2, before the Boss), granting +25 CR transit dividend
+ * and advancing Stork Tile Incubation by 1 extra stage.
+ */
+export function rideMagLevExpress(run: RunState, targetNodeId?: string): RunState {
+  if (run.heroine.maglevUsed) return run;
+
+  const maxLayer = run.mapNodes.reduce((acc, n) => Math.max(acc, n.layer), 4);
+  const clearedNodes = run.mapNodes.filter((n) => n.cleared);
+  const maxClearedLayer =
+    clearedNodes.length > 0 ? Math.max(...clearedNodes.map((n) => n.layer)) : -1;
+  if (maxClearedLayer < 0) return run;
+
+  const anchorNode =
+    run.mapNodes.find((n) => n.id === run.currentNodeId && n.cleared) ??
+    clearedNodes.find((n) => n.layer === maxClearedLayer);
+  if (!anchorNode) return run;
+
+  const expressLayer = Math.min(maxLayer - 1, anchorNode.layer + 2);
+  if (expressLayer <= anchorNode.layer) return run;
+
+  const candidates = run.mapNodes.filter((n) => n.layer === expressLayer && !n.cleared);
+  if (candidates.length === 0) return run;
+
+  const targetNode =
+    (targetNodeId ? candidates.find((n) => n.id === targetNodeId) : undefined) ??
+    candidates.find((n) => n.lane === anchorNode.lane) ??
+    candidates[0];
+
+  const nextMapNodes = run.mapNodes.map((n) =>
+    n.id === anchorNode.id && !n.nextIds.includes(targetNode.id)
+      ? { ...n, nextIds: [...n.nextIds, targetNode.id] }
+      : n,
+  );
+
+  let nextHeroine: HeroineState = {
+    ...run.heroine,
+    maglevUsed: true,
+    credits: run.heroine.credits + 25,
+    corrode: Math.max(0, run.heroine.corrode - 2),
+  };
+  nextHeroine = advanceNodeDynastyProgress(nextHeroine);
+
+  return {
+    ...run,
+    heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
+    mapNodes: nextMapNodes,
+    score: run.score + 30,
+  };
+}
+
+export function switchActiveCyberEvent(run: RunState, eventId: string): RunState {
+  if (run.screen !== 'event') return run;
+  const allTemplates = [...CYBER_EVENT_TEMPLATES, ...DYNASTY_EVENT_TEMPLATES];
+  const found = allTemplates.find((tpl) => tpl.id === eventId);
+  if (!found) return run;
+  return {
+    ...run,
+    activeEvent: {
+      ...found,
+      choices: found.choices.map((c) => ({ ...c })),
+    },
+  };
+}
+
 export function installCyberImplant(
   run: RunState,
   implantId: CyberImplantId,
@@ -2211,14 +3390,16 @@ export function installCyberImplant(
   }
 
   const nextMapNodes = markNodeCleared(run.mapNodes, run.currentNodeId);
+  const progressedHeroine = advanceNodeDynastyProgress({
+    ...run.heroine,
+    implants: nextImplants,
+  });
 
   return {
     ...run,
     screen: 'map',
-    heroine: {
-      ...run.heroine,
-      implants: nextImplants,
-    },
+    heroine: progressedHeroine,
+    masterPool: rebuildMasterPool(progressedHeroine),
     mapNodes: nextMapNodes,
     combat: null,
     score: run.score + 40,
@@ -2226,17 +3407,29 @@ export function installCyberImplant(
 }
 
 export function skipCyberClinic(run: RunState): RunState {
+  const progressedHeroine = advanceNodeDynastyProgress(run.heroine);
   return {
     ...run,
     screen: 'map',
+    heroine: progressedHeroine,
+    masterPool: rebuildMasterPool(progressedHeroine),
     mapNodes: markNodeCleared(run.mapNodes, run.currentNodeId),
     combat: null,
   };
 }
 
+export type MedBayActionKind =
+  | 'heal'
+  | 'calibrate_max_hp'
+  | 'salvage_credits'
+  | 'tile_overclock'
+  | 'hearth_grandparents'
+  | 'hearth_spouse'
+  | 'hearth_kids';
+
 export function applyMedBayAction(
   run: RunState,
-  action: 'heal' | 'calibrate_max_hp' | 'salvage_credits' | 'tile_overclock',
+  action: MedBayActionKind,
 ): RunState {
   if (action === 'tile_overclock' && (run.heroine.overclockCount ?? 0) >= MAX_OVERCLOCK_STACKS) {
     return run;
@@ -2248,7 +3441,6 @@ export function applyMedBayAction(
     ...run.heroine,
     consecutiveCombatWithoutClinic: 0, // Reset combat streak at clinic
   };
-  let nextMasterPool = run.masterPool;
   const nextScreen: ScreenPhase = 'map';
   let scoreBonus = 30;
 
@@ -2276,7 +3468,43 @@ export function applyMedBayAction(
       corrode: 0,
       overclockCount: Math.min(MAX_OVERCLOCK_STACKS, (nextHeroine.overclockCount ?? 0) + 1),
     };
-    nextMasterPool = rebuildMasterPool(nextHeroine);
+    scoreBonus = 35;
+  } else if (action === 'hearth_grandparents') {
+    // Smart-Hearth Compound (Grandparents' Wisdom): educate a starter/Dud innate tile into a Prodigy & cleanse Corrode +12 HP
+    const candidateInnate = run.masterPool.find(
+      (t) =>
+        t.sourceId === 'innate' &&
+        !(nextHeroine.prodigyTileIds ?? []).includes(t.id),
+    );
+    nextHeroine = {
+      ...nextHeroine,
+      hp: Math.min(nextHeroine.maxHp, nextHeroine.hp + 12),
+      corrode: 0,
+      prodigyTileIds: candidateInnate
+        ? [...(nextHeroine.prodigyTileIds ?? []), candidateInnate.id]
+        : nextHeroine.prodigyTileIds,
+      overclockCount: Math.min(MAX_OVERCLOCK_STACKS, (nextHeroine.overclockCount ?? 0) + 1),
+    };
+    scoreBonus = 40;
+  } else if (action === 'hearth_spouse') {
+    // Smart-Hearth Compound (Spouse Synergy): link Attack & Defense into a Bloodline Crest & restore +14 HP
+    nextHeroine = {
+      ...nextHeroine,
+      hp: Math.min(nextHeroine.maxHp, nextHeroine.hp + 14),
+      bloodlineCrest: nextHeroine.bloodlineCrest ?? {
+        primary: 'attack',
+        secondary: 'defense',
+        bonusValue: 2,
+      },
+    };
+    scoreBonus = 35;
+  } else if (action === 'hearth_kids') {
+    // Smart-Hearth Compound (The Kids' Vitality): restore +22 HP & burst energy/Overdrive for next 2 fights
+    nextHeroine = {
+      ...nextHeroine,
+      hp: Math.min(nextHeroine.maxHp, nextHeroine.hp + 22),
+      overdrive: Math.min(100, nextHeroine.overdrive + 25),
+    };
     scoreBonus = 35;
   }
 
@@ -2284,6 +3512,18 @@ export function applyMedBayAction(
     // Funded Clinic sponsorship: automatic +12 bonus repair (applied after calibrate_max_hp so maxHp raise isn't wasted)
     nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + 12);
   }
+
+  nextHeroine = advanceNodeDynastyProgress(nextHeroine);
+  if (action === 'hearth_kids') {
+    nextHeroine = {
+      ...nextHeroine,
+      activeTempoRule: {
+        id: 'kids_vitality_boost',
+        nodesRemaining: 2,
+      },
+    };
+  }
+  const nextMasterPool = rebuildMasterPool(nextHeroine);
 
   return {
     ...run,
@@ -2306,7 +3546,27 @@ export function resolveCyberEventChoice(run: RunState, choiceIndex: number): Run
   if (run.heroine.credits < costCredits) return run;
   if (run.heroine.hp <= hpCost && hpCost > 0) return run;
 
-  const nextHeroine: HeroineState = {
+  let nextImplants = run.heroine.implants.slice();
+  if (choice.rewardFreeImplant && nextImplants.length < MAX_IMPLANTS) {
+    const unowned = CYBER_IMPLANT_IDS.filter((id) => !nextImplants.includes(id));
+    if (unowned.length > 0) {
+      nextImplants = [...nextImplants, unowned[Math.abs(run.seed + choiceIndex) % unowned.length]];
+    }
+  }
+
+  let nextHeirloomId = run.heroine.heirloomEngravedId ?? null;
+  let nextHeirloomStacks = run.heroine.heirloomStacks ?? 0;
+  if (choice.rewardHeirloomStacks && choice.rewardHeirloomStacks > 0) {
+    if (!nextHeirloomId && run.heroine.ownedEquipment.length > 0) {
+      nextHeirloomId = run.heroine.ownedEquipment[0].defId;
+    }
+    nextHeirloomStacks += choice.rewardHeirloomStacks;
+    if (nextHeirloomId) {
+      saveInheritedHeirloom(nextHeirloomId, nextHeirloomStacks);
+    }
+  }
+
+  let nextHeroine: HeroineState = {
     ...run.heroine,
     credits: run.heroine.credits - costCredits + (choice.rewardCredits ?? 0),
     hp: Math.min(
@@ -2316,14 +3576,29 @@ export function resolveCyberEventChoice(run: RunState, choiceIndex: number): Run
     overdrive: Math.min(100, run.heroine.overdrive + (choice.rewardOverdrive ?? 0)),
     damageBoostPct: run.heroine.damageBoostPct + (choice.rewardDamageBoostPct ?? 0),
     nanites: (run.heroine.nanites ?? 0) + (choice.rewardNanites ?? 0),
+    implants: nextImplants,
+    heirloomEngravedId: nextHeirloomId,
+    heirloomStacks: nextHeirloomStacks,
+    ...(choice.rewardScionHouse ? { scionAlliedHouse: choice.rewardScionHouse } : {}),
   };
 
+  nextHeroine = advanceNodeDynastyProgress(nextHeroine);
+  if (choice.applyTempoRule) {
+    nextHeroine = {
+      ...nextHeroine,
+      activeTempoRule: {
+        id: choice.applyTempoRule,
+        nodesRemaining: choice.applyTempoRule === 'algo_rave_surge' ? 3 : 2,
+      },
+    };
+  }
   const nextMapNodes = markNodeCleared(run.mapNodes, run.currentNodeId);
 
   return {
     ...run,
     screen: 'map',
     heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
     activeEvent: null,
     mapNodes: nextMapNodes,
     combat: null,
@@ -2344,12 +3619,35 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
   const streak = (run.heroine.consecutiveCombatWithoutClinic ?? 0) + 1;
   const streakBonusCredits = Math.min(25, Math.round(combat.rewardCredits * 0.10 * (streak - 1)));
 
+  // Maternal/Paternal Vanguard Escort: keeping the Neonatal Bio-Cradle intact grants +25 CR & unlocks Dynasty Relic
+  const cradleIntact =
+    combat.nodeType === 'ELITE' &&
+    Boolean(combat.cradleObjective && combat.cradleObjective.hp > 0);
+  const cradleBonusCredits = cradleIntact ? 25 : 0;
+
   let nextHeroine: HeroineState = {
     ...run.heroine,
-    credits: run.heroine.credits + combat.rewardCredits + salvageBonus + streakBonusCredits,
+    credits:
+      run.heroine.credits +
+      combat.rewardCredits +
+      salvageBonus +
+      streakBonusCredits +
+      cradleBonusCredits,
     nanites: (run.heroine.nanites ?? 0) + naniteReward,
     consecutiveCombatWithoutClinic: streak,
+    ...(cradleIntact ? { dynastyRelicUnlocked: true } : {}),
   };
+
+  // Heirloom Forge: engraved family heirloom gains +1 scaling power per combat won this run
+  if (nextHeroine.heirloomEngravedId) {
+    const engravedId = nextHeroine.heirloomEngravedId;
+    const nextStacks = (nextHeroine.heirloomStacks ?? 0) + 1;
+    nextHeroine = {
+      ...nextHeroine,
+      heirloomStacks: nextStacks,
+    };
+    saveInheritedHeirloom(engravedId, Math.max(1, Math.ceil(nextStacks / 2)));
+  }
 
   // Emergency Defibrillator Safety Net: single-use +15% Max HP restoration when surviving an Elite with <= 15% HP
   if (
@@ -2368,16 +3666,35 @@ export function claimCombatEquipmentReward(run: RunState, chosenDefId: string | 
     nextHeroine.hp = Math.min(nextHeroine.maxHp, nextHeroine.hp + recovery);
   }
 
+  nextHeroine = advanceNodeDynastyProgress(nextHeroine);
+
   let nextRun: RunState = {
     ...run,
     heroine: nextHeroine,
+    masterPool: rebuildMasterPool(nextHeroine),
   };
 
   if (chosenDefId && combat.rewardEquipmentChoices.includes(chosenDefId)) {
     nextRun = acquireEquipment(nextRun, chosenDefId, true);
   }
 
-  const nextMapNodes = markNodeCleared(nextRun.mapNodes, combat.nodeId);
+  let nextMapNodes = markNodeCleared(nextRun.mapNodes, combat.nodeId);
+
+  // Data Liberation / Vanguard Escort reward: liberate connected Clinic / MedBay / Chip Dealer nodes
+  if (cradleIntact) {
+    const eliteNode = nextMapNodes.find((n) => n.id === combat.nodeId);
+    const liberatedIds = new Set(eliteNode?.nextIds ?? []);
+    nextMapNodes = nextMapNodes.map((n) => {
+      if (!liberatedIds.has(n.id)) return n;
+      if (n.type === 'CYBER_CLINIC' || n.type === 'MED_BAY') {
+        return { ...n, modifier: 'funded_clinic' };
+      }
+      if (n.type === 'CHIP_DEALER') {
+        return { ...n, modifier: 'flash_sale' };
+      }
+      return n;
+    });
+  }
 
   if (combat.nodeType === 'ELITE') {
     return {
@@ -2441,12 +3758,20 @@ export function createInitialRun(
   seed = 104729,
   characterId: CharacterId = 'kira',
   difficultyTier: DifficultyTier = 3,
+  inheritHeirloom = false,
 ): RunState {
   const diff = getDifficultyProfile(difficultyTier);
   const mapNodes = generateSectorMap(seed, difficultyTier);
   const startingEq = createStartingEquipment(characterId);
   const heroSpec = getHeroSpec(characterId);
   const scaledMaxHp = heroSpec.maxHp + diff.heroMaxHpDelta;
+
+  const inherited = inheritHeirloom ? loadBestRecord().inheritedHeirloom : null;
+  const starterHeirloomId = inherited
+    ? startingEq.ownedEquipment[0]?.defId ?? inherited.defId
+    : null;
+  const starterHeirloomStacks = inherited ? Math.max(1, inherited.bonusStacks) : 0;
+
   const baseHeroine: HeroineState = {
     characterId,
     hp: scaledMaxHp,
@@ -2467,6 +3792,20 @@ export function createInitialRun(
     consecutiveCombatWithoutClinic: 0,
     emergencyDefibUsed: false,
     overclockCount: 0,
+    incubatingTile: null,
+    maturedNextGenTiles: {},
+    bloodlineCrest: null,
+    prodigyTileIds: [],
+    splicedTilePairs: [],
+    heirloomEngravedId: starterHeirloomId,
+    heirloomStacks: starterHeirloomStacks,
+    nannyBotInstalled: null,
+    betaTrialChip: null,
+    activeTempoRule: null,
+    familyEstates: [],
+    meshReroutesUsed: 0,
+    scionAlliedHouse: null,
+    dynastyRelicUnlocked: false,
   };
 
   const baseRun: RunState = {

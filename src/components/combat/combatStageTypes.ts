@@ -3,7 +3,11 @@ import type { CharacterId, EnemyArchetype, EnemyIntent } from '../../engine/type
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import type { CrawlerVariant } from '../../utils/crawlerSpriteSheet';
 import { type HeroineAnimState, createInitialHeroineAnimState } from '../../utils/heroineSpriteSheet';
+import type { FrameTransitionInput } from '../../utils/spriteSheetAnim';
+import type { BruteJuiceState } from '../../utils/bruteJuiceController';
+import type { SpitterJuiceState } from '../../utils/spitterJuiceController';
 import type { SpriteBounds } from '../../utils/spriteCutout';
+import { CombatActionSequencer, type SequencerFrameState } from './CombatActionSequencer';
 import type { BloodOwnerKind, BloodShapeKind } from './mutantBlood';
 
 /**
@@ -23,6 +27,7 @@ export const FLOOR_BLOOD_POOL_SIZE = 240;
 export const COVER_BLOOD_POOL_SIZE = 128;
 export const EDGE_DRIP_POOL_SIZE = 96;
 export const SCREEN_BLOOD_POOL_SIZE = 28;
+export const FLOOR_FISSURE_POOL_SIZE = 12;
 
 export function getBridgeGroundY(h: number): number {
   return Math.round(h * 0.785);
@@ -35,9 +40,9 @@ export const ENEMY_FOOT_DEFAULTS: Record<
   larva: { bottomRatio: 0.972, farFootOffsetRatio: 0.032, centerXRatio: 0.56 },
   skitter: { bottomRatio: 0.972, farFootOffsetRatio: 0.034, centerXRatio: 0.56 },
   stinger: { bottomRatio: 0.984, farFootOffsetRatio: 0.036, centerXRatio: 0.56 },
-  stalker: { bottomRatio: 0.908, farFootOffsetRatio: 0.052, centerXRatio: 0.5 },
-  spitter: { bottomRatio: 0.918, farFootOffsetRatio: 0.036, centerXRatio: 0.49 },
-  brute: { bottomRatio: 0.938, farFootOffsetRatio: 0.044, centerXRatio: 0.51 },
+  stalker: { bottomRatio: 0.96, farFootOffsetRatio: 0.042, centerXRatio: 0.51 },
+  spitter: { bottomRatio: 0.96, farFootOffsetRatio: 0.036, centerXRatio: 0.5 },
+  brute: { bottomRatio: 0.96, farFootOffsetRatio: 0.044, centerXRatio: 0.5 },
   boss: { bottomRatio: 0.976, farFootOffsetRatio: 0.036, centerXRatio: 0.5 },
 };
 
@@ -51,7 +56,25 @@ export interface Particle {
   maxLife: number;
   size: number;
   color: string;
-  shape: number; // 0 = circle spark, 1 = shard diamond, 2 = acid drop
+  shape: number; // 0 = circle spark, 1 = shard diamond, 2 = acid drop, 3 = bouncing chitin/glass shard, 4 = soft mutagen mist cloud
+  rot: number;
+  vRot: number;
+  gravity: number;
+  floorY: number;
+  bounced: boolean;
+}
+
+export interface FloorFissure {
+  active: boolean;
+  x: number;
+  y: number;
+  scale: number;
+  seed: number;
+  createdTurn: number;
+  visualTurnAge: number;
+  age: number;
+  alpha: number;
+  heatIntensity: number;
 }
 
 export interface BloodDroplet {
@@ -201,7 +224,7 @@ export interface PlasmaBolt {
 }
 
 export interface PendingImpact {
-  triggerOn: 'shot1' | 'shot2' | 'kick' | 'delay';
+  triggerOn: 'shot1' | 'shot2' | 'kick' | 'delay' | 'cutin_impact';
   delayRemaining: number;
   execute: () => void;
 }
@@ -226,6 +249,11 @@ export interface ActorAnim {
   bleedSpurtTimer: number;
   attackAnimTimer: number;
   attackAnimDuration: number;
+  spitterAttackKind?: 'spit' | 'claw';
+  bruteAttackKind?: 'heavy' | 'attack';
+  bristleTimer: number;
+  bristleDuration: number;
+  bristleKind: 'armor' | 'retaliate' | 'pustule_rupture';
 }
 
 export interface EnemyCutoutEntry {
@@ -273,6 +301,8 @@ export interface CombatStageSim {
   screenBlood: ScreenBloodDrop[];
   screenBloodCursor: number;
   screenBloodCooldown: number;
+  floorFissures: FloorFissure[];
+  floorFissureCursor: number;
   texts: FloatingText[];
   textCursor: number;
   bolts: PlasmaBolt[];
@@ -289,11 +319,27 @@ export interface CombatStageSim {
   zuriDroneFrames: HTMLCanvasElement[] | null;
   enemyCutouts: Map<EnemyArchetype, EnemyCutoutEntry>;
   crawlerFrames: Map<CrawlerVariant, HTMLCanvasElement[]>;
+  stalkerFrames: HTMLCanvasElement[] | null;
+  stalkerTransitions: Map<string, FrameTransitionInput>;
+  spitterFrames: HTMLCanvasElement[] | null;
+  spitterTransitions: Map<string, FrameTransitionInput>;
+  spitterJuiceStates: Map<string, SpitterJuiceState>;
+  bruteFrames: HTMLCanvasElement[] | null;
+  bruteTransitions: Map<string, FrameTransitionInput>;
+  bruteJuiceStates: Map<string, BruteJuiceState>;
+  lastFrameDt: number;
   size: { w: number; h: number };
   dpr: number;
   cameraZoom: number;
   cameraPanX: number;
   cameraPanY: number;
+  cameraRotRad: number;
+  actionSequencer: CombatActionSequencer;
+  lastSeqFrame: SequencerFrameState | null;
+  batchMicroTimerRemaining: number;
+  batchActiveKey: string;
+  lastCompletedBatchKey: string;
+  onBatchComplete?: (batchKey: string) => void;
   needsRedraw: boolean;
 }
 
@@ -311,6 +357,11 @@ export function createCombatStageSim(): CombatStageSim {
       size: 3,
       color: '#00E5FF',
       shape: 0,
+      rot: 0,
+      vRot: 0,
+      gravity: 280,
+      floorY: 9999,
+      bounced: false,
     });
   }
 
@@ -449,6 +500,22 @@ export function createCombatStageSim(): CombatStageSim {
     });
   }
 
+  const floorFissures: FloorFissure[] = [];
+  for (let i = 0; i < FLOOR_FISSURE_POOL_SIZE; i++) {
+    floorFissures.push({
+      active: false,
+      x: 0,
+      y: 0,
+      scale: 1,
+      seed: i * 1.91,
+      createdTurn: 1,
+      visualTurnAge: 0,
+      age: 0,
+      alpha: 0.95,
+      heatIntensity: 1,
+    });
+  }
+
   const texts: FloatingText[] = [];
   for (let i = 0; i < TEXT_POOL_SIZE; i++) {
     texts.push({
@@ -520,6 +587,9 @@ export function createCombatStageSim(): CombatStageSim {
       bleedSpurtTimer: 0,
       attackAnimTimer: 0,
       attackAnimDuration: 0.52,
+      bristleTimer: 0,
+      bristleDuration: 0.5,
+      bristleKind: 'armor',
     },
     ghosts: [],
     ghostSampleTimer: 0,
@@ -538,9 +608,11 @@ export function createCombatStageSim(): CombatStageSim {
     coverBloodCursor: 0,
     edgeDrips,
     edgeDripCursor: 0,
-    screenBlood,
+    screenBlood: screenBlood,
     screenBloodCursor: 0,
     screenBloodCooldown: 0,
+    floorFissures,
+    floorFissureCursor: 0,
     texts,
     textCursor: 0,
     bolts,
@@ -557,11 +629,26 @@ export function createCombatStageSim(): CombatStageSim {
     zuriDroneFrames: null,
     enemyCutouts: new Map(),
     crawlerFrames: new Map(),
+    stalkerFrames: null,
+    stalkerTransitions: new Map(),
+    spitterFrames: null,
+    spitterTransitions: new Map(),
+    spitterJuiceStates: new Map(),
+    bruteFrames: null,
+    bruteTransitions: new Map(),
+    bruteJuiceStates: new Map(),
+    lastFrameDt: 0.016,
     size: { w: 1200, h: 420 },
     dpr: 1,
     cameraZoom: 1,
     cameraPanX: 0,
     cameraPanY: 0,
+    cameraRotRad: 0,
+    actionSequencer: new CombatActionSequencer(),
+    lastSeqFrame: null,
+    batchMicroTimerRemaining: 0,
+    batchActiveKey: '',
+    lastCompletedBatchKey: '',
     needsRedraw: true,
   };
 }
@@ -573,6 +660,12 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.cameraZoom = 1;
   sim.cameraPanX = 0;
   sim.cameraPanY = 0;
+  sim.cameraRotRad = 0;
+  sim.actionSequencer.reset();
+  sim.lastSeqFrame = null;
+  sim.batchMicroTimerRemaining = 0;
+  sim.batchActiveKey = '';
+  sim.lastCompletedBatchKey = '';
   sim.slashArcTimer = 0;
   sim.kickWaveTimer = 0;
   sim.shieldDomeTimer = 0;
@@ -594,6 +687,9 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
     bleedSpurtTimer: 0,
     attackAnimTimer: 0,
     attackAnimDuration: 0.52,
+    bristleTimer: 0,
+    bristleDuration: 0.5,
+    bristleKind: 'armor',
   };
   sim.ghosts = [];
   sim.heroTrailCooldown = 0;
@@ -601,12 +697,19 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.enemyWoundOrigins.clear();
   sim.prevEnemySlots.clear();
   sim.enemyInitialArmor.clear();
+  sim.stalkerTransitions.clear();
+  sim.spitterTransitions.clear();
+  sim.spitterJuiceStates.clear();
+  sim.bruteTransitions.clear();
+  sim.bruteJuiceStates.clear();
+  sim.lastFrameDt = 0.016;
   for (let i = 0; i < sim.particles.length; i++) sim.particles[i].active = false;
   for (let i = 0; i < sim.bloodDrops.length; i++) sim.bloodDrops[i].active = false;
   for (let i = 0; i < sim.floorBlood.length; i++) sim.floorBlood[i].active = false;
   for (let i = 0; i < sim.coverBlood.length; i++) sim.coverBlood[i].active = false;
   for (let i = 0; i < sim.edgeDrips.length; i++) sim.edgeDrips[i].active = false;
   for (let i = 0; i < sim.screenBlood.length; i++) sim.screenBlood[i].active = false;
+  for (let i = 0; i < sim.floorFissures.length; i++) sim.floorFissures[i].active = false;
   sim.screenBloodCooldown = 0;
   for (let i = 0; i < sim.texts.length; i++) sim.texts[i].active = false;
   for (let i = 0; i < sim.bolts.length; i++) {
@@ -640,12 +743,20 @@ export function formatEnemyIntent(
   const condTag = intent.conditionBonus ? `(+${intent.conditionBonus}?)` : '';
   switch (intent.kind) {
     case 'attack':
-    case 'heavy':
-      return `${val}${condTag} DMG`;
+    case 'heavy': {
+      const extraParts: string[] = [];
+      if (intent.corrodeAmount) extraParts.push(`+${intent.corrodeAmount} ${t.corrodeShort}`);
+      if (intent.armorOnHit) extraParts.push(`+${intent.armorOnHit} ${t.armorShort}`);
+      return extraParts.length > 0
+        ? `${val}${condTag} DMG · ${extraParts.join(' ')}`
+        : `${val}${condTag} DMG`;
+    }
     case 'acid':
       return `${val} DMG +${intent.secondaryValue ?? 2} ${t.corrodeShort}`;
     case 'armor':
-      return `+${val} ${t.armorLabel}`;
+      return intent.secondaryValue && intent.secondaryValue > 0
+        ? `+${val} ${t.armorLabel} · +${intent.secondaryValue} ${t.hpLabel}`
+        : `+${val} ${t.armorLabel}`;
     case 'bolster':
       return `+${val} ${t.armorShort} ${t.allShort}`;
     case 'charge':
@@ -658,13 +769,24 @@ export function formatEnemyIntent(
 }
 
 export function getEnemyLaneMetrics(w: number, enemyCount: number): { baseX: number; stepX: number } {
+  const safeCount = Math.max(1, Math.min(6, enemyCount));
   if (w < 460) {
-    const baseX = enemyCount === 1 ? w * 0.74 : enemyCount === 2 ? w * 0.61 : w * 0.51;
-    const stepX = enemyCount === 2 ? w * 0.21 : w * 0.165;
+    if (safeCount >= 4) {
+      const baseX = w * 0.43;
+      const stepX = (w * 0.49) / Math.max(1, safeCount - 1);
+      return { baseX, stepX };
+    }
+    const baseX = safeCount === 1 ? w * 0.74 : safeCount === 2 ? w * 0.61 : w * 0.51;
+    const stepX = safeCount === 2 ? w * 0.21 : w * 0.165;
     return { baseX, stepX };
   }
-  const baseX = enemyCount === 1 ? w * 0.76 : enemyCount === 2 ? w * 0.65 : w * 0.56;
-  const stepX = enemyCount === 2 ? w * 0.17 : w * 0.145;
+  if (safeCount >= 4) {
+    const baseX = w * 0.45;
+    const stepX = (w * 0.47) / Math.max(1, safeCount - 1);
+    return { baseX, stepX };
+  }
+  const baseX = safeCount === 1 ? w * 0.76 : safeCount === 2 ? w * 0.65 : w * 0.56;
+  const stepX = safeCount === 2 ? w * 0.17 : w * 0.145;
   return { baseX, stepX };
 }
 

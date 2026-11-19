@@ -18,6 +18,7 @@ import {
   formatDiscretePipMath,
   type OptimalMoveHint,
 } from '../utils/tacticalSandboxAndHints';
+import { computeSmartActionTriggerSummaries } from '../utils/spatialMinimalistUi';
 import { formatTileDetailText, formatTileShortLabel } from '../utils/tileDisplay';
 import type { CodexTab } from './CodexModal';
 import { computeEnemyArmorPreview } from './combat/combatEnemyUi';
@@ -186,10 +187,16 @@ export function TacticalDock({
       willTriggerPhaseGate: Boolean(frontPreview?.willTriggerPhaseGate),
       triggersBioBurst,
       retaliateDamage: threat.retaliateDamage,
+      pustuleRuptureCorrode: activePreview.pustuleRuptureCorrode ?? 0,
       conditionalBonusDamage: threat.conditionalBonusDamage ?? 0,
       hexHealTriggered: threat.hexHealTriggered ?? 0,
     };
   }, [activePreview, combat, run.heroine]);
+
+  const triggerSummaries = useMemo(
+    () => computeSmartActionTriggerSummaries(run, lang),
+    [run, lang],
+  );
 
   const handleGroupActivate = (color: TileType, tileId?: string) => {
     if (!canPlay || countByColor[color] === 0) {
@@ -342,6 +349,14 @@ export function TacticalDock({
                   · ⚠ -{lockOutcomePreview?.retaliateDamage} {t.retaliateLabel}
                 </span>
               )}
+              {(lockOutcomePreview?.pustuleRuptureCorrode ?? 0) > 0 && (
+                <span
+                  data-testid="dock-pustule-corrode-warning"
+                  className="font-sans font-bold text-lime-300"
+                >
+                  · ☣ +{lockOutcomePreview?.pustuleRuptureCorrode} {t.corrodeLabel}
+                </span>
+              )}
               {(activePreview.blightPurgeCount ?? 0) > 0 && (
                 <span className="font-sans font-bold text-lime-300">
                   · {t.blightTag} {t.purgeLabel} ×{activePreview.blightPurgeCount}
@@ -355,6 +370,21 @@ export function TacticalDock({
               {(lockOutcomePreview?.conditionalBonusDamage ?? 0) > 0 && (
                 <span className="font-sans font-bold text-rose-300">
                   · ⚠ +{lockOutcomePreview?.conditionalBonusDamage} {t.condBonusLabel}
+                </span>
+              )}
+              {(activePreview.hotPotatoPassedDamage ?? 0) > 0 && (
+                <span className="font-sans font-bold text-amber-300">
+                  · 💣 +{activePreview.hotPotatoPassedDamage} PIERCE
+                </span>
+              )}
+              {(activePreview.temptationCleaveBonus ?? 0) > 0 && (
+                <span className="font-sans font-bold text-fuchsia-300">
+                  · ⚡ +{activePreview.temptationCleaveBonus} ALL (+2☣)
+                </span>
+              )}
+              {(activePreview.contagionDiscardedCount ?? 0) > 0 && (
+                <span className="font-sans font-bold text-lime-300">
+                  · 🦠 -{activePreview.contagionDiscardedCount} ADJ
                 </span>
               )}
             </div>
@@ -503,6 +533,7 @@ export function TacticalDock({
       >
         {(['attack', 'defense', 'tech'] as TileType[]).map((color) => {
           const count = countByColor[color];
+          const summary = triggerSummaries[color];
           const isGroupActive = activeColor === color;
           const isSurgeReady = count >= surgeThreshold;
           const isHintRecommended = activeHint?.recommendedAction === color;
@@ -514,12 +545,24 @@ export function TacticalDock({
                 ? t.defenseName
                 : t.techName;
           const theme = TILE_THEME[color];
+          const outcomeColorClass =
+            summary.outcomeTone === 'kill'
+              ? 'text-rose-200 bg-rose-500/35 border border-rose-300/60 px-1 rounded'
+              : summary.outcomeTone === 'block'
+                ? 'text-emerald-200 bg-emerald-500/30 border border-emerald-300/60 px-1 rounded'
+                : summary.outcomeTone === 'stagger'
+                  ? 'text-cyan-200 bg-cyan-500/30 border border-cyan-300/60 px-1 rounded'
+                  : summary.outcomeTone === 'overdrive' || summary.outcomeTone === 'surge' || isSurgeReady
+                    ? 'text-[#FFC700]'
+                    : 'text-slate-300/80';
+
           return (
             <button
               key={color}
               type="button"
               aria-disabled={!canPlay || count === 0}
               data-testid={`action-trigger-${color}`}
+              title={`${label} (×${count}): ${summary.mathFormula}${summary.outcomeTag ? ` · ${summary.outcomeTag}` : ''}`}
               onPointerDown={(e) => {
                 lastPointerTypeRef.current = e.pointerType || 'mouse';
               }}
@@ -534,7 +577,7 @@ export function TacticalDock({
               className={`relative flex flex-col items-center justify-center rounded-lg border px-1 transition-all duration-150 ${
                 !canPlay || count === 0 ? 'opacity-35 cursor-not-allowed' : 'cursor-pointer'
               } ${hcBorderClass} ${
-                isCompactLandscape ? 'py-1 min-h-[38px]' : 'py-1.5 min-h-[44px]'
+                isCompactLandscape ? 'py-1 min-h-[40px]' : 'py-1.5 min-h-[48px]'
               } ${
                 isGroupActive && count > 0
                   ? theme.activeRing
@@ -559,22 +602,27 @@ export function TacticalDock({
                   ★
                 </span>
               )}
-              <div className="flex items-center gap-0.5 font-mono-tabular text-[9px] sm:text-[10px] leading-none">
+              <div className="flex items-center gap-1 font-mono-tabular text-[9px] sm:text-[10px] leading-none">
                 <span className="hidden sm:inline opacity-80">[{theme.shortcut}]</span>
-                <span className="font-bold text-white tactical-numeral-stroke">×{count}</span>
+                <span className="font-bold text-slate-200">{label}</span>
+                <span className="font-bold text-white/90">×{count}</span>
               </div>
-              <span className="mt-0.5 whitespace-nowrap text-[10px] sm:text-[11px] font-bold tracking-wide leading-tight">
-                {label}
+              <span
+                data-testid={`action-trigger-math-${color}`}
+                className="mt-0.5 whitespace-nowrap font-mono-tabular text-xs sm:text-sm font-black tracking-tight text-[#F4F4F6] tactical-numeral-stroke leading-tight"
+              >
+                {summary.mathFormula}
               </span>
               {lod.showMicroBadges && (
                 <span
-                  className={`font-mono-tabular text-[8px] font-bold uppercase tracking-wider leading-none ${
-                    isSurgeReady ? 'text-[#FFC700]' : 'text-slate-300/75'
-                  }`}
+                  data-testid={`action-trigger-tag-${color}`}
+                  className={`mt-0.5 font-mono-tabular text-[8px] font-extrabold uppercase tracking-wider leading-tight truncate max-w-full ${outcomeColorClass}`}
                 >
-                  {isSurgeReady
-                    ? t.surgeLabel.split(' ')[0]
-                    : `${count}/${surgeThreshold}`}
+                  {summary.outcomeTag
+                    ? summary.outcomeTag
+                    : isSurgeReady
+                      ? t.surgeLabel.split(' ')[0]
+                      : `${count}/${surgeThreshold}`}
                 </span>
               )}
             </button>
@@ -791,6 +839,23 @@ export function TacticalDock({
                   >
                     {isBlight ? '☣' : pip.symbol}
                   </span>
+                  {tile.secondaryType && (tile.secondaryValue ?? 0) > 0 && (
+                    <span
+                      data-testid={`spliced-badge-${tile.id}`}
+                      style={{
+                        backgroundColor: getTileCornerPip(tile.secondaryType).accentHex,
+                        color: '#020617',
+                      }}
+                      className="inline-flex h-3.5 items-center justify-center rounded-sm border border-white/80 px-0.5 font-mono-tabular text-[7px] font-black leading-none"
+                      title={
+                        lang === 'cs'
+                          ? `Sloučený dílek: +${tile.secondaryValue} ${tile.secondaryType.toUpperCase()}`
+                          : `Hybrid Tile: +${tile.secondaryValue} ${tile.secondaryType.toUpperCase()}`
+                      }
+                    >
+                      +{tile.secondaryValue}{getTileCornerPip(tile.secondaryType).symbol}
+                    </span>
+                  )}
                   {lod.showMicroBadges && (isJammed || isBlight || tile.isHeldFromPrevTurn) && (
                     <span
                       className={`font-mono-tabular text-[8px] font-bold uppercase tracking-wider leading-none ${
@@ -808,6 +873,27 @@ export function TacticalDock({
                 {isHexed ? (
                   <span className="rounded bg-purple-500/35 px-1 font-mono-tabular text-[8px] font-black text-purple-200 leading-tight">
                     ⬡
+                  </span>
+                ) : tile.isHotPotato ? (
+                  <span
+                    data-testid={`hot-potato-badge-${tile.id}`}
+                    className="rounded bg-amber-500/35 px-1 font-mono-tabular text-[8px] font-black text-amber-200 leading-tight"
+                  >
+                    💣8
+                  </span>
+                ) : tile.isTemptation ? (
+                  <span
+                    data-testid={`temptation-badge-${tile.id}`}
+                    className="rounded bg-fuchsia-500/35 px-1 font-mono-tabular text-[8px] font-black text-fuchsia-200 leading-tight"
+                  >
+                    ⚡+14
+                  </span>
+                ) : tile.isContagion ? (
+                  <span
+                    data-testid={`contagion-badge-${tile.id}`}
+                    className="rounded bg-lime-500/35 px-1 font-mono-tabular text-[8px] font-black text-lime-200 leading-tight"
+                  >
+                    🦠
                   </span>
                 ) : effective.flatBonus > 0 && !isJammed && !isBlight ? (
                   <span className="font-mono-tabular text-[8px] sm:text-[9px] font-extrabold text-emerald-300 leading-none">
@@ -915,6 +1001,14 @@ export function TacticalDock({
               >
                 {tile.isBlight ? '☣' : pip.symbol}
               </span>
+              {tile.isTopDecked && (
+                <span
+                  data-testid={`top-decked-badge-${tile.id}`}
+                  className="absolute right-0.5 top-0.5 rounded bg-lime-500/40 px-0.5 font-mono-tabular text-[6px] font-black text-lime-200 leading-none"
+                >
+                  TOP
+                </span>
+              )}
               <TileGlyph type={tile.type} size={13} />
               <span
                 className={`mt-0.5 w-full truncate text-center text-[8px] sm:text-[9px] font-mono-tabular font-bold leading-none ${
