@@ -35,21 +35,23 @@ export interface Tile {
   isHotPotato?: boolean;
   isContagion?: boolean;
   isTemptation?: boolean;
+  pierceBoost?: boolean;
+  shieldAuraBonus?: number;
 }
 
-export type EquipmentCategory = 'weapon' | 'armor' | 'med' | 'tech';
+export type SkillChipCategory = 'weapon' | 'armor' | 'med' | 'tech';
 
-export interface EquipmentDefinition {
+export interface SkillChipDefinition {
   id: string;
-  category: EquipmentCategory;
-  size: number;
+  category: SkillChipCategory;
+  memoryCost: number;
   price: number;
-  rarity: 'starter' | 'common' | 'rare';
+  rarity: 'starter' | 'standard' | 'prototype';
   droppable: boolean;
   tiles: TileSpec[];
 }
 
-export interface OwnedEquipment {
+export interface OwnedSkillChip {
   instanceId: string;
   defId: string;
 }
@@ -154,7 +156,6 @@ export type NodeModifier =
   | 'golden_bounty'
   | 'double_credits'
   | 'nanite_cache'
-  | 'high_threat'
   | 'overcharged_hazard'
   | 'flash_sale'
   | 'funded_clinic';
@@ -217,7 +218,7 @@ export interface MapNode {
   districtBadge?: DynastyDistrictBadge;
 }
 
-export type CharacterId = 'kira' | 'aurelia' | 'zuri';
+export type CharacterId = 'kira' | 'auraline' | 'zuri';
 
 export type NannyBotId = 'guardian_nanny' | 'caretaker_nanny' | 'tutor_nanny';
 
@@ -247,7 +248,7 @@ export interface CradleObjectiveState {
   liberated: boolean;
 }
 
-export interface HeroineState {
+export interface HeroState {
   characterId?: CharacterId;
   hp: number;
   maxHp: number;
@@ -258,9 +259,10 @@ export interface HeroineState {
   damageBoostPct: number;
   pendingUpcharge?: number;
   implants: CyberImplantId[];
-  carryCapacity: number;
-  ownedEquipment: OwnedEquipment[];
+  memoryCapacity: number;
+  ownedChips: OwnedSkillChip[];
   equippedInstanceIds: string[];
+  nextChipInstanceSeq?: number;
   purgedInnateIds?: string[];
   credits: number;
   nanites?: number;
@@ -287,6 +289,7 @@ export interface HeroineState {
   nannyBotInstalled?: NannyBotId | null;
   betaTrialChip?: {
     defId: string;
+    instanceId?: string;
     combatsRemaining: number;
     resolvesLogged: number;
     upgraded: boolean;
@@ -393,7 +396,7 @@ export interface TurnPreview {
   dudCount?: number;
 }
 
-export interface HeroineThreatPreview {
+export interface HeroThreatPreview {
   rawIncomingDamage: number;
   blockedDamage: number;
   hpDamageTaken: number;
@@ -467,7 +470,7 @@ export interface CombatDirectorState {
   };
   damageDealtThisTurn: number;
   lastRoundHpLost: number;
-  heroineHpAtRoundStart: number;
+  heroHpAtTurnStart: number;
   rubberBandDelayed: boolean;
   maxReinforcementsSpawned: number;
   reinforcementsSpawnedCount: number;
@@ -497,7 +500,7 @@ export interface CombatState {
   totalDamageDealt: number;
   totalTilesResolved: number;
   rewardCredits: number;
-  rewardEquipmentChoices: string[];
+  rewardChipChoices: string[];
   director?: CombatDirectorState;
   rewardBreakdown?: RewardBreakdown;
   lastColorPlayed?: TileType | null;
@@ -525,13 +528,14 @@ export interface RunState {
   difficultyTier?: DifficultyTier;
   runResetsUsed?: number;
   screen: ScreenPhase;
-  heroine: HeroineState;
+  hero: HeroState;
   masterPool: Tile[];
   mapNodes: MapNode[];
   currentNodeId: string | null;
   combat: CombatState | null;
   clinicChoices: CyberImplantId[];
-  clinicShopChoices: string[];
+  chipDealerChoices: string[];
+  chipDealerHeirloomUsed?: boolean;
   clinicPurgeUsed?: boolean;
   enemiesDefeated: number;
   turnsCompleted: number;
@@ -541,7 +545,7 @@ export interface RunState {
 
 export interface BestRunRecord {
   bestScore: number;
-  sectorsCleared: number;
+  stagesCleared: number;
   totalRuns: number;
   totalNanites?: number;
   inheritedHeirloom?: { defId: string; bonusStacks: number } | null;

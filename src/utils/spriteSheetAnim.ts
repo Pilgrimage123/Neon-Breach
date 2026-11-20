@@ -141,3 +141,27 @@ export function computeFrameTransitionState(
     frameBlendAlpha,
   };
 }
+
+export interface DeathCollapseSample {
+  progress: number;
+  frameIndex: number;
+  alpha: number;
+}
+
+/** Shared enemy KO collapse & carcass fade sampler across Crawler, Stalker, Spitter, and Brute. */
+export function sampleDeathCollapseFrame(
+  koProgress: number,
+  startFrame: number,
+  stepCount: number,
+  fadeStart = 0.8,
+): DeathCollapseSample {
+  const p = Math.max(0, Math.min(1, koProgress));
+  const collapseNorm = Math.min(1, p / fadeStart);
+  const step = Math.min(stepCount - 1, Math.floor(collapseNorm * stepCount));
+  const alpha = p <= fadeStart ? 1 : Math.max(0, (1 - p) / Math.max(0.001, 1 - fadeStart));
+  return {
+    progress: p,
+    frameIndex: startFrame + step,
+    alpha,
+  };
+}

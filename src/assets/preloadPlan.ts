@@ -53,15 +53,16 @@ export function buildBackgroundTaskOrder(selectedChar: CharacterId): string[] {
       'enemy:brute',
       'enemy:boss',
       'char:zuri_emote',
+      'nurse',
       'char:kira',
-      'char:aurelia',
+      'char:auraline',
       'char:kira_emote',
     ];
   }
-  if (selectedChar === 'aurelia') {
+  if (selectedChar === 'auraline') {
     return [
       'backdrop',
-      'char:aurelia',
+      'char:auraline',
       'enemy:stalker',
       'enemy:larva',
       'enemy:skitter',
@@ -69,6 +70,7 @@ export function buildBackgroundTaskOrder(selectedChar: CharacterId): string[] {
       'enemy:spitter',
       'enemy:brute',
       'enemy:boss',
+      'nurse',
       'char:zuri',
       'char:zuri_drones',
       'char:zuri_emote',
@@ -87,7 +89,8 @@ export function buildBackgroundTaskOrder(selectedChar: CharacterId): string[] {
     'enemy:brute',
     'enemy:boss',
     'char:kira_emote',
-    'char:aurelia',
+    'nurse',
+    'char:auraline',
     'char:zuri',
     'char:zuri_drones',
     'char:zuri_emote',

@@ -1,7 +1,7 @@
 import type { CharacterId, EnemyArchetype } from '../../engine/types';
-import type { HeroineAnimMode } from '../../utils/heroineSpriteSheet';
+import type { HeroAnimMode } from '../../utils/heroAnimator';
 import type { CameraActorBounds } from './ActionCameraController';
-import type { CutInStagingMode } from './CombatActionSequencer';
+import type { CutInStagingMode } from './combatPresentationConfig';
 
 export type ProjectileVisualProfile =
   | 'pistol_bolt'
@@ -11,7 +11,7 @@ export type ProjectileVisualProfile =
   | 'stinger_dart';
 
 export interface HeroAttackClassification {
-  heroAnimMode: Extract<HeroineAnimMode, 'dash_kick' | 'shoot' | 'overdrive'>;
+  heroAnimMode: Extract<HeroAnimMode, 'dash_kick' | 'shoot' | 'overdrive'>;
   stagingMode: CutInStagingMode;
   projectileProfile: ProjectileVisualProfile;
   isMelee: boolean;
@@ -58,7 +58,7 @@ export function classifyHeroAttackStaging(params: {
     };
   }
 
-  if (charId === 'aurelia') {
+  if (charId === 'auraline') {
     return {
       heroAnimMode: isOverdrive ? 'overdrive' : 'shoot',
       stagingMode: isOverdrive || isMultiTarget ? 'ranged_aoe' : 'ranged_fast',

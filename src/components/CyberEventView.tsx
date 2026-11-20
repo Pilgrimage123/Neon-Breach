@@ -21,7 +21,7 @@ export function CyberEventView({
   const t = TRANSLATIONS[lang];
   const isCs = lang === 'cs';
   const event = run.activeEvent ? localizeCyberEvent(run.activeEvent, lang) : null;
-  const heroine = run.heroine;
+  const heroine = run.hero;
 
   useEffect(() => {
     if (!event) return;

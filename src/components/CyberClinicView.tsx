@@ -1,10 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   CLINIC_PURGE_COST,
   CYBER_IMPLANTS,
   MAX_IMPLANTS,
-  getEquippedEquipmentWeight,
 } from '../engine/data';
+import {
+  getEquippedChipMemory,
+  isTileEligibleForStork,
+} from '../engine/poolBuilder';
 import type { CyberImplantId, RunState, TileType } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import { formatTileShortLabel } from '../utils/tileDisplay';
@@ -17,9 +20,11 @@ interface CyberClinicViewProps {
   defibTriggeredNotice?: boolean;
   onPurgeInnateTile: (tileId: string) => void;
   onIncubateTile?: (tileId: string) => void;
+  onIncubateStork?: (tileId: string) => void;
   onMarryBloodline?: (primary: TileType, secondary: TileType) => void;
   onEnrollProdigyTile?: (tileId: string) => void;
   onSpliceTiles?: (targetTileId: string, consumedTileId: string) => void;
+  onSpliceFabLab?: (primaryTileId: string, secondaryTileId: string) => void;
   onInstall: (implantId: CyberImplantId, replaceId?: CyberImplantId) => void;
   onOpenPool?: () => void;
   onSkip: () => void;
@@ -32,39 +37,97 @@ export function CyberClinicView({
   defibTriggeredNotice = false,
   onPurgeInnateTile,
   onIncubateTile,
+  onIncubateStork,
   onMarryBloodline,
   onEnrollProdigyTile,
   onSpliceTiles,
+  onSpliceFabLab,
   onInstall,
   onOpenPool,
   onSkip,
 }: CyberClinicViewProps) {
   const t = TRANSLATIONS[lang];
   const isCs = lang === 'cs';
-  const charCode = t.characters[run.heroine.characterId ?? 'kira'].code;
+  const charCode = t.characters[run.hero.characterId ?? 'kira'].code;
   const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
   const isFlashSale = currentNode?.modifier === 'flash_sale';
   const isFundedClinic = currentNode?.modifier === 'funded_clinic';
   const [pendingImplant, setPendingImplant] = useState<CyberImplantId | null>(null);
-  const needsReplace = run.heroine.implants.length >= MAX_IMPLANTS;
-  const equippedWeight = getEquippedEquipmentWeight(run.heroine);
+  const needsReplace = run.hero.implants.length >= MAX_IMPLANTS;
+  const equippedWeight = getEquippedChipMemory(run.hero);
   const innateTiles = run.masterPool.filter((tile) => tile.sourceId === 'innate');
   const canPurge =
     !run.clinicPurgeUsed &&
-    run.heroine.credits >= CLINIC_PURGE_COST &&
+    run.hero.credits >= CLINIC_PURGE_COST &&
     run.masterPool.length > 3 &&
     innateTiles.length > 0;
+
+  const storkHandler = onIncubateStork ?? onIncubateTile;
+  const fabLabHandler = onSpliceFabLab ?? onSpliceTiles;
+
+  const eligibleStorkTiles = useMemo(
+    () =>
+      run.masterPool.filter(
+        (tile) => !tile.isDud && isTileEligibleForStork(tile, run.hero),
+      ),
+    [run.masterPool, run.hero],
+  );
+
+  const eligibleFabLabTiles = useMemo(() => {
+    const prevSplices = run.hero.splicedTilePairs ?? [];
+    const usedIds = new Set<string>();
+    for (const pair of prevSplices) {
+      usedIds.add(pair.targetId);
+      usedIds.add(pair.consumedId);
+    }
+    return run.masterPool.filter(
+      (tile) => !tile.isBlight && !usedIds.has(tile.id),
+    );
+  }, [run.masterPool, run.hero.splicedTilePairs]);
+
+  const [selectedStorkTileId, setSelectedStorkTileId] = useState<string>(
+    () => eligibleStorkTiles[0]?.id ?? '',
+  );
+  const [primaryTileId, setPrimaryTileId] = useState<string>(
+    () => eligibleFabLabTiles[0]?.id ?? '',
+  );
+  const [secondaryTileId, setSecondaryTileId] = useState<string>(
+    () => eligibleFabLabTiles[1]?.id ?? '',
+  );
+
+  useEffect(() => {
+    if (!eligibleStorkTiles.some((t) => t.id === selectedStorkTileId)) {
+      setSelectedStorkTileId(eligibleStorkTiles[0]?.id ?? '');
+    }
+  }, [eligibleStorkTiles, selectedStorkTileId]);
+
+  useEffect(() => {
+    const validPrimary = eligibleFabLabTiles.some((t) => t.id === primaryTileId)
+      ? primaryTileId
+      : (eligibleFabLabTiles[0]?.id ?? '');
+    if (validPrimary !== primaryTileId) {
+      setPrimaryTileId(validPrimary);
+    }
+    const validSecondary =
+      eligibleFabLabTiles.some((t) => t.id === secondaryTileId) &&
+      secondaryTileId !== validPrimary
+        ? secondaryTileId
+        : (eligibleFabLabTiles.find((t) => t.id !== validPrimary)?.id ?? '');
+    if (validSecondary !== secondaryTileId) {
+      setSecondaryTileId(validSecondary);
+    }
+  }, [eligibleFabLabTiles, primaryTileId, secondaryTileId]);
 
   const storkCost = isFundedClinic ? 0 : 15;
   const pedigreeCost = isFundedClinic ? 0 : 20;
   const charterCost = isFundedClinic ? 0 : 15;
   const canIncubate =
-    !run.heroine.incubatingTile &&
-    run.heroine.credits >= storkCost &&
+    !run.hero.incubatingTile &&
+    run.hero.credits >= storkCost &&
     run.masterPool.length > 4 &&
-    innateTiles.length > 0;
-  const canMarry = run.heroine.credits >= pedigreeCost;
-  const prodigySet = new Set(run.heroine.prodigyTileIds ?? []);
+    eligibleStorkTiles.length > 0;
+  const canMarry = run.hero.credits >= pedigreeCost;
+  const prodigySet = new Set(run.hero.prodigyTileIds ?? []);
 
   const handleChooseModule = (id: CyberImplantId) => {
     if (needsReplace) {
@@ -76,7 +139,13 @@ export function CyberClinicView({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        return;
+      }
       if (!pendingImplant) {
         if (e.key === '1' && run.clinicChoices[0]) {
           e.preventDefault();
@@ -129,7 +198,7 @@ export function CyberClinicView({
           </div>
           <div className="flex items-center gap-1.5 font-mono-tabular text-[12.5px] sm:text-sm shrink-0">
             <span className="font-bold text-[#FFC700]">
-              {run.heroine.credits} {t.creditsLabel}
+              {run.hero.credits} {t.creditsLabel}
             </span>
             <span aria-hidden="true" className="text-slate-400">
               ·
@@ -141,11 +210,11 @@ export function CyberClinicView({
                 className="chrome-pill rounded-lg px-2 py-0.5 text-[12.5px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
                 title={t.inspectPool}
               >
-                ▣ {t.capacityLabel}: {equippedWeight}/{run.heroine.carryCapacity}
+                ▣ {t.capacityLabel}: {equippedWeight}/{run.hero.memoryCapacity}
               </button>
             ) : (
               <span className="font-semibold text-[#00F0FF]">
-                {t.capacityLabel}: {equippedWeight}/{run.heroine.carryCapacity}
+                {t.capacityLabel}: {equippedWeight}/{run.hero.memoryCapacity}
               </span>
             )}
             {pendingImplant && (
@@ -231,7 +300,7 @@ export function CyberClinicView({
                         <button
                           type="button"
                           data-testid={`clinic-prodigy-tile-${tile.id}`}
-                          disabled={run.heroine.credits < charterCost}
+                          disabled={run.hero.credits < charterCost}
                           onClick={() => onEnrollProdigyTile(tile.id)}
                           title={
                             isCs
@@ -250,7 +319,7 @@ export function CyberClinicView({
             </div>
 
             {/* Compact Pro-Family Biotech & FabLab Toolbar */}
-            {(onIncubateTile || onMarryBloodline || onSpliceTiles) && (
+            {(storkHandler || onMarryBloodline || fabLabHandler) && (
               <div
                 data-testid="clinic-dynasty-biotech-panel"
                 className="rounded-xl border border-cyan-400/35 bg-slate-950/55 px-2.5 py-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5"
@@ -260,32 +329,48 @@ export function CyberClinicView({
                 </span>
 
                 {/* Stork Nursery Incubation Pod */}
-                {onIncubateTile && (
+                {storkHandler && (
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="font-mono-tabular text-[12px] text-slate-300 font-bold">
                       🌱 3n→2× ({storkCost} CR):
                     </span>
-                    {run.heroine.incubatingTile ? (
+                    {run.hero.incubatingTile ? (
                       <span
                         data-testid="incubating-pod-status"
                         className="rounded-md border border-emerald-400/60 bg-emerald-950/45 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-emerald-200"
                       >
-                        🌱 {formatTileShortLabel(run.heroine.incubatingTile.tile, lang)} ·{' '}
-                        {run.heroine.incubatingTile.nodesRemaining}n
+                        🌱 {formatTileShortLabel(run.hero.incubatingTile.tile, lang)} ·{' '}
+                        {run.hero.incubatingTile.nodesRemaining}n
                       </span>
                     ) : (
-                      innateTiles.slice(0, 3).map((tile) => (
+                      <>
+                        {eligibleStorkTiles.length > 0 && (
+                          <select
+                            data-testid="clinic-stork-tile-select"
+                            aria-label={isCs ? 'Vybrat dílek pro Čapí kapsli' : 'Select tile for Stork Incubation'}
+                            value={selectedStorkTileId}
+                            onChange={(e) => setSelectedStorkTileId(e.target.value)}
+                            className="rounded-lg border border-cyan-400/50 bg-slate-950/90 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-cyan-200 focus:border-cyan-300 focus:outline-none cursor-pointer"
+                          >
+                            {eligibleStorkTiles.map((tile) => (
+                              <option key={`stork_opt_${tile.id}`} value={tile.id} className="bg-slate-950 text-cyan-200">
+                                {formatTileShortLabel(tile, lang)} ({tile.sourceId === 'innate' ? t.innateLabel : t.equipment[tile.sourceId]?.name ?? tile.sourceId})
+                              </option>
+                            ))}
+                          </select>
+                        )}
                         <button
-                          key={`stork_${tile.id}`}
                           type="button"
-                          data-testid={`clinic-incubate-${tile.id}`}
-                          disabled={!canIncubate}
-                          onClick={() => onIncubateTile(tile.id)}
+                          data-testid="clinic-stork-incubate-btn"
+                          disabled={!canIncubate || !selectedStorkTileId}
+                          onClick={() => {
+                            if (selectedStorkTileId) storkHandler(selectedStorkTileId);
+                          }}
                           className="chrome-pill rounded-lg border border-cyan-400/55 bg-cyan-950/40 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-cyan-200 hover:border-cyan-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                         >
-                          🌱 {formatTileShortLabel(tile, lang)}
+                          🌱 {isCs ? 'Inkubovat' : 'Incubate'}
                         </button>
-                      ))
+                      </>
                     )}
                   </div>
                 )}
@@ -304,8 +389,8 @@ export function CyberClinicView({
                       ] as const
                     ).map(([p, s, label]) => {
                       const isMarried =
-                        run.heroine.bloodlineCrest?.primary === p &&
-                        run.heroine.bloodlineCrest?.secondary === s;
+                        run.hero.bloodlineCrest?.primary === p &&
+                        run.hero.bloodlineCrest?.secondary === s;
                       return (
                         <button
                           key={`${p}_${s}`}
@@ -326,26 +411,69 @@ export function CyberClinicView({
                   </div>
                 )}
 
-                {run.heroine.bloodlineCrest && (
+                {run.hero.bloodlineCrest && (
                   <span
                     data-testid="active-bloodline-crest-badge"
                     className="rounded-md border border-amber-400/60 bg-amber-950/50 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-amber-200"
                   >
-                    ♥ {run.heroine.bloodlineCrest.primary.toUpperCase()}⇄
-                    {run.heroine.bloodlineCrest.secondary.toUpperCase()}
+                    ♥ {run.hero.bloodlineCrest.primary.toUpperCase()}⇄
+                    {run.hero.bloodlineCrest.secondary.toUpperCase()}
                   </span>
                 )}
 
-                {onSpliceTiles && innateTiles.length >= 2 && (
-                  <button
-                    type="button"
-                    data-testid="clinic-fablab-splice-btn"
-                    disabled={run.masterPool.length <= 4}
-                    onClick={() => onSpliceTiles(innateTiles[0].id, innateTiles[1].id)}
-                    className="chrome-pill ml-auto rounded-lg border border-indigo-400/60 bg-indigo-950/45 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-indigo-200 hover:border-indigo-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
-                  >
-                    ⚒ {isCs ? 'FabLab 2→1 (0 CR)' : 'FabLab 2→1 (0 CR)'}
-                  </button>
+                {fabLabHandler && eligibleFabLabTiles.length >= 2 && (
+                  <div className="ml-auto flex flex-wrap items-center gap-1">
+                    <select
+                      data-testid="clinic-fablab-primary-select"
+                      aria-label={isCs ? 'Primární dílek pro FabLab' : 'Primary tile for FabLab'}
+                      value={primaryTileId}
+                      onChange={(e) => {
+                        const nextPrimary = e.target.value;
+                        setPrimaryTileId(nextPrimary);
+                        if (nextPrimary === secondaryTileId) {
+                          const alt = eligibleFabLabTiles.find((t) => t.id !== nextPrimary);
+                          if (alt) setSecondaryTileId(alt.id);
+                        }
+                      }}
+                      className="rounded-lg border border-indigo-400/50 bg-slate-950/90 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-indigo-200 focus:border-indigo-300 focus:outline-none cursor-pointer"
+                    >
+                      {eligibleFabLabTiles.map((tile) => (
+                        <option key={`fab_p_${tile.id}`} value={tile.id} className="bg-slate-950 text-indigo-200">
+                          {formatTileShortLabel(tile, lang)}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="font-mono-tabular text-[11.5px] text-indigo-300">+</span>
+                    <select
+                      data-testid="clinic-fablab-secondary-select"
+                      aria-label={isCs ? 'Sekundární dílek pro FabLab' : 'Secondary tile for FabLab'}
+                      value={secondaryTileId}
+                      onChange={(e) => setSecondaryTileId(e.target.value)}
+                      className="rounded-lg border border-indigo-400/50 bg-slate-950/90 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-indigo-200 focus:border-indigo-300 focus:outline-none cursor-pointer"
+                    >
+                      {eligibleFabLabTiles
+                        .filter((tile) => tile.id !== primaryTileId)
+                        .map((tile) => (
+                          <option key={`fab_s_${tile.id}`} value={tile.id} className="bg-slate-950 text-indigo-200">
+                            {formatTileShortLabel(tile, lang)}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      data-testid="clinic-fablab-splice-btn"
+                      disabled={
+                        run.masterPool.length <= 4 ||
+                        !primaryTileId ||
+                        !secondaryTileId ||
+                        primaryTileId === secondaryTileId
+                      }
+                      onClick={() => fabLabHandler(primaryTileId, secondaryTileId)}
+                      className="chrome-pill rounded-lg border border-indigo-400/60 bg-indigo-950/45 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-indigo-200 hover:border-indigo-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      ⚒ {isCs ? 'FabLab 2→1 (0 CR)' : 'FabLab 2→1 (0 CR)'}
+                    </button>
+                  </div>
                 )}
               </div>
             )}
@@ -453,7 +581,7 @@ export function CyberClinicView({
                   {t.clinicReplacePrompt}
                 </div>
                 <div className="mt-1.5 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
-                  {run.heroine.implants.map((existingId) => {
+                  {run.hero.implants.map((existingId) => {
                     const meta = t.implants[existingId];
                     if (!meta) return null;
                     return (

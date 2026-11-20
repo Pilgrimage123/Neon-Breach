@@ -261,6 +261,15 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
   private vbo: WebGLBuffer | null = null;
   private ebo: WebGLBuffer | null = null;
   private uniforms: UniformLocations | null = null;
+  private canvas: HTMLCanvasElement | null = null;
+  private readonly usedIdsThisFrame = new Map<string, number>();
+  private readonly onContextLost = (e: Event): void => {
+    e.preventDefault();
+    this.releaseGpuResources(true);
+  };
+  private readonly onContextRestored = (): void => {
+    if (this.canvas) this.initContext(this.canvas);
+  };
 
   private readonly topology: MeshGridTopology;
   private readonly spritePool = new Map<string, MeshSprite>();
@@ -302,6 +311,9 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
     rows: number = DEFAULT_RENDERER_CONFIG.meshRows,
   ) {
     this.topology = createMeshGridTopology(cols, rows);
+    this.canvas = canvas;
+    canvas.addEventListener('webglcontextlost', this.onContextLost, false);
+    canvas.addEventListener('webglcontextrestored', this.onContextRestored, false);
     this.initContext(canvas);
   }
 
@@ -324,10 +336,18 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
 
     const vs = this.compileShader(gl, gl.VERTEX_SHADER, UNIFIED_CHARACTER_VERTEX_SHADER);
     const fs = this.compileShader(gl, gl.FRAGMENT_SHADER, UNIFIED_CHARACTER_FRAGMENT_SHADER);
-    if (!vs || !fs) return;
+    if (!vs || !fs) {
+      if (vs) gl.deleteShader(vs);
+      if (fs) gl.deleteShader(fs);
+      return;
+    }
 
     const prog = gl.createProgram();
-    if (!prog) return;
+    if (!prog) {
+      gl.deleteShader(vs);
+      gl.deleteShader(fs);
+      return;
+    }
     gl.attachShader(prog, vs);
     gl.attachShader(prog, fs);
     gl.linkProgram(prog);
@@ -357,7 +377,15 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
     const vao = gl.createVertexArray();
     const vbo = gl.createBuffer();
     const ebo = gl.createBuffer();
-    if (!vao || !vbo || !ebo) return;
+    if (!vao || !vbo || !ebo) {
+      if (vao) gl.deleteVertexArray(vao);
+      if (vbo) gl.deleteBuffer(vbo);
+      if (ebo) gl.deleteBuffer(ebo);
+      gl.deleteProgram(prog);
+      this.program = null;
+      this.uniforms = null;
+      return;
+    }
 
     this.vao = vao;
     this.vbo = vbo;
@@ -454,6 +482,7 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
   }): void {
     this.frameParams = params;
     this.queuedSprites.length = 0;
+    this.usedIdsThisFrame.clear();
 
     const gl = this.gl;
     if (!gl || !this.isReady) return;
@@ -515,7 +544,10 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
   }
 
   public drawSprite(cmd: SpriteRenderCommand): void {
-    const sprite = this.getOrCreateSprite(cmd.id) as MeshSprite;
+    const seen = this.usedIdsThisFrame.get(cmd.id) ?? 0;
+    this.usedIdsThisFrame.set(cmd.id, seen + 1);
+    const poolKey = seen === 0 ? cmd.id : `${cmd.id}#${seen}`;
+    const sprite = this.getOrCreateSprite(poolKey) as MeshSprite;
     sprite.applyCommand(cmd);
     this.queuedSprites.push(sprite);
   }
@@ -524,7 +556,7 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
     const gl = this.gl;
     const prog = this.program;
     const u = this.uniforms;
-    if (!gl || !prog || !u || !this.vao || !this.vbo) return;
+    if (!gl || !prog || !u || !this.vao || !this.vbo || gl.isContextLost()) return;
 
     gl.useProgram(prog);
     gl.bindVertexArray(this.vao);
@@ -579,6 +611,7 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
         const minScreenY = Math.max(0, Math.min(height, y0, y1, y2, y3));
         const maxScreenY = Math.max(0, Math.min(height, Math.max(y0, y1, y2, y3)));
         const scissorY = Math.floor((height - maxScreenY) * dpr);
+        if (maxScreenY - minScreenY <= 0) continue;
         const scissorH = Math.max(1, Math.ceil((maxScreenY - minScreenY) * dpr));
         gl.scissor(0, scissorY, Math.floor(width * dpr), scissorH);
       } else if (scissorActive) {
@@ -736,8 +769,32 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
     gl.clear(gl.COLOR_BUFFER_BIT);
   }
 
-  public dispose(): void {
+  private releaseGpuResources(contextLost: boolean): void {
     const gl = this.gl;
+    if (gl && !contextLost) {
+      for (const tex of this.allocatedTextures) gl.deleteTexture(tex);
+      if (this.vbo) gl.deleteBuffer(this.vbo);
+      if (this.ebo) gl.deleteBuffer(this.ebo);
+      if (this.vao) gl.deleteVertexArray(this.vao);
+      if (this.program) gl.deleteProgram(this.program);
+    }
+    this.allocatedTextures.length = 0;
+    this.textureCache = new WeakMap();
+    this.vbo = null;
+    this.ebo = null;
+    this.vao = null;
+    this.program = null;
+    this.uniforms = null;
+    if (!contextLost) this.gl = null;
+  }
+
+  public dispose(): void {
+    if (this.canvas) {
+      this.canvas.removeEventListener('webglcontextlost', this.onContextLost, false);
+      this.canvas.removeEventListener('webglcontextrestored', this.onContextRestored, false);
+    }
+    const gl = this.gl;
+    this.canvas = null;
     if (!gl) return;
     for (const tex of this.allocatedTextures) {
       gl.deleteTexture(tex);

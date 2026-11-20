@@ -1,21 +1,59 @@
-import { CYBER_IMPLANT_IDS, ENEMY_TEMPLATES, EQUIPMENT_BY_ID } from './data';
-import type { BestRunRecord, CyberImplantId, RunState } from './types';
+import {
+  CYBER_IMPLANT_IDS,
+  ENEMY_TEMPLATES,
+  MAX_HEIRLOOM_STACKS,
+  SKILL_CHIPS_BY_ID,
+} from './data';
+import type {
+  BestRunRecord,
+  CombatPhase,
+  CyberImplantId,
+  HeroState,
+  RunState,
+  ScreenPhase,
+} from './types';
 
-const ACTIVE_RUN_KEY = 'neon_breach_active_run_v2';
-const ENCOUNTER_SNAPSHOT_KEY = 'neon_breach_encounter_start_v1';
-const BEST_RECORD_KEY = 'neon_breach_best_record_v1';
+const ACTIVE_RUN_KEY = 'neon_breach_active_run_v3';
+const ENCOUNTER_SNAPSHOT_KEY = 'neon_breach_encounter_start_v2';
+const BEST_RECORD_KEY = 'neon_breach_best_record_v2';
+
 const VALID_IMPLANT_SET = new Set<string>(CYBER_IMPLANT_IDS);
+const VALID_SCREEN_SET = new Set<ScreenPhase>([
+  'title',
+  'map',
+  'combat',
+  'clinic',
+  'chip_dealer',
+  'medbay',
+  'event',
+  'victory',
+  'gameover',
+]);
+const VALID_COMBAT_PHASE_SET = new Set<CombatPhase>([
+  'PLAYER_IDLE',
+  'PLAYER_RESOLVED',
+  'ENEMY_ACTING',
+  'VICTORY',
+  'DEFEAT',
+]);
 
 const memoryStore = new Map<string, string>();
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function getFiniteNonNegative(value: unknown, fallback = 0): number {
+  return isFiniteNumber(value) && value >= 0 ? value : fallback;
+}
 
 function getStorageItem(key: string): string | null {
   try {
     if (typeof localStorage !== 'undefined') {
-      const val = localStorage.getItem(key);
-      if (val !== null) return val;
+      return localStorage.getItem(key);
     }
   } catch {
-    // fallback
+    // Fallback to in-memory store only when localStorage is unavailable or throws
   }
   return memoryStore.get(key) ?? null;
 }
@@ -24,9 +62,10 @@ function setStorageItem(key: string, value: string): void {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem(key, value);
+      return;
     }
   } catch {
-    // fallback
+    // Fallback to in-memory store only when localStorage is unavailable or throws
   }
   memoryStore.set(key, value);
 }
@@ -35,11 +74,22 @@ function removeStorageItem(key: string): void {
   try {
     if (typeof localStorage !== 'undefined') {
       localStorage.removeItem(key);
+      return;
     }
   } catch {
-    // fallback
+    // Fallback to in-memory store only when localStorage is unavailable or throws
   }
   memoryStore.delete(key);
+}
+
+function defaultBestRecord(): BestRunRecord {
+  return {
+    bestScore: 0,
+    stagesCleared: 0,
+    totalRuns: 0,
+    totalNanites: 0,
+    inheritedHeirloom: null,
+  };
 }
 
 export function saveActiveRun(run: RunState): void {
@@ -50,39 +100,58 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
   try {
     if (!raw) return null;
     const parsed = JSON.parse(raw) as RunState;
+    const hero = parsed?.hero as HeroState | undefined;
     if (
       !parsed ||
       typeof parsed.runId !== 'string' ||
-      !parsed.heroine ||
-      typeof parsed.heroine.hp !== 'number' ||
-      typeof parsed.heroine.maxHp !== 'number' ||
-      parsed.heroine.maxHp <= 0 ||
-      typeof parsed.heroine.shield !== 'number' ||
-      typeof parsed.heroine.overdrive !== 'number' ||
-      typeof parsed.heroine.carryCapacity !== 'number' ||
-      typeof parsed.heroine.credits !== 'number' ||
-      !Array.isArray(parsed.heroine.implants) ||
-      !Array.isArray(parsed.heroine.ownedEquipment) ||
-      !Array.isArray(parsed.heroine.equippedInstanceIds) ||
-      typeof parsed.heroine.damageBoostPct !== 'number' ||
+      !isFiniteNumber(parsed.seed) ||
+      !VALID_SCREEN_SET.has(parsed.screen) ||
+      !isFiniteNumber(parsed.score) ||
+      !isFiniteNumber(parsed.turnsCompleted) ||
+      !isFiniteNumber(parsed.enemiesDefeated) ||
+      !hero ||
+      !isFiniteNumber(hero.hp) ||
+      !isFiniteNumber(hero.maxHp) ||
+      hero.maxHp <= 0 ||
+      !isFiniteNumber(hero.shield) ||
+      !isFiniteNumber(hero.overdrive) ||
+      !isFiniteNumber(hero.corrode) ||
+      !isFiniteNumber(hero.memoryCapacity) ||
+      hero.memoryCapacity <= 0 ||
+      !isFiniteNumber(hero.credits) ||
+      !isFiniteNumber(hero.damageBoostPct) ||
+      !Array.isArray(hero.implants) ||
+      !Array.isArray(hero.ownedChips) ||
+      !Array.isArray(hero.equippedInstanceIds) ||
       !Array.isArray(parsed.mapNodes) ||
-      (parsed.mapNodes.length !== 11 &&
-        parsed.mapNodes.length !== 17 &&
-        parsed.mapNodes.length !== 32) ||
+      (parsed.mapNodes.length !== 11 && parsed.mapNodes.length !== 32) ||
       !Array.isArray(parsed.masterPool) ||
       !Array.isArray(parsed.clinicChoices) ||
-      !Array.isArray(parsed.clinicShopChoices)
+      !Array.isArray(parsed.chipDealerChoices)
     ) {
       return null;
     }
+
     if (
-      parsed.heroine.characterId !== undefined &&
-      parsed.heroine.characterId !== 'kira' &&
-      parsed.heroine.characterId !== 'aurelia' &&
-      parsed.heroine.characterId !== 'zuri'
+      hero.characterId !== undefined &&
+      hero.characterId !== 'kira' &&
+      hero.characterId !== 'auraline' &&
+      hero.characterId !== 'zuri'
     ) {
       return null;
     }
+
+    for (const owned of hero.ownedChips) {
+      if (
+        !owned ||
+        typeof owned.instanceId !== 'string' ||
+        typeof owned.defId !== 'string' ||
+        !SKILL_CHIPS_BY_ID[owned.defId]
+      ) {
+        return null;
+      }
+    }
+
     if (
       parsed.difficultyTier !== undefined &&
       parsed.difficultyTier !== 1 &&
@@ -93,63 +162,65 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
     ) {
       parsed.difficultyTier = 3;
     }
-    if (typeof parsed.runResetsUsed !== 'number') {
-      parsed.runResetsUsed = 0;
+
+    if (!isFiniteNumber(parsed.runResetsUsed)) parsed.runResetsUsed = 0;
+    if (typeof parsed.chipDealerHeirloomUsed !== 'boolean') parsed.chipDealerHeirloomUsed = false;
+    if (typeof parsed.clinicPurgeUsed !== 'boolean') parsed.clinicPurgeUsed = false;
+    if (!isFiniteNumber(hero.nanites)) hero.nanites = 0;
+    if (!isFiniteNumber(hero.consecutiveCombatWithoutClinic)) {
+      hero.consecutiveCombatWithoutClinic = 0;
     }
-    if (typeof parsed.heroine.nanites !== 'number') {
-      parsed.heroine.nanites = 0;
+    if (typeof hero.emergencyDefibUsed !== 'boolean') hero.emergencyDefibUsed = false;
+    if (!isFiniteNumber(hero.overclockCount)) hero.overclockCount = 0;
+    if (!isFiniteNumber(hero.armor)) hero.armor = 0;
+    if (!isFiniteNumber(hero.pendingUpcharge)) hero.pendingUpcharge = 0;
+    if (!isFiniteNumber(hero.nextChipInstanceSeq)) {
+      hero.nextChipInstanceSeq = hero.ownedChips.length + 1;
     }
-    if (typeof parsed.heroine.consecutiveCombatWithoutClinic !== 'number') {
-      parsed.heroine.consecutiveCombatWithoutClinic = 0;
+    if (!Array.isArray(hero.purgedInnateIds)) hero.purgedInnateIds = [];
+    if (!Array.isArray(hero.prodigyTileIds)) hero.prodigyTileIds = [];
+    if (!Array.isArray(hero.splicedTilePairs)) hero.splicedTilePairs = [];
+    if (!Array.isArray(hero.familyEstates)) hero.familyEstates = [];
+    if (!isFiniteNumber(hero.meshReroutesUsed)) hero.meshReroutesUsed = 0;
+    if (typeof hero.maglevUsed !== 'boolean') hero.maglevUsed = false;
+    if (!isFiniteNumber(hero.heirloomStacks)) {
+      hero.heirloomStacks = 0;
+    } else {
+      hero.heirloomStacks = Math.max(0, Math.min(MAX_HEIRLOOM_STACKS, hero.heirloomStacks));
     }
-    if (typeof parsed.heroine.emergencyDefibUsed !== 'boolean') {
-      parsed.heroine.emergencyDefibUsed = false;
-    }
-    if (typeof parsed.heroine.overclockCount !== 'number') {
-      parsed.heroine.overclockCount = 0;
-    }
-    if (typeof parsed.heroine.armor !== 'number') {
-      parsed.heroine.armor = 0;
-    }
-    if (typeof parsed.heroine.pendingUpcharge !== 'number') {
-      parsed.heroine.pendingUpcharge = 0;
-    }
-    if (!Array.isArray(parsed.heroine.purgedInnateIds)) {
-      parsed.heroine.purgedInnateIds = [];
-    }
-    if (!Array.isArray(parsed.heroine.prodigyTileIds)) {
-      parsed.heroine.prodigyTileIds = [];
-    }
-    if (!Array.isArray(parsed.heroine.splicedTilePairs)) {
-      parsed.heroine.splicedTilePairs = [];
-    }
-    if (!Array.isArray(parsed.heroine.familyEstates)) {
-      parsed.heroine.familyEstates = [];
-    }
-    if (typeof parsed.heroine.meshReroutesUsed !== 'number') {
-      parsed.heroine.meshReroutesUsed = 0;
-    }
-    if (typeof parsed.heroine.maglevUsed !== 'boolean') {
-      parsed.heroine.maglevUsed = false;
-    }
-    if (typeof parsed.heroine.heirloomStacks !== 'number') {
-      parsed.heroine.heirloomStacks = 0;
+    if (hero.heirloomEngravedId && !SKILL_CHIPS_BY_ID[hero.heirloomEngravedId]) {
+      hero.heirloomEngravedId = null;
+      hero.heirloomStacks = 0;
     }
     if (parsed.activeEvent === undefined) {
       parsed.activeEvent = null;
     }
-    parsed.heroine.implants = parsed.heroine.implants.filter((id): id is CyberImplantId =>
-      VALID_IMPLANT_SET.has(id),
-    );
+
+    hero.implants = hero.implants.filter((id): id is CyberImplantId => VALID_IMPLANT_SET.has(id));
     parsed.clinicChoices = parsed.clinicChoices.filter((id): id is CyberImplantId =>
       VALID_IMPLANT_SET.has(id),
     );
-    parsed.clinicShopChoices = parsed.clinicShopChoices.filter((id) => Boolean(EQUIPMENT_BY_ID[id]));
+    parsed.chipDealerChoices = parsed.chipDealerChoices.filter((id) =>
+      Boolean(SKILL_CHIPS_BY_ID[id]),
+    );
+
+    if (parsed.screen === 'event') {
+      if (
+        !parsed.activeEvent ||
+        typeof parsed.activeEvent.id !== 'string' ||
+        !Array.isArray(parsed.activeEvent.choices) ||
+        parsed.activeEvent.choices.length === 0
+      ) {
+        return null;
+      }
+    }
+
     if (parsed.screen === 'combat') {
       const c = parsed.combat;
       if (
         !c ||
-        !Array.isArray(c.rewardEquipmentChoices) ||
+        !VALID_COMBAT_PHASE_SET.has(c.phase) ||
+        !Array.isArray(c.rewardChipChoices) ||
         !Array.isArray(c.board) ||
         !Array.isArray(c.drawPile) ||
         !Array.isArray(c.discardPile) ||
@@ -162,17 +233,21 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
         if (
           !enemy ||
           !ENEMY_TEMPLATES[enemy.archetype] ||
+          !isFiniteNumber(enemy.hp) ||
+          !isFiniteNumber(enemy.maxHp) ||
+          enemy.maxHp <= 0 ||
+          !isFiniteNumber(enemy.armor) ||
           !Array.isArray(enemy.intentCycle) ||
           enemy.intentCycle.length === 0 ||
-          typeof enemy.currentIntentIndex !== 'number' ||
+          !Number.isInteger(enemy.currentIntentIndex) ||
           enemy.currentIntentIndex < 0 ||
           enemy.currentIntentIndex >= enemy.intentCycle.length
         ) {
           return null;
         }
         const tpl = ENEMY_TEMPLATES[enemy.archetype];
-        if (typeof enemy.shieldPips !== 'number') enemy.shieldPips = tpl.startingShieldPips;
-        if (typeof enemy.maxShieldPips !== 'number') enemy.maxShieldPips = tpl.startingShieldPips;
+        if (!isFiniteNumber(enemy.shieldPips)) enemy.shieldPips = tpl.startingShieldPips;
+        if (!isFiniteNumber(enemy.maxShieldPips)) enemy.maxShieldPips = tpl.startingShieldPips;
         if (!enemy.passive) enemy.passive = tpl.passive;
         if (!enemy.roleColor) enemy.roleColor = tpl.roleColor;
         if (enemy.phaseGatePct === undefined) enemy.phaseGatePct = tpl.phaseGatePct;
@@ -180,7 +255,7 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
         if (typeof enemy.enragedAlone !== 'boolean') enemy.enragedAlone = false;
         if (typeof enemy.weaponBroken !== 'boolean') enemy.weaponBroken = false;
         if (typeof enemy.desperationEnraged !== 'boolean') enemy.desperationEnraged = false;
-        if (typeof enemy.turnDamageTaken !== 'number') enemy.turnDamageTaken = 0;
+        if (!isFiniteNumber(enemy.turnDamageTaken)) enemy.turnDamageTaken = 0;
       }
       if (c.director && !Array.isArray(c.director.pendingReinforcements)) {
         c.director.pendingReinforcements = [];
@@ -228,40 +303,49 @@ export function loadBestRecord(): BestRunRecord {
   try {
     const raw = getStorageItem(BEST_RECORD_KEY);
     if (!raw) {
-      return {
-        bestScore: 0,
-        sectorsCleared: 0,
-        totalRuns: 0,
-        totalNanites: 0,
-        inheritedHeirloom: null,
-      };
+      return defaultBestRecord();
     }
     const parsed = JSON.parse(raw) as BestRunRecord;
+    if (!parsed || typeof parsed !== 'object') {
+      return defaultBestRecord();
+    }
+    let inheritedHeirloom: BestRunRecord['inheritedHeirloom'] = null;
+    if (
+      parsed.inheritedHeirloom &&
+      typeof parsed.inheritedHeirloom.defId === 'string' &&
+      SKILL_CHIPS_BY_ID[parsed.inheritedHeirloom.defId] &&
+      isFiniteNumber(parsed.inheritedHeirloom.bonusStacks)
+    ) {
+      inheritedHeirloom = {
+        defId: parsed.inheritedHeirloom.defId,
+        bonusStacks: Math.max(
+          1,
+          Math.min(MAX_HEIRLOOM_STACKS, Math.round(parsed.inheritedHeirloom.bonusStacks)),
+        ),
+      };
+    }
     return {
-      bestScore: parsed.bestScore ?? 0,
-      sectorsCleared: parsed.sectorsCleared ?? 0,
-      totalRuns: parsed.totalRuns ?? 0,
-      totalNanites: parsed.totalNanites ?? 0,
-      inheritedHeirloom: parsed.inheritedHeirloom ?? null,
+      bestScore: getFiniteNonNegative(parsed.bestScore, 0),
+      stagesCleared: getFiniteNonNegative(parsed.stagesCleared, 0),
+      totalRuns: getFiniteNonNegative(parsed.totalRuns, 0),
+      totalNanites: getFiniteNonNegative(parsed.totalNanites, 0),
+      inheritedHeirloom,
     };
   } catch {
-    return {
-      bestScore: 0,
-      sectorsCleared: 0,
-      totalRuns: 0,
-      totalNanites: 0,
-      inheritedHeirloom: null,
-    };
+    return defaultBestRecord();
   }
 }
 
 export function saveInheritedHeirloom(defId: string, bonusStacks: number): BestRunRecord {
   const prev = loadBestRecord();
+  if (!SKILL_CHIPS_BY_ID[defId]) {
+    return prev;
+  }
   const next: BestRunRecord = {
     ...prev,
     inheritedHeirloom: {
       defId,
-      bonusStacks: Math.max(1, Math.min(8, bonusStacks)),
+      bonusStacks: Math.max(1, Math.min(MAX_HEIRLOOM_STACKS, Math.round(bonusStacks))),
     },
   };
   setStorageItem(BEST_RECORD_KEY, JSON.stringify(next));
@@ -270,15 +354,17 @@ export function saveInheritedHeirloom(defId: string, bonusStacks: number): BestR
 
 export function recordRunCompletion(
   score: number,
-  clearedSector: boolean,
+  clearedStage: boolean,
   nanitesBanked = 0,
 ): BestRunRecord {
   const prev = loadBestRecord();
+  const safeScore = getFiniteNonNegative(score, 0);
+  const safeNanites = getFiniteNonNegative(nanitesBanked, 0);
   const next: BestRunRecord = {
-    bestScore: Math.max(prev.bestScore, score),
-    sectorsCleared: prev.sectorsCleared + (clearedSector ? 1 : 0),
+    bestScore: Math.max(prev.bestScore, safeScore),
+    stagesCleared: prev.stagesCleared + (clearedStage ? 1 : 0),
     totalRuns: prev.totalRuns + 1,
-    totalNanites: (prev.totalNanites ?? 0) + Math.max(0, nanitesBanked),
+    totalNanites: (prev.totalNanites ?? 0) + safeNanites,
     inheritedHeirloom: prev.inheritedHeirloom ?? null,
   };
   setStorageItem(BEST_RECORD_KEY, JSON.stringify(next));

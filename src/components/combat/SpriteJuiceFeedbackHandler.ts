@@ -468,14 +468,20 @@ export class SpriteJuiceFeedbackHandler {
       }
 
       if (!isHitStopped) {
-        // Critically-damped spring scaleX & scaleY back to baseScaleTarget (zero bouncy wobble)
+        // Critically-damped spring scaleX & scaleY back to baseScaleTarget (zero bouncy wobble),
+        // sub-stepped when dt > 1/60 so frame drops never cause spring instability.
         const targetS = phase === 'reset' ? 1 : a.baseScaleTarget;
-        const ax = k * (targetS - a.scaleX) - c * a.scaleVelX;
-        const ay = k * (targetS - a.scaleY) - c * a.scaleVelY;
-        a.scaleVelX += ax * dt;
-        a.scaleVelY += ay * dt;
-        a.scaleX += a.scaleVelX * dt;
-        a.scaleY += a.scaleVelY * dt;
+        const maxSubStep = 1 / 120;
+        const steps = dt > 1 / 60 ? Math.max(1, Math.ceil(dt / maxSubStep)) : 1;
+        const subDt = dt / steps;
+        for (let s = 0; s < steps; s++) {
+          const ax = k * (targetS - a.scaleX) - c * a.scaleVelX;
+          const ay = k * (targetS - a.scaleY) - c * a.scaleVelY;
+          a.scaleVelX += ax * subDt;
+          a.scaleVelY += ay * subDt;
+          a.scaleX += a.scaleVelX * subDt;
+          a.scaleY += a.scaleVelY * subDt;
+        }
       }
     });
   }

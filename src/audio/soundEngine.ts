@@ -1,6 +1,6 @@
 const MUTE_KEY = 'neon_breach_muted_v1';
 
-export type HapticKind = 'select' | 'surge' | 'invalid' | 'commit';
+type HapticKind = 'select' | 'surge' | 'invalid' | 'commit';
 
 class SoundEngine {
   private ctx: AudioContext | null = null;
@@ -25,6 +25,12 @@ class SoundEngine {
       localStorage.setItem(MUTE_KEY, next ? '1' : '0');
     } catch {
       // Ignore storage failures
+    }
+    if (!this.ctx) return;
+    if (next && this.ctx.state === 'running') {
+      void this.ctx.suspend().catch(() => {});
+    } else if (!next && this.ctx.state === 'suspended') {
+      void this.ctx.resume().catch(() => {});
     }
   }
 
@@ -63,10 +69,14 @@ class SoundEngine {
       window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (!AudioCtx) return null;
     if (!this.ctx) {
-      this.ctx = new AudioCtx();
+      try {
+        this.ctx = new AudioCtx();
+      } catch {
+        return null;
+      }
     }
     if (this.ctx.state === 'suspended') {
-      void this.ctx.resume();
+      void this.ctx.resume().catch(() => {});
     }
     return this.ctx;
   }
@@ -80,25 +90,37 @@ class SoundEngine {
     delay = 0,
   ): void {
     const ctx = this.ensureContext();
-    if (!ctx) return;
+    if (!ctx || ctx.state !== 'running') return;
 
-    const now = ctx.currentTime + delay;
+    const safeFreq = Math.max(20, freq);
+    const safeEndFreq = Math.max(20, endFreq);
+    const safeDur = Math.max(0.025, duration);
+    const safeDelay = Math.max(0, delay);
+    const now = ctx.currentTime + safeDelay;
     const osc = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.type = type;
-    osc.frequency.setValueAtTime(freq, now);
-    if (endFreq !== freq) {
-      osc.frequency.exponentialRampToValueAtTime(Math.max(20, endFreq), now + duration);
+    osc.frequency.setValueAtTime(safeFreq, now);
+    if (safeEndFreq !== safeFreq) {
+      osc.frequency.exponentialRampToValueAtTime(safeEndFreq, now + safeDur);
     }
 
     gain.gain.setValueAtTime(0.0001, now);
-    gain.gain.linearRampToValueAtTime(gainLevel, now + 0.012);
-    gain.gain.exponentialRampToValueAtTime(0.0001, now + duration);
+    gain.gain.linearRampToValueAtTime(Math.max(0.0002, gainLevel), now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, now + safeDur);
 
     osc.connect(gain);
     gain.connect(ctx.destination);
+    osc.onended = () => {
+      try {
+        osc.disconnect();
+        gain.disconnect();
+      } catch {
+        // Ignore already-disconnected nodes
+      }
+    };
     osc.start(now);
-    osc.stop(now + duration + 0.02);
+    osc.stop(now + safeDur + 0.02);
   }
 
   public playClick(): void {

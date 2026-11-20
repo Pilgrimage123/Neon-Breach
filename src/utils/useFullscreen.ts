@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   detectTouchscreenDevice,
   isFullscreenActive,
@@ -25,9 +25,12 @@ export function useFullscreen() {
 
   const [isTouchscreen, setIsTouchscreen] = useState<boolean>(() => readTouchscreenFlag());
 
-  const supported =
-    typeof document !== 'undefined' &&
-    isFullscreenSupported(document as unknown as FullscreenDocumentLike);
+  const supported = useMemo(
+    () =>
+      typeof document !== 'undefined' &&
+      isFullscreenSupported(document as unknown as FullscreenDocumentLike),
+    [],
+  );
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -72,16 +75,20 @@ export function useFullscreen() {
     };
   }, []);
 
-  const toggleFullscreen = useCallback(async () => {
+  const toggleFullscreen = useCallback((): void => {
     if (typeof document === 'undefined') return;
-    const next = await toggleDocumentFullscreen(document as unknown as FullscreenDocumentLike);
-    setIsFullscreen(next);
+    void toggleDocumentFullscreen(document as unknown as FullscreenDocumentLike).then((next) => {
+      setIsFullscreen(next);
+    });
   }, []);
 
-  return {
-    isFullscreen,
-    isFullscreenSupported: supported,
-    isTouchscreen,
-    toggleFullscreen,
-  };
+  return useMemo(
+    () => ({
+      isFullscreen,
+      isFullscreenSupported: supported,
+      isTouchscreen,
+      toggleFullscreen,
+    }),
+    [isFullscreen, supported, isTouchscreen, toggleFullscreen],
+  );
 }

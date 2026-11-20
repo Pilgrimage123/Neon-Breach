@@ -1,9 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  CLINIC_RESTOCK_COST,
-  EQUIPMENT_BY_ID,
-  getEquippedEquipmentWeight,
+  CHIP_DEALER_RESTOCK_COST,
+  SKILL_CHIPS_BY_ID,
 } from '../engine/data';
+import { getEquippedChipMemory } from '../engine/poolBuilder';
 import type { NannyBotId, RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import { formatTileShortLabel } from '../utils/tileDisplay';
@@ -61,22 +61,37 @@ export function ChipDealerView({
 }: ChipDealerViewProps) {
   const t = TRANSLATIONS[lang];
   const isCs = lang === 'cs';
-  const charCode = t.characters[run.heroine.characterId ?? 'kira'].code;
+  const charCode = t.characters[run.hero.characterId ?? 'kira'].code;
   const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
   const isFlashSale = currentNode?.modifier === 'flash_sale';
-  const equippedMemory = getEquippedEquipmentWeight(run.heroine);
+  const equippedMemory = getEquippedChipMemory(run.hero);
   const nannyCost = isFlashSale ? 16 : 25;
+
+  const [selectedHeirloomDefId, setSelectedHeirloomDefId] = useState<string>(
+    () => run.hero.heirloomEngravedId ?? run.hero.ownedChips[0]?.defId ?? '',
+  );
+
+  useEffect(() => {
+    const ownedDefIds = new Set(run.hero.ownedChips.map((c) => c.defId));
+    if (!selectedHeirloomDefId || !ownedDefIds.has(selectedHeirloomDefId)) {
+      const nextDefault =
+        (run.hero.heirloomEngravedId && ownedDefIds.has(run.hero.heirloomEngravedId)
+          ? run.hero.heirloomEngravedId
+          : run.hero.ownedChips[0]?.defId) ?? '';
+      setSelectedHeirloomDefId(nextDefault);
+    }
+  }, [run.hero.heirloomEngravedId, run.hero.ownedChips, selectedHeirloomDefId]);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       const idx = e.key === '1' ? 0 : e.key === '2' ? 1 : e.key === '3' ? 2 : -1;
-      if (idx >= 0 && run.clinicShopChoices[idx]) {
-        const defId = run.clinicShopChoices[idx];
-        const def = EQUIPMENT_BY_ID[defId];
+      if (idx >= 0 && run.chipDealerChoices[idx]) {
+        const defId = run.chipDealerChoices[idx];
+        const def = SKILL_CHIPS_BY_ID[defId];
         if (!def) return;
         const price = isFlashSale ? Math.max(10, Math.round(def.price * 0.65)) : def.price;
-        if (run.heroine.credits >= price) {
+        if (run.hero.credits >= price) {
           e.preventDefault();
           onBuyChip(defId);
         }
@@ -84,7 +99,11 @@ export function ChipDealerView({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }, [isFlashSale, onBuyChip, run.chipDealerChoices, run.hero.credits]);
+
+  const uniqueOwnedChipDefIds = Array.from(
+    new Set(run.hero.ownedChips.map((chip) => chip.defId)),
+  );
 
   return (
     <main
@@ -122,7 +141,7 @@ export function ChipDealerView({
           </div>
           <div className="flex items-center gap-1.5 font-mono-tabular text-[12.5px] sm:text-sm shrink-0">
             <span className="font-bold text-[#FFC700]">
-              {run.heroine.credits} {t.creditsLabel}
+              {run.hero.credits} {t.creditsLabel}
             </span>
             <span aria-hidden="true" className="text-slate-400">
               ·
@@ -134,11 +153,11 @@ export function ChipDealerView({
                 className="chrome-pill rounded-lg px-2 py-0.5 text-[12.5px] font-semibold text-[#00F0FF] hover:border-cyan-300 hover:text-white cursor-pointer"
                 title={t.inspectPool}
               >
-                ▣ {t.capacityLabel}: {equippedMemory}/{run.heroine.carryCapacity}
+                ▣ {t.capacityLabel}: {equippedMemory}/{run.hero.memoryCapacity}
               </button>
             ) : (
               <span className="font-semibold text-[#00F0FF]">
-                {t.capacityLabel}: {equippedMemory}/{run.heroine.carryCapacity}
+                {t.capacityLabel}: {equippedMemory}/{run.hero.memoryCapacity}
               </span>
             )}
             <button
@@ -159,15 +178,15 @@ export function ChipDealerView({
             </div>
             <button
               type="button"
-              disabled={run.heroine.credits < CLINIC_RESTOCK_COST}
+              disabled={run.hero.credits < CHIP_DEALER_RESTOCK_COST}
               onClick={onRestockShop}
               className="chrome-pill shrink-0 rounded-md border-amber-300/45 px-2.5 py-0.5 font-mono-tabular text-[12px] sm:text-[13px] font-bold text-amber-200 transition-colors hover:border-[#FFC700] hover:text-white disabled:opacity-40 cursor-pointer"
             >
-              ↻ {t.restockShop} ({CLINIC_RESTOCK_COST} {t.creditsLabel})
+              ↻ {t.restockShop} ({CHIP_DEALER_RESTOCK_COST} {t.creditsLabel})
             </button>
           </div>
 
-          {run.clinicShopChoices.length === 0 ? (
+          {run.chipDealerChoices.length === 0 ? (
             <p className="mt-2 text-xs text-slate-300">{t.clinicShopEmpty}</p>
           ) : (
             <div
@@ -177,13 +196,13 @@ export function ChipDealerView({
                   : 'grid-cols-1 gap-2 min-[560px]:grid-cols-3 sm:gap-3'
               }`}
             >
-              {run.clinicShopChoices.map((defId, idx) => {
-                const def = EQUIPMENT_BY_ID[defId];
+              {run.chipDealerChoices.map((defId, idx) => {
+                const def = SKILL_CHIPS_BY_ID[defId];
                 if (!def) return null;
                 const meta = t.equipment[def.id];
                 const price = isFlashSale ? Math.max(10, Math.round(def.price * 0.65)) : def.price;
-                const canAfford = run.heroine.credits >= price;
-                const fitsMemory = equippedMemory + def.size <= run.heroine.carryCapacity;
+                const canAfford = run.hero.credits >= price;
+                const fitsMemory = equippedMemory + def.memoryCost <= run.hero.memoryCapacity;
 
                 return (
                   <div
@@ -204,7 +223,7 @@ export function ChipDealerView({
                             {meta?.name ?? def.id}
                           </h2>
                           <span className={fitsMemory ? 'text-[#00F0FF] shrink-0' : 'text-amber-300 shrink-0'}>
-                            {t.sizeLabel}:{def.size} {fitsMemory ? '✓' : '⬡'}
+                            {t.sizeLabel}:{def.memoryCost} {fitsMemory ? '✓' : '⬡'}
                           </span>
                         </div>
                         {!isCompactLandscape && (
@@ -291,13 +310,13 @@ export function ChipDealerView({
                     </div>
                     <div className="flex flex-col gap-1">
                       {NANNY_BOT_SPECS.map((bot) => {
-                        const isInstalled = run.heroine.nannyBotInstalled === bot.id;
+                        const isInstalled = run.hero.nannyBotInstalled === bot.id;
                         return (
                           <button
                             key={bot.id}
                             type="button"
                             data-testid={`nanny-bot-btn-${bot.id}`}
-                            disabled={isInstalled || run.heroine.credits < nannyCost}
+                            disabled={isInstalled || run.hero.credits < nannyCost}
                             onClick={() => onAdoptNannyBot(bot.id)}
                             className={`flex items-center justify-between rounded-lg border px-2 py-1 font-mono-tabular text-[12px] font-bold transition-all cursor-pointer ${
                               isInstalled
@@ -330,19 +349,19 @@ export function ChipDealerView({
                         5× TILE → +2 STAT
                       </span>
                     </div>
-                    {run.heroine.betaTrialChip ? (
+                    {run.hero.betaTrialChip ? (
                       <div className="rounded-lg border border-violet-400/50 bg-violet-900/30 px-2.5 py-1.5 font-mono-tabular text-[12px] text-violet-200 font-bold">
-                        {run.heroine.betaTrialChip.upgraded
+                        {run.hero.betaTrialChip.upgraded
                           ? isCs
                             ? '✓ Trvale vylepšeno (+2)'
                             : '✓ Permanently Upgraded (+2)'
-                          : `${run.heroine.betaTrialChip.resolvesLogged}/5 · ${run.heroine.betaTrialChip.combatsRemaining}f`}
+                          : `${run.hero.betaTrialChip.resolvesLogged}/5 · ${run.hero.betaTrialChip.combatsRemaining}f`}
                       </div>
                     ) : (
                       <button
                         type="button"
                         data-testid="beta-arcade-claim-btn"
-                        onClick={() => onStartBetaTrial(run.clinicShopChoices[0])}
+                        onClick={() => onStartBetaTrial(run.chipDealerChoices[0])}
                         className="w-full rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 font-mono-tabular text-[12px] font-bold text-white hover:brightness-110 cursor-pointer"
                       >
                         {isCs ? 'Zkušební AI čip (0 CR)' : 'Trial AI Chip (0 CR)'}
@@ -362,24 +381,50 @@ export function ChipDealerView({
                         🗡 {isCs ? 'Rodová kovárna' : 'Heirloom Forge'}
                       </span>
                       <span className="font-mono-tabular text-[11.5px] font-bold text-amber-300">
-                        +{run.heroine.heirloomStacks ?? 0} (+1/WIN)
+                        +{run.hero.heirloomStacks ?? 0} (+1/WIN)
                       </span>
                     </div>
+                    {uniqueOwnedChipDefIds.length > 1 && (
+                      <select
+                        data-testid="heirloom-forge-chip-select"
+                        aria-label={isCs ? 'Vybrat AI čip pro dědictví' : 'Select AI Chip for Heirloom'}
+                        value={selectedHeirloomDefId}
+                        onChange={(e) => setSelectedHeirloomDefId(e.target.value)}
+                        className="w-full rounded-lg border border-amber-300/45 bg-slate-950/85 px-2 py-1 font-mono-tabular text-[11.5px] font-bold text-amber-100 focus:border-amber-300 focus:outline-none cursor-pointer"
+                      >
+                        {uniqueOwnedChipDefIds.map((defId) => (
+                          <option key={defId} value={defId} className="bg-slate-950 text-amber-100">
+                            {t.equipment[defId]?.name ?? defId}
+                            {run.hero.heirloomEngravedId === defId
+                              ? isCs
+                                ? ' (Vyryto)'
+                                : ' (Engraved)'
+                              : ''}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <button
                       type="button"
                       data-testid="heirloom-forge-engrave-btn"
-                      disabled={run.heroine.ownedEquipment.length === 0}
+                      disabled={
+                        run.hero.ownedChips.length === 0 ||
+                        Boolean(run.chipDealerHeirloomUsed) ||
+                        run.hero.credits < 25
+                      }
                       onClick={() => {
                         const target =
-                          run.heroine.ownedEquipment[0]?.defId ?? 'starter_katana_chip';
-                        onEngraveHeirloom(target);
+                          selectedHeirloomDefId ||
+                          run.hero.heirloomEngravedId ||
+                          run.hero.ownedChips[0]?.defId;
+                        if (target) onEngraveHeirloom(target);
                       }}
                       className="w-full rounded-lg border border-amber-300/60 bg-amber-500/25 px-3 py-1.5 font-mono-tabular text-[12px] font-bold text-amber-100 hover:bg-amber-500/35 disabled:opacity-45 cursor-pointer"
                     >
-                      {run.heroine.heirloomEngravedId
+                      {run.hero.heirloomEngravedId
                         ? isCs
-                          ? `Posílit (+1 → +${(run.heroine.heirloomStacks ?? 0) + 1})`
-                          : `Empower (+1 → +${(run.heroine.heirloomStacks ?? 0) + 1})`
+                          ? `Posílit (+1 → +${(run.hero.heirloomStacks ?? 0) + 1})`
+                          : `Empower (+1 → +${(run.hero.heirloomStacks ?? 0) + 1})`
                         : isCs
                           ? 'Vyrýt dědictví (+1 k dílkům)'
                           : 'Engrave Heirloom (+1 Tiles)'}

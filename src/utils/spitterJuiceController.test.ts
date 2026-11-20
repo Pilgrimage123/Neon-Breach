@@ -72,6 +72,7 @@ test('Layer 2: Turn Around smoothly flips facingScale from -1 through +1 and bac
   let sawMidFlipHop = false;
   for (let i = 0; i < 60; i++) {
     const s = stepSpitterJuice(state, 0.02, i * 0.02, DEFAULT_SPITTER_JUICE_CONFIG);
+    assert.ok(s.hopYPx <= 0, `2.5D flip must never sink below floor, got hopYPx=${s.hopYPx}`);
     if (s.facingScale > 0.85) sawPositiveFacing = true;
     if (s.hopYPx < -6) sawMidFlipHop = true;
   }

@@ -58,7 +58,7 @@ test('computeOptimalTurnHint recommends Overdrive when at 100% and evaluates bes
 
   const overdriveRun = {
     ...run,
-    heroine: { ...run.heroine, overdrive: 100 },
+    hero: { ...run.hero, overdrive: 100 },
   };
   const hintOd = computeOptimalTurnHint(overdriveRun, 'en');
   assert.ok(hintOd);
@@ -85,8 +85,8 @@ test('computeEncounterObjectives evaluates Casual 1-Star, Intermediate 2-Star, a
   // 3-Star Mastery: <=4 turns, 1+ surge, 0 undos, 0 hints, no fail-forward (0 CR bonus)
   const threeStar = computeEncounterObjectives({
     combat: clearedCombat,
-    heroine: run.heroine,
-    startingHp: run.heroine.hp,
+    hero: run.hero,
+    startingHp: run.hero.hp,
     undosUsed: 0,
     hintsUsed: 0,
     failForwardUsed: false,
@@ -100,8 +100,8 @@ test('computeEncounterObjectives evaluates Casual 1-Star, Intermediate 2-Star, a
   // 2-Star Intermediate: used 1 hint (or 1 undo) so Tier 3 is locked, but <=5 turns is met
   const twoStarHint = computeEncounterObjectives({
     combat: clearedCombat,
-    heroine: run.heroine,
-    startingHp: run.heroine.hp,
+    hero: run.hero,
+    startingHp: run.hero.hp,
     undosUsed: 0,
     hintsUsed: 1,
     lang: 'en',
@@ -111,8 +111,8 @@ test('computeEncounterObjectives evaluates Casual 1-Star, Intermediate 2-Star, a
   // Fail-Forward Retry caps node at 1-Star regardless of turn count
   const failForwardCapped = computeEncounterObjectives({
     combat: clearedCombat,
-    heroine: run.heroine,
-    startingHp: run.heroine.hp,
+    hero: run.hero,
+    startingHp: run.hero.hp,
     undosUsed: 1,
     failForwardUsed: true,
     lang: 'en',
@@ -124,8 +124,8 @@ test('computeEncounterObjectives evaluates Casual 1-Star, Intermediate 2-Star, a
   // 1-Star Casual: took 8 turns and lost HP
   const oneStar = computeEncounterObjectives({
     combat: { ...clearedCombat, turn: 8 },
-    heroine: { ...run.heroine, hp: run.heroine.hp - 12 },
-    startingHp: run.heroine.hp,
+    hero: { ...run.hero, hp: run.hero.hp - 12 },
+    startingHp: run.hero.hp,
     undosUsed: 2,
     lang: 'en',
   });
@@ -145,19 +145,19 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
   const wounded = {
     ...run,
     screen: 'gameover' as const,
-    heroine: { ...run.heroine, hp: 10, shield: 0, overdrive: 10 },
+    hero: { ...run.hero, hp: 10, shield: 0, overdrive: 10 },
   };
   const buffed = applyFailForwardBuff(wounded);
   assert.equal(buffed.screen, 'combat');
-  assert.ok(buffed.heroine.hp > 10);
-  assert.equal(buffed.heroine.shield, 10);
-  assert.equal(buffed.heroine.overdrive, 50);
+  assert.ok(buffed.hero.hp > 10);
+  assert.equal(buffed.hero.shield, 10);
+  assert.equal(buffed.hero.overdrive, 50);
 
   // Respects alreadySwappedThisTurn = true and Aurelia's heldTileBonus = 0
   const hintAfterSwap = computeOptimalTurnHint(run, 'en', true);
   assert.ok(hintAfterSwap && hintAfterSwap.recommendedAction !== 'swap');
 
-  const aureliaRun = createInitialRun(104729, 'aurelia');
+  const aureliaRun = createInitialRun(104729, 'auraline');
   assert.ok(aureliaRun.combat);
   const aureliaTurn2 = {
     ...aureliaRun,
@@ -188,8 +188,8 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
   };
   const objT4 = computeEncounterObjectives({
     combat: clearedT4,
-    heroine: aureliaRun.heroine,
-    startingHp: aureliaRun.heroine.hp,
+    hero: aureliaRun.hero,
+    startingHp: aureliaRun.hero.hp,
     undosUsed: 0,
     difficultyTier: 4,
     lang: 'en',
@@ -197,8 +197,8 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
   assert.equal(objT4.bonusCredits, 14);
   const objT5 = computeEncounterObjectives({
     combat: clearedT4,
-    heroine: aureliaRun.heroine,
-    startingHp: aureliaRun.heroine.hp,
+    hero: aureliaRun.hero,
+    startingHp: aureliaRun.hero.hp,
     undosUsed: 0,
     difficultyTier: 5,
     lang: 'en',

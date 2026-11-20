@@ -7,33 +7,38 @@ import spitterSheetUrl from './images/spitter_spritesheet_1794935806587.jpg';
 import stalkerPortraitUrl from './images/stalker_portrait_1794927638770.jpg';
 import stalkerSheetUrl from './images/stalker_spritesheet_1794927639433.jpg';
 import titleBgUrl from './images/title_bg_1794552837177.jpg';
+import auralineSheetUrl from './sprites/auraline_spritesheet.png';
+import crawlerSheetUrl from './sprites/crawler_spritesheet.png';
+import kiraDodge0Url from './sprites/kira_dodge_0_vault.png';
+import kiraDodge1Url from './sprites/kira_dodge_1_slide.png';
+import kiraDodge2Url from './sprites/kira_dodge_2_spin.png';
+import kiraDodge3Url from './sprites/kira_dodge_3_land.png';
+import kiraEmoteSheetUrl from './sprites/kira_emote_sheet.png';
+import kiraSheetUrl from './sprites/kira_spritesheet.png';
+import nurseSheetUrl from './sprites/nurse_spritesheet.png';
+import titleLogo0Url from './sprites/title_logo_0.png';
+import titleLogo1Url from './sprites/title_logo_1.png';
+import titleLogo2Url from './sprites/title_logo_2.png';
+import titleLogo3Url from './sprites/title_logo_3.png';
+import titleLogo4Url from './sprites/title_logo_4.png';
+import zuriDronesSheetUrl from './sprites/zuri_drones_sheet.png';
+import zuriEmoteSheetUrl from './sprites/zuri_emote_sheet.png';
+import zuriSheetUrl from './sprites/zuri_spritesheet.png';
 import type { EnemyArchetype } from '../engine/types';
 
-export const CRAWLER_SPRITE_SHEET_URL =
-  '/assets/aistudio/file_00000000555081f4a41ab1db158670ae_c3123f19.png';
-
-export const ZURI_SPRITE_SHEET_URL =
-  '/assets/aistudio/file_00000000f04881f49d73836af6b8d92c_241629e2.png';
-export const ZURI_EMOTE_SHEET_URL =
-  '/assets/aistudio/file_0000000066b481f4872cbfdb772b420c_e72e7df0.png';
-export const ZURI_DRONES_SHEET_URL =
-  '/assets/aistudio/file_00000000257c82439c937d2ab04e8624_1e67a010.png';
-export const NURSE_SPRITE_SHEET_URL =
-  '/assets/aistudio/image_d7235730.png';
-
-export const HEROINE_DODGE_URLS = [
-  '/assets/aistudio/Kyberpunkov__akrobatka_v_neonov_m_vzletu_536da17e.png',
-  '/assets/aistudio/Kyberpunkov__skluzavka_s_n_pisem_MISS_6b70b5b2.png',
-  '/assets/aistudio/Kyberpunkov__tane_nice_s_neonov_mi_akcenty_b7bd6a64.png',
-  '/assets/aistudio/Neonov__kyberpunkov__p_ist_vac__p_za_9eb78846.png',
+const KIRA_DODGE_URLS = [
+  kiraDodge0Url,
+  kiraDodge1Url,
+  kiraDodge2Url,
+  kiraDodge3Url,
 ] as const;
 
-export const TITLE_LOGO_FRAME_URLS = [
-  '/assets/aistudio/Neon_Breach__Z__iv__o_i_mutantky_e73032c9.png',
-  '/assets/aistudio/Neonov__ko_i___kyberpunkov__hrdinka_11d2aafc.png',
-  '/assets/aistudio/Neonov__kyberpunkov__dvojice_mutantky_c41a2fcd.png',
-  '/assets/aistudio/Neon_polibek_proti_xenomutantovi_a842b0d3.png',
-  '/assets/aistudio/Neonov__chaos__Xeno-breach_protokol_cac953eb.png',
+const TITLE_LOGO_FRAME_URLS = [
+  titleLogo0Url,
+  titleLogo1Url,
+  titleLogo2Url,
+  titleLogo3Url,
+  titleLogo4Url,
 ] as const;
 
 export const GAME_ASSETS = {
@@ -41,30 +46,22 @@ export const GAME_ASSETS = {
   titleLogo: TITLE_LOGO_FRAME_URLS[0],
   titleLogoFrames: TITLE_LOGO_FRAME_URLS,
   arenaBackdrop: arenaBackdropUrl,
-  heroine: '/assets/aistudio/image_99454af5.png',
-  heroineEmote: '/assets/aistudio/Kyberpunkov__hrdinka__neonov__sprite_animace_4403eebd.png',
-  heroineDodge: HEROINE_DODGE_URLS,
-  aurelia: '/assets/aistudio/aurelia_sprite_sheet.png',
-  zuri: ZURI_SPRITE_SHEET_URL,
-  zuriEmote: ZURI_EMOTE_SHEET_URL,
-  zuriDrones: ZURI_DRONES_SHEET_URL,
-  nurse: NURSE_SPRITE_SHEET_URL,
-  crawlerSheet: CRAWLER_SPRITE_SHEET_URL,
+  kira: kiraSheetUrl,
+  kiraEmote: kiraEmoteSheetUrl,
+  kiraDodge: KIRA_DODGE_URLS,
+  auraline: auralineSheetUrl,
+  zuri: zuriSheetUrl,
+  zuriEmote: zuriEmoteSheetUrl,
+  zuriDrones: zuriDronesSheetUrl,
+  nurse: nurseSheetUrl,
+  crawlerSheet: crawlerSheetUrl,
   stalkerSheet: stalkerSheetUrl,
   spitterSheet: spitterSheetUrl,
   bruteSheet: bruteSheetUrl,
+  bossPortrait: mutantBossUrl,
   enemyPortraits: {
     stalker: stalkerPortraitUrl,
     spitter: spitterPortraitUrl,
     brute: brutePortraitUrl,
   } as Partial<Record<EnemyArchetype, string>>,
-  enemies: {
-    larva: CRAWLER_SPRITE_SHEET_URL,
-    skitter: CRAWLER_SPRITE_SHEET_URL,
-    stinger: CRAWLER_SPRITE_SHEET_URL,
-    stalker: stalkerPortraitUrl,
-    spitter: spitterPortraitUrl,
-    brute: brutePortraitUrl,
-    boss: mutantBossUrl,
-  } as Record<EnemyArchetype, string>,
 } as const;

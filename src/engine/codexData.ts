@@ -5,16 +5,16 @@ import {
 } from '../i18n/codexTranslations';
 import type { Language } from '../i18n/translations';
 import {
-  EQUIPMENT_BY_ID,
   HERO_SPECS,
   type HeroSpec,
-  createStartingEquipment,
+  SKILL_CHIPS_BY_ID,
   getInnateTilesForCharacter,
 } from './data';
+import { createStartingSkillChips } from './poolBuilder';
 import type {
   CharacterId,
   EnemyPassiveKind,
-  EquipmentDefinition,
+  SkillChipDefinition,
   TileSpec,
   TileType,
 } from './types';
@@ -203,8 +203,8 @@ export function filterGlossaryTerms(
 export interface HeroCodexProfile {
   spec: HeroSpec;
   innateTiles: readonly TileSpec[];
-  startingEquipment: EquipmentDefinition[];
-  startingWeight: number;
+  startingChips: SkillChipDefinition[];
+  startingMemory: number;
   startingPoolCounts: Record<TileType, number>;
   totalStartingTiles: number;
 }
@@ -212,9 +212,9 @@ export interface HeroCodexProfile {
 export function getHeroCodexProfile(characterId: CharacterId): HeroCodexProfile {
   const spec = HERO_SPECS[characterId] ?? HERO_SPECS.kira;
   const innateTiles = getInnateTilesForCharacter(characterId);
-  const { ownedEquipment } = createStartingEquipment(characterId);
-  const startingEquipment: EquipmentDefinition[] = [];
-  let startingWeight = 0;
+  const { ownedChips } = createStartingSkillChips(characterId);
+  const startingChips: SkillChipDefinition[] = [];
+  let startingMemory = 0;
 
   const startingPoolCounts: Record<TileType, number> = {
     attack: 0,
@@ -226,11 +226,11 @@ export function getHeroCodexProfile(characterId: CharacterId): HeroCodexProfile 
     startingPoolCounts[tile.type] += 1;
   }
 
-  for (const owned of ownedEquipment) {
-    const def = EQUIPMENT_BY_ID[owned.defId];
+  for (const owned of ownedChips) {
+    const def = SKILL_CHIPS_BY_ID[owned.defId];
     if (!def) continue;
-    startingEquipment.push(def);
-    startingWeight += def.size;
+    startingChips.push(def);
+    startingMemory += def.memoryCost;
     for (const tile of def.tiles) {
       startingPoolCounts[tile.type] += 1;
     }
@@ -242,8 +242,8 @@ export function getHeroCodexProfile(characterId: CharacterId): HeroCodexProfile 
   return {
     spec,
     innateTiles,
-    startingEquipment,
-    startingWeight,
+    startingChips,
+    startingMemory,
     startingPoolCounts,
     totalStartingTiles,
   };

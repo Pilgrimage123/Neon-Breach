@@ -8,32 +8,33 @@ import {
   getGlossaryTermMeta,
   getHeroCodexProfile,
 } from './codexData';
-import { HERO_SPECS, createStartingEquipment, getInnateTilesForCharacter } from './data';
+import { HERO_SPECS, getInnateTilesForCharacter } from './data';
+import { createStartingSkillChips } from './poolBuilder';
 import type { CharacterId, EnemyPassiveKind } from './types';
 
-test('getHeroCodexProfile mirrors HERO_SPECS, innate tiles, and starting gear accurately', () => {
+test('getHeroCodexProfile mirrors HERO_SPECS, innate tiles, and starting chips accurately', () => {
   const expected: Record<
     CharacterId,
-    { atk: number; def: number; tech: number; weight: number }
+    { atk: number; def: number; tech: number; memory: number }
   > = {
-    kira: { atk: 3, def: 2, tech: 4, weight: 3 },
-    aurelia: { atk: 4, def: 3, tech: 2, weight: 4 },
-    zuri: { atk: 3, def: 3, tech: 3, weight: 4 },
+    kira: { atk: 3, def: 2, tech: 4, memory: 3 },
+    auraline: { atk: 4, def: 3, tech: 2, memory: 4 },
+    zuri: { atk: 3, def: 3, tech: 3, memory: 4 },
   };
 
-  for (const charId of ['kira', 'aurelia', 'zuri'] as const) {
+  for (const charId of ['kira', 'auraline', 'zuri'] as const) {
     const profile = getHeroCodexProfile(charId);
     const spec = HERO_SPECS[charId];
     const innate = getInnateTilesForCharacter(charId);
-    const startGear = createStartingEquipment(charId);
+    const startChips = createStartingSkillChips(charId);
 
     assert.equal(profile.spec.id, charId);
     assert.equal(profile.spec.maxHp, spec.maxHp);
-    assert.equal(profile.spec.carryCapacity, spec.carryCapacity);
+    assert.equal(profile.spec.memoryCapacity, spec.memoryCapacity);
     assert.equal(profile.spec.techOverdrivePerTile, spec.techOverdrivePerTile);
     assert.equal(profile.innateTiles.length, innate.length);
-    assert.equal(profile.startingEquipment.length, startGear.ownedEquipment.length);
-    assert.equal(profile.startingWeight, expected[charId].weight);
+    assert.equal(profile.startingChips.length, startChips.ownedChips.length);
+    assert.equal(profile.startingMemory, expected[charId].memory);
     assert.equal(profile.startingPoolCounts.attack, expected[charId].atk);
     assert.equal(profile.startingPoolCounts.defense, expected[charId].def);
     assert.equal(profile.startingPoolCounts.tech, expected[charId].tech);
@@ -64,7 +65,7 @@ test('glossary terms and hero codex translations are complete in both EN and CS'
       assert.ok(entry.keywords.length > 0);
     }
 
-    for (const charId of ['kira', 'aurelia', 'zuri'] as const) {
+    for (const charId of ['kira', 'auraline', 'zuri'] as const) {
       const hero = pack.heroes[charId];
       assert.ok(hero, `Missing hero codex ${charId} in ${lang}`);
       assert.ok(hero.passivePowers.length >= 3);

@@ -5,14 +5,14 @@ import {
   evaluateReactiveEnemyShifts,
   getSurgeThreshold,
   previewColorResolution,
-  previewHeroineThreat,
+  previewHeroThreat,
 } from '../engine/gameEngine';
 import type {
   CombatState,
   DifficultyTier,
   EnemyArchetype,
   EnemyUnit,
-  HeroineState,
+  HeroState,
   RunState,
   TileType,
 } from '../engine/types';
@@ -149,10 +149,10 @@ export function computeOptimalTurnHint(
   const combat = run.combat;
   if (!combat || combat.phase !== 'PLAYER_IDLE') return null;
   const enemyNames = TRANSLATIONS[lang].enemies;
-  const heldBonus = getHeroSpec(run.heroine.characterId).heldTileBonus;
+  const heldBonus = getHeroSpec(run.hero.characterId).heldTileBonus;
 
   // 1. If Overdrive is at 100%, it is a free action that deals AoE pierce + shield + boost
-  if (run.heroine.overdrive >= 100) {
+  if (run.hero.overdrive >= 100) {
     return {
       recommendedAction: 'overdrive',
       targetColor: null,
@@ -170,14 +170,14 @@ export function computeOptimalTurnHint(
     if (!candidateCombat) return null;
     const colors: TileType[] = ['attack', 'defense', 'tech'];
     const frontEnemy = candidateCombat.enemies.find((e) => e.hp > 0) ?? null;
-    const surgeThreshold = getSurgeThreshold(candidateRun.heroine.implants);
+    const surgeThreshold = getSurgeThreshold(candidateRun.hero.implants);
     let localBest: OptimalMoveHint | null = null;
 
     for (const color of colors) {
       const preview = previewColorResolution(candidateRun, color);
       if (preview.tileCount === 0) continue;
 
-      const threat = previewHeroineThreat(candidateCombat, candidateRun.heroine, preview);
+      const threat = previewHeroThreat(candidateCombat, candidateRun.hero, preview);
       let score = 0;
       const reasonsEn: string[] = [];
       const reasonsCs: string[] = [];
@@ -226,7 +226,7 @@ export function computeOptimalTurnHint(
         }
       }
 
-      const baselineThreat = previewHeroineThreat(candidateCombat, candidateRun.heroine, null);
+      const baselineThreat = previewHeroThreat(candidateCombat, candidateRun.hero, null);
       const damageSaved = Math.max(0, baselineThreat.hpDamageTaken - threat.hpDamageTaken);
       if (damageSaved > 0) {
         score += damageSaved * 8;
@@ -348,7 +348,7 @@ export function computeOptimalTurnHint(
  */
 export function computeEncounterObjectives(params: {
   combat: CombatState;
-  heroine: HeroineState;
+  hero: HeroState;
   startingHp: number;
   undosUsed: number;
   hintsUsed?: number;
@@ -358,7 +358,7 @@ export function computeEncounterObjectives(params: {
 }): EncounterObjectivesSummary {
   const {
     combat,
-    heroine,
+    hero,
     startingHp,
     undosUsed,
     hintsUsed = 0,
@@ -372,11 +372,11 @@ export function computeEncounterObjectives(params: {
   const turnTarget3Star = Math.max(4, turnTarget2Star - 1);
   const isCleared =
     combat.phase === 'VICTORY' || combat.enemies.every((e) => e.hp <= 0);
-  const hpLost = Math.max(0, startingHp - heroine.hp);
+  const hpLost = Math.max(0, startingHp - hero.hp);
   const surgesCount = combat.director?.compositionCounts.surges ?? 0;
 
   // Tier 1: Casual (The Floor) — Survive and clear the board in any number of turns
-  const tier1Done = isCleared && heroine.hp > 0;
+  const tier1Done = isCleared && hero.hp > 0;
 
   // Tier 2: Intermediate (3-Star System / Tier 5 Mandate) — Beat in <= turnTarget2Star turns OR take 0 HP damage (locked out if Fail-Forward was used)
   const tier2CriteriaMet = !failForwardUsed && (combat.turn <= turnTarget2Star || hpLost === 0);
@@ -485,7 +485,7 @@ export function computeContextualMicroPrompt(params: {
   const combat = run.combat;
   if (!combat || combat.phase !== 'PLAYER_IDLE') return null;
 
-  const surgeThreshold = getSurgeThreshold(run.heroine.implants);
+  const surgeThreshold = getSurgeThreshold(run.hero.implants);
   const surgesDone = combat.director?.compositionCounts.surges ?? 0;
   const maxGroup = Math.max(countByColor.attack, countByColor.defense, countByColor.tech);
 
@@ -498,7 +498,7 @@ export function computeContextualMicroPrompt(params: {
 
   // Step 2: Introduce Held Tile Momentum on Turn 2 when held tiles are on the board (for operatives with held bonus)
   const heldCount = combat.board.filter((t) => t.isHeldFromPrevTurn).length;
-  const heldTileBonus = getHeroSpec(run.heroine.characterId).heldTileBonus;
+  const heldTileBonus = getHeroSpec(run.hero.characterId).heldTileBonus;
   if (combat.turn === 2 && heldCount > 0 && heldTileBonus > 0) {
     return lang === 'cs'
       ? `▲ Držené dílky získají +${heldTileBonus} k síle.`
@@ -522,16 +522,16 @@ export function computeContextualMicroPrompt(params: {
  * so a struggling player can replay the puzzle and execute the win themselves.
  */
 export function applyFailForwardBuff(snapshot: RunState): RunState {
-  const boostedMaxHp = snapshot.heroine.maxHp;
-  const boostedHp = Math.min(boostedMaxHp, Math.max(Math.ceil(boostedMaxHp * 0.65), snapshot.heroine.hp + 15));
+  const boostedMaxHp = snapshot.hero.maxHp;
+  const boostedHp = Math.min(boostedMaxHp, Math.max(Math.ceil(boostedMaxHp * 0.65), snapshot.hero.hp + 15));
   return {
     ...snapshot,
     screen: 'combat',
-    heroine: {
-      ...snapshot.heroine,
+    hero: {
+      ...snapshot.hero,
       hp: boostedHp,
-      shield: snapshot.heroine.shield + 10,
-      overdrive: Math.min(100, snapshot.heroine.overdrive + 40),
+      shield: snapshot.hero.shield + 10,
+      overdrive: Math.min(100, snapshot.hero.overdrive + 40),
     },
   };
 }

@@ -2,11 +2,90 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
-import { EQUIPMENT_BY_ID } from '../engine/data';
+import { SKILL_CHIPS_BY_ID } from '../engine/data';
 import { CODEX_TRANSLATIONS } from './codexTranslations';
 import { TRANSLATIONS } from './translations';
 
+function collectDeepKeys(obj: unknown, prefix = ''): string[] {
+  if (obj === null || typeof obj !== 'object') {
+    return [prefix];
+  }
+  if (Array.isArray(obj)) {
+    if (obj.every((item) => typeof item !== 'object' || item === null)) {
+      return [prefix];
+    }
+    return obj.flatMap((item, idx) => collectDeepKeys(item, `${prefix}[${idx}]`));
+  }
+  return Object.keys(obj as Record<string, unknown>)
+    .sort()
+    .flatMap((key) => {
+      const nextPrefix = prefix ? `${prefix}.${key}` : key;
+      return collectDeepKeys((obj as Record<string, unknown>)[key], nextPrefix);
+    });
+}
+
+function collectLeafStrings(obj: unknown, prefix = ''): Array<{ path: string; value: string }> {
+  if (typeof obj === 'string') {
+    return [{ path: prefix, value: obj }];
+  }
+  if (obj === null || typeof obj !== 'object') {
+    return [];
+  }
+  if (Array.isArray(obj)) {
+    return obj.flatMap((item, idx) => collectLeafStrings(item, `${prefix}[${idx}]`));
+  }
+  return Object.entries(obj as Record<string, unknown>).flatMap(([key, val]) =>
+    collectLeafStrings(val, prefix ? `${prefix}.${key}` : key),
+  );
+}
+
 describe('Translations and Czech default localization', () => {
+  it('enforces 100% deep key parity between TRANSLATIONS.en and TRANSLATIONS.cs', () => {
+    const enKeys = collectDeepKeys(TRANSLATIONS.en);
+    const csKeys = collectDeepKeys(TRANSLATIONS.cs);
+    assert.deepEqual(enKeys, csKeys, 'TRANSLATIONS.en and TRANSLATIONS.cs must have identical deep keys');
+  });
+
+  it('enforces 100% deep key parity between CODEX_TRANSLATIONS.en and CODEX_TRANSLATIONS.cs', () => {
+    const enCodexKeys = collectDeepKeys(CODEX_TRANSLATIONS.en);
+    const csCodexKeys = collectDeepKeys(CODEX_TRANSLATIONS.cs);
+    assert.deepEqual(
+      enCodexKeys,
+      csCodexKeys,
+      'CODEX_TRANSLATIONS.en and CODEX_TRANSLATIONS.cs must have identical deep keys',
+    );
+  });
+
+  it('guards all player-facing EN and CS strings against forbidden legacy glossary terms', () => {
+    const forbiddenTerms: RegExp[] = [
+      /\bAurelia\b/i,
+      /\bOperatives?\b/i,
+      /\bHeroines?\b/i,
+      /\bDiscrete Pip/i,
+      /\bOperativk[ayou]\b/i,
+      /\bAgentk[ayou]\b/i,
+    ];
+
+    const packs: Array<{ name: string; data: unknown }> = [
+      { name: 'TRANSLATIONS.en', data: TRANSLATIONS.en },
+      { name: 'TRANSLATIONS.cs', data: TRANSLATIONS.cs },
+      { name: 'CODEX_TRANSLATIONS.en', data: CODEX_TRANSLATIONS.en },
+      { name: 'CODEX_TRANSLATIONS.cs', data: CODEX_TRANSLATIONS.cs },
+    ];
+
+    for (const pack of packs) {
+      for (const { path, value } of collectLeafStrings(pack.data, pack.name)) {
+        for (const pattern of forbiddenTerms) {
+          assert.doesNotMatch(
+            value,
+            pattern,
+            `Forbidden legacy term ${pattern} found at ${path}: "${value}"`,
+          );
+        }
+      }
+    }
+  });
+
   it('provides complete beginner-friendly howToPlay copy in both cs and en', () => {
     for (const lang of ['cs', 'en'] as const) {
       const h = TRANSLATIONS[lang].howToPlay;
@@ -55,7 +134,7 @@ describe('Translations and Czech default localization', () => {
   });
 
   it('defines rethemed AI Skill Chip names and descriptions for every catalog chip in cs and en', () => {
-    for (const def of Object.values(EQUIPMENT_BY_ID)) {
+    for (const def of Object.values(SKILL_CHIPS_BY_ID)) {
       for (const lang of ['cs', 'en'] as const) {
         const meta = TRANSLATIONS[lang].equipment[def.id];
         assert.ok(meta, `Missing ${lang} translation for chip ${def.id}`);

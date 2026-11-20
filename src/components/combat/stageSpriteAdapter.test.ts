@@ -159,9 +159,9 @@ test('MeshSprite updates in-place without reallocating its vertex Float32Array',
   assert.notEqual(deform.head.dx, 0);
 });
 
-test('deriveHeroineDeformAndUniforms configures corrode UV distortion and flinch spine bend', () => {
+test('deriveHeroineDeformAndUniforms configures corrode UV distortion and hit spine bend', () => {
   const res = deriveHeroineDeformAndUniforms({
-    mode: 'flinch',
+    mode: 'hit',
     breathScaleX: 1,
     breathScaleY: 1,
     tiltRad: 0,

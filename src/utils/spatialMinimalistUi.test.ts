@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import type { CombatState, EnemyUnit, Tile } from '../engine/types.ts';
+import type { CombatState, EnemyUnit, Tile } from '../engine/types';
 import {
   AAA_TYPOGRAPHY_AND_CONTRAST_SPEC,
   KEYWORD_NESTED_TOOLTIPS,
@@ -13,7 +13,7 @@ import {
   computeKnockbackSwapPreview,
   formatStreamlinedOnboardingPrompt,
   resolveActivePreviewKeywords,
-} from './spatialMinimalistUi.ts';
+} from './spatialMinimalistUi';
 
 describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board UX', () => {
   it('enforces the 8-Word Rule across all nested keyword definitions in EN and CS', () => {
@@ -151,7 +151,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
       drawPile: [],
       discardPile: [],
       rewardCredits: 10,
-      rewardEquipmentChoices: [],
+      rewardChipChoices: [],
       totalDamageDealt: 0,
       enemies: [
         {
@@ -239,7 +239,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
   });
 
   it('verifies 100% of equipment descriptions satisfy the 8-word limit in EN and CS', async () => {
-    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    const { TRANSLATIONS } = await import('../i18n/translations');
     for (const lang of ['en', 'cs'] as const) {
       const eqMap = TRANSLATIONS[lang].equipment;
       for (const [id, item] of Object.entries(eqMap)) {
@@ -253,7 +253,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
   });
 
   it('verifies 100% of cyber implant descriptions satisfy the 8-word limit in EN and CS', async () => {
-    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    const { TRANSLATIONS } = await import('../i18n/translations');
     for (const lang of ['en', 'cs'] as const) {
       const impMap = TRANSLATIONS[lang].implants;
       for (const [id, item] of Object.entries(impMap)) {
@@ -267,7 +267,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
   });
 
   it('verifies all character passives and overdrive descriptions satisfy the 8-word limit in EN and CS', async () => {
-    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    const { TRANSLATIONS } = await import('../i18n/translations');
     for (const lang of ['en', 'cs'] as const) {
       const charMap = TRANSLATIONS[lang].characters;
       for (const [id, char] of Object.entries(charMap)) {
@@ -291,7 +291,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
   });
 
   it('verifies map node descriptions satisfy the 8-word limit in EN and CS', async () => {
-    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    const { TRANSLATIONS } = await import('../i18n/translations');
     for (const lang of ['en', 'cs'] as const) {
       const nodeMap = TRANSLATIONS[lang].nodeDescs;
       for (const [type, desc] of Object.entries(nodeMap)) {
@@ -305,7 +305,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
   });
 
   it('verifies clinic and medbay notices satisfy the 8-word limit in EN and CS', async () => {
-    const { TRANSLATIONS } = await import('../i18n/translations.ts');
+    const { TRANSLATIONS } = await import('../i18n/translations');
     for (const lang of ['en', 'cs'] as const) {
       const t = TRANSLATIONS[lang];
       const fields = [
@@ -335,7 +335,7 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
       CYBER_EVENT_TEMPLATES,
       DYNASTY_EVENT_TEMPLATES,
       localizeCyberEvent,
-    } = await import('../engine/cyberEvents.ts');
+    } = await import('../engine/cyberEvents');
     const allTemplates = [...CYBER_EVENT_TEMPLATES, ...DYNASTY_EVENT_TEMPLATES];
 
     for (const lang of ['en', 'cs'] as const) {
@@ -363,8 +363,8 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
   });
 
   it('computes zero-hover Smart Action Trigger summaries (live math + KILL / FULL BLOCK / SURGE tags)', async () => {
-    const { createInitialRun } = await import('../engine/gameEngine.ts');
-    const { computeSmartActionTriggerSummaries } = await import('./spatialMinimalistUi.ts');
+    const { createInitialRun } = await import('../engine/gameEngine');
+    const { computeSmartActionTriggerSummaries } = await import('./spatialMinimalistUi');
     const run = createInitialRun(42, 'kira');
     assert.ok(run.combat, 'Expected active combat on new run');
 

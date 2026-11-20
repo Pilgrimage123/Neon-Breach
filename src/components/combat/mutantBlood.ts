@@ -4,7 +4,7 @@ import type {
   CharacterId,
   EnemyArchetype,
   EnemyUnit,
-  HeroineState,
+  HeroState,
 } from '../../engine/types';
 
 export type BloodBiologyId =
@@ -372,23 +372,23 @@ export function sampleWeatheredBloodColors(
 }
 
 const KINETIC_WEAPONS = new Set([
-  'pistole_aretta',
-  'dvojita_brokovnice',
-  'tezka_brokovnice',
-  'karabin_vx',
+  'predictive_aim',
+  'impact_solver',
+  'apex_overwhelm',
+  'volley_matrix',
 ]);
 
-const MELEE_GEAR = new Set(['nano_ostri']);
+const MELEE_GEAR = new Set(['surgical_cut']);
 const PLASMA_GEAR = new Set([
-  'utocny_dron_sokol',
-  'pulzni_kuse',
-  'energeticky_konvertor',
+  'swarm_vector',
+  'armor_crack',
+  'flux_rebalance',
 ]);
 
-export function getEquippedDefIds(heroine: Pick<HeroineState, 'ownedEquipment' | 'equippedInstanceIds'>): string[] {
-  const byInst = new Map(heroine.ownedEquipment.map((e) => [e.instanceId, e.defId]));
+export function getEquippedDefIds(hero: Pick<HeroState, 'ownedChips' | 'equippedInstanceIds'>): string[] {
+  const byInst = new Map(hero.ownedChips.map((e) => [e.instanceId, e.defId]));
   const defs: string[] = [];
-  for (const id of heroine.equippedInstanceIds) {
+  for (const id of hero.equippedInstanceIds) {
     const defId = byInst.get(id);
     if (defId) defs.push(defId);
   }
@@ -434,7 +434,7 @@ export function resolveWeaponDecalKind(options: {
   const hasPlasma = equippedDefIds.some((d) => PLASMA_GEAR.has(d));
 
   if (attackMode === 'shoot') {
-    if (characterId === 'aurelia' || hasKinetic) {
+    if (characterId === 'auraline' || hasKinetic) {
       return isSurge && hasPlasma ? 'plasma' : 'kinetic';
     }
     if (hasPlasma || isSurge) return 'plasma';

@@ -4,6 +4,7 @@ import {
   type FrameTransitionResult,
   type SequenceKeyframe,
   computeFrameTransitionState,
+  sampleDeathCollapseFrame,
   sampleSequence,
 } from './spriteSheetAnim';
 
@@ -368,13 +369,11 @@ export function sampleBruteFrame(
 
   if (anim?.dead) {
     mode = 'death';
-    const p = Math.max(0, Math.min(1, anim.koProgress));
-    const collapseNorm = Math.min(1, p / 0.8);
-    const step = Math.min(3, Math.floor(collapseNorm * 4));
-    frameIndex = 12 + step;
-    alpha = p <= 0.8 ? 1 : Math.max(0, (1 - p) / 0.2);
-    vialGlowIntensity = Math.max(0, 0.4 * (1 - p * 1.4));
-    shellGlowIntensity = Math.max(0, 0.3 * (1 - p * 1.4));
+    const death = sampleDeathCollapseFrame(anim.koProgress, 12, 4, 0.8);
+    frameIndex = death.frameIndex;
+    alpha = death.alpha;
+    vialGlowIntensity = Math.max(0, 0.4 * (1 - death.progress * 1.4));
+    shellGlowIntensity = Math.max(0, 0.3 * (1 - death.progress * 1.4));
   } else if (anim && (anim.bristleTimer ?? 0) > 0 && (anim.bristleDuration ?? 0) > 0) {
     mode = 'brace';
     const dur = anim.bristleDuration ?? 0.72;

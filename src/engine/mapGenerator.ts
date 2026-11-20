@@ -1,141 +1,11 @@
 import type { Language } from '../i18n/translations';
-import { getCyberEventForNode } from './cyberEvents';
-import { ENEMY_TEMPLATES, MAX_IMPLANTS, buildEnemiesForNode } from './data';
-import { computeSmartScaledEnemyHp } from './difficulty';
-import type {
-  DifficultyTier,
-  EnemyArchetype,
-  EnemyIntent,
-  EnemyPassiveKind,
-  HeroineState,
-  LaneClusterArchetype,
-  LaneClusterProfile,
-  MapNode,
-  MapNodeType,
-  NodeEconomyMetrics,
-  RunState,
-} from './types';
+import type { DifficultyTier, MapNode, MapNodeType } from './types';
 
-export interface NodeEncounterIntel {
-  sectorCode: string;
-  enemies: Array<{ archetype: EnemyArchetype; hp: number; armor: number }>;
-  totalEnemyHp: number;
-  enemyPassives?: EnemyPassiveKind[];
-  threatTraits?: string[];
-}
-
-export type ReconNodePreview =
-  | { kind: 'event'; eventTitle: string; choices: string[] }
-  | { kind: 'clinic'; isFlashSale: boolean; openSockets: number }
-  | { kind: 'chip_dealer'; isFlashSale: boolean; freeMemory: number }
-  | { kind: 'medbay'; healTotal: number; isFunded: boolean }
-  | {
-      kind: 'combat';
-      enemies: Array<{
-        archetype: EnemyArchetype;
-        hp: number;
-        armor: number;
-        firstIntent: EnemyIntent;
-      }>;
-    };
-
-export type RouteAdviceReason =
-  | 'low_hp_medbay'
-  | 'elite_power_spike'
-  | 'clinic_socket'
-  | 'boss_engage'
-  | 'combat_momentum';
-
-export interface TacticalRouteAdvice {
-  recommendedNodeId: string | null;
-  reasonKey: RouteAdviceReason;
-}
-
-export interface BossTelegraphGimmick {
-  id: string;
-  title: string;
-  description: string;
-  badge: string;
-}
-
-export interface BossTelegraphIntel {
-  name: string;
-  classification: string;
-  hp: number;
-  gimmicks: BossTelegraphGimmick[];
-  recommendedPrep: string;
-}
-
-export const SECTOR_BOSS_TELEGRAPH: BossTelegraphIntel = {
-  name: 'Xenomorph Matriarch',
-  classification: 'Apex Brood Sovereign · Sector 05 Finale',
-  hp: ENEMY_TEMPLATES.boss.maxHp,
-  gimmicks: [
-    {
-      id: 'phase_lock',
-      title: '50% Phase Barrier Lock',
-      description: 'Absorbs overflow damage, triggers Armor & Aegis',
-      badge: 'PHASE LOCK',
-    },
-    {
-      id: 'acid_jam',
-      title: 'Corrosive Tile Jamming',
-      description: 'Corrosive acid: damage jams unshielded Tiles',
-      badge: 'TILE JAM',
-    },
-    {
-      id: 'swarm_call',
-      title: 'Brood Swarm Reinforcements',
-      description: 'Summons Spore Mite and Stalker reinforcements',
-      badge: 'SWARM CALL',
-    },
-  ],
-  recommendedPrep: 'Prep: TECH Pierce, Armor Shred & Aegis Shields',
-};
-
-export function getBossTelegraphIntel(
-  lang: Language = 'en',
-  difficultyTier: DifficultyTier = 3,
-): BossTelegraphIntel {
-  const bossHp = computeSmartScaledEnemyHp(
-    'boss',
-    ENEMY_TEMPLATES.boss.maxHp,
-    0,
-    difficultyTier,
-  );
-  if (lang !== 'cs') {
-    if (difficultyTier === 3) return SECTOR_BOSS_TELEGRAPH;
-    return {
-      ...SECTOR_BOSS_TELEGRAPH,
-      hp: bossHp,
-    };
-  }
-  return {
-    name: 'Xenomorfní Matriarcha',
-    classification: 'Vrcholná vládkyně roje · Finále úseku 05',
-    hp: bossHp,
-    gimmicks: [
-      {
-        id: 'phase_lock',
-        title: '50% Fázová bariéra',
-        description: 'Pohltí přebytečné poškození a obnoví Brnění i Aegis Pip',
-        badge: 'FÁZOVÝ ZÁMEK',
-      },
-      {
-        id: 'acid_jam',
-        title: 'Korozivní blokace dílků',
-        description: 'Kyselina při zásahu do HP zablokuje dílek na desce',
-        badge: 'BLOKACE',
-      },
-      {
-        id: 'swarm_call',
-        title: 'Posily roje',
-        description: 'Přivolává Spórové roztoče a Chitinové slídiče',
-        badge: 'POSILY ROJE',
-      },
-    ],
-    recommendedPrep: 'Příprava: TECH průraz, drcení brnění a silný Štít',
-  };
+export interface SectorMapOptions {
+  difficultyTier?: DifficultyTier;
+  mapLength?: 'compact' | 'metropolis';
+  variantCount?: 3 | 6;
+  dynamicModifiers?: boolean;
 }
 
 export interface MetropolisDistrictInfo {
@@ -153,15 +23,15 @@ export function getMetropolisDistricts(
   lang: Language = 'en',
 ): MetropolisDistrictInfo[] {
   const isCs = lang === 'cs';
-  if (totalLayers <= 5) {
+  if (totalLayers < 12) {
     return [
       {
         index: 0,
         code: 'D-01',
-        title: isCs ? 'Sektorová proluka' : 'Sector Breach',
-        subtitle: isCs ? 'Úseky 01–05' : 'Stages 01–05',
+        title: isCs ? 'Sektorová proluka' : 'Sky-Bridge Breach',
+        subtitle: isCs ? `Úseky 01–0${Math.max(1, totalLayers)}` : `Stages 01–0${Math.max(1, totalLayers)}`,
         startLayer: 0,
-        endLayer: totalLayers - 1,
+        endLayer: Math.max(0, totalLayers - 1),
         accentColor: '#00F0FF',
       },
     ];
@@ -257,131 +127,216 @@ function assignDistrictBadges(nodes: MapNode[], seed: number): void {
       eliteIdx++;
     } else if (
       node.type === 'COMBAT' &&
-      (node.layer === 3 || node.layer === 6 || node.layer === 9)
+      (node.layer === 4 || node.layer === 6 || node.layer === 8)
     ) {
       node.districtBadge = 'maglev_hub';
     }
   }
 }
 
+const METROPOLIS_VARIANTS: readonly MapNodeType[][][] = [
+  [
+    ['COMBAT'],
+    ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
+    ['ELITE', 'COMBAT', 'MED_BAY'],
+    ['CHIP_DEALER', 'EVENT', 'CYBER_CLINIC'],
+    ['COMBAT', 'ELITE', 'CHIP_DEALER'],
+    ['MED_BAY', 'CYBER_CLINIC', 'EVENT'],
+    ['ELITE', 'COMBAT', 'CHIP_DEALER'],
+    ['EVENT', 'MED_BAY', 'CYBER_CLINIC'],
+    ['CHIP_DEALER', 'ELITE', 'COMBAT'],
+    ['CYBER_CLINIC', 'EVENT', 'ELITE'],
+    ['MED_BAY', 'CHIP_DEALER', 'CYBER_CLINIC'],
+    ['BOSS'],
+  ],
+  [
+    ['COMBAT'],
+    ['COMBAT', 'CYBER_CLINIC', 'CHIP_DEALER'],
+    ['ELITE', 'COMBAT', 'EVENT'],
+    ['MED_BAY', 'CHIP_DEALER', 'CYBER_CLINIC'],
+    ['ELITE', 'COMBAT', 'EVENT'],
+    ['CYBER_CLINIC', 'MED_BAY', 'CHIP_DEALER'],
+    ['COMBAT', 'ELITE', 'EVENT'],
+    ['CHIP_DEALER', 'CYBER_CLINIC', 'MED_BAY'],
+    ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
+    ['EVENT', 'ELITE', 'CHIP_DEALER'],
+    ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
+    ['BOSS'],
+  ],
+  [
+    ['COMBAT'],
+    ['EVENT', 'COMBAT', 'CYBER_CLINIC'],
+    ['MED_BAY', 'COMBAT', 'ELITE'],
+    ['CYBER_CLINIC', 'CHIP_DEALER', 'EVENT'],
+    ['CHIP_DEALER', 'ELITE', 'COMBAT'],
+    ['EVENT', 'CYBER_CLINIC', 'MED_BAY'],
+    ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
+    ['MED_BAY', 'EVENT', 'CHIP_DEALER'],
+    ['COMBAT', 'ELITE', 'CYBER_CLINIC'],
+    ['CHIP_DEALER', 'ELITE', 'EVENT'],
+    ['ELITE', 'CYBER_CLINIC', 'MED_BAY'],
+    ['BOSS'],
+  ],
+  [
+    ['COMBAT'],
+    ['COMBAT', 'EVENT', 'CHIP_DEALER'],
+    ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
+    ['MED_BAY', 'EVENT', 'CHIP_DEALER'],
+    ['CYBER_CLINIC', 'ELITE', 'COMBAT'],
+    ['CHIP_DEALER', 'MED_BAY', 'EVENT'],
+    ['ELITE', 'CYBER_CLINIC', 'COMBAT'],
+    ['EVENT', 'CHIP_DEALER', 'MED_BAY'],
+    ['CYBER_CLINIC', 'ELITE', 'COMBAT'],
+    ['ELITE', 'EVENT', 'CYBER_CLINIC'],
+    ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
+    ['BOSS'],
+  ],
+  [
+    ['COMBAT'],
+    ['EVENT', 'COMBAT', 'CHIP_DEALER'],
+    ['COMBAT', 'ELITE', 'CYBER_CLINIC'],
+    ['CHIP_DEALER', 'MED_BAY', 'EVENT'],
+    ['ELITE', 'CYBER_CLINIC', 'COMBAT'],
+    ['MED_BAY', 'EVENT', 'CHIP_DEALER'],
+    ['CYBER_CLINIC', 'ELITE', 'COMBAT'],
+    ['CHIP_DEALER', 'MED_BAY', 'EVENT'],
+    ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
+    ['EVENT', 'ELITE', 'CHIP_DEALER'],
+    ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
+    ['BOSS'],
+  ],
+  [
+    ['COMBAT'],
+    ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
+    ['ELITE', 'COMBAT', 'CHIP_DEALER'],
+    ['EVENT', 'CYBER_CLINIC', 'MED_BAY'],
+    ['COMBAT', 'ELITE', 'CHIP_DEALER'],
+    ['MED_BAY', 'EVENT', 'CYBER_CLINIC'],
+    ['ELITE', 'CHIP_DEALER', 'COMBAT'],
+    ['CYBER_CLINIC', 'MED_BAY', 'EVENT'],
+    ['COMBAT', 'ELITE', 'CHIP_DEALER'],
+    ['ELITE', 'CYBER_CLINIC', 'EVENT'],
+    ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
+    ['BOSS'],
+  ],
+];
+
+const COMPACT_VARIANTS: readonly { layouts: MapNodeType[][]; l1Edges: number[][] }[] = [
+  {
+    layouts: [
+      ['COMBAT'],
+      ['CYBER_CLINIC', 'COMBAT', 'COMBAT'],
+      ['ELITE', 'COMBAT', 'MED_BAY'],
+      ['MED_BAY', 'ELITE', 'CHIP_DEALER'],
+      ['BOSS'],
+    ],
+    l1Edges: [
+      [0, 1],
+      [0, 1, 2],
+      [1, 2],
+    ],
+  },
+  {
+    layouts: [
+      ['COMBAT'],
+      ['COMBAT', 'CYBER_CLINIC', 'COMBAT'],
+      ['ELITE', 'COMBAT', 'MED_BAY'],
+      ['MED_BAY', 'ELITE', 'CHIP_DEALER'],
+      ['BOSS'],
+    ],
+    l1Edges: [
+      [0, 1],
+      [0, 1],
+      [1, 2],
+    ],
+  },
+  {
+    layouts: [
+      ['COMBAT'],
+      ['COMBAT', 'COMBAT', 'CYBER_CLINIC'],
+      ['MED_BAY', 'COMBAT', 'ELITE'],
+      ['CHIP_DEALER', 'ELITE', 'MED_BAY'],
+      ['BOSS'],
+    ],
+    l1Edges: [
+      [0, 1],
+      [0, 1, 2],
+      [1, 2],
+    ],
+  },
+  {
+    layouts: [
+      ['COMBAT'],
+      ['COMBAT', 'EVENT', 'CHIP_DEALER'],
+      ['ELITE', 'COMBAT', 'COMBAT'],
+      ['MED_BAY', 'CYBER_CLINIC', 'ELITE'],
+      ['BOSS'],
+    ],
+    l1Edges: [
+      [0, 1],
+      [0, 1, 2],
+      [1, 2],
+    ],
+  },
+  {
+    layouts: [
+      ['COMBAT'],
+      ['EVENT', 'COMBAT', 'CHIP_DEALER'],
+      ['COMBAT', 'ELITE', 'COMBAT'],
+      ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
+      ['BOSS'],
+    ],
+    l1Edges: [
+      [0, 1],
+      [0, 1, 2],
+      [1, 2],
+    ],
+  },
+  {
+    layouts: [
+      ['COMBAT'],
+      ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
+      ['ELITE', 'COMBAT', 'COMBAT'],
+      ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
+      ['BOSS'],
+    ],
+    l1Edges: [
+      [0, 1],
+      [0, 1, 2],
+      [1, 2],
+    ],
+  },
+];
+
 export function generateSectorMap(
   seed: number,
-  difficultyTier: DifficultyTier = 3,
-  extendedRoute?: boolean,
+  options: SectorMapOptions = {},
 ): MapNode[] {
-  const nodes: MapNode[] = [];
-  const isLegacyTestSeed = seed === 100 || seed === 101 || seed === 102 || seed === 505;
-  const useExtendedMap =
-    extendedRoute !== undefined ? extendedRoute : !isLegacyTestSeed && Math.abs(seed) >= 2000;
-  const variant = isLegacyTestSeed
-    ? ((seed % 3) + 3) % 3
-    : ((Math.abs(seed) % 6) + 6) % 6;
+  const {
+    difficultyTier = 3,
+    mapLength = 'metropolis',
+    variantCount = 6,
+    dynamicModifiers = true,
+  } = options;
+
+  const isMetropolis = mapLength === 'metropolis';
+  const variant = ((Math.abs(seed) % variantCount) + variantCount) % variantCount;
+  const stdEdges: number[][] = [
+    [0, 1],
+    [0, 1, 2],
+    [1, 2],
+  ];
+  const crossEdges: number[][] = [
+    [0, 1],
+    [1, 2],
+    [1, 2],
+  ];
 
   let laneLayouts: MapNodeType[][];
   let layerEdges: number[][][];
 
-  if (useExtendedMap) {
-    const stdEdges: number[][] = [
-      [0, 1],
-      [0, 1, 2],
-      [1, 2],
-    ];
-    const crossEdges: number[][] = [
-      [0, 1],
-      [1, 2],
-      [1, 2],
-    ];
-    if (variant === 0) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
-        ['ELITE', 'COMBAT', 'MED_BAY'],
-        ['CHIP_DEALER', 'EVENT', 'CYBER_CLINIC'],
-        ['COMBAT', 'ELITE', 'CHIP_DEALER'],
-        ['MED_BAY', 'CYBER_CLINIC', 'EVENT'],
-        ['ELITE', 'COMBAT', 'CHIP_DEALER'],
-        ['EVENT', 'MED_BAY', 'CYBER_CLINIC'],
-        ['CHIP_DEALER', 'ELITE', 'COMBAT'],
-        ['CYBER_CLINIC', 'EVENT', 'ELITE'],
-        ['MED_BAY', 'CHIP_DEALER', 'CYBER_CLINIC'],
-        ['BOSS'],
-      ];
-    } else if (variant === 1) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['COMBAT', 'CYBER_CLINIC', 'CHIP_DEALER'],
-        ['ELITE', 'COMBAT', 'EVENT'],
-        ['MED_BAY', 'CHIP_DEALER', 'CYBER_CLINIC'],
-        ['ELITE', 'COMBAT', 'EVENT'],
-        ['CYBER_CLINIC', 'MED_BAY', 'CHIP_DEALER'],
-        ['COMBAT', 'ELITE', 'EVENT'],
-        ['CHIP_DEALER', 'CYBER_CLINIC', 'MED_BAY'],
-        ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
-        ['EVENT', 'ELITE', 'CHIP_DEALER'],
-        ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
-        ['BOSS'],
-      ];
-    } else if (variant === 2) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['EVENT', 'COMBAT', 'CYBER_CLINIC'],
-        ['MED_BAY', 'COMBAT', 'ELITE'],
-        ['CYBER_CLINIC', 'CHIP_DEALER', 'EVENT'],
-        ['CHIP_DEALER', 'ELITE', 'COMBAT'],
-        ['EVENT', 'CYBER_CLINIC', 'MED_BAY'],
-        ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
-        ['MED_BAY', 'EVENT', 'CHIP_DEALER'],
-        ['COMBAT', 'ELITE', 'CYBER_CLINIC'],
-        ['CHIP_DEALER', 'ELITE', 'EVENT'],
-        ['ELITE', 'CYBER_CLINIC', 'MED_BAY'],
-        ['BOSS'],
-      ];
-    } else if (variant === 3) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['COMBAT', 'EVENT', 'CHIP_DEALER'],
-        ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
-        ['MED_BAY', 'EVENT', 'CHIP_DEALER'],
-        ['CYBER_CLINIC', 'ELITE', 'COMBAT'],
-        ['CHIP_DEALER', 'MED_BAY', 'EVENT'],
-        ['ELITE', 'CYBER_CLINIC', 'COMBAT'],
-        ['EVENT', 'CHIP_DEALER', 'MED_BAY'],
-        ['CYBER_CLINIC', 'ELITE', 'COMBAT'],
-        ['ELITE', 'EVENT', 'CYBER_CLINIC'],
-        ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
-        ['BOSS'],
-      ];
-    } else if (variant === 4) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['EVENT', 'COMBAT', 'CHIP_DEALER'],
-        ['COMBAT', 'ELITE', 'CYBER_CLINIC'],
-        ['CHIP_DEALER', 'MED_BAY', 'EVENT'],
-        ['ELITE', 'CYBER_CLINIC', 'COMBAT'],
-        ['MED_BAY', 'EVENT', 'CHIP_DEALER'],
-        ['CYBER_CLINIC', 'ELITE', 'COMBAT'],
-        ['CHIP_DEALER', 'MED_BAY', 'EVENT'],
-        ['ELITE', 'COMBAT', 'CYBER_CLINIC'],
-        ['EVENT', 'ELITE', 'CHIP_DEALER'],
-        ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
-        ['BOSS'],
-      ];
-    } else {
-      laneLayouts = [
-        ['COMBAT'],
-        ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
-        ['ELITE', 'COMBAT', 'CHIP_DEALER'],
-        ['EVENT', 'CYBER_CLINIC', 'MED_BAY'],
-        ['COMBAT', 'ELITE', 'CHIP_DEALER'],
-        ['MED_BAY', 'EVENT', 'CYBER_CLINIC'],
-        ['ELITE', 'CHIP_DEALER', 'COMBAT'],
-        ['CYBER_CLINIC', 'MED_BAY', 'EVENT'],
-        ['COMBAT', 'ELITE', 'CHIP_DEALER'],
-        ['ELITE', 'CYBER_CLINIC', 'EVENT'],
-        ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
-        ['BOSS'],
-      ];
-    }
+  if (isMetropolis) {
+    laneLayouts = METROPOLIS_VARIANTS[variant].map((row) => row.slice());
     layerEdges = [
       stdEdges,
       stdEdges,
@@ -394,121 +349,12 @@ export function generateSectorMap(
       stdEdges,
     ];
   } else {
-    let l1ToL2Edges: number[][];
-    let l2ToL3Edges: number[][];
-
-    if (variant === 0) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['CYBER_CLINIC', 'COMBAT', 'COMBAT'],
-        ['ELITE', 'COMBAT', 'MED_BAY'],
-        ['MED_BAY', 'ELITE', 'CHIP_DEALER'],
-        ['BOSS'],
-      ];
-      l1ToL2Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-      l2ToL3Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-    } else if (variant === 1) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['COMBAT', 'CYBER_CLINIC', 'COMBAT'],
-        ['ELITE', 'COMBAT', 'MED_BAY'],
-        ['MED_BAY', 'ELITE', 'CHIP_DEALER'],
-        ['BOSS'],
-      ];
-      l1ToL2Edges = [
-        [0, 1],
-        [0, 1],
-        [1, 2],
-      ];
-      l2ToL3Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-    } else if (variant === 2) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['COMBAT', 'COMBAT', 'CYBER_CLINIC'],
-        ['MED_BAY', 'COMBAT', 'ELITE'],
-        ['CHIP_DEALER', 'ELITE', 'MED_BAY'],
-        ['BOSS'],
-      ];
-      l1ToL2Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-      l2ToL3Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-    } else if (variant === 3) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['COMBAT', 'EVENT', 'CHIP_DEALER'],
-        ['ELITE', 'COMBAT', 'COMBAT'],
-        ['MED_BAY', 'CYBER_CLINIC', 'ELITE'],
-        ['BOSS'],
-      ];
-      l1ToL2Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-      l2ToL3Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-    } else if (variant === 4) {
-      laneLayouts = [
-        ['COMBAT'],
-        ['EVENT', 'COMBAT', 'CHIP_DEALER'],
-        ['COMBAT', 'ELITE', 'COMBAT'],
-        ['CYBER_CLINIC', 'MED_BAY', 'ELITE'],
-        ['BOSS'],
-      ];
-      l1ToL2Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-      l2ToL3Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-    } else {
-      laneLayouts = [
-        ['COMBAT'],
-        ['CYBER_CLINIC', 'COMBAT', 'EVENT'],
-        ['ELITE', 'COMBAT', 'COMBAT'],
-        ['MED_BAY', 'CHIP_DEALER', 'ELITE'],
-        ['BOSS'],
-      ];
-      l1ToL2Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-      l2ToL3Edges = [
-        [0, 1],
-        [0, 1, 2],
-        [1, 2],
-      ];
-    }
-    layerEdges = [l1ToL2Edges, l2ToL3Edges];
+    const picked = COMPACT_VARIANTS[variant];
+    laneLayouts = picked.layouts.map((row) => row.slice());
+    layerEdges = [picked.l1Edges, stdEdges];
   }
 
+  const nodes: MapNode[] = [];
   for (let layer = 0; layer < laneLayouts.length; layer++) {
     const types = laneLayouts[layer];
     for (let lane = 0; lane < types.length; lane++) {
@@ -525,8 +371,7 @@ export function generateSectorMap(
 
   assignDistrictBadges(nodes, seed);
 
-  // Assign deterministic Golden Bounty & Nanite Cache Hot-Spot Modifiers to combat/elite nodes
-  const maxModifierLayer = useExtendedMap ? 10 : 2;
+  const maxModifierLayer = isMetropolis ? 10 : 2;
   const eligibleBounty = nodes.filter(
     (n) =>
       n.layer >= 1 &&
@@ -546,8 +391,7 @@ export function generateSectorMap(
     }
   }
 
-  // Dynamic Modifiers for non-legacy runs: Overcharged Mini-Elites, Flash Sales, and Funded Clinics
-  if (!isLegacyTestSeed) {
+  if (dynamicModifiers) {
     const eligibleOvercharged = nodes.filter(
       (n) =>
         n.layer >= 1 &&
@@ -576,28 +420,27 @@ export function generateSectorMap(
       eligibleClinics[clinicIdx].modifier = 'funded_clinic';
     }
 
-    // Sawtooth Complexity Curve: tag 1 Layer-2 COMBAT node (without combat hazards) as a tactical breather
     const breatherCandidate =
       nodes.find((n) => n.layer === 2 && n.type === 'COMBAT' && !n.modifier) ??
       nodes.find(
         (n) =>
           n.layer === 2 &&
           n.type === 'COMBAT' &&
-          n.modifier !== 'overcharged_hazard' &&
-          n.modifier !== 'high_threat',
+          n.modifier !== 'overcharged_hazard',
       );
     if (breatherCandidate) {
       breatherCandidate.isBreatherNode = true;
     }
 
-    // Tier 5 Grandmaster: stack an extra simultaneous Overcharged hazard on a non-breather Layer 2..max Elite or Combat
+    // Tier 5 Grandmaster: stack an extra simultaneous Overcharged hazard without overwriting bounty/cache modifiers
     if (difficultyTier === 5) {
       const extraHazardPool = nodes.filter(
         (n) =>
-          (n.layer >= 2 && n.layer <= (useExtendedMap ? 10 : 3)) &&
+          n.layer >= 2 &&
+          n.layer <= (isMetropolis ? 10 : 3) &&
           (n.type === 'ELITE' || n.type === 'COMBAT') &&
           !n.isBreatherNode &&
-          n.modifier !== 'overcharged_hazard',
+          !n.modifier,
       );
       if (extraHazardPool.length > 0) {
         const extraIdx = Math.abs(seed * 37 + 13) % extraHazardPool.length;
@@ -606,12 +449,10 @@ export function generateSectorMap(
     }
   }
 
-  // Wire forward edges layer by layer with strict planar non-crossing topology
   const getNode = (layer: number, lane: number) =>
     nodes.find((n) => n.layer === layer && n.lane === lane);
   const bossLayer = laneLayouts.length - 1;
 
-  // Layer 0 -> Layer 1 (all 3 lanes)
   const l0 = getNode(0, 0);
   if (l0) {
     l0.nextIds = [0, 1, 2]
@@ -619,13 +460,8 @@ export function generateSectorMap(
       .filter((id): id is string => Boolean(id));
   }
 
-  // Intermediate layers -> next intermediate layer
   for (let layer = 1; layer < bossLayer - 1; layer++) {
-    const edgesForLayer = layerEdges[layer - 1] ?? [
-      [0, 1],
-      [0, 1, 2],
-      [1, 2],
-    ];
+    const edgesForLayer = layerEdges[layer - 1] ?? stdEdges;
     for (let lane = 0; lane < 3; lane++) {
       const from = getNode(layer, lane);
       if (!from) continue;
@@ -635,7 +471,6 @@ export function generateSectorMap(
     }
   }
 
-  // Penultimate layer -> Boss layer
   const boss = getNode(bossLayer, 0);
   if (boss) {
     for (let lane = 0; lane < 3; lane++) {
@@ -647,611 +482,4 @@ export function generateSectorMap(
   }
 
   return nodes;
-}
-
-export function getNodeEconomyMetrics(
-  node: MapNode,
-  heroine?: HeroineState,
-  lang: Language = 'en',
-): NodeEconomyMetrics {
-  const maxHp = heroine?.maxHp ?? 58;
-  let tensionHpPct = 0;
-  let runYieldCredits = 0;
-  let runYieldPowerRating: 'LOW' | 'MODERATE' | 'HIGH' | 'CRITICAL' = 'LOW';
-  let metaYieldNanites = 0;
-  let opportunityCost = '';
-  const isCs = lang === 'cs';
-
-  switch (node.type) {
-    case 'COMBAT':
-      tensionHpPct = node.modifier === 'overcharged_hazard' ? 18 : 12;
-      runYieldCredits = 35;
-      if (node.modifier === 'golden_bounty') runYieldCredits = Math.round(runYieldCredits * 1.5);
-      if (node.modifier === 'double_credits') runYieldCredits *= 2;
-      runYieldPowerRating = node.modifier === 'overcharged_hazard' ? 'HIGH' : 'MODERATE';
-      metaYieldNanites =
-        node.modifier === 'overcharged_hazard' ? 1 : node.modifier === 'nanite_cache' ? 2 : 0;
-      opportunityCost =
-        node.modifier === 'overcharged_hazard'
-          ? isCs
-            ? 'Mini-elita: 💔 +18 % riziko · 💎 +1 Nanit'
-            : 'Mini-Elite: 💔 +18% Tension · 💎 +1 Nanite'
-          : isCs
-            ? '🪙 +35 CR · 💔 ~12 % riziko · šetří ošetřovnu'
-            : '🪙 +35 CR · 💔 ~12% Tension · preserves Med-Bay';
-      break;
-    case 'ELITE':
-      tensionHpPct = 38;
-      runYieldCredits = 60;
-      if (node.modifier === 'golden_bounty') runYieldCredits = Math.round(runYieldCredits * 1.5);
-      if (node.modifier === 'double_credits') runYieldCredits *= 2;
-      runYieldPowerRating = 'HIGH';
-      metaYieldNanites = 2 + (node.modifier === 'nanite_cache' ? 2 : 0);
-      opportunityCost = isCs
-        ? '👑 Elita: 💎 +2 Nanity · 🪙 +60 CR · AI čip'
-        : '👑 Elite: 💎 +2 Nanites · 🪙 +60 CR · AI Chip';
-      break;
-    case 'CYBER_CLINIC':
-      tensionHpPct = 0;
-      runYieldCredits = 0;
-      runYieldPowerRating = 'HIGH';
-      metaYieldNanites = 0;
-      opportunityCost = isCs
-        ? '🎛 Výběr implantátu · Čapí inkubátor · FabLab sloučení'
-        : '🎛 Implant Draft · Stork Incubator · FabLab Splice';
-      break;
-    case 'CHIP_DEALER':
-      tensionHpPct = 0;
-      runYieldCredits = 0;
-      runYieldPowerRating = node.modifier === 'flash_sale' ? 'CRITICAL' : 'HIGH';
-      metaYieldNanites = 0;
-      opportunityCost =
-        node.modifier === 'flash_sale'
-          ? isCs
-            ? '🏷 Výprodej (-35 % cen): AI čipy a Chůva-boti'
-            : '🏷 Flash Sale (-35% price): AI Skill Chips & Bots'
-          : isCs
-            ? '🤖 AI čipy · Chůva-boti · Rodová kovárna'
-            : '🤖 AI Skill Chips · Nanny-Bots · Heirloom Forge';
-      break;
-    case 'MED_BAY':
-      tensionHpPct = -35; // negative tension = healing recovery
-      runYieldCredits = 0;
-      runYieldPowerRating = 'MODERATE';
-      metaYieldNanites = 0;
-      opportunityCost =
-        node.modifier === 'funded_clinic'
-          ? isCs
-            ? '💚 Dotovaný krb: +12 HP bonus ke všem volbám'
-            : '💚 Funded Hearth: 💚 +12 HP bonus on all'
-          : isCs
-            ? '💚 Oprava HP · Přetaktování dílků · Rodové bonusy'
-            : '💚 Hull Repair · Tile Overclock · Family Buffs';
-      break;
-    case 'EVENT':
-      tensionHpPct = 0; // high variance
-      runYieldCredits = 20;
-      runYieldPowerRating = 'MODERATE';
-      metaYieldNanites = 1;
-      opportunityCost = isCs
-        ? '❓ Aliance rodů · Vzájemná pomoc · Rave tempo'
-        : '❓ Gala Alliances · Mutual-Aid Co-op · Rave Tempo';
-      break;
-    case 'BOSS':
-      tensionHpPct = 65;
-      runYieldCredits = 100;
-      runYieldPowerRating = 'CRITICAL';
-      metaYieldNanites = 5;
-      opportunityCost = isCs
-        ? '☠ Boss sektoru: 💎 +5 Nanitů · 🪙 +100 CR'
-        : '☠ Act Boss: 💎 +5 Nanites · 🪙 +100 CR';
-      break;
-  }
-
-  const tensionHpEst = Math.round((Math.abs(tensionHpPct) / 100) * maxHp);
-
-  return {
-    tensionHpPct,
-    tensionHpEst,
-    runYieldCredits,
-    runYieldPowerRating,
-    metaYieldNanites,
-    opportunityCost,
-  };
-}
-
-export function getLaneClusterProfiles(
-  nodes: MapNode[],
-  heroine?: HeroineState,
-  lang: Language = 'en',
-): LaneClusterProfile[] {
-  const maxHp = Math.max(1, heroine?.maxHp ?? 58);
-  const lanes: LaneClusterProfile[] = [];
-  const isCs = lang === 'cs';
-  const maxLayer = nodes.reduce((acc, n) => Math.max(acc, n.layer), 4);
-
-  for (let lane = 0; lane < 3; lane++) {
-    const laneNodes = nodes
-      .filter((n) => n.lane === lane && n.layer >= 1 && n.layer < maxLayer)
-      .sort((a, b) => a.layer - b.layer);
-
-    let totalTensionHpEst = 0;
-    let totalRunYieldCredits = 0;
-    let totalMetaYieldNanites = 0;
-    let hasElite = false;
-    let hasMedBay = false;
-    let combatCount = 0;
-    let eventCount = 0;
-
-    for (const node of laneNodes) {
-      const econ = getNodeEconomyMetrics(node, heroine, lang);
-      if (econ.tensionHpPct > 0) {
-        totalTensionHpEst += econ.tensionHpEst;
-      }
-      totalRunYieldCredits += econ.runYieldCredits;
-      totalMetaYieldNanites += econ.metaYieldNanites;
-      if (node.type === 'ELITE') hasElite = true;
-      if (node.type === 'MED_BAY') hasMedBay = true;
-      if (node.type === 'COMBAT') combatCount++;
-      if (node.type === 'EVENT') eventCount++;
-    }
-
-    const tensionRatio = totalTensionHpEst / maxHp;
-    const tensionRating: 'LOW' | 'MODERATE' | 'HIGH' | 'EXTREME' =
-      tensionRatio >= 0.6
-        ? 'EXTREME'
-        : tensionRatio >= 0.35
-          ? 'HIGH'
-          : tensionRatio >= 0.18
-            ? 'MODERATE'
-            : 'LOW';
-
-    let archetype: LaneClusterArchetype;
-    let name: string;
-    let tagline: string;
-    let yieldRating: 'BALANCED' | 'HIGH_WEALTH' | 'HIGH_META' | 'HIGH_VARIANCE';
-
-    if (eventCount > 0 || (!hasElite && combatCount <= 1 && hasMedBay)) {
-      archetype = 'gambler';
-      name = isCs ? 'LÁVKA HAZARDÉRA' : "GAMBLER'S CATWALK";
-      tagline = isCs ? 'Anomálie a aliance · Šetrnější tempo boje' : 'Anomalies & Alliances · Low Combat Fatigue';
-      yieldRating = eventCount > 0 ? 'HIGH_VARIANCE' : 'BALANCED';
-    } else if (hasElite && hasMedBay) {
-      archetype = 'gauntlet';
-      name = isCs ? 'CESTA ZKOUŠKY' : 'THE GAUNTLET';
-      tagline = isCs ? 'Vysoké riziko · Elitní kořist · Záchranná ošetřovna' : 'High Tension · Elite Bounty · Rest Safety Net';
-      yieldRating = 'HIGH_META';
-    } else {
-      archetype = 'mercenary';
-      name = isCs ? 'ŽOLDNÉŘSKÁ TRASA' : 'MERCENARY PATH';
-      tagline = isCs ? 'Stálý boj · Maximum kreditů · Nákup AI čipů' : 'Steady Combat · Maximize Credits · AI Chip Build';
-      yieldRating = 'HIGH_WEALTH';
-    }
-
-    lanes.push({
-      lane,
-      archetype,
-      name,
-      tagline,
-      tensionRating,
-      yieldRating,
-      totalTensionHpEst,
-      totalRunYieldCredits,
-      totalMetaYieldNanites,
-    });
-  }
-
-  return lanes;
-}
-
-export function getConnectingPathNodeIds(
-  nodes: MapNode[],
-  fromNodeId: string | null,
-  targetNodeId: string,
-): Set<string> {
-  const result = new Set<string>();
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const target = byId.get(targetNodeId);
-  if (!target) return result;
-
-  const startNodeIds = fromNodeId
-    ? [fromNodeId]
-    : nodes.filter((n) => n.layer === 0).map((n) => n.id);
-
-  if (startNodeIds.includes(targetNodeId)) {
-    result.add(targetNodeId);
-    return result;
-  }
-
-  // Forward reachability from current/start nodes
-  const forwardReachable = new Set<string>();
-  const fQueue = [...startNodeIds];
-  startNodeIds.forEach((id) => forwardReachable.add(id));
-  while (fQueue.length > 0) {
-    const curId = fQueue.shift();
-    if (!curId) continue;
-    const cur = byId.get(curId);
-    if (!cur) continue;
-    for (const nextId of cur.nextIds) {
-      if (!forwardReachable.has(nextId)) {
-        forwardReachable.add(nextId);
-        fQueue.push(nextId);
-      }
-    }
-  }
-
-  if (!forwardReachable.has(targetNodeId)) {
-    return result;
-  }
-
-  // Backward reachability from targetNodeId
-  const reverseAdj = new Map<string, string[]>();
-  for (const n of nodes) {
-    for (const nextId of n.nextIds) {
-      const list = reverseAdj.get(nextId) ?? [];
-      list.push(n.id);
-      reverseAdj.set(nextId, list);
-    }
-  }
-
-  const backwardReachable = new Set<string>();
-  const bQueue = [targetNodeId];
-  backwardReachable.add(targetNodeId);
-  while (bQueue.length > 0) {
-    const curId = bQueue.shift();
-    if (!curId) continue;
-    const prevList = reverseAdj.get(curId) ?? [];
-    for (const prevId of prevList) {
-      if (forwardReachable.has(prevId) && !backwardReachable.has(prevId)) {
-        backwardReachable.add(prevId);
-        bQueue.push(prevId);
-      }
-    }
-  }
-
-  for (const id of forwardReachable) {
-    if (backwardReachable.has(id)) {
-      result.add(id);
-    }
-  }
-
-  return result;
-}
-
-export function getAvailableNextNodes(nodes: MapNode[], currentNodeId: string | null): MapNode[] {
-  if (!currentNodeId) {
-    return nodes.filter((n) => n.layer === 0);
-  }
-  const current = nodes.find((n) => n.id === currentNodeId);
-  if (!current) return [];
-  return nodes.filter((n) => current.nextIds.includes(n.id));
-}
-
-export function getReachableNodeIds(nodes: MapNode[], fromNodeId: string | null): Set<string> {
-  const reachable = new Set<string>();
-  if (!fromNodeId) {
-    for (const n of nodes) reachable.add(n.id);
-    return reachable;
-  }
-  const byId = new Map(nodes.map((n) => [n.id, n]));
-  const queue: string[] = [fromNodeId];
-  reachable.add(fromNodeId);
-
-  let head = 0;
-  while (head < queue.length) {
-    const curId = queue[head++];
-    const cur = byId.get(curId);
-    if (!cur) continue;
-    for (const nextId of cur.nextIds) {
-      if (!reachable.has(nextId)) {
-        reachable.add(nextId);
-        queue.push(nextId);
-      }
-    }
-  }
-  return reachable;
-}
-
-export function getNodeEncounterIntel(
-  node: MapNode,
-  seed: number,
-  lang: Language = 'en',
-  difficultyTier: DifficultyTier = 3,
-): NodeEncounterIntel {
-  const isCs = lang === 'cs';
-  const laneSuffix =
-    node.layer === 0
-      ? 'GATE'
-      : node.type === 'BOSS'
-        ? 'CORE'
-        : node.lane === 0
-          ? 'N-CANOPY'
-          : node.lane === 1
-            ? 'C-SPINE'
-            : 'S-CATWALK';
-  const sectorCode = `S0${node.layer + 1}-${laneSuffix}`;
-
-  const threatTraits: string[] = [];
-
-  if (node.modifier === 'golden_bounty') {
-    threatTraits.push(
-      isCs ? 'Zlatý cíl (+50 % odměna kreditů)' : 'High-Value Target (+50% Bounty Credits)',
-    );
-  } else if (node.modifier === 'double_credits') {
-    threatTraits.push(
-      isCs ? 'Korporátní kontrakt (2× bojové kredity)' : 'Corporate Pay-Order (2× Combat Credits)',
-    );
-  } else if (node.modifier === 'nanite_cache') {
-    threatTraits.push(
-      isCs ? 'Ukradená skrýš nanitů (+2 Nanity)' : 'Stolen Nanite Cache (+2 Meta Nanites)',
-    );
-  } else if (node.modifier === 'overcharged_hazard') {
-    threatTraits.push(
-      isCs
-        ? 'Přetížená hrozba (+25 % síla nepřátel, +1 Nanit)'
-        : 'Overcharged Hazard (+25% Enemy Stats, Drops +1 Meta Nanite)',
-    );
-  } else if (node.modifier === 'flash_sale') {
-    threatTraits.push(
-      isCs ? 'Bleskový výprodej (-35 % ceny AI čipů)' : 'Flash Sale Dealer (-35% AI Chip Prices)',
-    );
-  } else if (node.modifier === 'funded_clinic') {
-    threatTraits.push(
-      isCs
-        ? 'Dotovaná ošetřovna (+12 HP bonus ke každé volbě)'
-        : 'Funded Clinic (+12 HP Bonus Repair on Any Action)',
-    );
-  }
-
-  if (
-    node.type === 'CYBER_CLINIC' ||
-    node.type === 'CHIP_DEALER' ||
-    node.type === 'MED_BAY' ||
-    node.type === 'EVENT'
-  ) {
-    return {
-      sectorCode,
-      enemies: [],
-      totalEnemyHp: 0,
-      enemyPassives: [],
-      threatTraits: Array.from(new Set(threatTraits)),
-    };
-  }
-
-  const spawnedEnemies = buildEnemiesForNode(
-    node.type,
-    node.layer,
-    seed,
-    node.lane,
-    node.modifier,
-    difficultyTier,
-    Boolean(node.isBreatherNode),
-  );
-  const passivesSet = new Set<EnemyPassiveKind>();
-
-  const enemies = spawnedEnemies.map((unit) => {
-    const tpl = ENEMY_TEMPLATES[unit.archetype];
-    if (tpl.passive) {
-      passivesSet.add(tpl.passive);
-    }
-    if (unit.archetype === 'boss') {
-      threatTraits.push(isCs ? '50% Fázová bariéra' : '50% Phase Barrier Lock');
-      threatTraits.push(isCs ? 'Posily roje' : 'Brood Swarm Reinforcements');
-    } else if (unit.archetype === 'spitter') {
-      threatTraits.push(isCs ? 'Korozivní kyselina' : 'Corrosive Acid Spits');
-    } else if (unit.archetype === 'stalker') {
-      threatTraits.push(isCs ? 'Trnitá odplata' : 'Cloaked Ambush Strikes');
-    } else if (unit.archetype === 'brute') {
-      threatTraits.push(isCs ? 'Těžký drtič a chitinové brnění' : 'Enraged Cleave & Chitin Armor');
-    }
-    return {
-      archetype: unit.archetype,
-      hp: unit.maxHp,
-      armor: unit.armor,
-    };
-  });
-
-  if (node.type === 'ELITE') {
-    threatTraits.unshift(
-      isCs
-        ? 'Elitní kyber-mutant (Kořist +2 Nanity)'
-        : 'Elite Cyber-Mutant (Drops +2 Nanites)',
-    );
-  }
-
-  const totalEnemyHp = enemies.reduce((acc, e) => acc + e.hp + e.armor, 0);
-
-  return {
-    sectorCode,
-    enemies,
-    totalEnemyHp,
-    enemyPassives: Array.from(passivesSet),
-    threatTraits: Array.from(new Set(threatTraits)),
-  };
-}
-
-export function getReconPreviewForNode(
-  node: MapNode,
-  run: RunState,
-  lang: Language = 'en',
-): ReconNodePreview | null {
-  const hasRecon =
-    run.heroine.implants.includes('synapse_overclock') ||
-    run.heroine.implants.includes('surge_resonator');
-  if (!hasRecon) return null;
-
-  if (node.type === 'EVENT') {
-    const event = getCyberEventForNode(
-      node,
-      run.seed + node.layer * 23 + node.lane * 7,
-      run.heroine,
-      lang,
-    );
-    return {
-      kind: 'event',
-      eventTitle: event.title,
-      choices: event.choices.map((c) => c.label),
-    };
-  }
-
-  if (node.type === 'CYBER_CLINIC') {
-    return {
-      kind: 'clinic',
-      isFlashSale: node.modifier === 'flash_sale',
-      openSockets: Math.max(0, MAX_IMPLANTS - run.heroine.implants.length),
-    };
-  }
-
-  if (node.type === 'CHIP_DEALER') {
-    return {
-      kind: 'chip_dealer',
-      isFlashSale: node.modifier === 'flash_sale',
-      freeMemory: Math.max(0, run.heroine.carryCapacity),
-    };
-  }
-
-  if (node.type === 'MED_BAY') {
-    const isFunded = node.modifier === 'funded_clinic';
-    return {
-      kind: 'medbay',
-      healTotal: 22 + (isFunded ? 12 : 0),
-      isFunded,
-    };
-  }
-
-  const spawned = buildEnemiesForNode(
-    node.type,
-    node.layer,
-    run.seed,
-    node.lane,
-    node.modifier,
-    run.difficultyTier ?? 3,
-    Boolean(node.isBreatherNode),
-  );
-  return {
-    kind: 'combat',
-    enemies: spawned.map((e) => ({
-      archetype: e.archetype,
-      hp: e.maxHp,
-      armor: e.armor,
-      firstIntent: e.intentCycle[e.currentIntentIndex],
-    })),
-  };
-}
-
-export function getTacticalRouteAdvice(run: RunState): TacticalRouteAdvice {
-  const available = getAvailableNextNodes(run.mapNodes, run.currentNodeId);
-  if (available.length === 0) {
-    return {
-      recommendedNodeId: null,
-      reasonKey: 'combat_momentum',
-    };
-  }
-
-  const byId = new Map(run.mapNodes.map((n) => [n.id, n]));
-  const hpRatio = run.heroine.hp / Math.max(1, run.heroine.maxHp);
-  const openSockets = Math.max(0, MAX_IMPLANTS - run.heroine.implants.length);
-
-  if (available.length === 1 && available[0].type === 'BOSS') {
-    return {
-      recommendedNodeId: available[0].id,
-      reasonKey: 'boss_engage',
-    };
-  }
-
-  let bestNode = available[0];
-  let bestScore = -999;
-  let bestReason: RouteAdviceReason = 'combat_momentum';
-
-  for (const cand of available) {
-    const nextNodes = cand.nextIds
-      .map((id) => byId.get(id))
-      .filter((n): n is MapNode => Boolean(n));
-    const hasDownstreamMedBay = nextNodes.some((n) => n.type === 'MED_BAY');
-    const hasDownstreamElite = nextNodes.some((n) => n.type === 'ELITE');
-    const hasDownstreamClinic = nextNodes.some((n) => n.type === 'CYBER_CLINIC');
-
-    let score = 0;
-    let reason: RouteAdviceReason = 'combat_momentum';
-
-    if (hpRatio <= 0.62) {
-      // Prioritize healing or safe path to Bio-Med Bay when wounded (Preserve HP Currency)
-      if (cand.type === 'MED_BAY') {
-        score += 160 + (cand.modifier === 'funded_clinic' ? 20 : 0);
-        reason = 'low_hp_medbay';
-      } else if (cand.type === 'CYBER_CLINIC') {
-        score += 75 + (hasDownstreamMedBay ? 35 : 0);
-        reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'clinic_socket';
-      } else if (cand.type === 'CHIP_DEALER') {
-        score += 65 + (hasDownstreamMedBay ? 30 : 0);
-        reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'combat_momentum';
-      } else if (cand.type === 'EVENT') {
-        score += 70 + (hasDownstreamMedBay ? 35 : 0);
-        reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'combat_momentum';
-      } else if (cand.type === 'COMBAT') {
-        score += 55 + (hasDownstreamMedBay ? 45 : 0) - (cand.modifier === 'overcharged_hazard' ? 25 : 0);
-        reason = hasDownstreamMedBay ? 'low_hp_medbay' : 'combat_momentum';
-      } else if (cand.type === 'ELITE') {
-        score -= 40;
-      }
-    } else {
-      // Healthy HP: Player has "HP Currency" to spend on high-tension high-yield paths
-      if (cand.type === 'ELITE') {
-        score += 110 + (openSockets > 0 ? 25 : 0);
-        reason = 'elite_power_spike';
-      } else if (cand.type === 'CYBER_CLINIC') {
-        score +=
-          (openSockets > 0 ? 95 : 50) +
-          (hasDownstreamElite ? 25 : 0);
-        reason = openSockets > 0 ? 'clinic_socket' : 'elite_power_spike';
-      } else if (cand.type === 'CHIP_DEALER') {
-        score +=
-          (run.heroine.credits >= 30 ? 90 : 45) +
-          (hasDownstreamElite ? 20 : 0) +
-          (cand.modifier === 'flash_sale' && run.heroine.credits >= 20 ? 35 : 0);
-        reason = hasDownstreamElite ? 'elite_power_spike' : 'combat_momentum';
-      } else if (cand.type === 'EVENT') {
-        score += 85 + (hasDownstreamElite ? 20 : 0);
-        reason = hasDownstreamElite ? 'elite_power_spike' : 'combat_momentum';
-      } else if (cand.type === 'COMBAT') {
-        const streakBonus =
-          run.heroine.consecutiveCombatWithoutClinic &&
-          run.heroine.consecutiveCombatWithoutClinic >= 2
-            ? 15
-            : 0;
-        score +=
-          75 +
-          (hasDownstreamElite ? 30 : 0) +
-          (hasDownstreamClinic && openSockets > 0 ? 20 : 0) +
-          (cand.modifier === 'overcharged_hazard' ? 30 : 0) +
-          streakBonus;
-        reason = hasDownstreamElite ? 'elite_power_spike' : 'combat_momentum';
-      } else if (cand.type === 'MED_BAY') {
-        score += 45 + (cand.modifier === 'funded_clinic' ? 20 : 0);
-      }
-
-      // Bounty hot-spots give attractive path incentive when healthy
-      if (cand.modifier === 'golden_bounty' || cand.modifier === 'double_credits') {
-        score += 25;
-      } else if (cand.modifier === 'nanite_cache') {
-        score += 35;
-      }
-    }
-
-    // Prefer central spine hub when tied for maximum downstream flexibility
-    if (cand.nextIds.length === 3) {
-      score += 8;
-    }
-
-    if (score > bestScore) {
-      bestScore = score;
-      bestNode = cand;
-      bestReason = reason;
-    }
-  }
-
-  return {
-    recommendedNodeId: bestNode.id,
-    reasonKey: bestReason,
-  };
 }

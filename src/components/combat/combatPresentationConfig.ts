@@ -1,4 +1,4 @@
-export type CombatPresentationPresetId = 'snappy' | 'dramatic' | 'compact';
+export type CutInStagingMode = 'melee' | 'ranged_fast' | 'ranged_lobbed' | 'ranged_aoe';
 
 export interface CombatPresentationConfig {
   /** Master enable flag for Darkest Dungeon cut-in presentation */

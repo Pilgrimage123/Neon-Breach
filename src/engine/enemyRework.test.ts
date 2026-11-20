@@ -8,14 +8,14 @@ import {
 } from '../components/combat/combatEnemyUi';
 import { getEnemyLaneMetrics } from '../components/combat/combatStageTypes';
 import { computeOptimalTurnHint } from '../utils/tacticalSandboxAndHints';
+import { ENEMY_TEMPLATES } from './data';
 import {
-  createBlightTile,
   createLootRunnerUnit,
   createMercyDroneUnit,
   createPropUnit,
   createSleepwalkerUnit,
-  ENEMY_TEMPLATES,
-} from './data';
+} from './encounterBuilder';
+import { createSlagTile } from './poolBuilder';
 import {
   advanceRoundAfterEnemies,
   createInitialRun,
@@ -26,7 +26,7 @@ import {
   HOT_POTATO_SELF_DAMAGE,
   PLASMA_BARREL_BURST_DAMAGE,
   previewColorResolution,
-  previewHeroineThreat,
+  previewHeroThreat,
   PUSTULE_RUPTURE_CORRODE,
   resolvePlayerColor,
   STAGGER_BURST_THRESHOLD,
@@ -69,7 +69,7 @@ function makeTile(id: string, type: Tile['type'], value: number, techEffect?: Ti
   };
 }
 
-test('conditional intents (if_no_shield & if_play_attack) match identically between previewHeroineThreat and executeEnemyTurn', () => {
+test('conditional intents (if_no_shield & if_play_attack) match identically between previewHeroThreat and executeEnemyTurn', () => {
   const stalkerBeat2 = makeEnemy({
     id: 'e_stalker',
     archetype: 'stalker',
@@ -89,7 +89,7 @@ test('conditional intents (if_no_shield & if_play_attack) match identically betw
   // Case A: Player plays TECH -> shieldAfterPlayer is 0 -> Stalker gains +4 bonus (11 DMG total)
   const techRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -103,23 +103,23 @@ test('conditional intents (if_no_shield & if_play_attack) match identically betw
   };
 
   const techPreview = previewColorResolution(techRun, 'tech');
-  const techThreat = previewHeroineThreat(techRun.combat, techRun.heroine, techPreview);
+  const techThreat = previewHeroThreat(techRun.combat, techRun.hero, techPreview);
   assert.equal(techThreat.conditionalBonusDamage, 4);
   assert.equal(techThreat.rawIncomingDamage, 11);
   assert.equal(techThreat.hpDamageTaken, 11);
 
   const afterTechPlay = executeEnemyTurn(resolvePlayerColor(techRun, 'tech'));
-  assert.equal(afterTechPlay.heroine.hp, 50 - 11);
+  assert.equal(afterTechPlay.hero.hp, 50 - 11);
 
   // Case B: Player plays Defense -> shieldAfterPlayer >= 1 -> Stalker deals base 7 DMG (no bonus)
   const defPreview = previewColorResolution(techRun, 'defense');
-  const defThreat = previewHeroineThreat(techRun.combat, techRun.heroine, defPreview);
+  const defThreat = previewHeroThreat(techRun.combat, techRun.hero, defPreview);
   assert.equal(defThreat.conditionalBonusDamage, 0);
   assert.equal(defThreat.rawIncomingDamage, 7);
   assert.equal(defThreat.hpDamageTaken, 1);
 
   const afterDefPlay = executeEnemyTurn(resolvePlayerColor(techRun, 'defense'));
-  assert.equal(afterDefPlay.heroine.hp, 49);
+  assert.equal(afterDefPlay.hero.hp, 49);
 
   // Case C: Boss Beat 2 punishes Attack play (+4 DMG)
   const bossBeat2 = makeEnemy({
@@ -138,7 +138,7 @@ test('conditional intents (if_no_shield & if_play_attack) match identically betw
 
   const bossRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -151,12 +151,12 @@ test('conditional intents (if_no_shield & if_play_attack) match identically betw
   };
 
   const bossAtkPreview = previewColorResolution(bossRun, 'attack');
-  const bossAtkThreat = previewHeroineThreat(bossRun.combat, bossRun.heroine, bossAtkPreview);
+  const bossAtkThreat = previewHeroThreat(bossRun.combat, bossRun.hero, bossAtkPreview);
   assert.equal(bossAtkThreat.conditionalBonusDamage, 4);
   assert.equal(bossAtkThreat.rawIncomingDamage, 15);
 
   const afterBossAtk = executeEnemyTurn(resolvePlayerColor(bossRun, 'attack'));
-  assert.equal(afterBossAtk.heroine.hp, 50 - 15);
+  assert.equal(afterBossAtk.hero.hp, 50 - 15);
 });
 
 test('Broken Stance (Stagger) cancels Charge/Heavy on 16+ single-turn damage and resets Pyre Stinger countdown', () => {
@@ -181,7 +181,7 @@ test('Broken Stance (Stagger) cancels Charge/Heavy on 16+ single-turn damage and
 
   const run = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -202,7 +202,7 @@ test('Broken Stance (Stagger) cancels Charge/Heavy on 16+ single-turn damage and
   assert.equal(armorPreview.willStagger, true);
   assert.equal(armorPreview.willDie, false);
 
-  const threat = previewHeroineThreat(run.combat, run.heroine, atkPreview);
+  const threat = previewHeroThreat(run.combat, run.hero, atkPreview);
   assert.equal(threat.rawIncomingDamage, 0);
 
   const afterPlayer = resolvePlayerColor(run, 'attack');
@@ -212,7 +212,7 @@ test('Broken Stance (Stagger) cancels Charge/Heavy on 16+ single-turn damage and
 
   // Enemy turn deals 0 DMG and resets Stinger back to Charge (2T) at index 0
   const afterEnemy = executeEnemyTurn(afterPlayer);
-  assert.equal(afterEnemy.heroine.hp, 50);
+  assert.equal(afterEnemy.hero.hp, 50);
   assert.ok(afterEnemy.combat);
   assert.equal(afterEnemy.combat.enemies[0].staggered, false);
   assert.equal(afterEnemy.combat.enemies[0].currentIntentIndex, 0);
@@ -293,7 +293,7 @@ test('Targeted Tile Hex marks a board tile on Turn 2+, heals living caster on re
 
   const runBeforeTurn2 = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 10 },
+    hero: { ...baseRun.hero, hp: 50, shield: 10 },
     combat: {
       ...baseRun.combat,
       turn: 1,
@@ -327,7 +327,7 @@ test('Targeted Tile Hex marks a board tile on Turn 2+, heals living caster on re
   // Overdrive clears all board Hexes cleanly without triggering enemy heal
   const odReadyRun = {
     ...turn2,
-    heroine: { ...turn2.heroine, overdrive: 100 },
+    hero: { ...turn2.hero, overdrive: 100 },
   };
   const afterOd = executeOverdrive(odReadyRun);
   assert.ok(afterOd.combat);
@@ -351,7 +351,7 @@ test('Caustic Slag pollutes discard on unblocked Acid (max 2), burns 2 HP if kep
 
   const run = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_RESOLVED' as const,
@@ -370,15 +370,15 @@ test('Caustic Slag pollutes discard on unblocked Acid (max 2), burns 2 HP if kep
 
   const afterAcid = executeEnemyTurn(run);
   assert.ok(afterAcid.combat);
-  assert.equal(afterAcid.heroine.hp, 44);
+  assert.equal(afterAcid.hero.hp, 44);
   assert.equal(afterAcid.combat.discardPile.filter((t) => t.isBlight).length, 1);
 
   // Put 2 Caustic Slag tiles on board -> advanceRoundAfterEnemies burns 4 HP total
-  const blight1 = createBlightTile(1, 1);
-  const blight2 = createBlightTile(1, 2);
+  const blight1 = createSlagTile(1, 1);
+  const blight2 = createSlagTile(1, 2);
   const chipRun = {
     ...run,
-    heroine: { ...run.heroine, hp: 40, shield: 0 },
+    hero: { ...run.hero, hp: 40, shield: 0 },
     combat: {
       ...run.combat,
       phase: 'ENEMY_ACTING' as const,
@@ -389,7 +389,7 @@ test('Caustic Slag pollutes discard on unblocked Acid (max 2), burns 2 HP if kep
     },
   };
   const afterRoundEnd = advanceRoundAfterEnemies(chipRun);
-  assert.equal(afterRoundEnd.heroine.hp, 36);
+  assert.equal(afterRoundEnd.hero.hp, 36);
 
   // Resolving TECH purges Slag without adding Slag to discard or granting Surge/OD from Slag
   const purgeRun = {
@@ -469,7 +469,7 @@ test('computeOptimalTurnHint recommends Push [R] when pushing a backline chargin
 
   const hintRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 14, shield: 0 },
+    hero: { ...baseRun.hero, hp: 14, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -540,7 +540,7 @@ test('Pillar 1: Hot Potato passes 8 Pierce DMG when resolved or deals 6 self-DMG
   const hotPotatoTile: Tile = { ...makeTile('hp1', 'defense', 5), isHotPotato: true };
   const hpRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -558,16 +558,16 @@ test('Pillar 1: Hot Potato passes 8 Pierce DMG when resolved or deals 6 self-DMG
   assert.equal(afterPass.combat.enemies[0].hp, 40 - HOT_POTATO_PASS_DAMAGE);
   assert.equal(afterPass.combat.enemies[0].armor, 10);
 
-  // If Hot Potato is left unresolved on the board, previewHeroineThreat and advanceRoundAfterEnemies apply 6 self-DMG
+  // If Hot Potato is left unresolved on the board, previewHeroThreat and advanceRoundAfterEnemies apply 6 self-DMG
   const atkPreview = previewColorResolution(hpRun, 'attack');
-  const threatWithUnresolvedBomb = previewHeroineThreat(hpRun.combat, hpRun.heroine, atkPreview);
+  const threatWithUnresolvedBomb = previewHeroThreat(hpRun.combat, hpRun.hero, atkPreview);
   assert.equal(threatWithUnresolvedBomb.hotPotatoSelfDamage, HOT_POTATO_SELF_DAMAGE);
 
   const afterLeftOnBoard = advanceRoundAfterEnemies({
     ...hpRun,
     combat: { ...hpRun.combat, phase: 'ENEMY_ACTING' as const },
   });
-  assert.equal(afterLeftOnBoard.heroine.hp, 50 - HOT_POTATO_SELF_DAMAGE);
+  assert.equal(afterLeftOnBoard.hero.hp, 50 - HOT_POTATO_SELF_DAMAGE);
 
   // 2. Contagion tile discards adjacent non-matching board tiles when resolved
   const contagionTile: Tile = { ...makeTile('c_mid', 'attack', 6), isContagion: true };
@@ -622,7 +622,7 @@ test('Pillar 1: Hot Potato passes 8 Pierce DMG when resolved or deals 6 self-DMG
   });
   const topDeckRun = {
     ...hpRun,
-    heroine: { ...hpRun.heroine, hp: 50, shield: 0 },
+    hero: { ...hpRun.hero, hp: 50, shield: 0 },
     combat: {
       ...hpRun.combat,
       phase: 'PLAYER_RESOLVED' as const,
@@ -675,7 +675,7 @@ test('Pillar 2: Dynamic Win Conditions (Loot Runner +25 CR vs escape, Mercy Targ
   });
   const mercyRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 30, maxHp: 50, credits: 20 },
+    hero: { ...baseRun.hero, hp: 30, maxHp: 50, credits: 20 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -686,7 +686,7 @@ test('Pillar 2: Dynamic Win Conditions (Loot Runner +25 CR vs escape, Mercy Targ
   const afterMercyWin = resolvePlayerColor(mercyRun, 'attack');
   assert.equal(afterMercyWin.combat?.phase, 'VICTORY');
   assert.equal(afterMercyWin.combat?.mercyBonusAwarded, true);
-  assert.equal(afterMercyWin.heroine.hp, 36);
+  assert.equal(afterMercyWin.hero.hp, 36);
   assert.ok((afterMercyWin.combat?.rewardCredits ?? 0) >= 15);
 
   // 3. Tug-of-War Neural Meter reaching 100% triggers Neural Purge (staggers all hostiles +25% OD +10 CR)
@@ -699,7 +699,7 @@ test('Pillar 2: Dynamic Win Conditions (Loot Runner +25 CR vs escape, Mercy Targ
   });
   const tugRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, overdrive: 10 },
+    hero: { ...baseRun.hero, overdrive: 10 },
     combat: {
       ...baseRun.combat,
       rewardCredits: 0,
@@ -813,7 +813,7 @@ test('Pillar 3, 4 & 5: Overkill Weapon-Break (22+ DMG), Desperation Telegraph (<
   });
   const barrelRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, overdrive: 10 },
+    hero: { ...baseRun.hero, overdrive: 10 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -901,7 +901,7 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
   // 1. Surviving non-Surge Attack triggers Pustule Rupture (+2 Corrode + cue + bark)
   const nonSurgeRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0, corrode: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0, corrode: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_IDLE' as const,
@@ -924,11 +924,11 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
   assert.equal(getEnemyReactiveBark(spitterBeat2, atkPreview, armorPrev, 0, 'cs'), '☣ PUSTULY +2 KOR!');
 
   // Threat preview sums Pustule Rupture (+2) + Beat 2 Caustic Claw Rend (+2) = +4 Corrode
-  const atkThreat = previewHeroineThreat(nonSurgeRun.combat, nonSurgeRun.heroine, atkPreview);
+  const atkThreat = previewHeroThreat(nonSurgeRun.combat, nonSurgeRun.hero, atkPreview);
   assert.equal(atkThreat.corrodeGained, 4);
 
   const afterNonSurgeAtk = resolvePlayerColor(nonSurgeRun, 'attack');
-  assert.equal(afterNonSurgeAtk.heroine.corrode, PUSTULE_RUPTURE_CORRODE);
+  assert.equal(afterNonSurgeAtk.hero.corrode, PUSTULE_RUPTURE_CORRODE);
   assert.ok(afterNonSurgeAtk.combat?.lastCues.some((c) => c.kind === 'enemy_pustule_rupture'));
 
   // 2. Beat 2 Caustic Claw Rend unblocked HP hit -> deals 7 DMG, +2 Corrode, Spitter swells +3 Armor
@@ -939,14 +939,14 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
     },
     0,
   );
-  assert.equal(afterClawHit.heroine.hp, 50 - 7);
-  assert.equal(afterClawHit.heroine.corrode, 4);
+  assert.equal(afterClawHit.hero.hp, 50 - 7);
+  assert.equal(afterClawHit.hero.corrode, 4);
   assert.equal(afterClawHit.combat?.enemies[0].armor, 3);
 
   // 3. Beat 2 Caustic Claw Rend fully blocked by Defense Shield -> 0 HP damage, +2 Corrode, NO +3 Armor swell
-  const defThreat = previewHeroineThreat(
+  const defThreat = previewHeroThreat(
     nonSurgeRun.combat,
-    nonSurgeRun.heroine,
+    nonSurgeRun.hero,
     previewColorResolution(nonSurgeRun, 'defense'),
   );
   assert.equal(defThreat.hpDamageTaken, 0);
@@ -960,8 +960,8 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
     },
     0,
   );
-  assert.equal(afterBlockedClaw.heroine.hp, 50);
-  assert.equal(afterBlockedClaw.heroine.corrode, 2);
+  assert.equal(afterBlockedClaw.hero.hp, 50);
+  assert.equal(afterBlockedClaw.hero.corrode, 2);
   assert.equal(afterBlockedClaw.combat?.enemies[0].armor, 0);
 
   // 4. Attack Surge (4+ tiles) bypasses Pustule Rupture even when Spitter survives
@@ -982,7 +982,7 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
   assert.equal(surgePreview.surgeTriggered, true);
   assert.equal(surgePreview.pustuleRuptureCorrode, 0);
   const afterSurge = resolvePlayerColor(surgeRun, 'attack');
-  assert.equal(afterSurge.heroine.corrode, 0);
+  assert.equal(afterSurge.hero.corrode, 0);
   assert.equal(afterSurge.combat?.lastCues.some((c) => c.kind === 'enemy_pustule_rupture'), false);
 
   // 5. Lethal 1-hit non-Surge Attack KO bypasses Pustule Rupture
@@ -996,7 +996,7 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
   const lethalPreview = previewColorResolution(lethalRun, 'attack');
   assert.equal(lethalPreview.pustuleRuptureCorrode, 0);
   const afterLethal = resolvePlayerColor(lethalRun, 'attack');
-  assert.equal(afterLethal.heroine.corrode, 0);
+  assert.equal(afterLethal.hero.corrode, 0);
   assert.equal(afterLethal.combat?.lastCues.some((c) => c.kind === 'enemy_pustule_rupture'), false);
 });
 
@@ -1082,7 +1082,7 @@ test('Carapace Brute rework: occupies 2 bridge spots, Mutagen Vial Brace (+6 ARM
   });
   const heavyRun = {
     ...baseRun,
-    heroine: { ...baseRun.heroine, hp: 50, shield: 0 },
+    hero: { ...baseRun.hero, hp: 50, shield: 0 },
     combat: {
       ...baseRun.combat,
       phase: 'PLAYER_RESOLVED' as const,
@@ -1090,7 +1090,7 @@ test('Carapace Brute rework: occupies 2 bridge spots, Mutagen Vial Brace (+6 ARM
     },
   };
   const afterHeavy = executeSingleEnemyAction(heavyRun, 0);
-  assert.equal(afterHeavy.heroine.hp, 50 - 14);
+  assert.equal(afterHeavy.hero.hp, 50 - 14);
   const heavyCue = afterHeavy.combat!.lastCues.find((c) => c.kind === 'enemy_attack');
   assert.ok(heavyCue);
   assert.equal(heavyCue.heavySmash, true);

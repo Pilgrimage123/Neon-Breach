@@ -35,14 +35,16 @@ export function isFullscreenActive(doc: FullscreenDocumentLike | null | undefine
 export function isFullscreenSupported(doc: FullscreenDocumentLike | null | undefined): boolean {
   if (!doc || !doc.documentElement) return false;
   const el = doc.documentElement;
-  const hasRequest =
-    typeof el.requestFullscreen === 'function' ||
-    typeof el.webkitRequestFullscreen === 'function';
-  if (!hasRequest) return false;
-  if (doc.fullscreenEnabled === false && doc.webkitFullscreenEnabled !== true) {
-    return false;
+  if (typeof el.requestFullscreen === 'function' && doc.fullscreenEnabled !== false) {
+    return true;
   }
-  return true;
+  if (
+    typeof el.webkitRequestFullscreen === 'function' &&
+    doc.webkitFullscreenEnabled !== false
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export async function toggleDocumentFullscreen(
@@ -52,10 +54,12 @@ export async function toggleDocumentFullscreen(
 
   try {
     if (isFullscreenActive(doc)) {
-      if (typeof doc.exitFullscreen === 'function') {
-        await doc.exitFullscreen();
+      if (!doc.fullscreenElement && typeof doc.webkitExitFullscreen === 'function') {
+        await Promise.resolve(doc.webkitExitFullscreen());
+      } else if (typeof doc.exitFullscreen === 'function') {
+        await Promise.resolve(doc.exitFullscreen());
       } else if (typeof doc.webkitExitFullscreen === 'function') {
-        await doc.webkitExitFullscreen();
+        await Promise.resolve(doc.webkitExitFullscreen());
       }
       return isFullscreenActive(doc);
     }
@@ -64,9 +68,9 @@ export async function toggleDocumentFullscreen(
     if (!root) return false;
 
     if (typeof root.requestFullscreen === 'function') {
-      await root.requestFullscreen();
+      await Promise.resolve(root.requestFullscreen());
     } else if (typeof root.webkitRequestFullscreen === 'function') {
-      await root.webkitRequestFullscreen();
+      await Promise.resolve(root.webkitRequestFullscreen());
     }
     return isFullscreenActive(doc);
   } catch {

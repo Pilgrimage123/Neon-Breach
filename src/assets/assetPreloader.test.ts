@@ -22,25 +22,25 @@ test('buildEnemyPreloadOrder returns all enemies in deferred when encounter list
   ]);
 });
 
-test('buildBackgroundTaskOrder prioritizes selected character combat assets ahead of alternate operative', () => {
+test('buildBackgroundTaskOrder prioritizes selected character combat assets ahead of alternate hero', () => {
   const kiraOrder = buildBackgroundTaskOrder('kira');
   assert.equal(kiraOrder[0], 'backdrop');
   assert.equal(kiraOrder[1], 'char:kira');
   assert.ok(
-    kiraOrder.indexOf('char:kira') < kiraOrder.indexOf('char:aurelia'),
-    'Expected Kira combat frames before Aurelia',
+    kiraOrder.indexOf('char:kira') < kiraOrder.indexOf('char:auraline'),
+    'Expected Kira combat frames before Auraline',
   );
   assert.ok(
     kiraOrder.indexOf('enemy:stalker') < kiraOrder.indexOf('char:kira_emote'),
     'Expected enemies before non-critical emote sheet',
   );
 
-  const aureliaOrder = buildBackgroundTaskOrder('aurelia');
-  assert.equal(aureliaOrder[0], 'backdrop');
-  assert.equal(aureliaOrder[1], 'char:aurelia');
+  const auralineOrder = buildBackgroundTaskOrder('auraline');
+  assert.equal(auralineOrder[0], 'backdrop');
+  assert.equal(auralineOrder[1], 'char:auraline');
   assert.ok(
-    aureliaOrder.indexOf('char:aurelia') < aureliaOrder.indexOf('char:kira'),
-    'Expected Aurelia frames before Kira',
+    auralineOrder.indexOf('char:auraline') < auralineOrder.indexOf('char:kira'),
+    'Expected Auraline frames before Kira',
   );
 
   const zuriOrder = buildBackgroundTaskOrder('zuri');
@@ -55,4 +55,7 @@ test('buildBackgroundTaskOrder prioritizes selected character combat assets ahea
     zuriOrder.indexOf('enemy:stalker') < zuriOrder.indexOf('char:zuri_emote'),
     'Expected enemies before Zuri emote sheet',
   );
+  assert.ok(kiraOrder.includes('nurse'), 'Expected nurse preload task for Bio-Med Bay');
+  assert.ok(auralineOrder.includes('nurse'), 'Expected nurse preload task for Bio-Med Bay');
+  assert.ok(zuriOrder.includes('nurse'), 'Expected nurse preload task for Bio-Med Bay');
 });

@@ -1,18 +1,20 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { createInitialHeroineAnimState } from './heroineSpriteSheet';
+import { createInitialHeroAnimState } from './heroAnimator';
+import {
+  ZURI_DRONE_FRAMES,
+  sampleZuriDroneFormation,
+} from './zuriDroneFormation';
 import {
   ZURI_COMBAT_FRAMES,
   ZURI_DRONES_SHEET_HEIGHT,
   ZURI_DRONES_SHEET_WIDTH,
-  ZURI_DRONE_FRAMES,
   ZURI_EMOTE_FRAMES,
   ZURI_EMOTE_SHEET_HEIGHT,
   ZURI_EMOTE_SHEET_WIDTH,
   ZURI_SHEET_FRAMES,
   ZURI_SHEET_HEIGHT,
   ZURI_SHEET_WIDTH,
-  sampleZuriDroneFormation,
   stepZuriAnimState,
   triggerZuriAnimation,
 } from './zuriSpriteSheet';
@@ -49,7 +51,7 @@ test('ZURI_DRONE_FRAMES has 3 distinct drone cutouts within 2172x724 bounds', ()
 
 test('Zuri does not dash across the stage during moves, flying up and down and using DEFEND sprites on guard', () => {
   for (const mode of ['shoot', 'dash_kick', 'overdrive', 'guard', 'upgrade'] as const) {
-    let state = triggerZuriAnimation(createInitialHeroineAnimState(), mode);
+    let state = triggerZuriAnimation(createInitialHeroAnimState(), mode);
     let minYHop = Infinity;
     let maxYHop = -Infinity;
     let maxXProgress = 0;
@@ -98,7 +100,7 @@ test('Zuri does not dash across the stage during moves, flying up and down and u
 });
 
 test('Zuri defeat uses DEATH frames (24..32) and settles prone on deck', () => {
-  let state = createInitialHeroineAnimState();
+  let state = createInitialHeroAnimState();
   const seen = new Set<number>();
   let lastSample = stepZuriAnimState(state, 0.02, {
     isDead: true,
@@ -126,7 +128,7 @@ test('Zuri defeat uses DEATH frames (24..32) and settles prone on deck', () => {
 });
 
 test('Zuri victory plays VICTORY somersault frames (33..42) while soaring up and down', () => {
-  let state = createInitialHeroineAnimState();
+  let state = createInitialHeroAnimState();
   const seen = new Set<number>();
   let minY = Infinity;
   let maxY = -Infinity;
@@ -149,7 +151,7 @@ test('Zuri victory plays VICTORY somersault frames (33..42) while soaring up and
 });
 
 test('sampleZuriDroneFormation dispatches Strike Drone toward target during attack moves', () => {
-  const idleState = createInitialHeroineAnimState();
+  const idleState = createInitialHeroAnimState();
   const idleDrones = sampleZuriDroneFormation({
     animState: idleState,
     heroineX: 200,
@@ -187,7 +189,7 @@ test('sampleZuriDroneFormation dispatches Strike Drone toward target during atta
 
 test('Zuri ambient idle smoothly cycles all 8 hover frames (8..15) and active moves maintain continuous flight velocity', () => {
   // Verify ambient hover visits all 8 IDLE frames 8..15 smoothly with no discontinuous jump
-  let idleState = createInitialHeroineAnimState();
+  let idleState = createInitialHeroAnimState();
   const hoverFrames = new Set<number>();
   for (let i = 0; i < 110; i++) {
     const s = stepZuriAnimState(idleState, 0.02, {
@@ -205,7 +207,7 @@ test('Zuri ambient idle smoothly cycles all 8 hover frames (8..15) and active mo
 
   // Verify smooth step-to-step yHopPx velocity across combat moves (no harsh vertical snapping)
   for (const mode of ['shoot', 'dash_kick', 'overdrive', 'guard', 'upgrade', 'victory'] as const) {
-    let state = triggerZuriAnimation(createInitialHeroineAnimState(), mode);
+    let state = triggerZuriAnimation(createInitialHeroAnimState(), mode);
     let prevY: number | null = null;
     let maxStepDelta = 0;
     for (let i = 0; i < 70; i++) {
@@ -235,7 +237,7 @@ test('Zuri ambient idle smoothly cycles all 8 hover frames (8..15) and active mo
   );
 
   // Verify hovering attack/defense/tech tiles does not cause instant yHopPx teleport
-  const baseIdle = stepZuriAnimState(createInitialHeroineAnimState(), 0.02, {
+  const baseIdle = stepZuriAnimState(createInitialHeroAnimState(), 0.02, {
     isDead: false,
     isVictory: false,
     hoveredColor: null,

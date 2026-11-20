@@ -9,7 +9,7 @@ import {
   cleanWhiteBackgroundData,
   computeSpriteBoundsFromData,
 } from './spriteCutout';
-import { AURELIA_SHEET_FRAMES } from './aureliaSpriteSheet';
+import { AURALINE_SHEET_FRAMES } from './auralineSpriteSheet';
 import { NURSE_FRAMES, NURSE_SHEET_OPTIONS } from './nurseSpriteSheet';
 import {
   ZURI_DRONES_OPTIONS,
@@ -168,11 +168,11 @@ test('cleanWhiteBackgroundData removes bottom floor shadow & trapped between-boo
 });
 
 test('Aurelia sprite sheet frames clean bottom floor wedges/shadows without punching holes in dress or muzzle flashes', () => {
-  const sheet = decodePngRgba('public/assets/aistudio/aurelia_sprite_sheet.png');
+  const sheet = decodePngRgba('src/assets/sprites/auraline_spritesheet.png');
   const targetIds = ['aurelia_r0_f0', 'aurelia_r0_f4', 'aurelia_r0_f7', 'aurelia_r0_f9', 'aurelia_r1_f4', 'aurelia_r1_f6'];
 
   for (const id of targetIds) {
-    const rect = AURELIA_SHEET_FRAMES.find((f) => f.id === id);
+    const rect = AURALINE_SHEET_FRAMES.find((f) => f.id === id);
     assert.ok(rect, `Missing frame ${id}`);
     const data = cropRgba(sheet, rect);
     cleanWhiteBackgroundData(data, rect.w, rect.h, {
@@ -313,8 +313,8 @@ function applyExcludeRects(
 }
 
 test('cleanDarkBackgroundData clears Zuri black background while preserving opaque black bra, shorts, hair, and thruster glow across combat and emote sheets', () => {
-  const combatSheet = decodePngRgba('public/assets/aistudio/file_00000000f04881f49d73836af6b8d92c_241629e2.png');
-  const emoteSheet = decodePngRgba('public/assets/aistudio/file_0000000066b481f4872cbfdb772b420c_e72e7df0.png');
+  const combatSheet = decodePngRgba('src/assets/sprites/zuri_spritesheet.png');
+  const emoteSheet = decodePngRgba('src/assets/sprites/zuri_emote_sheet.png');
   const targetIds = [
     'zuri_r0_f0',
     'zuri_r1_f0',
@@ -424,7 +424,7 @@ test('cleanDarkBackgroundData clears Zuri black background while preserving opaq
 });
 
 test('Zuri Drones cutout preserves Med Drone white medical crosses while clearing Shield Drone between-leg white pocket', () => {
-  const droneSheet = decodePngRgba('public/assets/aistudio/file_00000000257c82439c937d2ab04e8624_1e67a010.png');
+  const droneSheet = decodePngRgba('src/assets/sprites/zuri_drones_sheet.png');
 
   // Shield Drone (index 0): between-leg white pocket at (330, 580) must be cleared
   const shieldSpec = ZURI_DRONE_FRAMES[0];
@@ -453,7 +453,7 @@ test('Zuri Drones cutout preserves Med Drone white medical crosses while clearin
 });
 
 test('Nurse sprite sheet frames clean black background while keeping uniform, medical cross, and syringe opaque', () => {
-  const nurseSheet = decodePngRgba('public/assets/aistudio/image_d7235730.png');
+  const nurseSheet = decodePngRgba('src/assets/sprites/nurse_spritesheet.png');
   assert.equal(nurseSheet.width, 2170);
   assert.equal(nurseSheet.height, 725);
 
@@ -477,11 +477,11 @@ test('Nurse sprite sheet frames clean black background while keeping uniform, me
 
 test('All 5 resized 960x541 Title logo frames remove outer and enclosed ring checkerboard while keeping XENO-PURGE PROTOCOL letters opaque', () => {
   const framePaths = [
-    'public/assets/aistudio/Neon_Breach__Z__iv__o_i_mutantky_e73032c9.png',
-    'public/assets/aistudio/Neonov__ko_i___kyberpunkov__hrdinka_11d2aafc.png',
-    'public/assets/aistudio/Neonov__kyberpunkov__dvojice_mutantky_c41a2fcd.png',
-    'public/assets/aistudio/Neon_polibek_proti_xenomutantovi_a842b0d3.png',
-    'public/assets/aistudio/Neonov__chaos__Xeno-breach_protokol_cac953eb.png',
+    'src/assets/sprites/title_logo_0.png',
+    'src/assets/sprites/title_logo_1.png',
+    'src/assets/sprites/title_logo_2.png',
+    'src/assets/sprites/title_logo_3.png',
+    'src/assets/sprites/title_logo_4.png',
   ];
 
   for (const relPath of framePaths) {

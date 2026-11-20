@@ -1,17 +1,25 @@
 import type { TileType } from '../engine/types';
 import {
-  type HeroineAnimMode,
-  type HeroineAnimState,
-  type HeroineFrameDef,
-  type HeroineFrameSample,
-  createInitialHeroineAnimState,
-} from './heroineSpriteSheet';
-import type { SpriteCutoutOptions, SpriteRect } from './spriteCutout';
+  type HeroAnimMode,
+  type HeroAnimState,
+  type HeroFrameDef,
+  type HeroFrameSample,
+  createInitialHeroAnimState,
+} from './heroAnimator';
+import type { SpriteCutoutOptions } from './spriteCutout';
 import {
   type SequenceKeyframe,
   computeFrameTransitionState,
   sampleSequence as sampleBaseSequence,
 } from './spriteSheetAnim';
+
+export {
+  ZURI_DRONE_FRAMES,
+  sampleZuriDroneFormation,
+  type ZuriDroneFrameDef,
+  type ZuriDroneId,
+  type ZuriDronePose,
+} from './zuriDroneFormation';
 
 export const ZURI_SHEET_WIDTH = 2172;
 export const ZURI_SHEET_HEIGHT = 724;
@@ -37,61 +45,7 @@ export const ZURI_DRONES_OPTIONS: SpriteCutoutOptions = {
   crimsonDampen: 0.16,
 };
 
-export type ZuriDroneId = 'shield' | 'med' | 'strike';
-
-export interface ZuriDroneFrameDef extends SpriteRect {
-  id: ZuriDroneId;
-  anchorX: number;
-  anchorY: number;
-  baseHeightPx: number;
-  muzzleRel?: { dx: number; dy: number };
-}
-
-export const ZURI_DRONE_FRAMES: readonly ZuriDroneFrameDef[] = [
-  // 0: Shield / Aegis Quad-Walker Drone (left on drone sheet)
-  {
-    id: 'shield',
-    x: 4,
-    y: 12,
-    w: 760,
-    h: 680,
-    anchorX: 330,
-    anchorY: 668,
-    baseHeightPx: 88,
-    excludeRects: [{ x: 726, y: 0, w: 38, h: 175 }],
-    muzzleRel: { dx: 360, dy: -290 },
-  },
-  // 1: Bio-Med / Support Quad-Rotor Drone (center on drone sheet)
-  {
-    id: 'med',
-    x: 736,
-    y: 12,
-    w: 734,
-    h: 630,
-    anchorX: 372,
-    anchorY: 315,
-    baseHeightPx: 80,
-    excludeRects: [
-      { x: 0, y: 170, w: 36, h: 460 },
-      { x: 644, y: 150, w: 90, h: 480 },
-    ],
-  },
-  // 2: Strike / Solar Hawk Gunship Jet Drone (right on drone sheet)
-  {
-    id: 'strike',
-    x: 1378,
-    y: 24,
-    w: 790,
-    h: 596,
-    anchorX: 395,
-    anchorY: 310,
-    baseHeightPx: 78,
-    excludeRects: [{ x: 0, y: 0, w: 92, h: 145 }],
-    muzzleRel: { dx: 375, dy: 96 },
-  },
-];
-
-export const ZURI_COMBAT_FRAMES: readonly HeroineFrameDef[] = [
+export const ZURI_COMBAT_FRAMES: readonly HeroFrameDef[] = [
   // Row 0 (indices 0..7): PAIN — Thruster turbulence, electric shock & aerial recovery (torso-centroid locked anchorX)
   { id: 'zuri_r0_f0', row: 0, col: 0, x: 140, y: 2, w: 216, h: 237, anchorX: 95, bottomY: 235, rowScale: 0.903, sheet: 'combat' },
   { id: 'zuri_r0_f1', row: 0, col: 1, x: 375, y: 2, w: 231, h: 237, anchorX: 118, bottomY: 235, rowScale: 0.903, sheet: 'combat' },
@@ -198,7 +152,7 @@ export const ZURI_COMBAT_FRAMES: readonly HeroineFrameDef[] = [
   { id: 'zuri_r2_f7', row: 2, col: 7, x: 1915, y: 486, w: 231, h: 237, anchorX: 98, bottomY: 235, rowScale: 0.903, sheet: 'combat', muzzleRel: { dx: 114, dy: -162 } },
 ];
 
-export const ZURI_EMOTE_FRAMES: readonly HeroineFrameDef[] = [
+export const ZURI_EMOTE_FRAMES: readonly HeroFrameDef[] = [
   // Row 3 (Emote Sheet Row 0, indices 24..32): DEATH — Thruster stall, kneel & prone collapse on deck
   {
     id: 'zuri_r3_f0',
@@ -300,7 +254,7 @@ export const ZURI_EMOTE_FRAMES: readonly HeroineFrameDef[] = [
   { id: 'zuri_r5_f9', row: 5, col: 9, x: 1979, y: 492, w: 172, h: 221, anchorX: 76, bottomY: 211, rowScale: 0.965, sheet: 'emote' },
 ];
 
-export const ZURI_SHEET_FRAMES: readonly HeroineFrameDef[] = [
+export const ZURI_SHEET_FRAMES: readonly HeroFrameDef[] = [
   ...ZURI_COMBAT_FRAMES,
   ...ZURI_EMOTE_FRAMES,
 ];
@@ -451,7 +405,7 @@ const ZURI_VICTORY_SEQ: readonly SequenceKeyframe[] = [
   { frameIndex: 42, until: 1.26, xProgress: 0.015, yHopPx: -28 },
 ];
 
-const ZURI_MODE_DURATIONS: Record<HeroineAnimMode, number> = {
+const ZURI_MODE_DURATIONS: Record<HeroAnimMode, number> = {
   idle: 0,
   idle1: 1.24,
   idle2: 1.04,
@@ -506,10 +460,10 @@ function sampleZuriAmbientIdleFrame(
 }
 
 export function triggerZuriAnimation(
-  prev: HeroineAnimState,
-  mode: HeroineAnimMode,
+  prev: HeroAnimState,
+  mode: HeroAnimMode,
   options?: { lowHpHit?: boolean },
-): HeroineAnimState {
+): HeroAnimState {
   if (prev.mode === 'defeat' && mode === 'defeat') {
     return prev;
   }
@@ -530,7 +484,7 @@ export function triggerZuriAnimation(
 }
 
 export function stepZuriAnimState(
-  prev: HeroineAnimState,
+  prev: HeroAnimState,
   dt: number,
   context: {
     isDead: boolean;
@@ -538,14 +492,14 @@ export function stepZuriAnimState(
     hoveredColor: TileType | null;
     totalTime: number;
   },
-): HeroineFrameSample {
+): HeroFrameSample {
   let state = prev;
 
   if (context.isDead && state.mode !== 'defeat') {
     state = triggerZuriAnimation(state, 'defeat');
   } else if (!context.isDead && state.mode === 'defeat') {
     state = {
-      ...createInitialHeroineAnimState(),
+      ...createInitialHeroAnimState(),
       lastFrameIndex: 8,
       prevFrameIndex: 8,
     };
@@ -560,7 +514,7 @@ export function stepZuriAnimState(
         context.hoveredColor,
       );
       const trans = computeFrameTransitionState(state, frameIndex, dt);
-      const nextIdleState: HeroineAnimState = {
+      const nextIdleState: HeroAnimState = {
         ...state,
         lastFrameIndex: trans.lastFrameIndex,
         prevFrameIndex: trans.prevFrameIndex,
@@ -593,8 +547,8 @@ export function stepZuriAnimState(
     (state.mode === 'idle1' || state.mode === 'idle2') &&
     (context.hoveredColor !== null || context.isVictory)
   ) {
-    const idleState: HeroineAnimState = {
-      ...createInitialHeroineAnimState(),
+    const idleState: HeroAnimState = {
+      ...createInitialHeroAnimState(),
       lastFrameIndex: Math.min(ZURI_SHEET_FRAMES.length - 1, state.lastFrameIndex ?? 8),
       prevFrameIndex: Math.min(ZURI_SHEET_FRAMES.length - 1, state.prevFrameIndex ?? 8),
       frameBlendElapsed: state.frameBlendElapsed ?? 0,
@@ -605,8 +559,8 @@ export function stepZuriAnimState(
   const nextElapsed = state.elapsed + dt;
 
   if (state.mode !== 'defeat' && state.mode !== 'victory' && nextElapsed >= state.duration) {
-    const idleState: HeroineAnimState = {
-      ...createInitialHeroineAnimState(),
+    const idleState: HeroAnimState = {
+      ...createInitialHeroAnimState(),
       lastFrameIndex: Math.min(ZURI_SHEET_FRAMES.length - 1, state.lastFrameIndex ?? 8),
       prevFrameIndex: Math.min(ZURI_SHEET_FRAMES.length - 1, state.prevFrameIndex ?? 8),
       frameBlendElapsed: state.frameBlendElapsed ?? 0,
@@ -661,7 +615,7 @@ export function stepZuriAnimState(
 
   const trans = computeFrameTransitionState(state, sampled.frameIndex, dt);
 
-  const nextState: HeroineAnimState = {
+  const nextState: HeroAnimState = {
     ...state,
     elapsed: clampedElapsed,
     emittedShots,
@@ -708,201 +662,5 @@ export function stepZuriAnimState(
     shouldEmitShot,
     shouldEmitKickImpact,
     isDashing: false,
-  };
-}
-
-export interface ZuriDronePose {
-  id: ZuriDroneId;
-  frameDef: ZuriDroneFrameDef;
-  /** World X position in canvas coordinates */
-  x: number;
-  /** World Y position (anchor point) in canvas coordinates */
-  y: number;
-  /** Rotation in radians */
-  tiltRad: number;
-  /** Scale multiplier relative to stage heroine scale */
-  scaleMult: number;
-  /** Active glow intensity 0..1 when executing a command */
-  activeGlow: number;
-  /** Muzzle world position for projectiles/beams */
-  muzzleX: number;
-  muzzleY: number;
-}
-
-/**
- * Computes real-time positions and attack/defense/tech choreography for Zuri's 3 Afrofuturist drones.
- */
-export function sampleZuriDroneFormation(params: {
-  animState: HeroineAnimState;
-  heroineX: number;
-  heroineDrawBottomY: number;
-  groundY: number;
-  targetX: number;
-  targetMidY: number;
-  scale: number;
-  totalTime: number;
-  hoveredColor: TileType | null;
-}): Record<ZuriDroneId, ZuriDronePose> {
-  const {
-    animState,
-    heroineX,
-    heroineDrawBottomY,
-    groundY,
-    targetX,
-    targetMidY,
-    scale,
-    totalTime,
-    hoveredColor,
-  } = params;
-
-  const mode = animState.mode;
-  const dur = Math.max(0.001, animState.duration);
-  const u = Math.max(0, Math.min(1, animState.elapsed / dur));
-  const pulse = Math.sin(u * Math.PI);
-  const heroineAltitudeDelta = heroineDrawBottomY - groundY;
-
-  // 1. SHIELD DRONE (Aegis Quad-Walker — stationed clearly forward on the bridge deck in vanguard position)
-  const shieldSpec = ZURI_DRONE_FRAMES[0];
-  let shieldX = heroineX + 114 * scale + Math.sin(totalTime * 1.9) * 3 * scale;
-  let shieldY = groundY + 4 * scale + Math.abs(Math.sin(totalTime * 1.9)) * -2 * scale;
-  let shieldTilt = 0;
-  let shieldScaleMult = 1;
-  let shieldGlow = hoveredColor === 'defense' ? 0.65 : 0.15;
-
-  if (mode === 'guard') {
-    shieldX = heroineX + (114 + pulse * 48) * scale;
-    shieldY = groundY - pulse * 8 * scale;
-    shieldScaleMult = 1 + pulse * 0.12;
-    shieldGlow = 0.95;
-  } else if (mode === 'overdrive') {
-    const surge = Math.sin(u * Math.PI);
-    shieldX = heroineX + (114 + surge * 72) * scale;
-    shieldY = groundY - surge * 12 * scale;
-    shieldScaleMult = 1 + surge * 0.11;
-    shieldGlow = 0.9;
-  } else if (mode === 'hit') {
-    shieldX = heroineX + (114 - pulse * 14) * scale;
-  }
-
-  // 2. MED DRONE (Ankh Bio-Med Quad-Rotor — hovering high above-rear of Zuri with clear silhouette)
-  const medSpec = ZURI_DRONE_FRAMES[1];
-  const medBobY = Math.sin(totalTime * 2.9 + 1.2) * 8 * scale;
-  const medBobX = Math.cos(totalTime * 1.9 + 0.6) * 4.5 * scale;
-  let medX = heroineX - 88 * scale + medBobX;
-  let medY = groundY - 178 * scale + heroineAltitudeDelta * 0.38 + medBobY;
-  let medTilt = Math.sin(totalTime * 2.3) * 0.035;
-  let medScaleMult = 1;
-  let medGlow = hoveredColor === 'tech' ? 0.7 : 0.2;
-
-  if (mode === 'upgrade') {
-    // Swoops over Zuri's head in an energized figure-8 to project green bio-nanite beams
-    medX = heroineX + (-88 + pulse * 88) * scale;
-    medY = groundY - (182 + Math.sin(u * Math.PI * 2) * 24) * scale + heroineAltitudeDelta * 0.35;
-    medTilt = Math.sin(u * Math.PI * 2) * 0.075;
-    medScaleMult = 1 + pulse * 0.14;
-    medGlow = 1;
-  } else if (mode === 'overdrive') {
-    medX = heroineX + (-88 + pulse * 102) * scale;
-    medY = groundY - (184 - pulse * 20) * scale + heroineAltitudeDelta * 0.35;
-    medScaleMult = 1 + pulse * 0.12;
-    medGlow = 0.92;
-  }
-
-  // 3. STRIKE DRONE (Solar Hawk Gunship Jet — hovering in upper-front attack lane, surges/dives to attack enemies!)
-  const strikeSpec = ZURI_DRONE_FRAMES[2];
-  const strikeBobY = Math.sin(totalTime * 3.2 + 2.4) * 7.5 * scale;
-  const strikeBobX = Math.sin(totalTime * 2.1) * 5 * scale;
-  const strikeBaseX = heroineX + 144 * scale;
-  const strikeBaseY = groundY - 176 * scale + heroineAltitudeDelta * 0.34;
-  let strikeX = strikeBaseX + strikeBobX;
-  let strikeY = strikeBaseY + strikeBobY;
-  let strikeTilt = Math.sin(totalTime * 2.4) * 0.03;
-  let strikeScaleMult = 1;
-  let strikeGlow = hoveredColor === 'attack' ? 0.75 : 0.25;
-
-  const strikeAttackTargetX = Math.max(strikeBaseX + 90 * scale, targetX - 88 * scale);
-  const strikeAttackTargetY = targetMidY - 18 * scale;
-
-  if (mode === 'shoot') {
-    // Surges 58% of the way toward the target and unleashes twin rotary plasma salvos
-    const surge = Math.sin(u * Math.PI);
-    strikeX = strikeBaseX + (strikeAttackTargetX - strikeBaseX) * (surge * 0.58);
-    strikeY = strikeBaseY + (strikeAttackTargetY - strikeBaseY) * (surge * 0.65);
-    strikeTilt = surge * 0.09;
-    strikeScaleMult = 1 + surge * 0.12;
-    strikeGlow = 0.95;
-  } else if (mode === 'dash_kick') {
-    // Full high-speed gunship strafing dive right up to the enemy!
-    const diveCurve = Math.sin(u * Math.PI);
-    const dashProgress = Math.min(1, diveCurve * 1.12);
-    strikeX = strikeBaseX + (strikeAttackTargetX - strikeBaseX) * dashProgress;
-    strikeY =
-      strikeBaseY +
-      (strikeAttackTargetY - strikeBaseY) * dashProgress -
-      Math.sin(u * Math.PI * 2) * 24 * scale;
-    strikeTilt = u < 0.5 ? 0.14 : -0.08;
-    strikeScaleMult = 1 + diveCurve * 0.18;
-    strikeGlow = 1;
-  } else if (mode === 'overdrive') {
-    // Two-pass supersonic strafing blitz across the enemy formation
-    const wave = u < 0.52 ? Math.sin((u / 0.52) * Math.PI) : Math.sin(((u - 0.52) / 0.48) * Math.PI) * 0.65;
-    strikeX = strikeBaseX + (strikeAttackTargetX - strikeBaseX) * Math.min(1, wave * 1.08);
-    strikeY = strikeBaseY + (strikeAttackTargetY - strikeBaseY) * Math.min(1, wave * 0.92);
-    strikeTilt = wave * 0.12;
-    strikeScaleMult = 1 + wave * 0.16;
-    strikeGlow = 1;
-  } else if (mode === 'guard') {
-    // Advance forward-upward to clear Zuri's curved hexagonal barrier arc
-    strikeX = strikeBaseX + pulse * 42 * scale + strikeBobX;
-    strikeY = strikeBaseY - pulse * 16 * scale + strikeBobY;
-    strikeTilt = -pulse * 0.04;
-  } else if (hoveredColor === 'attack') {
-    strikeX += 18 * scale;
-    strikeY -= 6 * scale;
-    strikeTilt = 0.05;
-  }
-
-  const strikeDrawScale = (strikeSpec.baseHeightPx / strikeSpec.h) * scale * strikeScaleMult;
-  const strikeMuzzleX = strikeX + (strikeSpec.muzzleRel?.dx ?? 340) * strikeDrawScale;
-  const strikeMuzzleY = strikeY + (strikeSpec.muzzleRel?.dy ?? 80) * strikeDrawScale;
-
-  const shieldDrawScale = (shieldSpec.baseHeightPx / shieldSpec.h) * scale * shieldScaleMult;
-  const shieldMuzzleX = shieldX + (shieldSpec.muzzleRel?.dx ?? 320) * shieldDrawScale;
-  const shieldMuzzleY = shieldY + (shieldSpec.muzzleRel?.dy ?? -260) * shieldDrawScale;
-
-  return {
-    shield: {
-      id: 'shield',
-      frameDef: shieldSpec,
-      x: shieldX,
-      y: shieldY,
-      tiltRad: shieldTilt,
-      scaleMult: shieldScaleMult,
-      activeGlow: shieldGlow,
-      muzzleX: shieldMuzzleX,
-      muzzleY: shieldMuzzleY,
-    },
-    med: {
-      id: 'med',
-      frameDef: medSpec,
-      x: medX,
-      y: medY,
-      tiltRad: medTilt,
-      scaleMult: medScaleMult,
-      activeGlow: medGlow,
-      muzzleX: medX,
-      muzzleY: medY + 24 * scale,
-    },
-    strike: {
-      id: 'strike',
-      frameDef: strikeSpec,
-      x: strikeX,
-      y: strikeY,
-      tiltRad: strikeTilt,
-      scaleMult: strikeScaleMult,
-      activeGlow: strikeGlow,
-      muzzleX: strikeMuzzleX,
-      muzzleY: strikeMuzzleY,
-    },
   };
 }

@@ -46,6 +46,8 @@ export interface DifficultyTierProfile {
   overtimeEnrageEnabled: boolean;
 }
 
+export type DifficultyProfile = DifficultyTierProfile;
+
 export const DEFAULT_DIFFICULTY_TIER: DifficultyTier = 3;
 
 export const DIFFICULTY_TIERS: Record<DifficultyTier, DifficultyTierProfile> = {

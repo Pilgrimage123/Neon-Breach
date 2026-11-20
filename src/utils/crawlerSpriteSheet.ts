@@ -1,6 +1,7 @@
 import type { CutInPoseOverride } from '../components/combat/SpriteJuiceFeedbackHandler';
 import type { EnemyArchetype } from '../engine/types';
 import type { SpriteRect } from './spriteCutout';
+import { sampleDeathCollapseFrame } from './spriteSheetAnim';
 
 export type CrawlerVariant = 'larva' | 'skitter' | 'stinger';
 
@@ -95,16 +96,12 @@ export function sampleCrawlerFrame(
 
   // 1. Death / Collapse sequence across frames 8..15 (Sheet columns 9..16)
   if (anim?.dead) {
-    const p = Math.max(0, Math.min(1, anim.koProgress));
-    // Progress through frames 8..15 over the first 78% of koProgress, then hold frame 15 (collapsed carcass in puddle) while fading
-    const collapseNorm = Math.min(1, p / 0.78);
-    const frameIndex = Math.min(15, 8 + Math.floor(collapseNorm * 8));
-    const alpha = p <= 0.78 ? 1 : Math.max(0, (1 - p) / 0.22);
+    const death = sampleDeathCollapseFrame(anim.koProgress, 8, 8, 0.78);
     return {
       variant,
-      frameIndex,
-      frame: frames[frameIndex],
-      alpha,
+      frameIndex: death.frameIndex,
+      frame: frames[death.frameIndex],
+      alpha: death.alpha,
     };
   }
 

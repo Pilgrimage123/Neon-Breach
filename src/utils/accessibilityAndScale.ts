@@ -2,8 +2,6 @@ import type { EnemyArchetype, MapNodeType, TileType } from '../engine/types';
 
 export type SemanticZoomLevel = 'overview' | 'standard' | 'closeup';
 
-export type HapticPatternKind = 'select' | 'surge' | 'invalid' | 'commit';
-
 export interface PhysicalScreenProfile {
   widthPx: number;
   heightPx: number;
@@ -43,19 +41,6 @@ export interface SemanticZoomLoD {
   tileHeightScale: number;
   fontScale: number;
   mapNodeCompactMode: boolean;
-}
-
-export interface AutoFocusCameraTransform {
-  zoom: number;
-  panX: number;
-  panY: number;
-  activeQuadrant: 'idle' | 'hero_defense' | 'hero_tech' | 'front_enemy' | 'inspect_unit';
-}
-
-export interface LoupeAnchorCoords {
-  leftPx: number;
-  topPx: number;
-  dockedAtTop: boolean;
 }
 
 const ACCESSIBILITY_PREFS_KEY = 'neon_breach_a11y_prefs_v1';
@@ -328,133 +313,6 @@ export function cycleSemanticZoomLevel(current: SemanticZoomLevel): SemanticZoom
   if (current === 'standard') return 'overview';
   if (current === 'overview') return 'closeup';
   return 'standard';
-}
-
-/**
- * Computes the Auto-Framing Camera transform (~18-20% zoom + focal quadrant pan)
- * when an interaction or preview happens on the combat stage.
- */
-export function computeAutoFocusCameraTransform(params: {
-  enabled: boolean;
-  stageW: number;
-  stageH: number;
-  activeColor: TileType | null;
-  inspectedTarget: 'hero' | string | null;
-  heroX: number;
-  frontEnemyX: number;
-  inspectedEnemyX: number | null;
-  groundY: number;
-}): AutoFocusCameraTransform {
-  const {
-    enabled,
-    stageW,
-    stageH,
-    activeColor,
-    inspectedTarget,
-    heroX,
-    frontEnemyX,
-    inspectedEnemyX,
-    groundY,
-  } = params;
-
-  if (!enabled || stageW <= 0 || stageH <= 0) {
-    return { zoom: 1, panX: 0, panY: 0, activeQuadrant: 'idle' };
-  }
-
-  const centerX = stageW * 0.5;
-  const centerY = stageH * 0.5;
-  const focusY = Math.max(stageH * 0.35, Math.min(stageH * 0.72, groundY - stageH * 0.22));
-
-  if (inspectedTarget === 'hero') {
-    const zoom = 1.2;
-    return {
-      zoom,
-      panX: Math.round((centerX - heroX) * 0.38),
-      panY: Math.round((centerY - focusY) * 0.32),
-      activeQuadrant: 'hero_defense',
-    };
-  }
-
-  if (inspectedTarget && inspectedEnemyX !== null) {
-    const zoom = 1.2;
-    return {
-      zoom,
-      panX: Math.round((centerX - inspectedEnemyX) * 0.38),
-      panY: Math.round((centerY - focusY) * 0.32),
-      activeQuadrant: 'inspect_unit',
-    };
-  }
-
-  if (activeColor === 'attack') {
-    const zoom = 1.18;
-    const midActionX = heroX * 0.32 + frontEnemyX * 0.68;
-    return {
-      zoom,
-      panX: Math.round((centerX - midActionX) * 0.35),
-      panY: Math.round((centerY - focusY) * 0.28),
-      activeQuadrant: 'front_enemy',
-    };
-  }
-
-  if (activeColor === 'defense') {
-    const zoom = 1.16;
-    return {
-      zoom,
-      panX: Math.round((centerX - (heroX + 24)) * 0.34),
-      panY: Math.round((centerY - focusY) * 0.26),
-      activeQuadrant: 'hero_defense',
-    };
-  }
-
-  if (activeColor === 'tech') {
-    const zoom = 1.16;
-    return {
-      zoom,
-      panX: Math.round((centerX - heroX) * 0.32),
-      panY: Math.round((centerY - focusY) * 0.26),
-      activeQuadrant: 'hero_tech',
-    };
-  }
-
-  return { zoom: 1, panX: 0, panY: 0, activeQuadrant: 'idle' };
-}
-
-/**
- * Computes thumb-safe coordinates for the Press-and-Hold Loupe Magnifier card.
- * Offsets the readout >= 96px above the pointer Y (or docks cleanly at the top safe margin)
- * so the player's finger or thumb never covers the text.
- */
-export function computeLoupeAnchorPosition(
-  pointerX: number,
-  pointerY: number,
-  viewportW: number,
-  viewportH: number,
-  cardWidth = 340,
-  cardHeight = 132,
-): LoupeAnchorCoords {
-  const safeMargin = 12;
-  const thumbOffsetAboveFinger = 98;
-  const clampedW = Math.min(cardWidth, Math.max(240, viewportW - safeMargin * 2));
-
-  const rawLeft = Math.round(pointerX - clampedW * 0.5);
-  const leftPx = Math.max(safeMargin, Math.min(viewportW - clampedW - safeMargin, rawLeft));
-
-  const candidateTop = Math.round(pointerY - cardHeight - thumbOffsetAboveFinger);
-  if (candidateTop < 48) {
-    // If finger is near the top half of a compact screen, dock at top safe strip or flip well clear of finger
-    const topSafe = 46;
-    return {
-      leftPx,
-      topPx: pointerY < topSafe + cardHeight + 36 ? Math.min(viewportH - cardHeight - safeMargin, pointerY + 64) : topSafe,
-      dockedAtTop: true,
-    };
-  }
-
-  return {
-    leftPx,
-    topPx: candidateTop,
-    dockedAtTop: false,
-  };
 }
 
 function createDefaultAccessibilityPrefs(profile: PhysicalScreenProfile): AccessibilityPrefs {

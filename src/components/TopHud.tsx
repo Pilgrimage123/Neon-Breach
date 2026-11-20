@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { CYBER_IMPLANTS, getEquippedEquipmentWeight } from '../engine/data';
+import { CYBER_IMPLANTS } from '../engine/data';
+import { getEquippedChipMemory } from '../engine/poolBuilder';
 import { getDifficultyProfile, getStageSecondaryTurnTarget } from '../engine/difficulty';
 import type { CyberImplantId, DifficultyTier, RunState } from '../engine/types';
 import { CODEX_TRANSLATIONS } from '../i18n/codexTranslations';
@@ -38,8 +39,8 @@ export function TopHud({
 }: TopHudProps) {
   const t = TRANSLATIONS[lang];
   const codexT = CODEX_TRANSLATIONS[lang];
-  const { heroine } = run;
-  const usedWeight = getEquippedEquipmentWeight(heroine);
+  const { hero: heroine } = run;
+  const usedWeight = getEquippedChipMemory(heroine);
   const [inspectImplantId, setInspectImplantId] = useState<CyberImplantId | null>(null);
   const barRef = useRef<HTMLElement | null>(null);
 
@@ -183,7 +184,7 @@ export function TopHud({
             const combatState = run.combat;
             const turnCap = combatState ? getStageSecondaryTurnTarget(combatState.nodeType, tier) : 5;
             const hpLost = combatState
-              ? Math.max(0, (combatState.startingHeroHp ?? run.heroine.hp) - run.heroine.hp)
+              ? Math.max(0, (combatState.startingHeroHp ?? run.hero.hp) - run.hero.hp)
               : 0;
             const mandateOnTrack =
               combatState ? combatState.turn <= turnCap || hpLost === 0 : true;
@@ -274,7 +275,7 @@ export function TopHud({
             <span>▣</span>
             <span className="hidden lg:inline">{t.inspectPool}</span>
             <span className="text-slate-300">
-              {usedWeight}/{heroine.carryCapacity}
+              {usedWeight}/{heroine.memoryCapacity}
             </span>
           </button>
 

@@ -68,8 +68,8 @@ test('resolveWeaponDecalKind maps kinetic, plasma, and melee attacks cleanly', (
   assert.equal(
     resolveWeaponDecalKind({
       attackMode: 'shoot',
-      characterId: 'aurelia',
-      equippedDefIds: ['dvojita_brokovnice'],
+      characterId: 'auraline',
+      equippedDefIds: ['impact_solver'],
     }),
     'kinetic',
   );
@@ -77,7 +77,7 @@ test('resolveWeaponDecalKind maps kinetic, plasma, and melee attacks cleanly', (
     resolveWeaponDecalKind({
       attackMode: 'shoot',
       characterId: 'zuri',
-      equippedDefIds: ['utocny_dron_sokol'],
+      equippedDefIds: ['swarm_vector'],
     }),
     'plasma',
   );
@@ -85,7 +85,7 @@ test('resolveWeaponDecalKind maps kinetic, plasma, and melee attacks cleanly', (
     resolveWeaponDecalKind({
       attackMode: 'dash_kick',
       characterId: 'kira',
-      equippedDefIds: ['pistole_aretta'],
+      equippedDefIds: ['predictive_aim'],
     }),
     'melee',
   );
@@ -144,7 +144,7 @@ test('getEnemyStatusVisualFlags detects bleeding and shredded enemies for trail 
 });
 
 test('combat VFX spawns weapon-driven floor & cover decals, persists across turns, and leaves trails on Push swap', () => {
-  const run = startNodeEncounter(createInitialRun(101, 'aurelia'), 'node_0_0');
+  const run = startNodeEncounter(createInitialRun(101, 'auraline'), 'node_0_0');
   const combat = run.combat as CombatState;
   assert.ok(combat);
   assert.ok(combat.enemies.length >= 1);
@@ -169,7 +169,7 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
   };
   // Force shoot toggle even so primaryAttackMode = 'shoot' (Aurelia scattergun = kinetic)
   sim.attackToggle = 0;
-  applyCombatCues(sim, kineticCombat, run.heroine);
+  applyCombatCues(sim, kineticCombat, run.hero);
   for (const pi of sim.pendingImpacts) pi.execute();
   sim.pendingImpacts.length = 0;
 
@@ -184,7 +184,7 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
     ...kineticCombat,
     lastCues: [{ id: 'cue_1_od', kind: 'hero_overdrive', value: 20, surge: true }],
   };
-  applyCombatCues(sim, odCombat, run.heroine);
+  applyCombatCues(sim, odCombat, run.hero);
   for (const pi of sim.pendingImpacts) pi.execute();
   sim.pendingImpacts.length = 0;
   assert.ok(
@@ -197,7 +197,7 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
     ...odCombat,
     turn: 4,
   };
-  applyCombatCues(sim, nextTurnCombat, run.heroine);
+  applyCombatCues(sim, nextTurnCombat, run.hero);
   for (let step = 0; step < 60; step++) {
     stepCombatSimulation(sim, 0.25); // 15 seconds total
   }
@@ -216,12 +216,12 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
       ...nextTurnCombat,
       enemies: [woundedA, woundedB, ...nextTurnCombat.enemies.slice(2)],
     };
-    applyCombatCues(sim, preSwapCombat, run.heroine);
+    applyCombatCues(sim, preSwapCombat, run.hero);
     const swappedCombat: CombatState = {
       ...preSwapCombat,
       enemies: [woundedB, woundedA, ...preSwapCombat.enemies.slice(2)],
     };
-    applyCombatCues(sim, swappedCombat, run.heroine);
+    applyCombatCues(sim, swappedCombat, run.hero);
     assert.ok(
       sim.floorBlood.some((p) => p.active && p.shapeKind === 'trail_drop'),
       'swapping bleeding enemies should spawn trail_drop decals',
@@ -233,7 +233,7 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
     ...nextTurnCombat,
     turn: 0,
   };
-  applyCombatCues(sim, undoCombat, run.heroine);
+  applyCombatCues(sim, undoCombat, run.hero);
   let remainingFloor = 0;
   for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
     if (sim.floorBlood[i].active) remainingFloor++;

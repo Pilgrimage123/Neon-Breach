@@ -1,5 +1,5 @@
 import type { Language } from '../i18n/translations';
-import type { CyberEvent, HeroineState, MapNode } from './types';
+import type { CyberEvent, HeroState, MapNode } from './types';
 
 export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
   {
@@ -35,8 +35,8 @@ export const CYBER_EVENT_TEMPLATES: CyberEvent[] = [
   {
     id: 'black_market_smuggler',
     title: 'Black Market Smuggler',
-    subtitle: 'Shadow Catwalk Arms Dealer',
-    story: 'Shadow courier offering Lower-Canopy military hardware.',
+    subtitle: 'Shadow Catwalk Chip Broker',
+    story: 'Shadow courier offering Lower-Canopy AI modules.',
     choices: [
       {
         id: 'smuggler_booster',
@@ -382,17 +382,21 @@ export function localizeCyberEvent(event: CyberEvent, lang: Language = 'en'): Cy
   };
 }
 
+const ALL_EVENT_TEMPLATES: readonly CyberEvent[] = [
+  ...CYBER_EVENT_TEMPLATES,
+  ...DYNASTY_EVENT_TEMPLATES,
+];
+
 export function getCyberEventForNode(
   node: MapNode,
   seed: number,
-  _heroine: HeroineState,
+  _hero: HeroState,
   lang: Language = 'en',
 ): CyberEvent {
+  const badgeTemplate = node.districtBadge
+    ? DYNASTY_EVENT_TEMPLATES.find((tpl) => tpl.id === node.districtBadge)
+    : undefined;
   const hash = Math.abs(seed * 31 + node.layer * 13 + node.lane * 7);
-  const template = CYBER_EVENT_TEMPLATES[hash % CYBER_EVENT_TEMPLATES.length];
+  const template = badgeTemplate ?? ALL_EVENT_TEMPLATES[hash % ALL_EVENT_TEMPLATES.length];
   return localizeCyberEvent(template, lang);
-}
-
-export function getDynastyEvents(lang: Language = 'en'): CyberEvent[] {
-  return DYNASTY_EVENT_TEMPLATES.map((tpl) => localizeCyberEvent(tpl, lang));
 }

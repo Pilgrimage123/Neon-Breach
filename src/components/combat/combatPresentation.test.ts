@@ -5,23 +5,23 @@ import {
   DEFAULT_COMBAT_PRESENTATION_CONFIG,
   computeNonCutInBeatMs,
   computePackTempoScale,
-} from './combatPresentationConfig.ts';
+} from './combatPresentationConfig';
 import {
   ActionCameraController,
   BACKDROP_BLEED_X,
   BACKDROP_BLEED_Y,
   computeMinZoomForRotation,
-} from './ActionCameraController.ts';
-import { SpriteJuiceFeedbackHandler } from './SpriteJuiceFeedbackHandler.ts';
-import { CombatActionSequencer } from './CombatActionSequencer.ts';
-import { sampleCrawlerFrame } from '../../utils/crawlerSpriteSheet.ts';
-import { sampleStalkerFrame } from '../../utils/stalkerSpriteSheet.ts';
+} from './ActionCameraController';
+import { SpriteJuiceFeedbackHandler } from './SpriteJuiceFeedbackHandler';
+import { CombatActionSequencer } from './CombatActionSequencer';
+import { sampleCrawlerFrame } from '../../utils/crawlerSpriteSheet';
+import { sampleStalkerFrame } from '../../utils/stalkerSpriteSheet';
 import {
   classifyEnemyAttackStaging,
   classifyHeroAttackStaging,
   computeNoseToNoseMeleeSlides,
-} from './combatStagingClassifier.ts';
-import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter.ts';
+} from './combatStagingClassifier';
+import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter';
 
 function screenToWorldCorner(
   sx: number,
@@ -691,7 +691,7 @@ test('CombatActionSequencer isolates throwing callbacks and still completes Phas
 test('classifyHeroAttackStaging keeps Aurelia and Zuri 100% ranged and Kira hybrid melee/pistol', () => {
   // Aurelia is strictly ranged (scattergun) even on Surge or Overdrive
   const aureliaSingle = classifyHeroAttackStaging({
-    charId: 'aurelia',
+    charId: 'auraline',
     isSurge: true,
     damageValue: 22,
     targetCount: 1,
@@ -703,7 +703,7 @@ test('classifyHeroAttackStaging keeps Aurelia and Zuri 100% ranged and Kira hybr
   assert.equal(aureliaSingle.projectileProfile, 'scattergun');
 
   const aureliaOd = classifyHeroAttackStaging({
-    charId: 'aurelia',
+    charId: 'auraline',
     isSurge: false,
     damageValue: 20,
     targetCount: 3,
