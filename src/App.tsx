@@ -845,7 +845,7 @@ export default function App() {
     }
     if (diffProfile.tier === 4) {
       const remR = Math.max(0, 1 - runResetsUsed);
-      return isCs ? `Posun Zpět · Reset ${remR}/Běh` : `Swap Undo · Rst ${remR}/Run`;
+      return isCs ? `Prohoz zpět · Reset ${remR}/výprava` : `Swap Undo · Rst ${remR}/Run`;
     }
     return 'IRONMAN';
   }, [battleResetsUsedInNode, committedUndosUsedInNode, diffProfile.tier, lang, runResetsUsed]);
@@ -1656,7 +1656,7 @@ export default function App() {
                           : 'border-rose-400/65 bg-rose-950/75 text-rose-200'
                       }`}
                     >
-                      🍼 {lang === 'cs' ? 'Bio-Kolébka' : 'Bio-Cradle'}: {combat.cradleObjective.hp}/
+                      🍼 {lang === 'cs' ? 'Bio-kolébka' : 'Bio-Cradle'}: {combat.cradleObjective.hp}/
                       {combat.cradleObjective.maxHp} HP
                     </span>
                   )}
@@ -1872,8 +1872,8 @@ export default function App() {
                                   <div className="mt-2 flex items-center justify-between gap-2 text-[12.5px] sm:text-[13px] font-bold">
                                     <span className={fitsEquip ? 'text-[#00F0FF]' : 'text-amber-300'}>
                                       {fitsEquip
-                                        ? `✓ ${lang === 'cs' ? 'Vybavit hned' : 'Auto-Equip'}`
-                                        : `⬡ ${lang === 'cs' ? 'Do batohu (plno)' : 'Store to Bag (Full)'}`}
+                                        ? `✓ ${lang === 'cs' ? 'Nainstalovat hned' : 'Auto-Install'}`
+                                        : `⬡ ${lang === 'cs' ? 'Do trezoru (plno)' : 'Send to Vault (Full)'}`}
                                     </span>
                                     <span className="text-slate-300">→</span>
                                   </div>

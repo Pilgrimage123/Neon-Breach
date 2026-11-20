@@ -88,7 +88,7 @@ export function TopHud({
               className="flex items-baseline gap-1 sm:gap-1.5 font-mono-tabular whitespace-nowrap shrink-0"
             >
               <span className="text-[11.5px] min-[430px]:text-[13px] font-bold uppercase tracking-wider text-cyan-300">
-                {t.turnsLabel}
+                {lang === 'cs' ? 'Tah' : 'Turn'}
               </span>
               <span className="tactical-numeral-stroke text-base min-[430px]:text-lg sm:text-xl font-black text-[#F4F4F6] leading-none">
                 {combat.turn}

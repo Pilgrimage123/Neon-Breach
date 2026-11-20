@@ -692,7 +692,7 @@ export function BioMedBayView({
             className="flex flex-wrap items-center gap-1.5 rounded-xl border border-amber-400/35 bg-slate-950/65 px-2.5 py-2"
           >
             <span className="font-mono-tabular text-[12px] font-bold uppercase tracking-wider text-amber-300 shrink-0 mr-1">
-              🏡 {lang === 'cs' ? 'Rodinný Krb:' : 'Hearth:'}
+              🏡 {lang === 'cs' ? 'Rodinný krb:' : 'Hearth:'}
             </span>
             <button
               type="button"
@@ -704,7 +704,7 @@ export function BioMedBayView({
                 👵 {lang === 'cs' ? 'Prarodiče' : 'Grandparents'}
               </span>
               <span className="font-mono-tabular text-[12px] font-bold text-[#F4F4F6] truncate">
-                {lang === 'cs' ? 'Vadný→★ · 💚+10 HP' : 'Dud→★ · 💚+10 HP'}
+                {lang === 'cs' ? 'Slepý→★ · 💚+10 HP' : 'Dud→★ · 💚+10 HP'}
               </span>
             </button>
 

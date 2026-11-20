@@ -37,6 +37,7 @@ import {
 } from '../utils/aureliaSpriteSheet';
 import {
   HEROINE_CANONICAL_HEIGHT,
+  HEROINE_DODGE_DURATION,
   HEROINE_SHEET_FRAMES,
 } from '../utils/heroineSpriteSheet';
 import {
@@ -93,6 +94,7 @@ import {
   addOrGrowFloorBlood,
   applyCombatCues,
   drainTriggerImpacts,
+  ensureEnemyAnim,
   spawnBurst,
   spawnFloatingText,
   spawnStyledProjectileVolley,
@@ -443,15 +445,6 @@ export function CombatStageCanvas({
     const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, effectiveSlotCount);
     const heroX = w < 460 ? w * 0.19 : w * 0.22;
 
-    if (kind === 'kira_dodge') {
-      sim.actionSequencer.reset();
-      triggerKiraDodgeVfx(sim, heroX, groundY);
-      setLastCameraTrigger('kira_dodge');
-      sim.needsRedraw = true;
-      requestDrawRef.current();
-      return;
-    }
-
     const buildBounds = (actorId: string): CameraActorBounds => {
       if (actorId === 'hero') {
         const heroHeight = Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
@@ -491,6 +484,57 @@ export function CombatStageCanvas({
         heightPx,
       };
     };
+
+    if (kind === 'kira_dodge') {
+      const attackerEnemy = living[0];
+      if (!attackerEnemy || tacticalViewRef.current || !presentationConfigRef.current.enabled) {
+        sim.actionSequencer.reset();
+        triggerKiraDodgeVfx(sim, heroX, groundY);
+        setLastCameraTrigger('kira_dodge');
+        sim.needsRedraw = true;
+        requestDrawRef.current();
+        return;
+      }
+      const dodgeActorIds = Array.from(new Set(['hero', ...living.map((e) => e.id)]));
+      void sim.actionSequencer.playCutIn(
+        {
+          id: `cam_lab_kira_dodge_${Date.now()}`,
+          actionKind: 'normal',
+          stagingMode: 'melee',
+          attackerId: attackerEnemy.id,
+          targetIds: ['hero'],
+          allActorIds: dodgeActorIds,
+          attackerBounds: buildBounds(attackerEnemy.id),
+          targetBounds: [buildBounds('hero')],
+          tempoScale: 1.0,
+          waitForExternalImpact: false,
+          evadedTargetIds: ['hero'],
+          hitstopOverrideSec: 0.05,
+          holdDurationOverrideSec: HEROINE_DODGE_DURATION + 0.04,
+          replaceQueue: true,
+          onWindupStart: () => {
+            const ea = ensureEnemyAnim(sim, attackerEnemy.id);
+            ea.lunge = 1;
+            ea.lungeDir = -1;
+            ea.attackAnimDuration = 0.58;
+            ea.attackAnimTimer = 0.58;
+            if (attackerEnemy.archetype === 'spitter') ea.spitterAttackKind = 'claw';
+            else if (attackerEnemy.archetype === 'brute') ea.bruteAttackKind = 'attack';
+          },
+          onImpactFrame: () => {
+            const liveHeroX = sim.actionSequencer.getLiveActorX('hero', heroX);
+            triggerKiraDodgeVfx(sim, liveHeroX, groundY);
+          },
+        },
+        presentationConfigRef.current,
+        w,
+        h,
+      );
+      setLastCameraTrigger('kira_dodge');
+      sim.needsRedraw = true;
+      requestDrawRef.current();
+      return;
+    }
 
     const isAoe = kind === 'ranged_aoe';
     const isRanged = kind === 'ranged_single' || isAoe;
@@ -818,7 +862,7 @@ export function CombatStageCanvas({
           canonicalHeight,
         );
         const heroLiveX = isKiraDodging
-          ? heroX
+          ? Math.max(activeSim.size.w * 0.08, heroX + (heroCutIn.active ? heroCutIn.clashSlideX : 0))
           : heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
 
         const zuriDrones =
@@ -840,7 +884,7 @@ export function CombatStageCanvas({
           const needsInitialDodgeGhost =
             isKiraDodging && !activeSim.ghosts.some((g) => g.isDodge);
           activeSim.ghostSampleTimer += simDt;
-          const ghostInterval = isKiraDodging ? 0.030 : 0.028;
+          const ghostInterval = isKiraDodging ? 0.036 : 0.028;
           if (needsInitialDodgeGhost || activeSim.ghostSampleTimer >= ghostInterval) {
             activeSim.ghostSampleTimer = 0;
             activeSim.ghosts.push({
@@ -851,7 +895,7 @@ export function CombatStageCanvas({
               alpha: isKiraDodging ? 0.78 : 0.42,
               isDodge: isKiraDodging,
             });
-            const maxGhosts = isKiraDodging ? 8 : 6;
+            const maxGhosts = isKiraDodging ? 9 : 6;
             if (activeSim.ghosts.length > maxGhosts) activeSim.ghosts.shift();
           }
           if (

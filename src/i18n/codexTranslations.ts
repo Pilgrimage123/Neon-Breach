@@ -94,19 +94,19 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
     tabHeroes: 'Operatives & Powers',
     tabGlossary: 'Combat Glossary',
     heroSelectorAria: 'Select operative dossier',
-    vitalsHeader: 'Base Chassis & Loadout Profile',
+    vitalsHeader: 'Operative Profile & Neural Rig',
     baseStatsLabels: {
       hp: 'Max HP',
       credits: 'Starting CR',
-      capacity: 'Carry Load',
+      capacity: 'Chip Memory',
       startingPool: 'Starting Pool',
     },
     passivePowersHeader: 'Passive Powers & Combat Modifiers',
     overdriveHeader: 'Signature Overdrive (100% OD)',
     freeActionBadge: 'Free Action · Does Not End Turn',
     innateCoreHeader: 'Innate Core (5 Permanent Tiles)',
-    innateCoreDesc: 'Always present in your active pool regardless of equipped gear.',
-    startingGearHeader: 'Starting Equipment',
+    innateCoreDesc: 'Always present in your active pool regardless of installed AI Skill Chips.',
+    startingGearHeader: 'Starting AI Skill Chips',
     synergiesHeader: 'Best Cyber-Clinic Synergies',
     tacticalLoopHeader: 'Core Combat Rhythm',
     inspectHeroDossierBtn: 'Full Abilities & Codex',
@@ -162,7 +162,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
           'Turn 1: Resolve TECH (+42% DMG Boost & +20% OD/tile) while holding Attack tiles to power them up (+1 each). Turn 2: Trigger Plasma Blitz (+30% DMG Boost), then unleash the boosted Attack Stack Surge!',
       },
       aurelia: {
-        roleTag: 'Slow Juggernaut · Armored Anchor',
+        roleTag: 'Armored Juggernaut · UpCharge Anchor',
         playstyleLead:
           'Frontline heavy juggernaut with 78 Max HP, 18 persistent starting Armor every combat, and 14 Chip Memory. Starts with 1 Dud in each color—and converts every Dud played into +1 UpCharge.',
         passivePowers: [
@@ -176,13 +176,13 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
             name: 'Dud Overclock (UpCharge)',
             badge: '+1 UpCharge per Dud',
             description:
-              'Starts with 3 Dud tiles (1 Attack, 1 Defense, 1 TECH). Resolving any Dud grants +1 UpCharge (+1 extra tile drawn next turn), letting her cycle faster without needing to swamp Duds.',
+              'Starts with 3 Dud tiles (1 Attack, 1 Defense, 1 TECH). Resolving any Dud grants +1 UpCharge (+1 extra tile drawn next turn), letting her cycle faster without needing to purge every Dud.',
           },
           {
             name: 'High-Memory Neural Rig',
-            badge: '78 HP · 14 Memory',
+            badge: '78 HP · 14 MEM',
             description:
-              'Starts with 78 Max HP and 14 Chip Memory—enough to run heavyweight AI Skill Chips like Breacher Heavy.AI (Mem 5) + Reactive Exo.AI (Mem 4) simultaneously.',
+              'Starts with 78 Max HP and 14 Chip Memory—enough to run heavyweight AI Skill Chips like Apex Overwhelm.AI (Mem 5) + Adaptive Guard.AI (Mem 4) simultaneously.',
           },
         ],
         overdriveRule:
@@ -193,7 +193,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
           'Grants +2 UpCharge so your next turn draws +2 extra tiles.',
         ],
         synergies:
-          'Plasma Amplifier & Nano-Weave Plating (turns 0-value Duds into +2 ATK / +2 DEF tiles), Synapse Overclock (+3 SHD on TECH Duds), Surge Resonator (3-tile Surges using Duds), and Pulse Capacitor.AI.',
+          'Plasma Amplifier & Nano-Weave Plating (turns 0-value Duds into +2 ATK / +2 DEF tiles), Synapse Overclock (+3 SHD on TECH Duds), Surge Resonator (3-tile Surges using Duds), and Tempo Feed.AI.',
         tacticalLoop:
           'Let your 18 starting Armor absorb early hits while cycling 1-Dud-per-color into +1 UpCharge draws, stack Surge thresholds with Duds, and drop Sovereign Broadside (+10 Armor, +2 UpCharge) to overpower Boss phases.',
       },
@@ -229,9 +229,9 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
           'Cleanses -2 Corrode stacks from your chassis.',
         ],
         synergies:
-          'Synapse Overclock (+3 Shield per TECH tile), Surge Resonator (unlocks 3-tile Surges on her 3/3/3 balanced pool), Flux Injector (+35% OD per TECH tile!), and ARC Rail-Carbine.',
+          'Synapse Overclock (+3 Shield per TECH tile), Surge Resonator (unlocks 3-tile Surges on her 3/3/3 balanced pool), Flux Injector (+35% OD per TECH tile!), and Armor Crack.AI.',
         tacticalLoop:
-          'Respect your 3/3/3 Blind Spot (no Turn-1 Surge without gear or Resonator): weave innate TECH tiles to strip Armor, gain +4 Shield/+24% DMG, charge +25% OD per tile, then unleash Solar Swarm Protocol (-12 Armor All + 16 Pierce) into an Attack stack.',
+          'Respect your 3/3/3 Blind Spot (no Turn-1 Surge without extra chips or Resonator): weave innate TECH tiles to strip Armor, gain +4 Shield/+24% DMG, charge +25% OD per tile, then unleash Solar Swarm Protocol (-12 Armor All + 16 Pierce) into an Attack stack.',
       },
     },
     glossary: {
@@ -300,10 +300,10 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'All-Enemy Strip',
         summary: 'TECH effect that permanently strips Armor from ALL living enemies simultaneously.',
         mechanics:
-          'Triggered by Zuri’s innate shred module (-8 ARM All) or ARC Rail-Carbine (-10 ARM All). Reduces every living enemy’s Armor down to 0 minimum, and pairs with direct Pierce damage to the front target.',
+          'Triggered by Zuri’s innate shred routine (-8 ARM All) or Armor Crack.AI (-10 ARM All). Reduces every living enemy’s Armor down to 0 minimum, and pairs with direct Pierce damage to the front target.',
         tacticalTip:
           'Use Armor Shred on Turn 1 against Cobalt Skitter + Brute formations to strip Aegis Bolster plating across the whole pack.',
-        keywords: ['shred', 'strip', 'emp', 'armor', 'zuri', 'carbine'],
+        keywords: ['shred', 'strip', 'emp', 'armor', 'zuri', 'crack'],
       },
       cleave: {
         term: 'Cleave (CLEAVE)',
@@ -318,32 +318,32 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
       riposte: {
         term: 'Riposte & Reflect',
         shortTag: 'Defensive Counter',
-        summary: 'Damage dealt back to the frontline enemy when resolving Defense tiles or blocking attacks.',
+        summary: 'Damage dealt back to the frontline enemy when triggering Defense Surge or blocking attacks.',
         mechanics:
-          'Aurelia deals 2 DMG per Defense tile resolved; Zuri deals 1 DMG per Defense tile. A Defense Stack Surge deals an extra 8 DMG. Separately, the Kinetic Reflector implant deals 3 DMG back to any attacker whose hit is blocked by your Shield.',
+          'A Defense Stack Surge deals 8 counter DMG directly to the frontline enemy. Separately, the Kinetic Reflector implant deals 3 DMG back to any attacker whose hit is blocked by your Shield.',
         tacticalTip:
-          'Riposte safely finishes low-HP Chitin Stalkers without triggering their Thorny Carapace retaliation.',
-        keywords: ['riposte', 'reflect', 'counter', 'defense', 'aurelia', 'zuri', 'kinetic'],
+          'Counter damage safely finishes low-HP Chitin Stalkers without triggering their Thorny Carapace retaliation.',
+        keywords: ['riposte', 'reflect', 'counter', 'defense', 'auraline', 'zuri', 'kinetic'],
       },
       tile_pool: {
-        term: 'Active Tile Pool & Load',
-        shortTag: 'Deck & Weight',
-        summary: 'Your combat deck formed by 5 permanent Innate Core tiles plus equipped gear up to Carry Load.',
+        term: 'Active Tile Pool & Chip Memory',
+        shortTag: 'Deck & Memory',
+        summary: 'Your combat deck formed by 5 permanent Innate Core tiles plus installed AI Skill Chips up to Chip Memory.',
         mechanics:
-          'Each equipment item has a Size cost and adds 1–3 tiles to your Active Pool. You can swap or scrap gear outside of combat via Loadout & Pool. During combat, 6 tiles sit on the board; empty slots draw from the Draw Pile and reshuffle the Cycle Pile when empty.',
+          'Each AI Skill Chip uses a Chip Memory cost and adds 1–3 tiles to your Active Pool. You can install, uninstall, or scrap chips outside of combat via Chips & Pool. During combat, 6 tiles sit on the board; empty slots draw from the Draw Pile and reshuffle the Cycle Pile when empty.',
         tacticalTip:
-          'Keep your pool lean! Unequipping weak starter gear can improve your odds of drawing 4-tile Stack Surges.',
-        keywords: ['pool', 'deck', 'load', 'capacity', 'carry', 'weight', 'draw', 'cycle', 'discard'],
+          'Keep your pool lean! Uninstalling low-impact starter chips can improve your odds of drawing 4-tile Stack Surges.',
+        keywords: ['pool', 'deck', 'memory', 'capacity', 'chips', 'draw', 'cycle', 'discard'],
       },
       held_tiles: {
         term: 'Held vs. Drawn Tiles',
         shortTag: 'Board Carryover',
         summary: 'Unresolved tiles stay on the board across turns and gain HELD status.',
         mechanics:
-          'Because you activate only 1 tile color per turn, all unplayed tiles remain in place next turn (marked HELD) while new tiles refill the board to 6 (marked DRAWN). Kira and Zuri give HELD Attack/Defense tiles +1 base value; Mono-Wire Edge adds +2 to HELD Attack tiles.',
+          'Because you activate only 1 tile color per turn, all unplayed tiles remain in place next turn (marked HELD) while new tiles refill the board to 6 (marked DRAWN). Kira gives HELD Attack/Defense tiles +1 base value; Mono-Wire Edge adds +2 to HELD Attack tiles.',
         tacticalTip:
           'Intentionally hold Attack tiles for 1 turn while using TECH or Defense to build a 4-tile Surge and trigger HELD bonuses.',
-        keywords: ['held', 'drawn', 'carryover', 'stay', 'monowire', 'kira', 'zuri'],
+        keywords: ['held', 'drawn', 'carryover', 'stay', 'monowire', 'kira'],
       },
       stack_surge: {
         term: 'Stack Surge',
@@ -360,9 +360,9 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Free Ultimate',
         summary: 'Operative ultimate charged from 0% to 100% by resolving tiles; fires as a Free Action [Space].',
         mechanics:
-          'Attack/Defense tiles grant +4% OD each. TECH tiles grant +20% (Kira), +15% (Aurelia), or +25% (Zuri), plus +10% with Flux Injector and +15% on TECH Surge. Firing Overdrive resets OD to 0%, hits ALL enemies with 100% Pierce damage, and does NOT end your turn.',
+          'Attack/Defense tiles grant +4% OD each. TECH tiles grant +20% (Kira), +15% (Auraline), or +25% (Zuri), plus +10% with Flux Injector and +15% on TECH Surge. Firing Overdrive resets OD to 0%, hits ALL enemies with 100% Pierce damage, and does NOT end your turn.',
         tacticalTip:
-          'Fire Kira’s or Zuri’s Overdrive BEFORE clicking your Attack stack on the same turn so their +25%/+30% DMG Boost empowers the Attack!',
+          'Fire Kira’s Overdrive (+30% DMG Boost) or Zuri’s Overdrive (-12 Armor All) BEFORE clicking your Attack stack on the same turn!',
         keywords: ['overdrive', 'od', 'ultimate', 'space', 'plasma blitz', 'broadside', 'swarm'],
       },
       corrode: {
@@ -372,7 +372,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         mechanics:
           'Every point of Corrode subtracts 1 Shield from the total Shield generated when you resolve a Defense stack (minimum 0 Shield). Inflicted by Bile Spitter’s Pustule Rupture (+2 COR when surviving non-Surge Attacks) and Beat 2 Caustic Claw Rend (+2 COR). Decays naturally by -1 at round end and does not reduce TECH or Overdrive Shield.',
         tacticalTip:
-          'Cleanse Corrode quickly using Cryo-Purge Module (-2 COR) or Aurelia/Zuri’s Overdrives (-2 COR), trigger Attack Surge to avoid Pustule Rupture, or rely on TECH Shield tiles.',
+          'Cleanse Corrode quickly using System Scrub.AI (-2 COR) or Zuri’s Overdrive (-2 COR), trigger Attack Surge to avoid Pustule Rupture, or rely on TECH Shield tiles.',
         keywords: ['corrode', 'cor', 'acid', 'pustule', 'debuff', 'shield', 'cleanse'],
       },
       jammed_tile: {
@@ -451,25 +451,25 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
     codexButtonLabel: 'Kodex',
     codexTitle: 'Taktický kodex a složka operativky',
     codexSubtitle:
-      'Kompletní přehled pasivních schopností operativních postav, Overdrive protokolů, herních pojmů a pravidel nepřátel.',
+      'Přehled pasivních schopností operativek, Overdrive protokolů, bojových mechanik a pravidel nepřátel.',
     tabHeroes: 'Operativky a schopnosti',
     tabGlossary: 'Herní slovník',
     heroSelectorAria: 'Vyber složku operativky',
-    vitalsHeader: 'Základní parametry a výzbroj',
+    vitalsHeader: 'Profil operativky a paměť čipů',
     baseStatsLabels: {
-      hp: 'Max Zdraví',
+      hp: 'Max zdraví',
       credits: 'Startovní CR',
-      capacity: 'Nosnost',
-      startingPool: 'Základní pool',
+      capacity: 'Paměť čipů',
+      startingPool: 'Startovní pool',
     },
     passivePowersHeader: 'Pasivní schopnosti a modifikátory',
     overdriveHeader: 'Speciální Overdrive (100 % OD)',
     freeActionBadge: 'Volná akce · Neukončí tah',
-    innateCoreHeader: 'Vrozené jádro (5 trvalých dlaždic)',
-    innateCoreDesc: 'Vždy zůstává ve tvém aktivním poolu bez ohledu na nasazenou výbavu.',
-    startingGearHeader: 'Startovní výbava',
+    innateCoreHeader: 'Vrozené jádro (5 trvalých dílků)',
+    innateCoreDesc: 'Zůstává v aktivním poolu bez ohledu na nainstalované AI čipy.',
+    startingGearHeader: 'Startovní AI dovednosti',
     synergiesHeader: 'Doporučené implantáty z Kyber-kliniky',
-    tacticalLoopHeader: 'Hlavní bojový rytmus',
+    tacticalLoopHeader: 'Základní bojový rytmus',
     inspectHeroDossierBtn: 'Schopnosti a Kodex',
     viewGlossaryBtn: 'Slovník',
     openTermHint: 'Zobrazit pojem ve slovníku',
@@ -481,7 +481,7 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
       defense: 'Obrana a Brnění',
       offense: 'Útok a Poškození',
       board: 'Deska a Overdrive',
-      status: 'Stavy a Pravidla nepřátel',
+      status: 'Stavy a pravidla nepřátel',
     },
     mechanicsLabel: 'Jak to funguje',
     tacticalTipLabel: 'Taktický tip',
@@ -489,121 +489,121 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
       kira: {
         roleTag: 'TECH-Přetížení · Nárazové kombo',
         playstyleLead:
-          'Rychlá kyber-duelistka zaměřená na držení dlaždic Útoku/Obrany mezi tahy, skládání silných TECH Damage boosterů a časté spouštění Plazmového Blitzu.',
+          'Rychlá kyber-duelistka zaměřená na držení dílků Útoku a Obrany přes tahy, skládání silného TECH posílení útoku a časté spouštění Plazmového výpadu.',
         passivePowers: [
           {
-            name: 'Kyber-hybnost držených dlaždic',
+            name: 'Hybnost držených dílků',
             badge: '+1 ATK / DEF Držené',
             description:
-              'Každá dlaždice Útoku nebo Obrany ponechaná na desce z minulého kola (označená DRŽENO) získá tento tah +1 k základní hodnotě. Sčítá se s implantátem Monovláknové ostří (+2).',
+              'Každý dílek Útoku či Obrany ponechaný na desce z minulého kola (označený DRŽENO) získá tento tah +1 k základní hodnotě. Sčítá se s implantátem Monovláknové ostří (+2).',
           },
           {
             name: 'Synaptický Overdrive motor',
             badge: '+20 % OD za TECH',
             description:
-              'Aktivace dlaždic TECH nabije +20 % Overdrive za každou dlaždici (oproti +4 % za Útok/Obranu), což umožňuje časté řetězení Overdrive.',
+              'Aktivace dílků TECH dobíjí +20 % Overdrive za každý dílek (oproti +4 % za Útok/Obranu), což umožňuje časté řetězení Overdrive.',
           },
           {
             name: 'Ofenzivní zaměření (0 přenos)',
-            badge: '0 Štít · 0 Odplata',
+            badge: '0 přenos · 0 odveta',
             description:
-              'Nepřenáší Štít mezi koly bez Kondenzátoru Aegis a nemá pasivní Odvetu z Obrany — sází na včasnou likvidaci cílů nebo silné obranné sady.',
+              'Nepřenáší Štít mezi koly bez Kondenzátoru Aegis a nemá pasivní Odvetu — sází na včasnou likvidaci cílů nebo silné obranné sady.',
           },
         ],
         overdriveRule:
-          'Dostupné při 100 % Overdrive [Mezerník]. Plazmový Blitz vynuluje Overdrive na 0 %, okamžitě zasáhne VŠECHNY živé nepřátele a nechá tě v tahu, takže můžeš hned zahrát i sadu dlaždic!',
+          'Dostupné při 100 % Overdrive [Mezerník]. Plazmový výpad vynuluje Overdrive na 0 %, okamžitě zasáhne VŠECHNY živé nepřátele a nechá tě v tahu, takže hned můžeš zahrát i sadu dílků.',
         overdriveBreakdown: [
           'Udělí 20 průrazného DMG VŠEM živým nepřátelům (ignoruje brnění; pohltí jej jen aktivní Aegis Pip).',
-          'Okamžitě přidá +30 % Boost DMG (zesílí útočnou sadu zahranou ještě v témže tahu!).',
+          'Okamžitě přidá +30 % posílení útoku (zesílí útočnou sadu zahranou ještě v témže tahu).',
           'Přidá +6 Štítu na vykrytí příchozích úderů.',
         ],
         synergies:
-          'Monovláknové ostří (+2 pro držené Útoky), Rezonátor přetížení (Přetížení už od 3 dlaždic), Fluxový injektor (+10 % OD navíc za TECH) a Fázový emitor čepele (30 % průraz).',
+          'Monovláknové ostří (+2 pro držené Útoky), Rezonátor přetížení (Přetížení už od 3 dílků), Fluxový injektor (+10 % OD navíc za TECH) a Fázový emitor čepele (30 % průraz).',
         tacticalLoop:
-          '1. tah: Aktivuj TECH (+42 % Boost DMG a +20 % OD/dlaždici) a podrž dlaždice Útoku pro bonus +1. 2. tah: Spusť Plazmový Blitz (+30 % Boost DMG) a doraž vlnu posíleným Přetížením Útoku!',
+          '1. tah: Aktivuj TECH (+42 % posílení útoku a +20 % OD/dílek) a podrž dílky Útoku pro bonus +1. 2. tah: Spusť Plazmový výpad (+30 % DMG) a doraž vlnu posíleným Přetížením Útoku.',
       },
       aurelia: {
-        roleTag: 'Pomalý kolos · Obrněná kotva',
+        roleTag: 'Obrněný kolos · Kotva s Nabitím',
         playstyleLead:
-          'Těžká předvojová bojovnice se 78 Max HP, 18 stálého Brnění na začátku každého boje a pamětí 14. Začíná s 1 Dud dílkem v každé barvě a každý zahraný Dud jí dá +1 UpCharge.',
+          'Těžká frontová bojovnice se 78 Max HP, 18 body stálého Brnění na startu každého boje a 14 RAM pro AI čipy. Začíná s 1 Slepým dílkem v každé barvě a každý zahraný jí dodá +1 Nabití.',
         passivePowers: [
           {
             name: 'Pancíř kolosu',
             badge: '+18 Brnění / boj',
             description:
-              'Každý boj začíná s 18 stálého Brnění pod Štítem (DMG -> Štít -> Brnění -> HP), které nemizí na konci kola a nepodléhá Korozi.',
+              'Každý boj začíná s 18 body stálého Brnění pod Štítem (DMG → Štít → Brnění → HP), které neubývá na konci kola a nepodléhá Korozi.',
           },
           {
-            name: 'Přetížení zmetků (UpCharge)',
-            badge: '+1 UpCharge za Dud',
+            name: 'Přetaktování slepých dílků',
+            badge: '+1 Nabití za Slepý',
             description:
-              'Začíná se 3 Dud dílky (1 Útok, 1 Obrana, 1 TECH). Každý zahraný Dud udělí +1 UpCharge (+1 dílek příští tah), takže nemusí své Dudy za každou cenu přemazávat.',
+              'Začíná se 3 Slepými dílky (1 Útok, 1 Obrana, 1 TECH). Každý zahraný Slepý dílek dá +1 Nabití (+1 dílek navíc v příštím tahu), takže rychle točí balíček bez nutnosti čistky.',
           },
           {
             name: 'Vysoká paměť čipů',
-            badge: '78 HP · Paměť 14',
+            badge: '78 HP · 14 RAM',
             description:
-              'Začíná se 78 Max HP a pamětí 14 — unese i těžké AI čipy jako Breacher Heavy.AI (Paměť 5) + Reactive Exo.AI (Paměť 4) najednou.',
+              'Začíná se 78 Max HP a 14 RAM — bez potíží unese i náročné AI čipy jako Totální průlom.AI (5 RAM) a Adaptivní krytí.AI (4 RAM) současně.',
           },
         ],
         overdriveRule:
-          'Dostupné při 100 % Overdrive [Mezerník]. Královská salva je volná akce, která doplní Brnění a nabije +2 UpCharge pro další tah.',
+          'Dostupné při 100 % Overdrive [Mezerník]. Královská salva je volná akce, která doplní Brnění a nabije +2 Nabití pro další tah.',
         overdriveBreakdown: [
           'Udělí 20 průrazného DMG VŠEM živým nepřátelům (ignoruje brnění).',
-          'Přidá +10 stálého Brnění pro hlubokou výdrž v boji.',
-          'Přidá +2 UpCharge (+2 dílky do příštího tahu).',
+          'Přidá +10 stálého Brnění pro dlouhou výdrž v přední linii.',
+          'Přidá +2 Nabití (+2 dílky do příštího tahu).',
         ],
         synergies:
-          'Plazmový zesilovač a Nanovláknová zbroj (promění 0-hodnotové Dudy na +2 ATK/+2 DEF), Synaptické přetaktování (+3 Štít na TECH Dud), Rezonátor přetížení a Pulse Capacitor.AI.',
+          'Plazmový zesilovač a Nanovláknová zbroj (promění nulové Slepé dílky v +2 ATK/+2 DEF), Synaptické přetaktování (+3 Štít za TECH Slepý), Rezonátor přetížení a Smyčka tempa.AI.',
         tacticalLoop:
-          'Nech 18 Brnění pohltit úvodní údery, toč Dudy do +1 UpCharge tahů, spouštěj Přetížení s pomocí Dudů a aktivuj Královskou salvu (+10 Brnění, +2 UpCharge) před klíčovými koly.',
+          'Nech 18 Brnění pohltit úvodní údery, toč Slepé dílky do +1 Nabití, skládej s nimi Přetížení a odpaluj Královskou salvu (+10 Brnění, +2 Nabití) před klíčovými koly.',
       },
       zuri: {
-        roleTag: 'Specialistka na stržení brnění · TECH',
+        roleTag: 'Specialistka na drcení brnění · TECH',
         playstyleLead:
-          'Létající velitelka solárního roje zaměřená na plošné strhávání Brnění, hybridní Taktický štít a nejrychlejší nabíjení Overdrive — bez bonusu za držení, bez Odvety a bez Přetížení v 1. tahu.',
+          'Létající velitelka solárního roje zaměřená na plošné Drcení brnění, hybridní taktický štít a nejrychlejší nabíjení Overdrive — bez bonusu za držení a bez Přetížení v 1. tahu.',
         passivePowers: [
           {
             name: 'Solární uplink kondenzátoru',
             badge: '+25 % OD za TECH',
             description:
-              'Aktivace dlaždic TECH dodá +25 % Overdrive za každou dlaždici — nejrychlejší nabíjení Overdrive ze všech operativních postav.',
+              'Aktivace dílků TECH dodá +25 % Overdrive za každý dílek — nejrychlejší nabíjení Overdrive ze všech operativek.',
           },
           {
-            name: 'Vrozené jádro stržení brnění',
+            name: 'Vrozené jádro drcení brnění',
             badge: '-8 BRN všem · 3 Průraz',
             description:
-              'Zuri má v jádru unikátní TECH dlaždici, která strhne 8 Brnění VŠEM nepřátelům a přednímu cíli udělí 3 přímého průrazného DMG.',
+              'Zuri nese vrozený TECH dílek, který strhne 8 Brnění VŠEM nepřátelům a přednímu cíli udělí 3 přímého průrazného DMG.',
           },
           {
             name: 'Hybridní taktický štít',
             badge: '+4 Štít · +24 % DMG',
             description:
-              'Druhá jádrová TECH dlaždice přidá +4 Štítu i +24 % Boost DMG najednou, čímž propojuje obranu s přípravou útoku a nabíjí +25 % OD.',
+              'Druhý jádrový TECH dílek přidá +4 Štítu i +24 % posílení útoku najednou, propojuje obranu s přípravou útoku a nabíjí +25 % OD.',
           },
         ],
         overdriveRule:
-          'Dostupné při 100 % Overdrive [Mezerník]. Protokol Solární roj se aktivuje jako volná akce bez ukončení tahu a strhne nepřátelům brnění před následným útokem.',
+          'Dostupné při 100 % Overdrive [Mezerník]. Protokol Solární roj se spouští jako volná akce bez ukončení tahu a rozdrtí nepřátelům brnění před následným útokem.',
         overdriveBreakdown: [
           'Strhne -12 Brnění a udělí 16 průrazného DMG VŠEM živým nepřátelům.',
           'Přidá +8 Štítu na vykrytí následného protiútoku.',
           'Očistí -2 Koroze z tvé schránky.',
         ],
         synergies:
-          'Synaptické přetaktování (+3 Štít za TECH dlaždici), Rezonátor přetížení (odemkne 3dílná Přetížení na rozložení 3/3/3), Fluxový injektor (+35 % OD za TECH!) a Oblouková karabina.',
+          'Synaptické přetaktování (+3 Štít za TECH dílek), Rezonátor přetížení (odemkne 3dílná Přetížení na rozložení 3/3/3), Fluxový injektor (+35 % OD za TECH!) a Lamač pancíře.AI.',
         tacticalLoop:
-          'Respektuj slabinu 3/3/3 (žádné Přetížení v 1. tahu bez výbavy): toč vrozené TECH dlaždice pro stržení Brnění a +4 Štít/+24 % DMG, nabíjej +25 % OD a spusť Protokol Solární roj (-12 BRN + 16 Průraz) před Útokem.',
+          'Počítej s rozložením 3/3/3 (žádné Přetížení v 1. tahu bez dalších čipů): toč vrozené TECH dílky pro drcení Brnění a +4 Štít/+24 % DMG, nabíjej +25 % OD a spusť Protokol Solární roj (-12 BRN + 16 Průraz) těsně před Útokem.',
       },
     },
     glossary: {
       armor: {
         term: 'Brnění (BRN / ARM)',
         shortTag: 'Ochrana nepřítele',
-        summary: 'Zlatý pancíř nepřátel, který pohlcuje běžné poškození Útoku a Odvety před zásahem Zdraví.',
+        summary: 'Zlatý pancíř nepřátel, který pohlcuje běžné poškození Útoku a Odvety dřív, než klesne Zdraví.',
         mechanics:
-          'Běžný Útok a Odveta nejprve ubírají Brnění 1:1, dokud neklesne na 0; teprve zbytek snižuje Zdraví. Brnění zůstává mezi tahy a nepřátelé jej mohou doplňovat (Tvrzení krunýře, Aegis podpora).',
+          'Běžný Útok a Odveta nejprve ubírají Brnění 1:1, dokud neklesne na 0; teprve zbytek zasáhne Zdraví. Brnění zůstává mezi tahy a nepřátelé jej mohou doplňovat.',
         tacticalTip:
-          'Prolomení brnění: Přetížení Útoku (4+ dlaždice zničí celé přední Brnění), TECH Průraz (-8 nebo -10 BRN všem), Fázový emitor čepele (30 % průraz) nebo Overdrive (100 % průraz).',
+          'Brnění prolomíš Přetížením Útoku (4+ dílky zničí celé přední Brnění), TECH Drcením (-8 nebo -10 BRN všem), Fázovým emitorem čepele (30 % průraz) nebo Overdrivem (100 % průraz).',
         keywords: ['brnění', 'brn', 'armor', 'pancíř', 'krunýř', 'aegis'],
       },
       shield: {
@@ -611,9 +611,9 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Ochranná bariéra',
         summary: 'Azurová bariéra, která chrání tvoje Zdraví před útoky nepřátel, kyselinou i trnovou odplatou.',
         mechanics:
-          'Pohlcuje příchozí poškození 1:1 před Brněním a Zdravím. Úplné vykrytí Žíravého plivance (0 ztráty Zdraví) zabrání zablokování dlaždice. Na konci kola zbylý Štít klesne na tvůj limit přenosu (Kira 0, Auraline 0, Zuri 0; +50 % s Kondenzátorem Aegis).',
+          'Pohlcuje příchozí poškození 1:1 před Brněním a Zdravím. Plné vykrytí kyselinového zásahu (0 ztráty Zdraví) zabrání zablokování dílku. Na konci kola zbylý Štít klesne na 0 (s Kondenzátorem Aegis se přenese 50 %).',
         tacticalTip:
-          'Proti kyselině drž dostatečný Štít — i 1 bod poškození do Zdraví způsobí zablokování dlaždice!',
+          'Proti kyselině drž dostatečný Štít — i 1 bod poškození do Zdraví zablokuje dílek na desce.',
         keywords: ['štít', 'obrana', 'shield', 'def', 'blok', 'přenos'],
       },
       aegis_pip: {
@@ -621,9 +621,9 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         shortTag: 'Jednorázový štít',
         summary: 'Diamantový štít nepřítele, který zcela pohltí příští 1 zásah bez ohledu na výši poškození.',
         mechanics:
-          'Dokud má nepřítel aktivní Aegis Pip (např. Kobaltový běžec, Krunýřový kolos, Matriarcha), příští jediný zásah (i silný Overdrive nebo Přetížení) pouze rozbije 1 Pip a udělí 0 poškození do Zdraví či Brnění.',
+          'Dokud má nepřítel aktivní Aegis Pip (např. Kobaltový běžec, Krunýřový kolos, Matriarcha), příští jediný zásah — i silný Overdrive nebo Přetížení — pouze praskne 1 Pip a neubere Zdraví ani Brnění.',
         tacticalTip:
-          'Nikdy neplýtvej obřím Útokem nebo Overdrive do aktivního Pipu. Nejprve ho praskni Odvetou, lehkým Útokem nebo průrazným TECH pulzem.',
+          'Neplýtvej obřím Útokem ani Overdrivem do aktivního Pipu. Nejprve ho praskni lehkým Útokem, Odvetou nebo průrazným TECH pulzem.',
         keywords: ['pip', 'aegis', 'diamant', 'štít', 'kolos', 'běžec'],
       },
       phase_lock: {
@@ -637,34 +637,34 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         keywords: ['fázový', 'zámek', 'boss', 'matriarcha', '50%'],
       },
       dmg_boost: {
-        term: 'Boost DMG (+% DMG)',
+        term: 'Posílení útoku (+% DMG)',
         shortTag: 'Násobič útoku',
-        summary: 'Procentuální bonus, který zvyšuje celkové poškození aktivovaných dlaždic Útoku.',
+        summary: 'Procentuální bonus, který zvyšuje celkové poškození aktivovaných dílků Útoku.',
         mechanics:
-          'Aplikuje se na součet základního poškození Útoku jako floor(základ × (1 + Boost / 100)). Na konci každého kola klesne o 10 procentních bodů. Nezvyšuje Overdrive, Odvetu ani průrazný TECH zásah.',
+          'Násobí součet základního poškození Útoku jako floor(základ × (1 + Bonus / 100)). Na konci každého kola klesne o 10 procentních bodů. Nezvyšuje Overdrive, Odvetu ani průrazný TECH zásah.',
         tacticalTip:
-          'Nejprve naber Boost DMG přes TECH dlaždice, podrž Útoky o tah déle a pak udeř naplno dřív, než bonus klesne.',
-        keywords: ['boost', 'dmg', 'poškození', 'násobič', 'pokles'],
+          'Nejprve naber posílení přes TECH dílky, podrž Útoky o tah déle a pak udeř naplno dřív, než bonus opadne.',
+        keywords: ['boost', 'posílení', 'dmg', 'poškození', 'násobič', 'pokles'],
       },
       armor_pierce: {
         term: 'Průraz brněním (PIERCE)',
         shortTag: 'Zásah přímo do HP',
         summary: 'Poškození, které obchází nepřátelské Brnění a míří přímo do Zdraví.',
         mechanics:
-          'Overdrive, Bio-exploze i průrazné TECH pulzy obcházejí Brnění ze 100 %. Fázový emitor čepele propustí skrz Brnění 30 % poškození každého Útoku. Pozor: aktivní Aegis Pip (◆) stále pohltí celý zásah.',
+          'Overdrive, Bio-exploze i průrazné TECH pulzy obcházejí Brnění ze 100 %. Fázový emitor čepele propustí skrz Brnění 30 % poškození každého Útoku. Aktivní Aegis Pip (◆) však stále pohltí celý zásah.',
         tacticalTip:
-          'Skvělé proti obrněným kolosům nebo skupinám posíleným Aegis podporou (+4 Brnění všem).',
+          'Skvělé proti obrněným kolosům nebo skupinám posíleným Aegis projekcí (+4 Brnění všem).',
         keywords: ['průraz', 'pierce', 'brnění', 'čepel', 'emitor'],
       },
       armor_shred: {
-        term: 'Stržení brnění (SHRED)',
+        term: 'Drcení brnění (SHRED)',
         shortTag: 'Plošné odzbrojení',
-        summary: 'Efekt dlaždic TECH, který strhne Brnění VŠEM žijícím nepřátelům najednou.',
+        summary: 'Efekt dílků TECH, který strhne Brnění VŠEM žijícím nepřátelům najednou.',
         mechanics:
-          'Spouští jej Zuriina vrozená dlaždice (-8 BRN všem) nebo Oblouková karabina (-10 BRN všem). Snižuje Brnění každému nepříteli (min. 0) a zároveň přednímu cíli udělí přímé průrazné DMG.',
+          'Spouští jej Zuriin vrozený dílek (-8 BRN všem) nebo AI čip Lamač pancíře.AI (-10 BRN všem). Snižuje Brnění každému nepříteli (min. 0) a zároveň přednímu cíli udělí přímé průrazné DMG.',
         tacticalTip:
-          'Ideální v 1. tahu proti Kobaltovému běžci a Kolosovi na rychlé odhalení jejich Zdraví.',
-        keywords: ['stržení', 'shred', 'emp', 'brnění', 'karabina', 'zuri'],
+          'Ideální v 1. tahu proti Kobaltovému běžci a Kolosovi — odhalíš jejich Zdraví pro celou četu.',
+        keywords: ['drcení', 'stržení', 'shred', 'emp', 'brnění', 'lamač', 'zuri'],
       },
       cleave: {
         term: 'Rozmach (CLEAVE)',
@@ -673,82 +673,82 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         mechanics:
           'Aktivace Přetížení Útoku zasáhne všechny zbývající živé nepřátele za předním cílem za 50 % celkového poškození. Využívá i 30 % průraz z Fázového emitoru čepele.',
         tacticalTip:
-          'Rozmach umí zdarma prasknout Aegis Pipy nepřátelům stojícím v zadních řadách!',
+          'Rozmach umí zdarma prasknout Aegis Pipy nepřátelům stojícím v zadních řadách.',
         keywords: ['rozmach', 'cleave', 'plošné', 'přetížení'],
       },
       riposte: {
         term: 'Odveta a Odraz',
         shortTag: 'Obranný protiúder',
-        summary: 'Poškození vrácené přednímu nepříteli při zahrání Obrany nebo vykrytí útoku.',
+        summary: 'Poškození vrácené přednímu nepříteli při Přetížení Obrany nebo vykrytí útoku.',
         mechanics:
-          'Aurelia udělí 2 DMG za každou dlaždici Obrany, Zuri 1 DMG. Přetížení Obrany přidá dalších 8 DMG. Implantát Kinetický reflektor navíc vrátí 3 DMG útočníkovi pokaždé, když útok vykryješ Štítem.',
+          'Přetížení Obrany udělí 8 protiúderného DMG přímo přednímu nepříteli. Implantát Kinetický reflektor navíc vrátí 3 DMG útočníkovi pokaždé, když jeho ránu vykryješ Štítem.',
         tacticalTip:
           'Odveta bezpečně dorazí Chitinového slídiče bez spuštění jeho Trnitého krunýře.',
         keywords: ['odveta', 'odraz', 'riposte', 'obrana', 'reflektor'],
       },
       tile_pool: {
-        term: 'Aktivní pool a Nosnost',
-        shortTag: 'Balíček a Váha',
-        summary: 'Tvůj bojový balíček složený z 5 vrozených dlaždic a nasazené výbavy do limitu Nosnosti.',
+        term: 'Aktivní pool a paměť čipů',
+        shortTag: 'Balíček a RAM',
+        summary: 'Tvůj bojový balíček složený z 5 vrozených dílků a nainstalovaných AI čipů do limitu RAM.',
         mechanics:
-          'Každý kus vybavení zabírá určitou Velikost a přidává 1–3 dlaždice do Aktivního poolu. Mimo boj můžeš výbavu měnit nebo šrotovat v okně Výbava a Pool. V boji držíš na desce 6 dlaždic a po vyčerpání zásobníku se cyklus promíchá.',
+          'Každý AI čip zabírá určitou paměť RAM a přidává 1–3 dílky do Aktivního poolu. Mimo boj můžeš čipy instalovat, odinstalovat či rozebrat v okně Čipy a Pool. V boji držíš na desce 6 dílků a po vyčerpání zásobníku se cyklus promíchá.',
         tacticalTip:
-          'Udržuj pool štíhlý — sundáním slabé výbavy zvýšíš šanci na pravidelná 4dílná Přetížení.',
-        keywords: ['pool', 'nosnost', 'váha', 'výbava', 'zásobník', 'cyklus'],
+          'Udržuj pool štíhlý — odinstalováním slabších čipů zvýšíš šanci na pravidelná 4dílná Přetížení.',
+        keywords: ['pool', 'paměť', 'ram', 'čipy', 'zásobník', 'cyklus', 'dlaždice', 'dílky'],
       },
       held_tiles: {
-        term: 'Držené vs. Nové dlaždice',
+        term: 'Držené vs. Nové dílky',
         shortTag: 'Přenos na desce',
-        summary: 'Neaktivované dlaždice zůstávají na desce do příštího tahu jako DRŽENÉ.',
+        summary: 'Neaktivované dílky zůstávají na desce do příštího tahu jako DRŽENÉ.',
         mechanics:
-          'Za tah aktivuješ jen 1 typ dlaždic; zbylé dlaždice zůstávají na místě (DRŽENO) a prázdná místa se doberou do 6 (NOVÝ). Kira a Zuri dávají drženým dlaždicím Útoku/Obrany +1; Monovláknové ostří přidává +2 k drženým Útokům.',
+          'Za tah aktivuješ jen 1 barvu dílků; zbylé dílky zůstávají na místě (DRŽENO) a prázdná místa se doberou do 6 (NOVÝ). Kira dává drženým dílkům Útoku a Obrany +1; Monovláknové ostří přidává +2 k drženým Útokům.',
         tacticalTip:
-          'Podrž si dlaždice Útoku o 1 kolo, zatímco hraješ TECH nebo Obranu, a poskládej si silné Přetížení.',
-        keywords: ['držené', 'drženo', 'nový', 'held', 'monovlákno'],
+          'Podrž si dílky Útoku o 1 kolo, zatímco hraješ TECH nebo Obranu, a poskládej si silné Přetížení.',
+        keywords: ['držené', 'drženo', 'nový', 'held', 'monovlákno', 'dílky', 'dlaždice'],
       },
       stack_surge: {
         term: 'Přetížení (Stack Surge)',
-        shortTag: 'Kombo 4+ dlaždic',
-        summary: 'Bonusový super-efekt při aktivaci 4+ nezablokovaných dlaždic stejného typu (3+ s Rezonátorem).',
+        shortTag: 'Kombo 4+ dílků',
+        summary: 'Bonusový super-efekt při aktivaci 4+ nezablokovaných dílků stejné barvy (3+ s Rezonátorem).',
         mechanics:
-          'Přetížení Útoku: Rozbije celé Brnění předního cíle + 50 % rozmach všem ostatním + neaktivuje Trnitý krunýř. Přetížení Obrany: Udělí 8 DMG přednímu cíli. Přetížení TECH: Přidá +15 % Overdrive a +6 Štítu.',
+          'Přetížení Útoku: Zničí celé Brnění předního cíle + 50 % rozmach všem ostatním + neaktivuje Trnitý krunýř. Přetížení Obrany: Udělí 8 DMG přednímu cíli. Přetížení TECH: Přidá +15 % Overdrive a +6 Štítu.',
         tacticalTip:
-          'Sleduj panel Příští dlaždice, abys věděl, kdy ti další dobírání doplní 4 dlaždice stejné barvy.',
-        keywords: ['přetížení', 'surge', 'kombo', 'rezonátor', 'rozmach'],
+          'Sleduj pruh Příští dílky, abys věděl, kdy ti další dobírání doplní 4 dílky stejné barvy.',
+        keywords: ['přetížení', 'surge', 'kombo', 'rezonátor', 'rozmach', 'dílky', 'dlaždice'],
       },
       overdrive: {
         term: 'Overdrive (OD)',
         shortTag: 'Volná ultimátka',
-        summary: 'Speciální schopnost nabíjená z 0 na 100 % aktivací dlaždic; spouští se jako volná akce [Mezerník].',
+        summary: 'Speciální schopnost nabíjená z 0 na 100 % aktivací dílků; spouští se jako volná akce [Mezerník].',
         mechanics:
-          'Útok a Obrana dávají +4 % OD za dlaždici. TECH dává +20 % (Kira), +15 % (Aurelia) nebo +25 % (Zuri), plus +10 % s Fluxovým injektorem a +15 % při Přetížení TECH. Spuštění Overdrive vynuluje OD, zasáhne VŠECHNY nepřátele průrazně a NEUKONČÍ tah.',
+          'Útok a Obrana dávají +4 % OD za dílek. TECH dává +20 % (Kira), +15 % (Auraline) nebo +25 % (Zuri), plus +10 % s Fluxovým injektorem a +15 % při Přetížení TECH. Spuštění Overdrive vynuluje OD, zasáhne VŠECHNY nepřátele průrazně a NEUKONČÍ tah.',
         tacticalTip:
-          'Spusť Overdrive Kiry nebo Zuri PŘED zahráním Útoku ve stejném tahu, aby jejich +25 %/+30 % Boost DMG posílil i následný úder!',
-        keywords: ['overdrive', 'od', 'mezerník', 'blitz', 'salva', 'roj'],
+          'Spusť Overdrive Kiry (+30 % DMG) nebo Zuri (-12 BRN všem) PŘED zahráním Útoku ve stejném tahu!',
+        keywords: ['overdrive', 'od', 'mezerník', 'výpad', 'salva', 'roj'],
       },
       corrode: {
         term: 'Koroze (KOR)',
         shortTag: 'Oslabený štít',
-        summary: 'Žíravý postih snižující Štít získaný z dlaždic Obrany.',
+        summary: 'Žíravý postih snižující Štít získaný z dílků Obrany.',
         mechanics:
           'Každý bod Koroze odečte 1 Štít z celkového Štítu získaného při aktivaci sady Obrany (minimálně 0). Uděluje ji Prasknutí pustul Žlučového plivače (+2 KOR při přežití běžného Útoku bez Přetížení) i jeho 2. fáze drápů (+2 KOR). Na konci kola klesne o 1 a neovlivňuje Štít z TECH ani Overdrive.',
         tacticalTip:
-          'Korozi odstraň Kryo-čisticím modulem (-2 KOR) či Overdrive Aurelie/Zuri (-2 KOR) a proti Plivači spouštěj Přetížení Útoku.',
+          'Korozi odstraň AI čipem Systémová očista.AI (-2 KOR) či Overdrivem Zuri (-2 KOR) a proti Plivači spouštěj Přetížení Útoku.',
         keywords: ['koroze', 'kor', 'kyselina', 'pustuly', 'štít', 'očista'],
       },
       jammed_tile: {
-        term: 'Blokovaná dlaždice (BLOK)',
+        term: 'Blokovaný dílek (BLOK)',
         shortTag: 'Sabotáž desky',
-        summary: 'Dlaždice vyřazená na 1 tah po nekrytém kyselinovém útoku.',
+        summary: 'Dílek vyřazený na 1 tah po nekrytém kyselinovém útoku.',
         mechanics:
-          'Pokud Žlučový plivač nebo Matriarcha udělí Žíravým plivancem alespoň 1 poškození do Zdraví, 1 dlaždice na desce se zablokuje. Nelze ji zahrát ani započítat do Přetížení; odblokuje se po tvé příští akci (nebo ihned při Overdrive).',
+          'Pokud Žlučový plivač nebo Matriarcha udělí kyselinovým útokem alespoň 1 poškození do Zdraví, 1 dílek na desce se zablokuje. Nelze jej zahrát ani započítat do Přetížení; odblokuje se po tvé příští akci (nebo ihned při Overdrive).',
         tacticalTip:
-          'Vykryj útok Štítem na 100 % — při 0 ztráty Zdraví se žádná dlaždice nezablokuje a drápy nepřidají +3 Brnění.',
-        keywords: ['blokovaná', 'blok', 'jammed', 'plivač', 'kyselina'],
+          'Vykryj útok Štítem na 100 % — při 0 ztráty Zdraví se žádný dílek nezablokuje a drápy nepřidají +3 Brnění.',
+        keywords: ['blokovaný', 'blok', 'jammed', 'plivač', 'kyselina', 'dlaždice', 'dílek'],
       },
       spike_retaliate: {
         term: 'Trnitý krunýř (Odplata)',
-        shortTag: 'Odveta nepřítele',
+        shortTag: 'Protiúder nepřítele',
         summary: 'Chitinový slídič vrátí 3 DMG pokaždé, když přežije běžný Útok bez Přetížení.',
         mechanics:
           'Kdykoli zasáhneš předního Chitinového slídiče normálním Útokem (pod hranicí Přetížení) a on přežije, ihned ti udělí 3 DMG do Štítu/Zdraví. Nespustí se při zabití, Přetížení Útoku, TECH, Odvetě ani Overdrive.',
@@ -773,13 +773,13 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         mechanics:
           'První 2 tahy cyklu neudělují žádné poškození a odpočítávají čas do výboje (2T → 1T). Ve 3. tahu udeří za 16 DMG. Zásah za 16+ DMG v jednom tahu ho Omráčí a vrátí odpočet na začátek.',
         tacticalTip:
-          'Uděl Žahavci 16+ DMG za 1 tah pro Omráčení a reset bomby, nebo ho posuň dopředu přes [R].',
+          'Zasaď Žahavci 16+ DMG za 1 tah pro Omráčení a reset odpočtu, nebo jej prohoď dopředu klávesou [R].',
         keywords: ['nabíjení', 'žahavec', 'žárové', '16 dmg', 'odpočet', 'omráčení'],
       },
       stagger: {
         term: 'Omráčení (Stagger)',
         shortTag: 'Přerušení 16+ DMG',
-        summary: 'Udělení 16+ HP/BRN poškození v jednom tahu přeruší Těžké údery i Žárové nabíjení.',
+        summary: 'Zásah za 16+ HP/BRN poškození v jednom tahu přeruší Těžké údery i Žárové nabíjení.',
         mechanics:
           'Pokud Žárový žahavec (nabíjení), Krunýřový kolos (Těžký úder) nebo Xenomorfní Matriarcha (Těžký úder) utrpí 16+ celkového poškození do HP a Brnění v jednom tahu a přežije, je OMRÁČEN: jeho příští akce klesne na 0 DMG a nabíjení se vrátí na 2T.',
         tacticalTip:
@@ -787,19 +787,19 @@ export const CODEX_TRANSLATIONS: Record<'en' | 'cs', CodexTranslationPack> = {
         keywords: ['omráčení', 'stagger', 'přerušení', '16', 'kolos', 'žahavec', 'boss'],
       },
       tile_hex: {
-        term: 'Kletba dlaždice (⬡)',
+        term: 'Kletba dílku (⬡)',
         shortTag: 'Sabotáž barvy',
-        summary: 'Nepřítel prokleje dlaždici; zahrání této barvy, dokud sesilatel žije, jej vyléčí.',
+        summary: 'Nepřítel prokleje dílek; zahrání této barvy, dokud sesilatel žije, jej vyléčí.',
         mechanics:
-          'Od 2. tahu Žlučový plivač a Matriarcha označí silnou dlaždici Útoku/Obrany značkou ⬡ KLETBA. Pokud tuto barvu aktivuješ, zatímco sesilatel žije, okamžitě se vyléčí +4 HP a získá +3 Brnění. Zabití sesilatele nebo Overdrive Kletbu zruší.',
+          'Od 2. tahu Žlučový plivač a Matriarcha označí silný dílek Útoku či Obrany značkou ⬡ KLETBA. Pokud tuto barvu aktivuješ, zatímco sesilatel žije, okamžitě se vyléčí +4 HP a získá +3 Brnění. Zabití sesilatele nebo Overdrive Kletbu zruší.',
         tacticalTip:
-          'Zahraj jinou barvu, zabij sesilatele přes Overdrive/Rozmach/Odstrčení, nebo jeho léčení přeraz.',
-        keywords: ['kletba', 'hex', 'plivač', 'boss', 'léčení', 'overdrive'],
+          'Zahraj jinou barvu, zabij sesilatele přes Overdrive/Rozmach/Prohoz, nebo jeho léčení přeraz.',
+        keywords: ['kletba', 'hex', 'plivač', 'boss', 'léčení', 'overdrive', 'dlaždice', 'dílek'],
       },
       caustic_slag: {
         term: 'Žíravá struska (☣)',
         shortTag: 'Znečištění balíčku',
-        summary: 'Nezablokovaná kyselina přidá 0hodnotovou Strusku, která při ponechání na desce spaluje 2 HP.',
+        summary: 'Nezablokovaná kyselina přidá nulovou Strusku, která při ponechání na desce spaluje 2 HP.',
         mechanics:
           'Až 2 kusy Žíravé strusky (barva TECH, hodnota 0) mohou vstoupit do cyklu po nezablokovaném zásahu kyselinou. Každá Struska držená na konci kola udělí 2 DMG. Zahrání TECH nebo spuštění Overdrive Strusku trvale spálí.',
         tacticalTip:

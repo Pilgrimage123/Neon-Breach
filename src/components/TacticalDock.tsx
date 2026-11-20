@@ -474,7 +474,7 @@ export function TacticalDock({
                 : 'text-slate-400'
             }`}
           >
-            ⇄ <span className="hidden sm:inline">{lang === 'cs' ? 'Posun' : 'Push'}</span>
+            ⇄ <span className="hidden sm:inline">{lang === 'cs' ? 'Prohoz' : 'Push'}</span>
           </button>
         )}
 
@@ -602,7 +602,7 @@ export function TacticalDock({
                   ★
                 </span>
               )}
-              <div className="flex max-w-full items-center gap-1 pl-3.5 pr-1 font-mono-tabular text-[10.5px] sm:text-[12px] leading-none">
+              <div className="flex max-w-full items-center gap-0.5 pl-4 pr-0.5 font-mono-tabular text-[10.5px] sm:text-[11.5px] leading-none">
                 <span className="hidden sm:inline opacity-80">[{theme.shortcut}]</span>
                 <span className="truncate font-bold text-slate-200">{label}</span>
                 <span className="shrink-0 font-bold text-white/90">×{count}</span>
@@ -648,11 +648,11 @@ export function TacticalDock({
             data-testid="hint-badge-overdrive"
             className="mr-1 rounded bg-slate-950 px-1 font-mono-tabular text-[10px] font-black text-[#FFC700]"
           >
-            ★ HINT
+            {lang === 'cs' ? '★ TIP' : '★ HINT'}
           </span>
         )}
         {charMeta.overdriveName} ({run.heroine.overdrive}/100)
-        <span className="hidden sm:inline"> [Space]</span>
+        <span className="hidden sm:inline">{lang === 'cs' ? ' [Mezerník]' : ' [Space]'}</span>
       </button>
     </div>
   );
@@ -721,7 +721,9 @@ export function TacticalDock({
           const shortValue = isBlight
             ? '0'
             : isDud && effective.value === 0
-              ? 'DUD'
+              ? lang === 'cs'
+                ? 'SLEPÝ'
+                : 'DUD'
               : lod.level === 'overview'
                 ? tile.type === 'attack' || tile.type === 'defense'
                   ? `${effective.value}`
@@ -750,7 +752,9 @@ export function TacticalDock({
                       ? t.odShort
                       : techKind === 'tactical_shield'
                         ? t.aegisShort
-                        : 'BOOST'
+                        : lang === 'cs'
+                          ? 'POSÍLENÍ'
+                          : 'BOOST'
                 : tile.type === 'attack'
                   ? t.attackName
                   : t.defenseName;
@@ -849,7 +853,13 @@ export function TacticalDock({
                       className="inline-flex h-4 shrink-0 items-center justify-center rounded-sm border border-white/80 px-0.5 font-mono-tabular text-[9px] font-black leading-none"
                       title={
                         lang === 'cs'
-                          ? `Sloučený dílek: +${tile.secondaryValue} ${tile.secondaryType.toUpperCase()}`
+                          ? `Sloučený dílek: +${tile.secondaryValue} ${
+                              tile.secondaryType === 'attack'
+                                ? 'ÚTOK'
+                                : tile.secondaryType === 'defense'
+                                  ? 'OBRANA'
+                                  : 'TECH'
+                            }`
                           : `Hybrid Tile: +${tile.secondaryValue} ${tile.secondaryType.toUpperCase()}`
                       }
                     >

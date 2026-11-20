@@ -448,7 +448,7 @@ export function PauseModal({
                   settings.tacticalView ? 'border-cyan-300 bg-cyan-500/20 text-white' : 'text-slate-200'
                 }`}
               >
-                ⌖ {lang === 'cs' ? 'Taktický pohled' : 'Tactical View'}: {settings.tacticalView ? 'ON' : 'OFF'}
+                ⌖ {lang === 'cs' ? 'Taktický pohled' : 'Tactical View'}: {settings.tacticalView ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
               </button>
               <button
                 type="button"
@@ -467,7 +467,7 @@ export function PauseModal({
                   settings.autoFocusCamera ? 'border-cyan-300 bg-cyan-500/20 text-white' : 'text-slate-200'
                 }`}
               >
-                🎥 {lang === 'cs' ? 'Auto-kamera' : 'Auto Cam'}: {settings.autoFocusCamera ? 'ON' : 'OFF'}
+                🎥 {lang === 'cs' ? 'Auto-kamera' : 'Auto Cam'}: {settings.autoFocusCamera ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
               </button>
               <button
                 type="button"
@@ -478,7 +478,7 @@ export function PauseModal({
                   settings.pipMathMode ? 'border-[#FFC700] bg-amber-500/20 text-white' : 'text-slate-200'
                 }`}
               >
-                ⊞ 1P=5 Math: {settings.pipMathMode ? 'ON' : 'OFF'}
+                ⊞ {lang === 'cs' ? 'Přepočet 1P=5' : '1P=5 Math'}: {settings.pipMathMode ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
               </button>
               <button
                 type="button"
@@ -488,7 +488,7 @@ export function PauseModal({
                   settings.hudMinimized ? 'border-cyan-300 bg-cyan-500/20 text-white' : 'text-slate-200'
                 }`}
               >
-                {settings.hudMinimized ? '▼' : '▲'} {lang === 'cs' ? 'Kompaktní HUD' : 'Compact HUD'}: {settings.hudMinimized ? 'ON' : 'OFF'}
+                {settings.hudMinimized ? '▼' : '▲'} {lang === 'cs' ? 'Kompaktní HUD' : 'Compact HUD'}: {settings.hudMinimized ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
               </button>
               <button
                 type="button"
@@ -498,7 +498,7 @@ export function PauseModal({
                   settings.twoStepConfirm ? 'border-cyan-300 bg-cyan-500/20 text-white' : 'text-slate-200'
                 }`}
               >
-                ✓ {lang === 'cs' ? '2-krokové potvrzení' : '2-Step Confirm'}: {settings.twoStepConfirm ? 'ON' : 'OFF'}
+                ✓ {lang === 'cs' ? 'Dvoukrokové potvrzení' : '2-Step Confirm'}: {settings.twoStepConfirm ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
               </button>
               <button
                 type="button"
@@ -650,7 +650,7 @@ export function EndRunModal({
                 className="chrome-btn-primary w-full rounded-lg px-3 py-2 text-xs font-bold transition-all cursor-pointer"
               >
                 {lang === 'cs'
-                  ? '⚡ Zkusit uzel s Vanguard Aegis (+15 HP, +10 Štít, +40 % OD)'
+                  ? '⚡ Zkusit znovu s podporou (+15 HP, +10 Štít, +40 % OD)'
                   : '⚡ Fail-Forward Retry (+15 HP, +10 Shield, +40% OD)'}
               </button>
             )}
@@ -662,7 +662,7 @@ export function EndRunModal({
                 className="chrome-pill w-full rounded-lg border-cyan-300/45 px-3 py-2 text-xs font-semibold text-cyan-100 transition-colors hover:border-cyan-200 hover:text-white cursor-pointer text-center"
               >
                 {lang === 'cs'
-                  ? '⟲ Restartovat tento boj čistě (Tah 1)'
+                  ? '⟲ Začít boj znovu od 1. tahu'
                   : '⟲ Retry Encounter Cleanly (Turn 1)'}
               </button>
             )}
@@ -674,7 +674,7 @@ export function EndRunModal({
                 className="chrome-pill w-full rounded-lg border-emerald-300/50 bg-emerald-950/55 px-3 py-2 text-xs font-bold text-emerald-100 transition-colors hover:border-emerald-200 hover:text-white cursor-pointer text-center"
               >
                 {lang === 'cs'
-                  ? '⏭ Přeskočit uzel (Story Mode · pokračovat na mapu)'
+                  ? '⏭ Přeskočit střet (Příběhový režim · zpět na mapu)'
                   : '⏭ Skip Puzzle Encounter (Story Mode · advance map)'}
               </button>
             )}

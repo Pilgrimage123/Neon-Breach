@@ -112,29 +112,29 @@ export function getBossTelegraphIntel(
   }
   return {
     name: 'Xenomorfní Matriarcha',
-    classification: 'Vrcholná vládkyně roje · Finále Sektoru 05',
+    classification: 'Vrcholná vládkyně roje · Finále úseku 05',
     hp: bossHp,
     gimmicks: [
       {
         id: 'phase_lock',
         title: '50% Fázová bariéra',
-        description: 'Pohlcuje přebytek poškození, aktivuje Brnění & Aegis',
+        description: 'Pohltí přebytečné poškození a obnoví Brnění i Aegis Pip',
         badge: 'FÁZOVÝ ZÁMEK',
       },
       {
         id: 'acid_jam',
-        title: 'Korozivní zablokování dílků',
-        description: 'Kyselina: poškození zablokuje nechráněné dílky',
-        badge: 'ZABLOKOVÁNÍ',
+        title: 'Korozivní blokace dílků',
+        description: 'Kyselina při zásahu do HP zablokuje dílek na desce',
+        badge: 'BLOKACE',
       },
       {
         id: 'swarm_call',
         title: 'Posily roje',
-        description: 'Přivolává posily Výtrusníků a Stopařů',
-        badge: 'VOLÁNÍ ROJE',
+        description: 'Přivolává Spórové roztoče a Chitinové slídiče',
+        badge: 'POSILY ROJE',
       },
     ],
-    recommendedPrep: 'Příprava: TECH průraz, drcení Brnění a Aegis',
+    recommendedPrep: 'Příprava: TECH průraz, drcení brnění a silný Štít',
   };
 }
 
@@ -158,8 +158,8 @@ export function getMetropolisDistricts(
       {
         index: 0,
         code: 'D-01',
-        title: isCs ? 'Sektorová Proluka' : 'Sector Breach',
-        subtitle: isCs ? 'Stages 01–05' : 'Stages 01–05',
+        title: isCs ? 'Sektorová proluka' : 'Sector Breach',
+        subtitle: isCs ? 'Úseky 01–05' : 'Stages 01–05',
         startLayer: 0,
         endLayer: totalLayers - 1,
         accentColor: '#00F0FF',
@@ -170,9 +170,9 @@ export function getMetropolisDistricts(
     {
       index: 0,
       code: 'DIST-I',
-      title: isCs ? 'I. Občanská FabLab Čtvrť' : 'I. Civic Makerspace Quarter',
+      title: isCs ? 'I. Občanská čtvrť FabLab' : 'I. Civic Makerspace Quarter',
       subtitle: isCs
-        ? 'Open-Source FabLaby · Upcycle Kiosky · Mesh-Net'
+        ? 'Otevřené FabLaby · Upcycle kiosky · Mesh-Net'
         : 'Open-Source FabLabs · Upcycle Kiosks · Mesh-Net',
       startLayer: 0,
       endLayer: 2,
@@ -181,9 +181,9 @@ export function getMetropolisDistricts(
     {
       index: 1,
       code: 'DIST-II',
-      title: isCs ? 'II. Biotech Kolébka & Akademie' : 'II. Neonatal & Pedigree Commons',
+      title: isCs ? 'II. Biotech kolébka a akademie' : 'II. Neonatal & Pedigree Commons',
       subtitle: isCs
-        ? 'Čapí Jesle · Rodokmenová Laboratoř · Akademie'
+        ? 'Čapí jesle · Rodokmenová laboratoř · Akademie'
         : 'Stork Nursery · Pedigree Lab · Charter Academy',
       startLayer: 3,
       endLayer: 5,
@@ -192,9 +192,9 @@ export function getMetropolisDistricts(
     {
       index: 2,
       code: 'DIST-III',
-      title: isCs ? 'III. Dynastické Nebeské Dómy' : 'III. Dynasty Sky-Domes & Gala',
+      title: isCs ? 'III. Dynastické nebeské dómy' : 'III. Dynasty Sky-Domes & Gala',
       subtitle: isCs
-        ? 'Gala Dohazovačů · Dědičná Kovárna · Mag-Lev'
+        ? 'Galavečer dohazovačů · Rodová kovárna · Mag-Lev'
         : 'Matchmaker’s Gala · Heirloom Forge · Mag-Lev Hub',
       startLayer: 6,
       endLayer: 8,
@@ -203,9 +203,9 @@ export function getMetropolisDistricts(
     {
       index: 3,
       code: 'DIST-IV',
-      title: isCs ? 'IV. Citadela Svrchovanosti' : 'IV. Sovereign Citadel Approach',
+      title: isCs ? 'IV. Citadela svrchovanosti' : 'IV. Sovereign Citadel Approach',
       subtitle: isCs
-        ? 'Chytrý Krb · Vanguard Eskorta · Matriarcha'
+        ? 'Chytrý krb · Eskorta kolébky · Matriarcha'
         : 'Smart-Hearth Penthouse · Vanguard Escort · Apex Core',
       startLayer: 9,
       endLayer: totalLayers - 1,
@@ -674,10 +674,10 @@ export function getNodeEconomyMetrics(
       opportunityCost =
         node.modifier === 'overcharged_hazard'
           ? isCs
-            ? 'Mini-Elita: 💔 +18% Zátěž · 💎 +1 Nanit'
+            ? 'Mini-elita: 💔 +18 % riziko · 💎 +1 Nanit'
             : 'Mini-Elite: 💔 +18% Tension · 💎 +1 Nanite'
           : isCs
-            ? '🪙 +35 CR · 💔 ~12% Zátěž · šetří Med-Bay'
+            ? '🪙 +35 CR · 💔 ~12 % riziko · šetří ošetřovnu'
             : '🪙 +35 CR · 💔 ~12% Tension · preserves Med-Bay';
       break;
     case 'ELITE':
@@ -688,8 +688,8 @@ export function getNodeEconomyMetrics(
       runYieldPowerRating = 'HIGH';
       metaYieldNanites = 2 + (node.modifier === 'nanite_cache' ? 2 : 0);
       opportunityCost = isCs
-        ? '👑 Elita: 💎 +2 Nanity · 🪙 +60 CR · Relikvie'
-        : '👑 Elite: 💎 +2 Nanites · 🪙 +60 CR · Relic';
+        ? '👑 Elita: 💎 +2 Nanity · 🪙 +60 CR · AI čip'
+        : '👑 Elite: 💎 +2 Nanites · 🪙 +60 CR · AI Chip';
       break;
     case 'CYBER_CLINIC':
       tensionHpPct = 0;
@@ -708,10 +708,10 @@ export function getNodeEconomyMetrics(
       opportunityCost =
         node.modifier === 'flash_sale'
           ? isCs
-            ? '🏷 Výprodej (-35% cen): Čipy a Droni'
-            : '🏷 Flash Sale (-35% price): Chips & Drones'
+            ? '🏷 Výprodej (-35 % cen): AI čipy a Chůva-boti'
+            : '🏷 Flash Sale (-35% price): AI Skill Chips & Bots'
           : isCs
-            ? '🤖 AI Čipy · Chůva-Boti · Kovárna Dědictví'
+            ? '🤖 AI čipy · Chůva-boti · Rodová kovárna'
             : '🤖 AI Skill Chips · Nanny-Bots · Heirloom Forge';
       break;
     case 'MED_BAY':
@@ -722,10 +722,10 @@ export function getNodeEconomyMetrics(
       opportunityCost =
         node.modifier === 'funded_clinic'
           ? isCs
-            ? '💚 Dotovaný Krb: 💚 +12 HP bonus ke všemu'
+            ? '💚 Dotovaný krb: +12 HP bonus ke všem volbám'
             : '💚 Funded Hearth: 💚 +12 HP bonus on all'
           : isCs
-            ? '💚 Oprava trupu · Přetaktování dílků · Rodina'
+            ? '💚 Oprava HP · Přetaktování dílků · Rodové bonusy'
             : '💚 Hull Repair · Tile Overclock · Family Buffs';
       break;
     case 'EVENT':
@@ -743,7 +743,7 @@ export function getNodeEconomyMetrics(
       runYieldPowerRating = 'CRITICAL';
       metaYieldNanites = 5;
       opportunityCost = isCs
-        ? '☠ Boss Aktu: 💎 +5 Nanitů · 🪙 +100 CR'
+        ? '☠ Boss sektoru: 💎 +5 Nanitů · 🪙 +100 CR'
         : '☠ Act Boss: 💎 +5 Nanites · 🪙 +100 CR';
       break;
   }
@@ -814,17 +814,17 @@ export function getLaneClusterProfiles(
     if (eventCount > 0 || (!hasElite && combatCount <= 1 && hasMedBay)) {
       archetype = 'gambler';
       name = isCs ? 'LÁVKA HAZARDÉRA' : "GAMBLER'S CATWALK";
-      tagline = isCs ? 'Anomálie a aliance · Nízká únava' : 'Anomalies & Alliances · Low Combat Fatigue';
+      tagline = isCs ? 'Anomálie a aliance · Šetrnější tempo boje' : 'Anomalies & Alliances · Low Combat Fatigue';
       yieldRating = eventCount > 0 ? 'HIGH_VARIANCE' : 'BALANCED';
     } else if (hasElite && hasMedBay) {
       archetype = 'gauntlet';
       name = isCs ? 'CESTA ZKOUŠKY' : 'THE GAUNTLET';
-      tagline = isCs ? 'Vysoké riziko · Elitní kořist · Záchranný Med-Bay' : 'High Tension · Elite Bounty · Rest Safety Net';
+      tagline = isCs ? 'Vysoké riziko · Elitní kořist · Záchranná ošetřovna' : 'High Tension · Elite Bounty · Rest Safety Net';
       yieldRating = 'HIGH_META';
     } else {
       archetype = 'mercenary';
-      name = isCs ? 'ŽOLDÁCKÁ TRASA' : 'MERCENARY PATH';
-      tagline = isCs ? 'Stálý boj · Maximum kreditů · Nákupní sestava' : 'Steady Combat · Maximize Credits · Shop Build';
+      name = isCs ? 'ŽOLDNÉŘSKÁ TRASA' : 'MERCENARY PATH';
+      tagline = isCs ? 'Stálý boj · Maximum kreditů · Nákup AI čipů' : 'Steady Combat · Maximize Credits · AI Chip Build';
       yieldRating = 'HIGH_WEALTH';
     }
 
@@ -975,7 +975,7 @@ export function getNodeEncounterIntel(
 
   if (node.modifier === 'golden_bounty') {
     threatTraits.push(
-      isCs ? 'Zlatý cíl (+50% odměna kreditů)' : 'High-Value Target (+50% Bounty Credits)',
+      isCs ? 'Zlatý cíl (+50 % odměna kreditů)' : 'High-Value Target (+50% Bounty Credits)',
     );
   } else if (node.modifier === 'double_credits') {
     threatTraits.push(
@@ -983,22 +983,22 @@ export function getNodeEncounterIntel(
     );
   } else if (node.modifier === 'nanite_cache') {
     threatTraits.push(
-      isCs ? 'Ukradená skrýš nanitů (+2 meta nanity)' : 'Stolen Nanite Cache (+2 Meta Nanites)',
+      isCs ? 'Ukradená skrýš nanitů (+2 Nanity)' : 'Stolen Nanite Cache (+2 Meta Nanites)',
     );
   } else if (node.modifier === 'overcharged_hazard') {
     threatTraits.push(
       isCs
-        ? 'Přetížené riziko (+25% síla nepřátel, +1 meta nanit)'
+        ? 'Přetížená hrozba (+25 % síla nepřátel, +1 Nanit)'
         : 'Overcharged Hazard (+25% Enemy Stats, Drops +1 Meta Nanite)',
     );
   } else if (node.modifier === 'flash_sale') {
     threatTraits.push(
-      isCs ? 'Bleskový výprodej (-35% ceny AI čipů)' : 'Flash Sale Dealer (-35% AI Chip Prices)',
+      isCs ? 'Bleskový výprodej (-35 % ceny AI čipů)' : 'Flash Sale Dealer (-35% AI Chip Prices)',
     );
   } else if (node.modifier === 'funded_clinic') {
     threatTraits.push(
       isCs
-        ? 'Dotovaná klinika (+12 HP bonusové opravy na libovolnou akci)'
+        ? 'Dotovaná ošetřovna (+12 HP bonus ke každé volbě)'
         : 'Funded Clinic (+12 HP Bonus Repair on Any Action)',
     );
   }
@@ -1040,9 +1040,9 @@ export function getNodeEncounterIntel(
     } else if (unit.archetype === 'spitter') {
       threatTraits.push(isCs ? 'Korozivní kyselina' : 'Corrosive Acid Spits');
     } else if (unit.archetype === 'stalker') {
-      threatTraits.push(isCs ? 'Maskované výpady' : 'Cloaked Ambush Strikes');
+      threatTraits.push(isCs ? 'Trnitá odplata' : 'Cloaked Ambush Strikes');
     } else if (unit.archetype === 'brute') {
-      threatTraits.push(isCs ? 'Těžký drtič & chitinové brnění' : 'Enraged Cleave & Chitin Armor');
+      threatTraits.push(isCs ? 'Těžký drtič a chitinové brnění' : 'Enraged Cleave & Chitin Armor');
     }
     return {
       archetype: unit.archetype,
@@ -1054,7 +1054,7 @@ export function getNodeEncounterIntel(
   if (node.type === 'ELITE') {
     threatTraits.unshift(
       isCs
-        ? 'Elitní kyber-mutant (Kořist +2 nanity)'
+        ? 'Elitní kyber-mutant (Kořist +2 Nanity)'
         : 'Elite Cyber-Mutant (Drops +2 Nanites)',
     );
   }

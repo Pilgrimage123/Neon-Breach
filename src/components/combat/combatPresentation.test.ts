@@ -960,4 +960,185 @@ test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right ene
   assert.ok(stalkerRecoil.deform.head.dx * -1 > 0, 'mirrored stalker recoil bends away from heroine (right on screen)');
 });
 
+test('SpriteJuiceFeedbackHandler.triggerTargetEvade clears recoil/flash/knockback while preserving melee clash slide', () => {
+  const juice = new SpriteJuiceFeedbackHandler();
+  juice.beginWindup({
+    attackerId: 'e1',
+    targetIds: ['hero'],
+    allActorIds: ['hero', 'e1'],
+    strikeDirX: -1,
+    isMelee: true,
+    clashSlideDistPx: 140,
+    attackerSlideOverridePx: -150,
+    targetSlideOverridesPx: new Map([['hero', 150]]),
+    rangedLungePx: 14,
+  });
+  juice.stepFrame(0.016, false, 'windup', 1.0);
+  const preEvade = juice.getSnapshot('hero', 0.75);
+  assert.equal(preEvade.poseOverride, 'brace_pose');
+  assert.ok(preEvade.clashSlideX > 120, 'hero slides into center-stage melee clash');
+
+  juice.triggerTargetEvade({ targetId: 'hero' });
+  const evaded = juice.getSnapshot('hero', 0.75);
+  assert.equal(evaded.poseOverride, 'none', 'evade releases brace_pose immediately');
+  assert.equal(evaded.knockbackX, 0, 'evade applies zero knockback');
+  assert.equal(evaded.flashRgba, null, 'evade applies zero hit flash');
+  assert.ok(evaded.clashSlideX > 120, 'evade preserves center-stage clash anchor without snapping backward');
+  assert.equal(evaded.drawPriority, 3, 'evading target stays in foreground draw layer');
+});
+
+test('CombatActionSequencer runs melee Darkest Dungeon clash with 50ms tension pause and full-dodge zoomed hold on evade', async () => {
+  const seq = new CombatActionSequencer();
+  let impacts = 0;
+
+  const done = seq.playCutIn(
+    {
+      id: 'seq_melee_evade',
+      actionKind: 'crit',
+      stagingMode: 'melee',
+      attackerId: 'e1',
+      targetIds: ['hero'],
+      allActorIds: ['hero', 'e1', 'e2'],
+      attackerBounds: { id: 'e1', x: 660, groundY: 300, widthPx: 100, heightPx: 160 },
+      targetBounds: [{ id: 'hero', x: 210, groundY: 300, widthPx: 110, heightPx: 180 }],
+      tempoScale: 0.64,
+      evadedTargetIds: ['hero'],
+      hitstopOverrideSec: 0.05,
+      holdDurationOverrideSec: 1.0,
+      onImpactFrame: () => {
+        impacts++;
+      },
+    },
+    DEFAULT_COMBAT_PRESENTATION_CONFIG,
+    960,
+    380,
+  );
+
+  let hitStopElapsedSec = 0;
+  let followthroughElapsedSec = 0;
+  let maxEnemyApproachPx = 0;
+  let maxHeroApproachPx = 0;
+  let peakHoldZoom = 1;
+  let sawInvertOrSpeedLines = false;
+  let sawHeroFlashOrKnockback = false;
+  let sawHeroRecoil = false;
+
+  const dt = 0.01;
+  for (let i = 0; i < 300 && seq.isActive(); i++) {
+    const f = seq.step(dt, 960, 380, {
+      tacticalViewActive: false,
+      reducedMotion: false,
+    });
+    const enemySnap = seq.getActorJuice('e1');
+    const heroSnap = seq.getActorJuice('hero');
+
+    if (enemySnap.clashSlideX < 0) {
+      maxEnemyApproachPx = Math.max(maxEnemyApproachPx, -enemySnap.clashSlideX);
+    }
+    if (heroSnap.clashSlideX > 0) {
+      maxHeroApproachPx = Math.max(maxHeroApproachPx, heroSnap.clashSlideX);
+    }
+    if (f.invertFlashAlpha > 0 || f.speedLinesAlpha > 0) {
+      sawInvertOrSpeedLines = true;
+    }
+    if (f.phase === 'impact_freeze' || f.phase === 'followthrough') {
+      if (heroSnap.flashRgba !== null || Math.abs(heroSnap.knockbackX) > 0.01) {
+        sawHeroFlashOrKnockback = true;
+      }
+      if (heroSnap.poseOverride === 'recoil_pose') {
+        sawHeroRecoil = true;
+      }
+    }
+    if (f.isHitStopped) {
+      hitStopElapsedSec += dt;
+    }
+    if (f.phase === 'followthrough') {
+      followthroughElapsedSec += dt;
+      peakHoldZoom = Math.max(peakHoldZoom, f.cameraZoom);
+      assert.equal(f.worldUiAlpha, 0, 'world HUD stays hidden while zoomed in on dodge');
+    }
+  }
+
+  await done;
+  assert.equal(impacts, 1);
+  assert.ok(maxEnemyApproachPx > 100, `melee attacker must advance nose-to-nose (moved ${maxEnemyApproachPx.toFixed(1)}px)`);
+  assert.ok(maxHeroApproachPx > 100, `heroine must meet enemy in center-stage clash (moved ${maxHeroApproachPx.toFixed(1)}px)`);
+  assert.ok(
+    hitStopElapsedSec >= 0.04 && hitStopElapsedSec <= 0.06,
+    `evade micro tension pause should be ~50ms (got ${(hitStopElapsedSec * 1000).toFixed(0)}ms)`,
+  );
+  assert.ok(
+    followthroughElapsedSec >= 0.96,
+    `zoomed Darkest Dungeon hold must span full dodge duration even under pack speedup (got ${followthroughElapsedSec.toFixed(2)}s)`,
+  );
+  assert.ok(peakHoldZoom >= 1.32, `Darkest Dungeon melee zoom must stay active (${peakHoldZoom.toFixed(2)}x)`);
+  assert.equal(sawInvertOrSpeedLines, false, 'evaded attack suppresses crit invert flash & speed lines');
+  assert.equal(sawHeroFlashOrKnockback, false, 'evading Kira never receives hit flash or knockback');
+  assert.equal(sawHeroRecoil, false, 'evading Kira never enters recoil_pose');
+  assert.equal(seq.getPhase(), 'idle');
+});
+
+test('CombatActionSequencer runs Two-Beat ranged shooter zoom -> whip-pan to Kira evade with full hold', async () => {
+  const seq = new CombatActionSequencer();
+  let spawned = 0;
+  let impacted = 0;
+
+  const done = seq.playCutIn(
+    {
+      id: 'seq_ranged_evade',
+      actionKind: 'normal',
+      stagingMode: 'ranged_fast',
+      attackerId: 'spitter_1',
+      targetIds: ['hero'],
+      allActorIds: ['hero', 'spitter_1'],
+      attackerBounds: { id: 'spitter_1', x: 740, groundY: 300, widthPx: 100, heightPx: 160 },
+      targetBounds: [{ id: 'hero', x: 210, groundY: 300, widthPx: 110, heightPx: 180 }],
+      evadedTargetIds: ['hero'],
+      hitstopOverrideSec: 0.05,
+      holdDurationOverrideSec: 1.0,
+      onProjectileSpawn: () => {
+        spawned++;
+      },
+      onImpactFrame: () => {
+        impacted++;
+      },
+    },
+    DEFAULT_COMBAT_PRESENTATION_CONFIG,
+    960,
+    380,
+  );
+
+  let windupPanX = 0;
+  let holdPanX = 0;
+  let holdSec = 0;
+  const phases = new Set<string>();
+  const dt = 0.02;
+
+  for (let i = 0; i < 200 && seq.isActive(); i++) {
+    const f = seq.step(dt, 960, 380, {
+      tacticalViewActive: false,
+      reducedMotion: false,
+    });
+    phases.add(f.phase);
+    if (f.phase === 'windup') windupPanX = f.cameraPanX;
+    if (f.phase === 'followthrough') {
+      holdPanX = f.cameraPanX;
+      holdSec += dt;
+      assert.equal(seq.getActorJuice('hero').poseOverride, 'none');
+      assert.equal(seq.getActorJuice('hero').flashRgba, null);
+    }
+  }
+
+  await done;
+  assert.equal(spawned, 1, 'ranged evade spawns projectile cleanly on Beat 1 -> Beat 2 transition');
+  assert.equal(impacted, 1);
+  assert.ok(phases.has('windup') && phases.has('travel') && phases.has('impact_freeze') && phases.has('followthrough'));
+  assert.ok(
+    holdPanX > windupPanX + 40,
+    `camera whip-pans from right ranged enemy (panX=${windupPanX.toFixed(1)}) to left dodging Kira (panX=${holdPanX.toFixed(1)})`,
+  );
+  assert.ok(holdSec >= 0.96, `ranged evade holds zoom across full dodge (${holdSec.toFixed(2)}s)`);
+});
+
+
 

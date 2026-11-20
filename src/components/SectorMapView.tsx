@@ -931,7 +931,7 @@ export function SectorMapView({
                 onClick={() => onCharterEstate(nextCharterLayer)}
                 title={
                   lang === 'cs'
-                    ? 'Založit Rodinnou usedlost na další vrstvě (+5 HP ihned, +12 CR a +5 HP při vstupu)'
+                    ? 'Založit rodinnou usedlost v dalším úseku (+5 HP ihned, +12 CR a +5 HP při vstupu)'
                     : 'Charter a Family Estate on the next stage (+5 HP now, +12 CR & +5 HP on entry)'
                 }
                 className="chrome-pill rounded-lg border-emerald-400/50 px-2.5 py-1 font-mono-tabular text-[12px] font-bold text-emerald-200 hover:border-emerald-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
@@ -955,17 +955,17 @@ export function SectorMapView({
                 onClick={() => onRideMagLev()}
                 title={
                   lang === 'cs'
-                    ? 'Expresní Mag-Lev linka: přemostí o 2 vrstvy vpřed (+25 CR, -2 Koroze, +1 krok Čapí inkubace)'
+                    ? 'Expresní Mag-Lev: přeskočí 2 úseky vpřed (+25 CR, -2 Koroze, +1 krok Čapí kapsle)'
                     : 'Mag-Lev Express Line: bridge 2 stages ahead (+25 CR, -2 Corrode, +1 Stork Pod step)'
                 }
                 className="chrome-pill rounded-lg border-sky-400/55 px-2.5 py-1 font-mono-tabular text-[12px] font-bold text-sky-200 hover:border-sky-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
               >
                 🚄 {run.heroine.maglevUsed
                   ? lang === 'cs'
-                    ? 'Mag-Lev Využit ✓'
+                    ? 'Mag-Lev využit ✓'
                     : 'Mag-Lev Used ✓'
                   : lang === 'cs'
-                    ? 'Mag-Lev Expres (+25 CR)'
+                    ? 'Mag-Lev expres (+25 CR)'
                     : 'Mag-Lev Express (+25 CR)'}
               </button>
             )}
@@ -1427,7 +1427,7 @@ export function SectorMapView({
                     onClick={() => onRerouteMeshNet(briefingNode.id)}
                     className="chrome-pill rounded-lg border-cyan-400/60 bg-cyan-500/20 px-3 py-1.5 font-mono-tabular text-xs font-bold text-cyan-200 hover:border-cyan-300 hover:text-white cursor-pointer whitespace-nowrap"
                   >
-                    📡 {lang === 'cs' ? `Mesh-Net Přesměrování (${meshReroutesRemaining})` : `Mesh-Net Reroute (${meshReroutesRemaining})`}
+                    📡 {lang === 'cs' ? `Mesh-Net přesměrování (${meshReroutesRemaining})` : `Mesh-Net Reroute (${meshReroutesRemaining})`}
                   </button>
                 )}
 

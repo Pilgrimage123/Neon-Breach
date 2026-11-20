@@ -787,7 +787,7 @@ export function renderCombatStage(
     canonicalHeight,
   );
   const heroCutInDrawX = isKiraDodging
-    ? heroX
+    ? Math.max(w * 0.08, heroX + (heroCutIn.active ? heroCutIn.clashSlideX : 0))
     : heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
 
   ctx.save();

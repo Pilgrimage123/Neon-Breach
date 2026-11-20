@@ -1,7 +1,7 @@
 import { soundEngine } from '../../audio/soundEngine';
 import type { AnimationCue, CombatState, EnemyArchetype, HeroineState } from '../../engine/types';
 import { triggerCharacterAnimation } from '../../utils/aureliaSpriteSheet';
-import { shouldKiraDodgeAttack } from '../../utils/heroineSpriteSheet';
+import { HEROINE_DODGE_DURATION, shouldKiraDodgeAttack } from '../../utils/heroineSpriteSheet';
 import type { CameraActorBounds } from './ActionCameraController';
 import {
   type CombatPresentationConfig,
@@ -50,42 +50,42 @@ export function triggerKiraDodgeVfx(
 ): void {
   sim.heroState = triggerCharacterAnimation(sim.heroState, 'dodge', 'kira');
   sim.shieldDomeTimer = 0;
-  sim.dodgeZoomTimer = 0.70;
+  sim.dodgeZoomTimer = HEROINE_DODGE_DURATION;
   sim.trauma = Math.min(1, sim.trauma + 0.05);
   soundEngine.playDodgeWhoosh();
 
   // Beat 1: Vault launch burst (electric cyan + neon magenta rim sparks)
   spawnBurst(sim, liveHeroX + 6, groundY - 26, 14, '#00F0FF', 1, 1.02);
   spawnBurst(sim, liveHeroX - 4, groundY - 46, 8, '#F472B6', 0, 0.85);
-  spawnFloatingText(sim, liveHeroX - 6, groundY - 156, 'MISS', '#00F0FF', 1.24);
+  spawnFloatingText(sim, liveHeroX - 6, groundY - 164, 'MISS', '#00F0FF', 1.24);
 
-  // Beat 2: Wide neon power-slide deck sparks
+  // Beat 2: Wide neon power-slide touchdown deck sparks (0.24s)
   sim.pendingImpacts.push({
     triggerOn: 'delay',
-    delayRemaining: 0.18,
+    delayRemaining: 0.24,
     execute: () => {
-      spawnBurst(sim, liveHeroX - 18, groundY - 6, 12, '#00F0FF', 1, 0.92);
-      spawnBurst(sim, liveHeroX - 28, groundY - 3, 7, '#38BDF8', 0, 0.78);
+      spawnBurst(sim, liveHeroX - 36, groundY - 6, 12, '#00F0FF', 1, 0.94);
+      spawnBurst(sim, liveHeroX - 52, groundY - 3, 7, '#38BDF8', 0, 0.80);
     },
   });
 
-  // Beat 3: Deep slide braking skid sparks
+  // Beat 3: Deep power-slide braking skid sparks (0.48s)
   sim.pendingImpacts.push({
     triggerOn: 'delay',
-    delayRemaining: 0.35,
+    delayRemaining: 0.48,
     execute: () => {
-      spawnBurst(sim, liveHeroX - 30, groundY - 5, 11, '#00F0FF', 1, 0.88);
-      spawnBurst(sim, liveHeroX - 22, groundY - 4, 6, '#F472B6', 0, 0.72);
+      spawnBurst(sim, liveHeroX - 64, groundY - 5, 11, '#00F0FF', 1, 0.88);
+      spawnBurst(sim, liveHeroX - 48, groundY - 4, 6, '#F472B6', 0, 0.74);
     },
   });
 
-  // Beat 4: 3-point superhero landing micro-shatter sparks
+  // Beat 4: 3-point superhero landing micro-shatter sparks (0.68s)
   sim.pendingImpacts.push({
     triggerOn: 'delay',
-    delayRemaining: 0.51,
+    delayRemaining: 0.68,
     execute: () => {
-      spawnBurst(sim, liveHeroX - 8, groundY - 3, 12, '#38BDF8', 1, 0.86);
-      spawnBurst(sim, liveHeroX + 4, groundY - 2, 6, '#FDE047', 1, 0.65);
+      spawnBurst(sim, liveHeroX - 24, groundY - 3, 13, '#38BDF8', 1, 0.88);
+      spawnBurst(sim, liveHeroX - 8, groundY - 2, 7, '#FDE047', 1, 0.68);
     },
   });
 }
@@ -1090,7 +1090,7 @@ export function drainTriggerImpacts(
   };
 }
 
-function ensureEnemyAnim(sim: CombatStageSim, id: string): ActorAnim {
+export function ensureEnemyAnim(sim: CombatStageSim, id: string): ActorAnim {
   let ea = sim.enemyAnims.get(id);
   if (!ea) {
     ea = {
@@ -1756,9 +1756,11 @@ export function applyCombatCues(
         hpDamage,
         armorDamage,
       });
+      const useCutInForEnemy =
+        !tacticalViewActive && presCfg.enabled && Boolean(cue.targetId) && !cutInStarted;
       if (willKiraDodge) {
         kiraDodgeScheduled = true;
-        if (enemyClassification.projectileProfile) {
+        if (!useCutInForEnemy && enemyClassification.projectileProfile) {
           const spawnX = isSpitterBile ? attackerPos.x - 42 : attackerPos.x - 36;
           const spawnY = isSpitterBile
             ? attackerPos.groundY - 116
@@ -1774,16 +1776,15 @@ export function applyCombatCues(
           });
         }
       }
-      const useCutInForEnemy =
-        !willKiraDodge && !tacticalViewActive && presCfg.enabled && Boolean(cue.targetId) && !cutInStarted;
       if (useCutInForEnemy && cue.targetId) {
         cutInStarted = true;
         const isCritEnemy =
-          Boolean(cue.heavySmash) ||
-          attackerArch === 'boss' ||
-          isStalkerAmbush ||
-          isLethal ||
-          hpDamage >= 12;
+          !willKiraDodge &&
+          (Boolean(cue.heavySmash) ||
+            attackerArch === 'boss' ||
+            isStalkerAmbush ||
+            isLethal ||
+            hpDamage >= 12);
         const enemyActionKind: CutInActionKind = isCritEnemy ? 'crit' : 'normal';
         const enemyStagingMode: CutInStagingMode = enemyClassification.stagingMode;
         const flightSec = Math.max(0.11, presCfg.rangedWhipPanSec * tempoScale);
@@ -1800,6 +1801,9 @@ export function applyCombatCues(
               targetBounds: [buildActorBounds('hero')],
               tempoScale,
               waitForExternalImpact: false,
+              evadedTargetIds: willKiraDodge ? ['hero'] : undefined,
+              hitstopOverrideSec: willKiraDodge ? 0.05 : undefined,
+              holdDurationOverrideSec: willKiraDodge ? HEROINE_DODGE_DURATION + 0.04 : undefined,
               replaceQueue: true,
               onProjectileSpawn: enemyClassification.projectileProfile
                 ? () => {
@@ -2156,7 +2160,7 @@ export function applyCombatCues(
                   1.0,
                 );
               } else if (willKiraDodgeRet) {
-                triggerKiraDodgeVfx(sim, heroX, groundY);
+                triggerKiraDodgeVfx(sim, sim.actionSequencer.getLiveActorX('hero', heroX), groundY);
               } else if (retBlocked > 0) {
                 sim.trauma = Math.min(1, sim.trauma + 0.16);
                 sim.shieldDomeTimer = 0.32;
@@ -2328,7 +2332,9 @@ export function applyCombatCues(
     const cueKinds = cues.map((c) => c.kind);
     const baseBeatSec =
       computeNonCutInBeatMs(cueKinds, livingEnemyCount, presCfg.adaptivePackSpeedup) / 1000;
-    sim.batchMicroTimerRemaining = kiraDodgeScheduled ? Math.max(baseBeatSec, 0.86) : baseBeatSec;
+    sim.batchMicroTimerRemaining = kiraDodgeScheduled
+      ? Math.max(baseBeatSec, HEROINE_DODGE_DURATION + 0.14)
+      : baseBeatSec;
   }
 }
 
@@ -2358,13 +2364,12 @@ export function stepCombatSimulation(
   sim.cameraPanY = seqFrame.cameraPanY;
   sim.cameraRotRad = seqFrame.cameraRotRad;
 
-  if (sim.dodgeZoomTimer > 0 && !options?.tacticalViewActive && !options?.reducedMotion) {
-    const dodgeU = Math.max(0, Math.min(1, 1 - sim.dodgeZoomTimer / 0.70));
+  if (sim.dodgeZoomTimer > 0 && !seqFrame.active && !options?.tacticalViewActive && !options?.reducedMotion) {
+    const dodgeU = Math.max(0, Math.min(1, 1 - sim.dodgeZoomTimer / HEROINE_DODGE_DURATION));
     const dodgePulse = Math.sin(dodgeU * Math.PI);
-    const zoomBoost = seqFrame.active ? 0.045 * dodgePulse : 0.08 * dodgePulse;
-    const nextZoom = Math.min(1.32, sim.cameraZoom + zoomBoost);
-    const heroFocusPanX = seqFrame.active ? 0 : sim.size.w * 0.075 * dodgePulse;
-    const heroFocusPanY = seqFrame.active ? 0 : -sim.size.h * 0.025 * dodgePulse;
+    const nextZoom = Math.min(1.32, sim.cameraZoom + 0.08 * dodgePulse);
+    const heroFocusPanX = sim.size.w * 0.075 * dodgePulse;
+    const heroFocusPanY = -sim.size.h * 0.025 * dodgePulse;
     sim.cameraZoom = nextZoom;
     sim.cameraPanX += heroFocusPanX;
     sim.cameraPanY += heroFocusPanY;
@@ -2748,7 +2753,7 @@ export function stepCombatSimulation(
   }
 
   for (let i = sim.ghosts.length - 1; i >= 0; i--) {
-    const decayRate = sim.ghosts[i].isDodge ? 2.05 : 4.5;
+    const decayRate = sim.ghosts[i].isDodge ? 1.65 : 4.5;
     sim.ghosts[i].alpha -= simDt * decayRate;
     if (sim.ghosts[i].alpha <= 0.02) {
       sim.ghosts.splice(i, 1);

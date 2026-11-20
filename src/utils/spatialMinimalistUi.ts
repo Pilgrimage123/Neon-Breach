@@ -73,7 +73,7 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
     id: 'push',
     icon: '⇄',
     labelEn: 'Push',
-    labelCs: 'Odstrčení',
+    labelCs: 'Prohoz',
     ruleEn: 'Swap front 2 units. Costs 0 AP.',
     ruleCs: 'Prohodí přední 2 cíle. Zdarma (0 AP).',
     accentHex: '#00F0FF',
@@ -100,9 +100,9 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
     id: 'shred',
     icon: '⚡',
     labelEn: 'Shred',
-    labelCs: 'Průlom',
+    labelCs: 'Drcení',
     ruleEn: 'Destroys enemy Armor across all targets.',
-    ruleCs: 'Odstraní Brnění všem nepřátelům.',
+    ruleCs: 'Strhne Brnění všem živým nepřátelům.',
     accentHex: '#FFC700',
   },
   corrode: {
@@ -311,7 +311,7 @@ export function formatTileStreamlinedDescription(
       mathFormula: '☣ 0 · -2 DMG/T',
       shortRule:
         lang === 'cs'
-          ? `**Struska:** Zahraj **TECH** k spálení.`
+          ? `**Struska:** Zahraj **TECH** ke spálení.`
           : `**Slag:** Play **TECH** to purge.`,
       keywords: [...keywords, 'blight'],
     };
@@ -324,7 +324,7 @@ export function formatTileStreamlinedDescription(
       mathFormula: `⚔ +${effectiveValue} ATK`,
       shortRule:
         lang === 'cs'
-          ? `**Uděl ${effectiveValue} DMG.** **Přetížení** drtí **Brnění**.`
+          ? `**Zasaď ${effectiveValue} DMG.** **Přetížení** rozbije **Brnění**.`
           : `**Deal ${effectiveValue} damage.** **Surge** breaks **Armor**.`,
       keywords: [...keywords, 'armor', 'surge'],
     };
@@ -365,7 +365,7 @@ export function formatTileStreamlinedDescription(
         mathFormula: `✚ +${tech.amount} HP`,
         shortRule:
           lang === 'cs'
-            ? `**Vyleč ${tech.amount} HP.** Nabij Overdrive.`
+            ? `**Vyléčí ${tech.amount} HP.** Nabij Overdrive.`
             : `**Heal ${tech.amount} HP.** Charge Overdrive.`,
         keywords: [...keywords, 'surge'],
       };
@@ -374,7 +374,7 @@ export function formatTileStreamlinedDescription(
         mathFormula: `⚡ -${tech.shredAmount} ARM · ◆ +${tech.pierceDamage}`,
         shortRule:
           lang === 'cs'
-            ? `**Průlom ${tech.shredAmount} Brnění.** **Průraz** ${tech.pierceDamage} DMG.`
+            ? `**Drcení ${tech.shredAmount} Brnění.** **Průraz** ${tech.pierceDamage} DMG.`
             : `**Shred ${tech.shredAmount} Armor.** **Pierce** ${tech.pierceDamage} DMG.`,
         keywords: [...keywords, 'shred', 'pierce'],
       };
@@ -383,7 +383,7 @@ export function formatTileStreamlinedDescription(
         mathFormula: `⚡ +${tech.bonusOverdrive}% OD · -${tech.cleanseCorrode} COR`,
         shortRule:
           lang === 'cs'
-            ? `**+${tech.bonusOverdrive}% Overdrive.** Očisti ${tech.cleanseCorrode} **Koroze**.`
+            ? `**+${tech.bonusOverdrive}% Overdrive.** Očistí ${tech.cleanseCorrode} **Koroze**.`
             : `**Gain +${tech.bonusOverdrive}% OD.** Cleanse ${tech.cleanseCorrode} **Corrode**.`,
         keywords: [...keywords, 'corrode', 'surge'],
       };
@@ -426,16 +426,16 @@ export function formatEnemyStreamlinedRule(
           lang === 'cs'
             ? `**Bio-exploze:** Smrt udělí 6 **Průraz** DMG.`
             : `**Bio-Burst:** Death deals 6 **Pierce** DMG.`,
-        counterMath: lang === 'cs' ? `⇄ Odstrč k obrněným cílům.` : `⇄ **Push** near **Armor** targets.`,
+        counterMath: lang === 'cs' ? `⇄ **Prohoď** k obrněným cílům.` : `⇄ **Push** near **Armor** targets.`,
         keywords: withUnique(['bioburst', 'pierce', 'push']),
       };
     case 'anchor_aegis':
       return {
         shortRule:
           lang === 'cs'
-            ? `**1 Aegis Pip.** Dává +4 **Brnění** všem.`
+            ? `**1 Aegis Pip.** Přidá +4 **Brnění** všem.`
             : `**1 Aegis Pip.** Grants +4 **Armor** all.`,
-        counterMath: lang === 'cs' ? `◆ Proraz **Pip**, pak **Přetížení**.` : `◆ Crack **Pip**, then **Surge**.`,
+        counterMath: lang === 'cs' ? `◆ Praskni **Pip**, pak **Přetížení**.` : `◆ Crack **Pip**, then **Surge**.`,
         keywords: withUnique(['pip', 'armor', 'surge']),
       };
     case 'time_bomb':
@@ -444,16 +444,16 @@ export function formatEnemyStreamlinedRule(
           lang === 'cs'
             ? `**Nabíjí 2 tahy.** 16+ **Omráčení** zruší výboj.`
             : `**Charge 2 turns.** 16+ **Stagger** cancels blast.`,
-        counterMath: lang === 'cs' ? `⚡ Uděl 16+ DMG nebo **Odstrč**.` : `⚡ Deal 16+ DMG or **Push**.`,
+        counterMath: lang === 'cs' ? `⚡ Zasaď 16+ DMG nebo **Prohoď**.` : `⚡ Deal 16+ DMG or **Push**.`,
         keywords: withUnique(['stagger', 'push']),
       };
     case 'spike_retaliate':
       return {
         shortRule:
           lang === 'cs'
-            ? `**Odplata 3 DMG.** +4 DMG při 0 **Štítu**.`
+            ? `**Odplata 3 DMG.** +4 DMG bez **Štítu**.`
             : `**Retaliate 3 DMG.** +4 DMG at 0 **Shield**.`,
-        counterMath: lang === 'cs' ? `★ Použij **Přetížení** 4+ a **Štít**.` : `★ Use **Surge** 4+ and **Shield**.`,
+        counterMath: lang === 'cs' ? `★ Spusť **Přetížení** 4+ a **Štít**.` : `★ Use **Surge** 4+ and **Shield**.`,
         keywords: withUnique(['retaliate', 'shield', 'surge']),
       };
     case 'acid_jam':
@@ -464,7 +464,7 @@ export function formatEnemyStreamlinedRule(
             : `**Pustules:** +2 **Corrode**; **Acid** **Jams**, **Slag**, **Hex**.`,
         counterMath:
           lang === 'cs'
-            ? `★ Použij **Přetížení** / KO; kryj **Kyselinu** **Štítem**.`
+            ? `★ Spusť **Přetížení** / KO; kryj **Kyselinu** **Štítem**.`
             : `★ Use **Surge** or KO; **Shield** blocks **Acid**.`,
         keywords: withUnique(['corrode', 'blight', 'hex', 'surge']),
       };
@@ -472,9 +472,9 @@ export function formatEnemyStreamlinedRule(
       return {
         shortRule:
           lang === 'cs'
-            ? `**1 Pip**, **Brnění**/+3HP; 16+ **Omráčení** ruší Těžký.`
+            ? `**1 Pip**, **Brnění**/+3HP; 16+ **Omráčení** ruší těžký.`
             : `**1 Pip**, **Armor**/+3HP; 16+ **Stagger** stops Heavy.`,
-        counterMath: lang === 'cs' ? `◆ Znič **Pip** před **Přetížením**.` : `◆ Crack **Pip** before **Surge**.`,
+        counterMath: lang === 'cs' ? `◆ Praskni **Pip** před **Přetížením**.` : `◆ Crack **Pip** before **Surge**.`,
         keywords: withUnique(['pip', 'armor', 'stagger']),
       };
     case 'phase_gate':
@@ -484,7 +484,7 @@ export function formatEnemyStreamlinedRule(
           lang === 'cs'
             ? `**50% Zámek:** +10 **Brnění**, +1 **Pip**, **Kletba**.`
             : `**50% Lock:** +10 **Armor**, +1 **Pip**, **Hex**.`,
-        counterMath: lang === 'cs' ? `⚡ **Průlom** Brnění a 16+ **Omráčení**.` : `⚡ **Shred** **Armor** and 16+ **Stagger**.`,
+        counterMath: lang === 'cs' ? `⚡ **Drcení** Brnění a 16+ **Omráčení**.` : `⚡ **Shred** **Armor** and 16+ **Stagger**.`,
         keywords: withUnique(['armor', 'pip', 'hex']),
       };
   }
@@ -648,8 +648,9 @@ export function formatStreamlinedOnboardingPrompt(
   lang: Language = 'en',
 ): string {
   if (kind === 'surge') {
+    const tilesWordCs = tileCount >= 2 && tileCount <= 4 ? 'dílky' : 'dílků';
     return lang === 'cs'
-      ? `★ **Spoj ${tileCount} dílky.** Spusť **Přetížení**!`
+      ? `★ **Spoj ${tileCount} ${tilesWordCs}.** Spusť **Přetížení**!`
       : `★ **Match ${tileCount} tiles.** Trigger **Surge** bonus!`;
   }
   if (kind === 'held') {

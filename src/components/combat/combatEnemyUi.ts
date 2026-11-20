@@ -511,7 +511,7 @@ export function getEnemyReactiveBark(
     enemy.passive === 'spike_retaliate' &&
     armorPreview.rawPreviewDmg > 0
   ) {
-    return lang === 'cs' ? '🩸 ODVETA 3 DMG!' : '🩸 STRIKE & BLEED!';
+    return lang === 'cs' ? '🩸 ODPLATA 3 DMG!' : '🩸 STRIKE & BLEED!';
   }
   if (
     activePreview.color === 'attack' &&
@@ -530,7 +530,7 @@ export function getEnemyReactiveBark(
     return lang === 'cs' ? '🔥 PROTIÚTOK +4!' : '🔥 COUNTER +4!';
   }
   if ((activePreview.hexedHealBonus ?? 0) > 0 && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
-    return lang === 'cs' ? '⬡ KRMÍŠ MOJI KLETBU!' : '⬡ FEED MY HEX!';
+    return lang === 'cs' ? '⬡ KRMÍŠ MOU KLETBU!' : '⬡ FEED MY HEX!';
   }
   return null;
 }

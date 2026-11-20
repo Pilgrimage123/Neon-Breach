@@ -11,7 +11,7 @@ export function formatTileShortLabel(
   }
   const ucSuffix = (tile.upcharge ?? 0) > 0 ? ` · +${tile.upcharge} UC` : '';
   if (tile.isDud) {
-    return `DUD 0${ucSuffix}`;
+    return `${lang === 'cs' ? 'SLEPÝ 0' : 'DUD 0'}${ucSuffix}`;
   }
   if (tile.type === 'attack') {
     return `${t.atkShort} ${tile.value}${ucSuffix}`;
@@ -45,19 +45,21 @@ export function formatTileDetailText(
   const t = TRANSLATIONS[lang];
   if (tile.isBlight) {
     return lang === 'cs'
-      ? 'Žíravá struska: Spálí se přes TECH nebo Overdrive (-2 Zdraví za tah při držení)'
+      ? 'Žíravá struska: Spálí se přes TECH nebo Overdrive (-2 HP na konci kola při držení)'
       : 'Caustic Slag: Play TECH or Overdrive to purge (-2 HP/round if kept)';
   }
+  const uc = tile.upcharge ?? 0;
+  const ucTilesWordCs = uc === 1 ? 'dílek' : uc >= 2 && uc <= 4 ? 'dílky' : 'dílků';
   const ucText =
-    (tile.upcharge ?? 0) > 0
+    uc > 0
       ? lang === 'cs'
-        ? ` · +${tile.upcharge} UpCharge (+${tile.upcharge} dílek příští tah)`
-        : ` · +${tile.upcharge} UpCharge (+${tile.upcharge} drawn next turn)`
+        ? ` · +${uc} Nabití (+${uc} ${ucTilesWordCs} příští tah)`
+        : ` · +${uc} UpCharge (+${uc} drawn next turn)`
       : '';
   if (tile.isDud) {
     return (
       (lang === 'cs'
-        ? 'Prázdný dílek (Dud): Bez základního efektu, ale počítá se do barvy a Přetížení'
+        ? 'Slepý dílek: Bez základního efektu, ale počítá se do barvy a Přetížení'
         : 'Dud Tile: No base effect, but still counts for color, Surge & Overdrive') + ucText
     );
   }
@@ -71,31 +73,31 @@ export function formatTileDetailText(
   if (eff?.kind === 'damage_boost') {
     return (
       (lang === 'cs'
-        ? `Damage booster +${eff.percent}% (-${eff.decayPerTurn}%/kolo)`
+        ? `Útok +${eff.percent} % (-${eff.decayPerTurn} %/tah)`
         : `Damage Booster +${eff.percent}% (-${eff.decayPerTurn}%/round)`) + ucText
     );
   }
   if (eff?.kind === 'heal') {
-    return (lang === 'cs' ? `Vyleč ${eff.amount} zranění` : `Heal ${eff.amount} HP`) + ucText;
+    return (lang === 'cs' ? `Vyléčí +${eff.amount} HP` : `Heal ${eff.amount} HP`) + ucText;
   }
   if (eff?.kind === 'armor_shred') {
     return (
       (lang === 'cs'
-        ? `Strhni ${eff.shredAmount} Brnění všem + ${eff.pierceDamage} průrazné DMG vpředu`
+        ? `Rozdrtí ${eff.shredAmount} Brnění všem + ${eff.pierceDamage} průrazné DMG vpředu`
         : `Shred ${eff.shredAmount} Armor All + ${eff.pierceDamage} Pierce DMG front`) + ucText
     );
   }
   if (eff?.kind === 'overdrive_surge') {
     return (
       (lang === 'cs'
-        ? `+${eff.bonusOverdrive}% Overdrive navíc a očisti ${eff.cleanseCorrode} Koroze`
+        ? `+${eff.bonusOverdrive} % Overdrive navíc a očistí ${eff.cleanseCorrode} Koroze`
         : `+${eff.bonusOverdrive}% Bonus Overdrive & Cleanse ${eff.cleanseCorrode} Corrode`) + ucText
     );
   }
   if (eff?.kind === 'tactical_shield') {
     return (
       (lang === 'cs'
-        ? `+${eff.shieldAmount} Štít a +${eff.damageBoostPct}% DMG Boost (-10%/kolo)`
+        ? `+${eff.shieldAmount} Štít a +${eff.damageBoostPct} % DMG (-10 %/tah)`
         : `+${eff.shieldAmount} Shield & +${eff.damageBoostPct}% DMG Boost (-10%/round)`) + ucText
     );
   }

@@ -48,6 +48,12 @@ export interface CutInRequest {
   waitForExternalImpact?: boolean;
   /** Optional live projectile world X-coordinate getter for slow/lobbed projectile tracking */
   getProjectileX?: () => number | null;
+  /** Targets that cleanly evade this attack (skip recoil/flash/knockback while keeping dramatic framing) */
+  evadedTargetIds?: readonly string[];
+  /** Explicit hit-stop override in seconds (e.g. 0.05s tension beat right before dodge takeoff) */
+  hitstopOverrideSec?: number;
+  /** Explicit follow-through zoomed hold override in seconds (not shrunk by pack tempo) */
+  holdDurationOverrideSec?: number;
   /** When true, cancels any active/queued cut-ins immediately (ideal for debug hotkeys 1-4) */
   replaceQueue?: boolean;
   onWindupStart?: () => void;
@@ -336,9 +342,15 @@ export class CombatActionSequencer {
       this.impactOriginY = request.attackerBounds.groundY - request.attackerBounds.heightPx * 0.52;
     }
 
-    const isCrit = request.actionKind === 'crit' || request.actionKind === 'overdrive';
+    const evadedSet = new Set(request.evadedTargetIds ?? []);
+    const allTargetsEvaded =
+      request.targetIds.length > 0 && request.targetIds.every((id) => evadedSet.has(id));
+    const isCrit =
+      !allTargetsEvaded &&
+      (request.actionKind === 'crit' || request.actionKind === 'overdrive');
     const isMelee = this.stagingMode === 'melee';
-    const tiltDeg = isCrit ? config.dutchDegCrit : config.dutchDegNormal;
+    const rawTiltDeg = isCrit ? config.dutchDegCrit : config.dutchDegNormal;
+    const tiltDeg = allTargetsEvaded ? Math.min(rawTiltDeg, 2.0) : rawTiltDeg;
     const impactRotRad = ((-this.strikeDirX * tiltDeg) * Math.PI) / 180;
 
     this.camStartFrame = {
@@ -382,14 +394,31 @@ export class CombatActionSequencer {
         ...t,
         x: t.x + (meleePlan.targetSlidesX.get(t.id) ?? 0),
       }));
-      const desiredZoom = isCrit ? config.zoomCrit : config.zoomNormal;
+      const focusActors: CameraActorBounds[] = [shiftedAttacker, ...shiftedTargets];
+      if (allTargetsEvaded) {
+        // Reserve modest clearance behind evading target so wide acrobatic slide stays cleanly in frame
+        const dodgeBackClearancePx = Math.min(this.viewportW * 0.08, 72);
+        for (const st of shiftedTargets) {
+          if (evadedSet.has(st.id)) {
+            focusActors.push({
+              ...st,
+              x: Math.max(this.viewportW * 0.08, st.x + this.strikeDirX * dodgeBackClearancePx),
+            });
+          }
+        }
+      }
+      const desiredZoom = allTargetsEvaded
+        ? Math.min(config.zoomNormal, 1.54)
+        : isCrit
+          ? config.zoomCrit
+          : config.zoomNormal;
       const focus = this.camera.computeFocusFrame(
-        [shiftedAttacker, ...shiftedTargets],
+        focusActors,
         this.viewportW,
         this.viewportH,
         desiredZoom,
-        Math.min(desiredZoom, 1.48),
-        1.92,
+        Math.min(desiredZoom, allTargetsEvaded ? 1.38 : 1.48),
+        allTargetsEvaded ? 1.62 : 1.92,
         impactRotRad,
       );
       this.camGoalFrame = focus;
@@ -418,14 +447,27 @@ export class CombatActionSequencer {
           impactRotRad,
         );
       } else {
-        const desiredTargetZoom = isCrit ? config.zoomCrit : config.zoomNormal;
+        const isPrimaryEvaded = evadedSet.has(primaryTarget.id);
+        const desiredTargetZoom = isPrimaryEvaded
+          ? Math.min(config.zoomNormal, 1.42)
+          : isCrit
+            ? config.zoomCrit
+            : config.zoomNormal;
+        const beat2Actors: CameraActorBounds[] = [primaryTarget];
+        if (isPrimaryEvaded) {
+          const dodgeBackClearancePx = Math.min(this.viewportW * 0.075, 64);
+          beat2Actors.push({
+            ...primaryTarget,
+            x: Math.max(this.viewportW * 0.08, primaryTarget.x + this.strikeDirX * dodgeBackClearancePx),
+          });
+        }
         this.beat2TargetFrame = this.camera.computeFocusFrame(
-          [primaryTarget],
+          beat2Actors,
           this.viewportW,
           this.viewportH,
           desiredTargetZoom,
-          Math.min(desiredTargetZoom, 1.38),
-          1.9,
+          Math.min(desiredTargetZoom, isPrimaryEvaded ? 1.32 : 1.38),
+          isPrimaryEvaded ? 1.52 : 1.9,
           impactRotRad,
         );
       }
@@ -486,7 +528,12 @@ export class CombatActionSequencer {
     this.impactFiredForRequest = true;
 
     const cfg = this.activeConfig;
-    const isCrit = req.actionKind === 'crit' || req.actionKind === 'overdrive';
+    const evadedSet = new Set(req.evadedTargetIds ?? []);
+    const allTargetsEvaded =
+      req.targetIds.length > 0 && req.targetIds.every((id) => evadedSet.has(id));
+    const isCrit =
+      !allTargetsEvaded &&
+      (req.actionKind === 'crit' || req.actionKind === 'overdrive');
     const isAoe = this.stagingMode === 'ranged_aoe' || req.actionKind === 'aoe' || req.targetIds.length > 1;
     const isMelee = this.stagingMode === 'melee';
 
@@ -501,36 +548,53 @@ export class CombatActionSequencer {
     this.camStartFrame = { ...this.impactCamStart };
     this.camGoalFrame = { ...this.beat2TargetFrame };
     this.holdZoomStart = this.beat2TargetFrame.zoom;
-    this.holdZoomEnd = Math.min(
-      2.05,
-      this.holdZoomStart * (1 + Math.max(0, Math.min(0.15, cfg.holdZoomCreepPct))),
-    );
+    const creepPct = allTargetsEvaded
+      ? Math.min(0.04, Math.max(0, cfg.holdZoomCreepPct * 0.5))
+      : Math.max(0, Math.min(0.15, cfg.holdZoomCreepPct));
+    const holdZoomCeiling = allTargetsEvaded ? (isMelee ? 1.66 : 1.52) : 2.05;
+    this.holdZoomEnd = Math.min(holdZoomCeiling, this.holdZoomStart * (1 + creepPct));
 
-    const tiltDeg = isCrit ? cfg.dutchDegCrit : cfg.dutchDegNormal;
+    const rawTiltDeg = isCrit ? cfg.dutchDegCrit : cfg.dutchDegNormal;
+    const tiltDeg = allTargetsEvaded ? Math.min(rawTiltDeg, 2.0) : rawTiltDeg;
     this.targetRotRad = ((-this.strikeDirX * tiltDeg) * Math.PI) / 180;
 
-    const hitstopBase = isCrit
-      ? cfg.hitstopCritSec
-      : isAoe
-        ? cfg.hitstopAoeSec
-        : cfg.hitstopNormalSec;
-    this.hitstopRemaining = hitstopBase * Math.max(0.75, this.activeTempoScale);
+    if (req.hitstopOverrideSec !== undefined) {
+      this.hitstopRemaining = Math.max(0, req.hitstopOverrideSec);
+    } else if (allTargetsEvaded) {
+      // Crisp 50ms micro tension pause right before dodge takeoff
+      this.hitstopRemaining = 0.05;
+    } else {
+      const hitstopBase = isCrit
+        ? cfg.hitstopCritSec
+        : isAoe
+          ? cfg.hitstopAoeSec
+          : cfg.hitstopNormalSec;
+      this.hitstopRemaining = hitstopBase * Math.max(0.75, this.activeTempoScale);
+    }
 
     this.phase = 'impact_freeze';
     this.phaseElapsed = 0;
 
-    if (isCrit && cfg.critInvertFlashEnabled) {
+    if (!allTargetsEvaded && isCrit && cfg.critInvertFlashEnabled) {
       this.invertFlashFramesLeft = 2;
     }
-    if (isCrit && cfg.critSpeedLinesEnabled) {
+    if (!allTargetsEvaded && isCrit && cfg.critSpeedLinesEnabled) {
       this.speedLinesAlpha = 0.92;
     }
 
-    const shakeMaxVw = isCrit ? cfg.shakeCritVw : cfg.shakeNormalVw;
+    const shakeMaxVw = allTargetsEvaded
+      ? cfg.shakeNormalVw * 0.35
+      : isCrit
+        ? cfg.shakeCritVw
+        : cfg.shakeNormalVw;
     this.camera.addTrauma(
-      isCrit ? cfg.shakeTraumaCrit : cfg.shakeTraumaNormal,
+      allTargetsEvaded
+        ? Math.min(0.12, cfg.shakeTraumaNormal * 0.25)
+        : isCrit
+          ? cfg.shakeTraumaCrit
+          : cfg.shakeTraumaNormal,
       this.strikeDirX,
-      isCrit ? -0.35 : -0.15,
+      allTargetsEvaded ? -0.05 : isCrit ? -0.35 : -0.15,
       this.viewportW,
       shakeMaxVw,
     );
@@ -538,7 +602,7 @@ export class CombatActionSequencer {
     const knockbackPx = this.viewportW * (isCrit ? cfg.knockbackCritVw : cfg.knockbackNormalVw);
     const holdDriftPx = this.viewportW * cfg.holdDriftApartVw;
 
-    // Trigger attacker procedural scale punch (1.25x -> 1.0x)
+    // Trigger attacker procedural scale punch (1.25x -> 1.0x) so melee swings/whiffs still feel committed
     this.juice.triggerAttackerPunch({
       attackerId: req.attackerId,
       strikeDirX: this.strikeDirX,
@@ -568,15 +632,19 @@ export class CombatActionSequencer {
     for (let i = 0; i < orderedTargetIds.length; i++) {
       const tid = orderedTargetIds[i];
       if (i === 0 || cascadeStepSec <= 0) {
-        this.juice.triggerTargetImpact({
-          targetId: tid,
-          strikeDirX: this.strikeDirX,
-          knockbackPx,
-          holdDriftPx,
-          whiteFlashFrames: cfg.whiteFlashFrames,
-          isCrit,
-          isMelee,
-        });
+        if (evadedSet.has(tid)) {
+          this.juice.triggerTargetEvade({ targetId: tid });
+        } else {
+          this.juice.triggerTargetImpact({
+            targetId: tid,
+            strikeDirX: this.strikeDirX,
+            knockbackPx,
+            holdDriftPx,
+            whiteFlashFrames: cfg.whiteFlashFrames,
+            isCrit,
+            isMelee,
+          });
+        }
         this.invokeSafely(() => req.onImpactTarget?.(tid, i));
       } else {
         this.pendingCascades.push({
@@ -595,6 +663,7 @@ export class CombatActionSequencer {
     if (!req || this.pendingCascades.length === 0) return;
 
     const cfg = this.activeConfig;
+    const evadedSet = new Set(req.evadedTargetIds ?? []);
     const isCrit = req.actionKind === 'crit' || req.actionKind === 'overdrive';
     const isMelee = this.stagingMode === 'melee';
     const knockbackPx = this.viewportW * (isCrit ? cfg.knockbackCritVw : cfg.knockbackNormalVw);
@@ -605,15 +674,19 @@ export class CombatActionSequencer {
       item.delayRemainingSec -= rawDt;
       if (item.delayRemainingSec <= 0) {
         this.pendingCascades.splice(i, 1);
-        this.juice.triggerTargetImpact({
-          targetId: item.targetId,
-          strikeDirX: this.strikeDirX,
-          knockbackPx,
-          holdDriftPx,
-          whiteFlashFrames: cfg.whiteFlashFrames,
-          isCrit,
-          isMelee,
-        });
+        if (evadedSet.has(item.targetId)) {
+          this.juice.triggerTargetEvade({ targetId: item.targetId });
+        } else {
+          this.juice.triggerTargetImpact({
+            targetId: item.targetId,
+            strikeDirX: this.strikeDirX,
+            knockbackPx,
+            holdDriftPx,
+            whiteFlashFrames: cfg.whiteFlashFrames,
+            isCrit,
+            isMelee,
+          });
+        }
         this.invokeSafely(() => req.onImpactTarget?.(item.targetId, item.index));
       }
     }
@@ -785,10 +858,10 @@ export class CombatActionSequencer {
       const isCrit =
         this.activeRequest.actionKind === 'crit' ||
         this.activeRequest.actionKind === 'overdrive';
-      const holdDur = Math.max(
-        0.18,
-        (isCrit ? cfg.holdCritSec : cfg.holdNormalSec) * tempo,
-      );
+      const holdDur =
+        this.activeRequest.holdDurationOverrideSec !== undefined
+          ? Math.max(0.18, this.activeRequest.holdDurationOverrideSec)
+          : Math.max(0.18, (isCrit ? cfg.holdCritSec : cfg.holdNormalSec) * tempo);
       phaseProgress = clamp01(this.phaseElapsed / holdDur);
 
       // Hold Phase Camera Creep: continuously creep zoom inward +5%-10% (e.g. 1.4x -> 1.51x)

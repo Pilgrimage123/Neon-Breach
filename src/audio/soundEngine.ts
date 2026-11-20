@@ -138,13 +138,14 @@ class SoundEngine {
 
   public playDodgeWhoosh(): void {
     this.triggerHaptic('select');
-    // Snappy upward vault air-slice
-    this.playTone(960, 340, 0.14, 'triangle', 0.06);
-    this.playTone(1380, 620, 0.11, 'sine', 0.04, 0.02);
-    // Neon power-slide synth skid shimmer
-    this.playTone(620, 980, 0.16, 'sine', 0.036, 0.16);
-    // Crisp 3-point landing deck tap
-    this.playTone(210, 88, 0.09, 'triangle', 0.045, 0.49);
+    // Fluid upward vault air-slice (Beat 1: 0.00..0.23s)
+    this.playTone(980, 330, 0.18, 'triangle', 0.06);
+    this.playTone(1400, 620, 0.14, 'sine', 0.04, 0.03);
+    // Extended neon power-slide synth skid shimmer (Beats 2-3: 0.23..0.67s)
+    this.playTone(580, 1020, 0.24, 'sine', 0.036, 0.23);
+    this.playTone(760, 440, 0.18, 'triangle', 0.028, 0.46);
+    // Crisp 3-point landing deck tap (Beat 4: 0.67s)
+    this.playTone(210, 84, 0.11, 'triangle', 0.048, 0.67);
   }
 
   public playUpgrade(surge = false): void {

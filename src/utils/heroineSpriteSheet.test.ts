@@ -4,6 +4,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   HEROINE_COMBAT_FRAMES,
+  HEROINE_DODGE_DURATION,
   HEROINE_DODGE_FRAMES,
   HEROINE_EMOTE_FRAMES,
   HEROINE_EMOTE_SHEET_HEIGHT,
@@ -60,7 +61,7 @@ test('all 76 sprite sheet frames (36 combat + 36 emote + 4 resized RGBA dodge) l
     assert.ok(hdr.bytes < 200_000, `${frame.id} should be resized below 200 KB, got ${hdr.bytes}`);
     assert.ok(frame.anchorX > 0 && frame.anchorX < frame.w, `${frame.id} invalid anchorX`);
     assert.ok(frame.bottomY > 0 && frame.bottomY <= frame.h, `${frame.id} invalid bottomY`);
-    assert.ok(frame.rowScale >= 0.65 && frame.rowScale <= 0.85, `${frame.id} invalid dodge rowScale`);
+    assert.ok(frame.rowScale >= 0.88 && frame.rowScale <= 1.02, `${frame.id} invalid anatomical dodge rowScale (${frame.rowScale})`);
   });
 
   for (const frame of [...HEROINE_COMBAT_FRAMES, ...HEROINE_EMOTE_FRAMES]) {
@@ -346,9 +347,10 @@ test('all standing poses across combat and emote sheets normalize to uniform 214
   assert.equal(hoverStep2.frameBlendAlpha, 1);
 });
 
-test('dodge choreography traverses Vault (72) -> Slide 1 (73) -> Deep Slide 2 (74) -> 3-Point Land (75) -> Idle in 0.70s', () => {
+test('dodge choreography traverses Vault (72) -> Slide 1 (73) -> Deep Slide 2 (74) -> 3-Point Land (75) -> Idle in 0.96s', () => {
   let state = triggerHeroineAnimation(createInitialHeroineAnimState(), 'dodge');
-  assert.equal(state.duration, 0.70);
+  assert.equal(state.duration, HEROINE_DODGE_DURATION);
+  assert.equal(state.duration, 0.96);
 
   const ctx = { isDead: false, isVictory: false, hoveredColor: null, totalTime: 1.0 };
   const order: number[] = [];
@@ -357,7 +359,7 @@ test('dodge choreography traverses Vault (72) -> Slide 1 (73) -> Deep Slide 2 (7
   let sawDashDuringSlide = false;
   let sawLandingCushionSquash = false;
 
-  for (let i = 0; i < 45; i++) {
+  for (let i = 0; i < 65; i++) {
     const sample = stepHeroineAnimState(state, 0.02, ctx);
     state = sample.state;
     if (order[order.length - 1] !== sample.frameIndex) {
@@ -368,15 +370,15 @@ test('dodge choreography traverses Vault (72) -> Slide 1 (73) -> Deep Slide 2 (7
     if ((sample.frameIndex === 72 || sample.frameIndex === 73 || sample.frameIndex === 74) && sample.isDashing) {
       sawDashDuringSlide = true;
     }
-    if (sample.frameIndex === 75 && !sample.isDashing && sample.breathScaleY < 0.99 && sample.breathScaleX > 1.01) {
+    if (sample.frameIndex === 75 && sample.breathScaleY < 0.99 && sample.breathScaleX > 1.01) {
       sawLandingCushionSquash = true;
     }
     if (state.mode === 'idle') break;
   }
 
   assert.deepEqual(order, [72, 73, 74, 75, 0]);
-  assert.ok(minYHop <= -20, `Vault takeoff should lift Kira upward, got minYHop=${minYHop}`);
-  assert.ok(minXProgress <= -0.14, `Power-slide should sweep backward cleanly, got minXProgress=${minXProgress}`);
+  assert.ok(minYHop <= -28, `Vault takeoff should reach parabolic apex, got minYHop=${minYHop}`);
+  assert.ok(minXProgress <= -0.25, `Power-slide should sweep backward cleanly, got minXProgress=${minXProgress}`);
   assert.equal(sawDashDuringSlide, true);
   assert.equal(sawLandingCushionSquash, true);
   assert.equal(state.mode, 'idle');

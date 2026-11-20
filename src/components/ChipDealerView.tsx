@@ -30,19 +30,19 @@ const NANNY_BOT_SPECS: Array<{
   {
     id: 'guardian_nanny',
     titleEn: 'Guardian Bot',
-    titleCs: 'Strážný Bot',
+    titleCs: 'Strážný bot',
     badge: '🛡 +4 / TURN',
   },
   {
     id: 'caretaker_nanny',
     titleEn: 'Caretaker Bot',
-    titleCs: 'Pečovatel Bot',
+    titleCs: 'Pečovatelský bot',
     badge: '💚 +2 · -1 CORR',
   },
   {
     id: 'tutor_nanny',
     titleEn: 'Tutor Bot',
-    titleCs: 'Mentor Bot',
+    titleCs: 'Mentorský bot',
     badge: '⚡ +1 · +10% OD',
   },
 ];
@@ -283,7 +283,7 @@ export function ChipDealerView({
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-display text-[13px] font-bold text-emerald-200">
-                        🤖 {isCs ? 'Chůva-Boti' : 'Nanny-Bots'}
+                        🤖 {isCs ? 'Chůva-boti' : 'Nanny-Bots'}
                       </span>
                       <span className="font-mono-tabular text-[12px] font-bold text-emerald-300">
                         {nannyCost} CR
@@ -307,7 +307,7 @@ export function ChipDealerView({
                           >
                             <span className="truncate">{isCs ? bot.titleCs : bot.titleEn}</span>
                             <span className="shrink-0 ml-1 text-[11px] text-amber-300">
-                              {isInstalled ? '✓ ACTIVE' : bot.badge}
+                              {isInstalled ? (isCs ? '✓ AKTIVNÍ' : '✓ ACTIVE') : bot.badge}
                             </span>
                           </button>
                         );
@@ -324,7 +324,7 @@ export function ChipDealerView({
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-display text-[13px] font-bold text-violet-200">
-                        🕹 {isCs ? 'Beta Herna' : 'Beta Arcade'}
+                        🕹 {isCs ? 'Beta herna' : 'Beta Arcade'}
                       </span>
                       <span className="font-mono-tabular text-[11.5px] font-bold text-violet-300">
                         5× TILE → +2 STAT
@@ -345,7 +345,7 @@ export function ChipDealerView({
                         onClick={() => onStartBetaTrial(run.clinicShopChoices[0])}
                         className="w-full rounded-lg bg-gradient-to-r from-violet-500 to-fuchsia-500 px-3 py-1.5 font-mono-tabular text-[12px] font-bold text-white hover:brightness-110 cursor-pointer"
                       >
-                        {isCs ? 'Zkušební AI Čip (0 CR)' : 'Trial AI Chip (0 CR)'}
+                        {isCs ? 'Zkušební AI čip (0 CR)' : 'Trial AI Chip (0 CR)'}
                       </button>
                     )}
                   </div>
@@ -359,7 +359,7 @@ export function ChipDealerView({
                   >
                     <div className="flex items-center justify-between gap-1">
                       <span className="font-display text-[13px] font-bold text-amber-200">
-                        🗡 {isCs ? 'Rodová Kovárna' : 'Heirloom Forge'}
+                        🗡 {isCs ? 'Rodová kovárna' : 'Heirloom Forge'}
                       </span>
                       <span className="font-mono-tabular text-[11.5px] font-bold text-amber-300">
                         +{run.heroine.heirloomStacks ?? 0} (+1/WIN)
@@ -381,7 +381,7 @@ export function ChipDealerView({
                           ? `Posílit (+1 → +${(run.heroine.heirloomStacks ?? 0) + 1})`
                           : `Empower (+1 → +${(run.heroine.heirloomStacks ?? 0) + 1})`
                         : isCs
-                          ? 'Vyrýt Dědictví (+1 k dílkům)'
+                          ? 'Vyrýt dědictví (+1 k dílkům)'
                           : 'Engrave Heirloom (+1 Tiles)'}
                     </button>
                   </div>

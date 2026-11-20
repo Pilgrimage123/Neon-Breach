@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
+import { EQUIPMENT_BY_ID } from '../engine/data';
+import { CODEX_TRANSLATIONS } from './codexTranslations';
 import { TRANSLATIONS } from './translations';
 
 describe('Translations and Czech default localization', () => {
@@ -50,5 +52,61 @@ describe('Translations and Czech default localization', () => {
     }
     assert.equal('gameSubtitle' in TRANSLATIONS.cs, false);
     assert.equal('gameSubtitle' in TRANSLATIONS.en, false);
+  });
+
+  it('defines rethemed AI Skill Chip names and descriptions for every catalog chip in cs and en', () => {
+    for (const def of Object.values(EQUIPMENT_BY_ID)) {
+      for (const lang of ['cs', 'en'] as const) {
+        const meta = TRANSLATIONS[lang].equipment[def.id];
+        assert.ok(meta, `Missing ${lang} translation for chip ${def.id}`);
+        assert.match(meta.name, /\.AI$/, `${lang} chip ${def.id} (${meta.name}) should use .AI naming`);
+        assert.ok(meta.desc.trim().length > 0, `Missing ${lang} description for chip ${def.id}`);
+      }
+    }
+  });
+
+  it('removes legacy physical weapon, drone, and weight remnants from EN and CS copy', () => {
+    const legacyPatterns = [
+      /\bAretta\b/i,
+      /\bFalcon\b/i,
+      /\bAnkh\b/i,
+      /Rail-Carbine/i,
+      /Oblouková karabina/i,
+      /Twin-Blade/i,
+      /Breacher Heavy/i,
+      /Reactive Exo/i,
+      /Carry Load/i,
+      /\bNosnost\b/i,
+      /Startovní výbava/i,
+      /Starting Equipment/i,
+    ];
+    const serialized = JSON.stringify({
+      en: TRANSLATIONS.en,
+      cs: TRANSLATIONS.cs,
+      codexEn: CODEX_TRANSLATIONS.en,
+      codexCs: CODEX_TRANSLATIONS.cs,
+    });
+    for (const pattern of legacyPatterns) {
+      assert.doesNotMatch(serialized, pattern, `Legacy physical gear term leaked: ${pattern}`);
+    }
+  });
+
+  it('keeps Czech copy free of known typos, anglicisms, and stale character names', () => {
+    const csSerialized = JSON.stringify({
+      ui: TRANSLATIONS.cs,
+      codex: CODEX_TRANSLATIONS.cs,
+    });
+    const forbiddenCsPatterns = [
+      /\bVyleč\b/,
+      /\bk spálení\b/i,
+      /Trauma alert/i,
+      /Plazmová předvoj/i,
+      /\bBeat 2\b/i,
+      /\bAurelia\b/,
+      /Damage booster/i,
+    ];
+    for (const pattern of forbiddenCsPatterns) {
+      assert.doesNotMatch(csSerialized, pattern, `Czech localization defect found: ${pattern}`);
+    }
   });
 });

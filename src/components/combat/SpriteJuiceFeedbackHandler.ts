@@ -296,6 +296,27 @@ export class SpriteJuiceFeedbackHandler {
   }
 
   /**
+   * Transitions an evading target cleanly out of wind-up brace_pose into its own
+   * dodge animation without knockback, hit flashes, recoil squash, or teleporting
+   * out of its center-stage melee clash anchor.
+   */
+  public triggerTargetEvade(params: { targetId: string }): void {
+    const tgt = this.ensureActor(params.targetId);
+    tgt.role = 'target';
+    tgt.poseOverride = 'none';
+    tgt.knockbackX = 0;
+    tgt.knockbackStartX = 0;
+    tgt.knockbackPeakX = 0;
+    tgt.knockbackAgeSec = 0;
+    tgt.knockbackActive = false;
+    tgt.holdDriftTargetX = 0;
+    tgt.holdDriftX = 0;
+    tgt.leanTargetRad = 0;
+    tgt.whiteFlashFramesLeft = 0;
+    tgt.crimsonFlashAlpha = 0;
+  }
+
+  /**
    * Convenience helper firing both Attacker punch and immediate impact on all targets.
    */
   public triggerImpact(params: {

@@ -127,20 +127,20 @@ interface CyberEventTextCopy {
 
 const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
   rogue_ai_cache: {
-    title: 'AI Jádro pod Klenbou',
+    title: 'AI jádro pod klenbou',
     subtitle: 'Vyřazená sledovací subrutina',
-    story: 'Opuštěný vojenský terminál s živými okruhy.',
+    story: 'Opuštěný vojenský terminál stále pod napětím.',
     choices: {
       ai_overclock: {
         label: 'Přetaktovat neurální odběr',
         description: '💔 -6 HP · 🪙 +40 CR · ⚡ +25% Overdrive',
       },
       ai_siphon: {
-        label: 'Odsát záložní článek',
+        label: 'Odsát záložní bio-článek',
         description: '💚 +8 HP · ⚡ +10% Overdrive',
       },
       ai_nanites: {
-        label: 'Extrahovat paměťové jádro',
+        label: 'Vytěžit paměťové jádro',
         description: '💎 +2 Nanity · 🪙 +10 CR',
       },
     },
@@ -148,30 +148,30 @@ const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
   black_market_smuggler: {
     title: 'Pašerák z černého trhu',
     subtitle: 'Překupník ze stínové lávky',
-    story: 'Stínový kurýr nabízející zbraně z klenby.',
+    story: 'Kurýr ze stínů nabízí nelegální moduly.',
     choices: {
       smuggler_booster: {
-        label: 'Koupit bojový posilovač',
-        description: '🪙 -25 CR · ⚔ +20% k poškození',
+        label: 'Koupit bojový zesilovač',
+        description: '🪙 -25 CR · ⚔ +20% DMG',
       },
       smuggler_sell: {
-        label: 'Prodat přebytečný šrot',
-        description: '🪙 +30 CR za šrot a data',
+        label: 'Prodat přebytečnou telemetrii',
+        description: '🪙 +30 CR za nepotřebná data',
       },
       smuggler_bypass: {
-        label: 'Posbírat součástky kolem',
+        label: 'Posbírat volné součástky',
         description: '🪙 +8 CR bezpečný sběr',
       },
     },
   },
   derelict_combat_drone: {
-    title: 'Vrak bojového drona',
+    title: 'Vrak bojového dronu',
     subtitle: 'Havarovaný Vanguard pod mostem',
-    story: 'Neponičený dron visící nad hlubokou propastí.',
+    story: 'Zachovalý bojový dron zavěšený nad propastí.',
     choices: {
       drone_hotwire: {
         label: 'Zkratovat plazmové jádro',
-        description: '⚡ Nabij Overdrive na 100%',
+        description: '⚡ Nabije Overdrive na 100%',
       },
       drone_repair: {
         label: 'Vytěžit nano-pancíř',
@@ -186,7 +186,7 @@ const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
   tachyon_terminal: {
     title: 'Terminál kvantové anomálie',
     subtitle: 'Zkreslení tachyonové sítě',
-    story: 'Zkreslená pole pulzující prostorovou energií.',
+    story: 'Tachyonové senzory pulzují prostorovou energií.',
     choices: {
       tachyon_extract: {
         label: 'Hloubková extrakce dat',
@@ -203,54 +203,54 @@ const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
     },
   },
   matchmakers_gala: {
-    title: 'Galavečer Dohazovačů',
+    title: 'Galavečer dohazovačů',
     subtitle: 'Ples kybernetických rodových aliancí',
-    story: 'Ples, kde rodové dynastie domlouvají spojenectví.',
+    story: 'Ples, kde rodové dynastie uzavírají spojenectví.',
     choices: {
       gala_solaris_marriage: {
         label: 'Aliance: Rod Solaris',
-        description: '⚔ +25% DMG · 🪙 +45 CR Věno',
+        description: '⚔ +25% DMG · 🪙 +45 CR věno',
       },
       gala_valkyr_marriage: {
         label: 'Aliance: Rod Valkyr',
-        description: '💚 +18 HP · 🎛 Kyber-Implantát zdarma',
+        description: '💚 +18 HP · 🎛 Kyber-implantát zdarma',
       },
       gala_toast: {
-        label: 'Přípitek budoucím generacím',
+        label: 'Přípitek příštím generacím',
         description: '⚡ +35% Overdrive · 🪙 +20 CR',
       },
     },
   },
   mutual_aid_coop: {
-    title: 'Družstvo Vzájemné Pomoci',
+    title: 'Družstvo vzájemné pomoci',
     subtitle: 'Sousedská burza otevřeného hardwaru',
-    story: 'Komunitní inženýři sdílející hardware a rave.',
+    story: 'Komunitní inženýři sdílejí hardware a rytmy.',
     choices: {
       coop_bandwidth_vow: {
-        label: 'Slib šířky pásma',
-        description: '🎛 Kyber-Implantát zdarma · slib na 2 boje',
+        label: 'Závazek šířky pásma',
+        description: '🎛 Kyber-implantát zdarma · závazek 2 boje',
       },
       coop_algo_rave: {
         label: 'Rytmus Algo-Rave DJ',
-        description: '⚡ +2 UpCharge (3 uzly) · 🪙 +15 CR',
+        description: '⚡ +2 Nabití (3 uzly) · 🪙 +15 CR',
       },
       coop_donate_scrap: {
-        label: 'Sdílet otevřená data',
-        description: '🪙 +30 CR · 💚 +10 HP péče',
+        label: 'Sdílet otevřená schémata',
+        description: '🪙 +30 CR · 💚 +10 HP',
       },
     },
   },
   ectogenesis_nursery_gala: {
-    title: 'Slavnost Čapí Kliniky',
+    title: 'Slavnost čapí kliniky',
     subtitle: 'Neonatální biotechnologické centrum',
     story: 'Oslava nové generace a rodového dědictví.',
     choices: {
       nursery_bless_heirloom: {
-        label: 'Posvětit Rodové Dědictví',
-        description: '👑 +2 Stupně Dědictví · 💚 +12 HP',
+        label: 'Posvětit rodové dědictví',
+        description: '👑 +2 stupně Dědictví · 💚 +12 HP',
       },
       nursery_vitality_feast: {
-        label: 'Rodinná hostina vitality',
+        label: 'Rodová hostina vitality',
         description: '💚 +24 HP · ⚡ +30% Overdrive (2 boje)',
       },
       nursery_grant: {

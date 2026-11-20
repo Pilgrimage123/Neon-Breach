@@ -156,10 +156,10 @@ export function computeOptimalTurnHint(
     return {
       recommendedAction: 'overdrive',
       targetColor: null,
-      headline: lang === 'cs' ? '★ NÁPOVĚDA: Aktivuj Overdrive [Space]' : '★ HINT: Trigger Overdrive [Space]',
+      headline: lang === 'cs' ? '★ NÁPOVĚDA: Spusť Overdrive [Mezerník]' : '★ HINT: Trigger Overdrive [Space]',
       rationale:
         lang === 'cs'
-          ? 'Overdrive je akce zdarma (nezakončuje tah) — okamžitě udělí plošné průrazné zranění a posílí štít.'
+          ? 'Overdrive je volná akce (neukončí tah) — okamžitě udělí plošné průrazné poškození a posílí obranu.'
           : 'Overdrive is a FREE action (does not end your turn) — deals immediate AoE pierce damage and grants shield.',
       score: 999,
     };
@@ -237,7 +237,7 @@ export function computeOptimalTurnHint(
       if (preview.surgeTriggered) {
         score += 45;
         reasonsEn.push(`triggers ${preview.tileCount}× STACK SURGE (${surgeThreshold}+)`);
-        reasonsCs.push(`spustí ${preview.tileCount}× STACK SURGE (${surgeThreshold}+)`);
+        reasonsCs.push(`spustí ${preview.tileCount}× Přetížení (${surgeThreshold}+)`);
       }
 
       score +=
@@ -259,8 +259,9 @@ export function computeOptimalTurnHint(
 
       if (preview.stayCount >= 3 && !preview.surgeTriggered && heldBonus > 0) {
         score += preview.stayCount * 3;
+        const heldWordCs = preview.stayCount <= 4 ? 'dílky' : 'dílků';
         reasonsEn.push(`holds ${preview.stayCount} tiles for +${heldBonus} HELD momentum next turn`);
-        reasonsCs.push(`podrží ${preview.stayCount} dílků pro bonus +${heldBonus} v příštím tahu`);
+        reasonsCs.push(`podrží ${preview.stayCount} ${heldWordCs} pro bonus +${heldBonus} v příštím tahu`);
       }
 
       const colorLabelEn = color === 'attack' ? 'Attack' : color === 'defense' ? 'Defense' : 'TECH';
@@ -325,11 +326,11 @@ export function computeOptimalTurnHint(
           targetColor: swappedBest.targetColor,
           headline:
             lang === 'cs'
-              ? `★ NÁPOVĚDA: Použij [R] Posun → ${pulledName}`
+              ? `★ NÁPOVĚDA: Použij [R] Prohoz → ${pulledName}`
               : `★ HINT: Use [R] Push → Pull ${pulledName}`,
           rationale:
             lang === 'cs'
-              ? `Přitáhne ${pulledName} dopředu a odemkne silnější tah.`
+              ? `Přitáhne nepřítele (${pulledName}) dopředu a odemkne silnější tah.`
               : `Pulls ${pulledName} to the front to unlock a stronger follow-up.`,
           score: swappedBest.score,
         };
@@ -404,16 +405,18 @@ export function computeEncounterObjectives(params: {
   const bonusNanites = (tier2Done ? 1 : 0) + (tier3Done ? 2 : 0);
   const bonusScore = (tier2Done ? 75 : 0) + (tier3Done ? 150 : 0);
 
+  const turnsWord2Cs = turnTarget2Star <= 4 ? 'tahy' : 'tahů';
+  const turnsWord3Cs = turnTarget3Star <= 4 ? 'tahy' : 'tahů';
   const tiers: [TieredEncounterObjective, TieredEncounterObjective, TieredEncounterObjective] = [
     {
       tier: 1,
-      tierLabel: lang === 'cs' ? '★ ZÁKLAD (Casual)' : '★ CASUAL (Floor)',
+      tierLabel: lang === 'cs' ? '★ ZÁKLAD' : '★ CASUAL (Floor)',
       title: lang === 'cs' ? 'Přežij a vyčisti sektor' : 'Survive & Clear Board',
       description:
         lang === 'cs'
           ? 'Poraz všechny nepřátele v libovolném počtu tahů.'
           : 'Defeat all enemies in any number of turns.',
-      rewardText: lang === 'cs' ? 'Postup dál + Základní kořist' : 'Sector Advance + Base Loot',
+      rewardText: lang === 'cs' ? 'Postup dál + základní kořist' : 'Sector Advance + Base Loot',
       completed: tier1Done,
     },
     {
@@ -423,15 +426,15 @@ export function computeEncounterObjectives(params: {
           ? '★★ POVINNÝ MANDÁT (Velmistr)'
           : '★★ MANDATORY (Grandmaster)'
         : lang === 'cs'
-          ? '★★ POKROČILÝ (3-Star)'
+          ? '★★ TAKTICKÝ CÍL'
           : '★★ INTERMEDIATE',
       title:
         lang === 'cs'
-          ? `Bleskový průlom (≤${turnTarget2Star} tahů) NEBO 0 ztráta HP (Nyní: T${combat.turn}, -${hpLost} HP)`
+          ? `Rychlý průlom (≤${turnTarget2Star} ${turnsWord2Cs}) NEBO bez ztráty HP (Nyní: T${combat.turn}, -${hpLost} HP)`
           : `Blitz Clear (≤${turnTarget2Star} Turns) OR Zero HP Lost (Now: T${combat.turn}, -${hpLost} HP)`,
       description: diff.mandatoryBonusObjective
         ? lang === 'cs'
-          ? `Povinné na Velmistra: do ${turnTarget2Star} tahů nebo bez ztráty HP (jinak průlom -12 HP a ztráta kořisti).`
+          ? `Povinné na Velmistra: do ${turnTarget2Star} tahů nebo bez ztráty HP (jinak průlom -12 HP a zabavení kořisti).`
           : `Mandatory on Grandmaster: ≤${turnTarget2Star} turns or 0 HP lost (failure incurs -12 HP breach & forfeits loot).`
         : lang === 'cs'
           ? `Vyčisti uzel do ${turnTarget2Star} tahů nebo bez ztráty zdraví (bez Nouzového restartu).`
@@ -444,14 +447,14 @@ export function computeEncounterObjectives(params: {
     },
     {
       tier: 3,
-      tierLabel: lang === 'cs' ? '★★★ MISTROVSTVÍ (Ceiling)' : '★★★ HARDCORE (Mastery)',
+      tierLabel: lang === 'cs' ? '★★★ MISTROVSTVÍ' : '★★★ HARDCORE (Mastery)',
       title:
         lang === 'cs'
-          ? `Bezchybný taktik: ≤${turnTarget3Star} tahy, 1+ Surge, 0 Zpět, 0 Tip (Surge: ${surgesCount}, Zpět: ${undosUsed}, Tip: ${hintsUsed})`
+          ? `Bezchybný taktik: ≤${turnTarget3Star} ${turnsWord3Cs}, 1+ Přetížení, 0 Zpět, 0 Tip (Přetížení: ${surgesCount}, Zpět: ${undosUsed}, Tip: ${hintsUsed})`
           : `Apex Constraint: ≤${turnTarget3Star} Turns, 1+ Surge, 0 Undo, 0 Hint (Surges: ${surgesCount}, Undo: ${undosUsed}, Hint: ${hintsUsed})`,
       description:
         lang === 'cs'
-          ? `Vyhraj do ${turnTarget3Star} tahů se Stack Surge, bez vrácení tahu a bez nápovědy.`
+          ? `Vyhraj do ${turnTarget3Star} tahů s Přetížením, bez vrácení tahu a bez nápovědy.`
           : `Clear within ${turnTarget3Star} turns, trigger 1+ Stack Surge, and use 0 Undos and 0 Hints.`,
       rewardText: lang === 'cs' ? '+2 NC · +150 PTS · ★★★ ODZNAK' : '+2 NC · +150 PTS · ★★★ BADGE',
       completed: tier3Done,
@@ -489,7 +492,7 @@ export function computeContextualMicroPrompt(params: {
   // Step 1: Introduce Stack Surge when 4+ tiles of one color naturally appear and player hasn't surged yet
   if (surgesDone === 0 && maxGroup >= surgeThreshold) {
     return lang === 'cs'
-      ? `★ Spoj ${maxGroup}× dílky. Spusť STACK SURGE!`
+      ? `★ Spoj ${maxGroup}× dílky. Spusť PŘETÍŽENÍ!`
       : `★ Match ${maxGroup}× tiles. Trigger STACK SURGE!`;
   }
 
@@ -498,7 +501,7 @@ export function computeContextualMicroPrompt(params: {
   const heldTileBonus = getHeroSpec(run.heroine.characterId).heldTileBonus;
   if (combat.turn === 2 && heldCount > 0 && heldTileBonus > 0) {
     return lang === 'cs'
-      ? `▲ Držené dílky získají +${heldTileBonus} sílu.`
+      ? `▲ Držené dílky získají +${heldTileBonus} k síle.`
       : `▲ HELD tiles gain +${heldTileBonus} power.`;
   }
 
@@ -506,7 +509,7 @@ export function computeContextualMicroPrompt(params: {
   const livingCount = combat.enemies.filter((e) => e.hp > 0).length;
   if (combat.turn <= 2 && livingCount >= 2 && !alreadySwappedThisTurn) {
     return lang === 'cs'
-      ? `⇄ [Posun] prohodí přední 2 cíle.`
+      ? `⇄ [Prohoz] prohodí přední 2 cíle.`
       : `⇄ [Push] swaps front 2 enemies.`;
   }
 

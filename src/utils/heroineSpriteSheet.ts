@@ -10,6 +10,7 @@ export const HEROINE_SHEET_HEIGHT = 1189;
 export const HEROINE_EMOTE_SHEET_WIDTH = 2095;
 export const HEROINE_EMOTE_SHEET_HEIGHT = 1007;
 export const HEROINE_CANONICAL_HEIGHT = 214;
+export const HEROINE_DODGE_DURATION = 0.96;
 
 export type HeroineSheetSource = 'combat' | 'emote' | 'dodge';
 
@@ -133,11 +134,12 @@ export const HEROINE_EMOTE_FRAMES: readonly HeroineFrameDef[] = [
 
 export const HEROINE_DODGE_FRAMES: readonly HeroineFrameDef[] = [
   // Row 9 (Dedicated resized transparent RGBA dodge poses, indices 72..75):
+  // Anatomically calibrated against r0_f0 standing Kira (214px, ~36px head) & r3_f5 kneel so head/torso/boots stay 1:1 across poses.
   // 72: Vault takeoff -> 73: Wide neon slide -> 74: Deep power-slide -> 75: 3-point superhero landing
-  { id: 'dodge_vault', row: 9, col: 0, x: 0, y: 0, w: 193, h: 256, anchorX: 102, bottomY: 250, rowScale: 0.78, sheet: 'dodge' },
-  { id: 'dodge_slide_1', row: 9, col: 1, x: 0, y: 0, w: 215, h: 264, anchorX: 114, bottomY: 258, rowScale: 0.72, sheet: 'dodge' },
-  { id: 'dodge_slide_2', row: 9, col: 2, x: 0, y: 0, w: 210, h: 264, anchorX: 112, bottomY: 258, rowScale: 0.72, sheet: 'dodge' },
-  { id: 'dodge_land', row: 9, col: 3, x: 0, y: 0, w: 192, h: 248, anchorX: 96, bottomY: 243, rowScale: 0.70, sheet: 'dodge' },
+  { id: 'dodge_vault', row: 9, col: 0, x: 0, y: 0, w: 193, h: 256, anchorX: 102, bottomY: 245, rowScale: 0.96, sheet: 'dodge' },
+  { id: 'dodge_slide_1', row: 9, col: 1, x: 0, y: 0, w: 215, h: 264, anchorX: 105, bottomY: 256, rowScale: 0.91, sheet: 'dodge' },
+  { id: 'dodge_slide_2', row: 9, col: 2, x: 0, y: 0, w: 210, h: 264, anchorX: 106, bottomY: 256, rowScale: 0.93, sheet: 'dodge' },
+  { id: 'dodge_land', row: 9, col: 3, x: 0, y: 0, w: 192, h: 248, anchorX: 96, bottomY: 240, rowScale: 0.92, sheet: 'dodge' },
 ];
 
 export const HEROINE_SHEET_FRAMES: readonly HeroineFrameDef[] = [
@@ -305,14 +307,23 @@ const GUARD_SEQ: readonly SequenceKeyframe[] = [
   { frameIndex: 0, until: 0.48, xProgress: 0, yHopPx: 0 },
 ];
 
-// DODGE (Row 9, frames 72..75): Snappy ~0.70s Vault Takeoff -> Wide Neon Slide -> Deep Power-Slide -> 3-Point Land -> Idle Recovery
+// DODGE (Row 9, frames 72..75): Fluid 0.96s Vault Takeoff -> Wide Neon Slide -> Deep Power-Slide -> 3-Point Land -> Idle Recovery
 const DODGE_SEQ: readonly SequenceKeyframe[] = [
-  { frameIndex: 72, until: 0.08, xProgress: -0.09, yHopPx: -28, dashing: true },
-  { frameIndex: 72, until: 0.16, xProgress: -0.17, yHopPx: -18, dashing: true },
-  { frameIndex: 73, until: 0.33, xProgress: -0.24, yHopPx: -2, dashing: true },
-  { frameIndex: 74, until: 0.49, xProgress: -0.27, yHopPx: 0, dashing: true },
-  { frameIndex: 75, until: 0.64, xProgress: -0.09, yHopPx: 0, dashing: false },
-  { frameIndex: 0, until: 0.70, xProgress: 0, yHopPx: 0, dashing: false },
+  // Beat 1: Vault takeoff & parabolic hang-time (0.00..0.23s)
+  { frameIndex: 72, until: 0.09, xProgress: -0.07, yHopPx: -18, dashing: true },
+  { frameIndex: 72, until: 0.17, xProgress: -0.15, yHopPx: -34, dashing: true },
+  { frameIndex: 72, until: 0.23, xProgress: -0.20, yHopPx: -14, dashing: true },
+  // Beat 2: Touchdown & wide neon power-slide (0.23..0.46s)
+  { frameIndex: 73, until: 0.34, xProgress: -0.25, yHopPx: -2, dashing: true },
+  { frameIndex: 73, until: 0.46, xProgress: -0.28, yHopPx: 0, dashing: true },
+  // Beat 3: Deep braking slide & coil (0.46..0.67s)
+  { frameIndex: 74, until: 0.57, xProgress: -0.30, yHopPx: 0, dashing: true },
+  { frameIndex: 74, until: 0.67, xProgress: -0.25, yHopPx: 0, dashing: true },
+  // Beat 4: 3-point superhero landing snap-in & grounded hold (0.67..0.86s)
+  { frameIndex: 75, until: 0.76, xProgress: -0.11, yHopPx: 0, dashing: true },
+  { frameIndex: 75, until: 0.86, xProgress: -0.05, yHopPx: 0, dashing: false },
+  // Beat 5: Elastic rise back into combat stance (0.86..0.96s)
+  { frameIndex: 0, until: 0.96, xProgress: 0, yHopPx: 0, dashing: false },
 ];
 
 // USING TECH (Row 8, frames 63..71): Cyan/magenta holographic rings & floating AR screens
@@ -385,7 +396,7 @@ const MODE_DURATIONS: Record<HeroineAnimMode, number> = {
   dash_kick: 0.78,
   overdrive: 0.88,
   guard: 0.48,
-  dodge: 0.70,
+  dodge: HEROINE_DODGE_DURATION,
   upgrade: 0.90,
   hit: 0.46,
   defeat: 1.10,
@@ -393,6 +404,7 @@ const MODE_DURATIONS: Record<HeroineAnimMode, number> = {
 };
 
 const FRAME_BLEND_DURATION = 0.052; // 52ms sub-frame pose cross-dissolve
+const DODGE_FRAME_BLEND_DURATION = 0.072; // 72ms fluid cross-dissolve for acrobatic dodge transitions
 
 export function createInitialHeroineAnimState(): HeroineAnimState {
   return {
@@ -575,7 +587,9 @@ export function stepHeroineAnimState(
     shouldEmitKickImpact = true;
   }
 
-  const trans = computeFrameTransitionState(state, sampled.frameIndex, dt, FRAME_BLEND_DURATION);
+  const blendDuration =
+    state.mode === 'dodge' ? DODGE_FRAME_BLEND_DURATION : FRAME_BLEND_DURATION;
+  const trans = computeFrameTransitionState(state, sampled.frameIndex, dt, blendDuration);
 
   const nextState: HeroineAnimState = {
     ...state,
@@ -622,27 +636,40 @@ export function stepHeroineAnimState(
     tiltRad = Math.max(-0.04, Math.min(0, sampled.vx * 0.03));
   } else if (state.mode === 'dodge') {
     if (sampled.frameIndex === 72) {
-      // Airborne acrobatic vault stretch & nimble pitch
-      breathScaleY = 1.045;
-      breathScaleX = 0.965;
-      tiltRad = -0.04;
+      // Airborne acrobatic vault: brisk launch stretch relaxing smoothly over parabolic apex
+      const uVault = Math.max(0, Math.min(1, clampedElapsed / 0.23));
+      const launchStretch = Math.sin(uVault * Math.PI);
+      breathScaleY = 1 + 0.052 * launchStretch;
+      breathScaleX = 1 - 0.036 * launchStretch;
+      tiltRad = -0.05 + uVault * 0.03;
     } else if (sampled.frameIndex === 73) {
-      // Wide neon slide horizontal velocity stretch
-      breathScaleY = 0.97;
-      breathScaleX = 1.035;
-      tiltRad = -0.025;
+      // Wide neon slide: soft touchdown absorption into sleek aerodynamic glide
+      const uSlide1 = Math.max(0, Math.min(1, (clampedElapsed - 0.23) / 0.23));
+      const glideEase = Math.sin(uSlide1 * Math.PI);
+      breathScaleY = 1 - 0.032 * (1 - uSlide1 * 0.45);
+      breathScaleX = 1 + 0.038 * (0.55 + 0.45 * glideEase);
+      tiltRad = -0.028 * (1 - uSlide1 * 0.65);
     } else if (sampled.frameIndex === 74) {
-      // Deep power-slide low braking compression
-      breathScaleY = 0.955;
-      breathScaleX = 1.045;
-      tiltRad = 0.015;
+      // Deep power-slide: low braking compression with smooth braking pitch
+      const uSlide2 = Math.max(0, Math.min(1, (clampedElapsed - 0.46) / 0.21));
+      const brakeWave = Math.sin(uSlide2 * Math.PI);
+      breathScaleY = 1 - 0.042 * (0.5 + 0.5 * brakeWave);
+      breathScaleX = 1 + 0.042 * (0.5 + 0.5 * brakeWave);
+      tiltRad = 0.022 * brakeWave;
     } else if (sampled.frameIndex === 75) {
-      // 3-point superhero landing cushion squash with smooth elastic rebound
-      const uLand = Math.max(0, Math.min(1, (clampedElapsed - 0.49) / 0.15));
-      const cushion = Math.sin(uLand * Math.PI) * (1 - uLand * 0.42);
-      breathScaleY = 1 - cushion * 0.075;
-      breathScaleX = 1 + cushion * 0.065;
-      tiltRad = 0.01;
+      // 3-point superhero landing: damped spring cushion squash rebounding into rise
+      const uLand = Math.max(0, Math.min(1, (clampedElapsed - 0.67) / 0.19));
+      const cushion = Math.sin(uLand * Math.PI) * (1 - uLand * 0.38);
+      breathScaleY = 1 - cushion * 0.078;
+      breathScaleX = 1 + cushion * 0.068;
+      tiltRad = 0.014 * (1 - uLand);
+    } else {
+      // Elastic rise back into standing idle stance
+      const uRise = Math.max(0, Math.min(1, (clampedElapsed - 0.86) / 0.10));
+      const riseArc = Math.sin(uRise * Math.PI);
+      breathScaleY = 1 + 0.024 * riseArc;
+      breathScaleX = 1 - 0.014 * riseArc;
+      tiltRad = 0;
     }
   } else if (state.mode === 'upgrade') {
     const u = clampedElapsed / Math.max(0.001, state.duration);

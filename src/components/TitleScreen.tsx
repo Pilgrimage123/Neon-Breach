@@ -311,7 +311,7 @@ export function TitleScreen({
                     compactCards ? 'text-[10.5px]' : 'text-[12px] sm:text-[12.5px]'
                   }`}
                 >
-                  {spec.maxHp} HP · {spec.carryCapacity}W
+                  {spec.maxHp} HP · {spec.carryCapacity} {lang === 'cs' ? 'RAM' : 'MEM'}
                 </span>
               </div>
               <div
