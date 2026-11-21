@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
     "lint": "tsc --noEmit",
-    "test": "node scripts/run-tests.mjs"
+    "test": "node scripts/run-tests.mjs",
+    "bake:title": "tsx scripts/bakeTitleSprites.ts"
   },
   "dependencies": {
     "react": "^19.0.1",
@@ -21,6 +22,7 @@
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.1",
+    "sharp": "^0.35.5",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
     "typescript": "^7.0.2",

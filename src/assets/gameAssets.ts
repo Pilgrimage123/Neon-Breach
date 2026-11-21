@@ -16,11 +16,12 @@ import kiraDodge3Url from './sprites/kira_dodge_3_land.png';
 import kiraEmoteSheetUrl from './sprites/kira_emote_sheet.png';
 import kiraSheetUrl from './sprites/kira_spritesheet.png';
 import nurseSheetUrl from './sprites/nurse_spritesheet.png';
-import titleLogo0Url from './sprites/title_logo_0.png';
-import titleLogo1Url from './sprites/title_logo_1.png';
-import titleLogo2Url from './sprites/title_logo_2.png';
-import titleLogo3Url from './sprites/title_logo_3.png';
-import titleLogo4Url from './sprites/title_logo_4.png';
+import titleLogo0Url from './sprites/baked/k0.png';
+import titleLogo1Url from './sprites/baked/k1.png';
+import titleLogo2Url from './sprites/baked/k2.png';
+import titleLogo3Url from './sprites/baked/k3.png';
+import titleLogo4Url from './sprites/baked/k4.png';
+import titleLockupUrl from './sprites/baked/lockup_plane0.png';
 import zuriDronesSheetUrl from './sprites/zuri_drones_sheet.png';
 import zuriEmoteSheetUrl from './sprites/zuri_emote_sheet.png';
 import zuriSheetUrl from './sprites/zuri_spritesheet.png';
@@ -45,6 +46,7 @@ export const GAME_ASSETS = {
   titleBg: titleBgUrl,
   titleLogo: TITLE_LOGO_FRAME_URLS[0],
   titleLogoFrames: TITLE_LOGO_FRAME_URLS,
+  titleLockup: titleLockupUrl,
   arenaBackdrop: arenaBackdropUrl,
   kira: kiraSheetUrl,
   kiraEmote: kiraEmoteSheetUrl,

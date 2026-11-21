@@ -1,0 +1,105 @@
+{
+  "version": 1,
+  "targetDimensions": {
+    "width": 960,
+    "height": 541
+  },
+  "parameters": {
+    "cutout": {
+      "removeInteriorWhite": true,
+      "minPocketArea": 32,
+      "defringeStrength": 0.82,
+      "unmixLightGlow": true
+    },
+    "lockupBounds": {
+      "minNx": 0.04,
+      "maxNx": 0.79,
+      "minNy": 0.38,
+      "maxNy": 0.98,
+      "featherPx": 12
+    },
+    "visorCurvature": -0.014,
+    "slimeTips": [
+      {
+        "x": 30,
+        "y": 294
+      },
+      {
+        "x": 32,
+        "y": 192
+      },
+      {
+        "x": 28,
+        "y": 304
+      }
+    ],
+    "slimeEraseRadiusPx": 14
+  },
+  "keyframes": [
+    {
+      "id": "k0",
+      "source": "assets-src/title/title_logo_0.png",
+      "sourceDimensions": {
+        "width": 960,
+        "height": 541
+      },
+      "downscaled": false,
+      "sourceSha256": "e221db3947f5aeadf6ce204847803d037fff03a7a31c0460d0ec7eed986274b7",
+      "output": "src/assets/sprites/baked/k0.png",
+      "outputSha256": "223c090bc54fa567266df951889fa4cd128936c9a1145caa28655432661a4168"
+    },
+    {
+      "id": "k1",
+      "source": "assets-src/title/title_logo_1.png",
+      "sourceDimensions": {
+        "width": 960,
+        "height": 541
+      },
+      "downscaled": false,
+      "sourceSha256": "015db511f87c98910c1b280638ee400e72098e84c06b86217480e466d93b2f35",
+      "output": "src/assets/sprites/baked/k1.png",
+      "outputSha256": "8b53b2e1f20c37190d7953527de75422a8d0f101a66000b7275d9d4e4aecaf47"
+    },
+    {
+      "id": "k2",
+      "source": "assets-src/title/title_logo_2.png",
+      "sourceDimensions": {
+        "width": 960,
+        "height": 541
+      },
+      "downscaled": false,
+      "sourceSha256": "75c0e1da850e19d5e2af26fe2cc4717bde0a01f7923516d093939e7c2cf83b71",
+      "output": "src/assets/sprites/baked/k2.png",
+      "outputSha256": "464e57684079ffdd98cb680655c25e6b7c8ac52725afee9858333fde2f62c23c"
+    },
+    {
+      "id": "k3",
+      "source": "assets-src/title/title_logo_3.png",
+      "sourceDimensions": {
+        "width": 960,
+        "height": 541
+      },
+      "downscaled": false,
+      "sourceSha256": "17fc46d269f864b778ba81e97cba5bafbd97474a3232157174a3ce85fcaab6e4",
+      "output": "src/assets/sprites/baked/k3.png",
+      "outputSha256": "188d8deff29467f5960f1310ab2eafc90ff03775b64a83acab73083894d495db"
+    },
+    {
+      "id": "k4",
+      "source": "assets-src/title/title_logo_4.png",
+      "sourceDimensions": {
+        "width": 960,
+        "height": 541
+      },
+      "downscaled": false,
+      "sourceSha256": "96b918f2baaef2052510125f118a317393a945d7915885d0672a70e4bdfb79d2",
+      "output": "src/assets/sprites/baked/k4.png",
+      "outputSha256": "0f6e572f66c26a63c600519eeb818f6bda07099d76266a639065373dfa17fc1e"
+    }
+  ],
+  "lockup": {
+    "sourceKeyframe": "k0",
+    "output": "src/assets/sprites/baked/lockup_plane0.png",
+    "outputSha256": "fcb64f1fa5df32ab5e9e87192140c7f33026a89091f3cc7c7c0b364a6a560fef"
+  }
+}

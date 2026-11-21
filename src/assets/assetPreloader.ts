@@ -44,7 +44,14 @@ import {
   buildBackgroundTaskOrder,
   buildEnemyPreloadOrder,
 } from './preloadPlan';
+import {
+  createBrowserTitleSpriteDecodeAdapter,
+  createTitleEmblemPreloader,
+  type TitleSpriteSource,
+} from './titleEmblemPreloader';
 import { GAME_ASSETS } from './gameAssets';
+
+export type { TitleSpriteSource };
 
 const KIRA_COMBAT_OPTIONS: SpriteCutoutOptions = {
   removeInteriorWhite: true,
@@ -117,13 +124,11 @@ const BRUTE_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
   maxDimension: 512,
 };
 
-const TITLE_LOGO_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 32,
-  defringeStrength: 0.82,
-  unmixLightGlow: true,
-  maxDimension: 960,
-};
+const titleEmblemPreloader = createTitleEmblemPreloader({
+  frameUrls: GAME_ASSETS.titleLogoFrames,
+  lockupUrl: GAME_ASSETS.titleLockup,
+  adapter: createBrowserTitleSpriteDecodeAdapter(loadDecodedImage),
+});
 
 interface PreloadedEnemyCutout {
   canvas: HTMLCanvasElement;
@@ -181,40 +186,30 @@ export function loadTitleBg(): Promise<HTMLImageElement> {
   return loadDecodedImage(GAME_ASSETS.titleBg);
 }
 
-export function getPreloadedTitleLogo(): HTMLCanvasElement | null {
-  return getCachedSpriteCutout(GAME_ASSETS.titleLogo, TITLE_LOGO_OPTIONS);
+export function getPreloadedTitleLogo(): TitleSpriteSource | null {
+  return titleEmblemPreloader.getPreloadedTitleLogo();
 }
 
-export function loadTitleLogo(): Promise<HTMLCanvasElement> {
-  return loadSpriteCutout(GAME_ASSETS.titleLogo, TITLE_LOGO_OPTIONS);
+export function loadTitleLogo(): Promise<TitleSpriteSource> {
+  return titleEmblemPreloader.loadTitleLogo();
 }
 
-export function getPreloadedTitleLogoFrames(): (HTMLCanvasElement | null)[] {
-  return GAME_ASSETS.titleLogoFrames.map((url) =>
-    getCachedSpriteCutout(url, TITLE_LOGO_OPTIONS),
-  );
+export function getPreloadedTitleLockup(): TitleSpriteSource | null {
+  return titleEmblemPreloader.getPreloadedTitleLockup();
 }
 
-export async function loadTitleLogoFrames(
-  onFrameReady?: (index: number, canvas: HTMLCanvasElement) => void,
-): Promise<HTMLCanvasElement[]> {
-  const results: HTMLCanvasElement[] = new Array(GAME_ASSETS.titleLogoFrames.length);
-  for (let i = 0; i < GAME_ASSETS.titleLogoFrames.length; i++) {
-    const url = GAME_ASSETS.titleLogoFrames[i];
-    const cached = getCachedSpriteCutout(url, TITLE_LOGO_OPTIONS);
-    if (cached) {
-      results[i] = cached;
-      onFrameReady?.(i, cached);
-      continue;
-    }
-    const cutout = await loadSpriteCutout(url, TITLE_LOGO_OPTIONS);
-    results[i] = cutout;
-    onFrameReady?.(i, cutout);
-    if (i + 1 < GAME_ASSETS.titleLogoFrames.length) {
-      await yieldTick();
-    }
-  }
-  return results;
+export function loadTitleLockup(): Promise<TitleSpriteSource> {
+  return titleEmblemPreloader.loadTitleLockup();
+}
+
+export function getPreloadedTitleLogoFrames(): (TitleSpriteSource | null)[] {
+  return titleEmblemPreloader.getPreloadedTitleLogoFrames();
+}
+
+export function loadTitleLogoFrames(
+  onFrameReady?: (index: number, sprite: TitleSpriteSource) => void,
+): Promise<TitleSpriteSource[]> {
+  return titleEmblemPreloader.loadTitleLogoFrames(onFrameReady);
 }
 
 function getPortraitSpec(charId: CharacterId): { url: string; frame: SpriteRect; options: SpriteCutoutOptions } {
@@ -459,6 +454,7 @@ export function preloadForTitleScreen(selectedChar: CharacterId): void {
   const titleCritical = Promise.allSettled([
     loadTitleBg(),
     loadTitleLogo(),
+    loadTitleLockup(),
     loadPortraitFrame('kira'),
     loadPortraitFrame('auraline'),
     loadPortraitFrame('zuri'),

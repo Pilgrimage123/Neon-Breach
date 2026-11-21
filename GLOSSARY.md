@@ -225,3 +225,35 @@ _Avoid_: Domestic Drone
 **Family Heirloom**:
 An AI Skill Chip engraved at the Heirloom Forge whose Tiles gain `+1` per run combat win (up to `+6`) and pass inherited power to future Runs.
 _Avoid_: Legacy Chip
+
+---
+
+### Title Emblem
+
+**Title Emblem**:
+The composite interactive artwork displayed on the game's title screen.
+_Avoid_: logo, banner
+
+**Static Lockup Plane**:
+The stationary typographic layer holding the `NEON BREACH` wordmark, cat-`O` mark, and `XENO-PURGE PROTOCOL` badge so lettering remains crisp during character motion.
+_Avoid_: master lockup, text layer
+
+**Emblem Keyframe**:
+One of the five discrete illustrated poses depicting Kira and the Xeno across the title animation arc.
+_Avoid_: pose frame, source frame
+
+**Choreography Beat**:
+A timed transition or hold segment within the click-triggered title animation sequence, distinct from the static poses themselves.
+_Avoid_: animation frame, pose
+
+**Visor Matrix**:
+The curved grid of discrete glowing LED cells rendered across Kira's visor glass to show animated expressions.
+_Avoid_: visor overlay, eye graphic
+
+**Xeno Slime**:
+The cohesive, dripping acid fluid falling from the Xeno's tentacles on the Title Emblem, distinct from Auraline's medical biogel and combat mutant blood.
+_Avoid_: biogel, mutant blood, green droplets
+
+**Anatomical Warp Lattice**:
+The articulated control mesh spanning Xeno and Kira's anatomical landmarks that drives smooth pose transitions and subtle idle breathing.
+_Avoid_: sprite mesh, morph grid

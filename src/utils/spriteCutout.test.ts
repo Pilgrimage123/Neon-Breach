@@ -477,11 +477,11 @@ test('Nurse sprite sheet frames clean black background while keeping uniform, me
 
 test('All 5 resized 960x541 Title logo frames remove outer and enclosed ring checkerboard while keeping XENO-PURGE PROTOCOL letters opaque', () => {
   const framePaths = [
-    'src/assets/sprites/title_logo_0.png',
-    'src/assets/sprites/title_logo_1.png',
-    'src/assets/sprites/title_logo_2.png',
-    'src/assets/sprites/title_logo_3.png',
-    'src/assets/sprites/title_logo_4.png',
+    'assets-src/title/title_logo_0.png',
+    'assets-src/title/title_logo_1.png',
+    'assets-src/title/title_logo_2.png',
+    'assets-src/title/title_logo_3.png',
+    'assets-src/title/title_logo_4.png',
   ];
 
   for (const relPath of framePaths) {

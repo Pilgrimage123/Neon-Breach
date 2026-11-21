@@ -1,7 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import {
+  type TitleSpriteSource,
+  getPreloadedTitleLockup,
   getPreloadedTitleLogo,
   getPreloadedTitleLogoFrames,
+  loadTitleLockup,
   loadTitleLogo,
   loadTitleLogoFrames,
 } from '../assets/assetPreloader';
@@ -28,9 +31,10 @@ export function TitleEmblemStage({
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const tiltRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const framesRef = useRef<(HTMLCanvasElement | null)[]>(
+  const framesRef = useRef<(TitleSpriteSource | null)[]>(
     getPreloadedTitleLogoFrames(),
   );
+  const lockupRef = useRef<TitleSpriteSource | null>(getPreloadedTitleLockup());
   const compositeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const sheenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const vfxRef = useRef(createTitleEmblemVfxState());
@@ -40,15 +44,30 @@ export function TitleEmblemStage({
   const [ready, setReady] = useState<boolean>(() => Boolean(getPreloadedTitleLogo()));
   const [failed, setFailed] = useState(false);
 
-  // Load main cutout logo Frame 0 immediately, plus progressively decode Frames 1..4 for the click sequence
+  // Load main cutout logo Frame 0 and Static Lockup Plane immediately, plus progressively decode Frames 1..4
   useEffect(() => {
     let cancelled = false;
+
+    const cachedLockup = getPreloadedTitleLockup();
+    if (cachedLockup) {
+      lockupRef.current = cachedLockup;
+    } else {
+      void loadTitleLockup()
+        .then((lockup) => {
+          if (!cancelled) lockupRef.current = lockup;
+        })
+        .catch(() => {
+          // Degrade gracefully to frame 0 typography if lockup fails to decode
+        });
+    }
 
     const cachedFrames = getPreloadedTitleLogoFrames();
     if (cachedFrames && cachedFrames[0]) {
       framesRef.current = cachedFrames;
       setReady(true);
-      return;
+      return () => {
+        cancelled = true;
+      };
     }
 
     const cachedLogo = getPreloadedTitleLogo();
@@ -67,9 +86,9 @@ export function TitleEmblemStage({
         });
     }
 
-    void loadTitleLogoFrames((idx, frameCanvas) => {
+    void loadTitleLogoFrames((idx, frameSprite) => {
       if (cancelled) return;
-      framesRef.current[idx] = frameCanvas;
+      framesRef.current[idx] = frameSprite;
       if (idx === 0) {
         setReady(true);
       }
@@ -251,18 +270,41 @@ export function TitleEmblemStage({
 
       const frameACanvas = frames[seq.frameA] ?? baseLogo;
       const frameBCanvas = frames[seq.frameB] ?? frameACanvas;
+      const lockupSource = lockupRef.current;
 
-      let activeLogoSource: HTMLCanvasElement = frameACanvas;
-      if (seq.active && seq.frameA !== seq.frameB && seq.alphaB > 0.001 && frameBCanvas !== frameACanvas) {
-        const comp = getCompositeScratch(frameACanvas.width, frameACanvas.height);
+      // Build unified 960x541 offscreen composite: Plane 1 (dynamic character plane)
+      // beneath Plane 0 (Static Lockup Plane) so metallic lettering stays shimmer-free
+      // and shares the single drop-shadow and destination-in sheen silhouette.
+      let activeLogoSource: HTMLCanvasElement | TitleSpriteSource = frameACanvas;
+      const isTransitioning =
+        seq.active &&
+        seq.frameA !== seq.frameB &&
+        seq.alphaB > 0.001 &&
+        frameBCanvas !== frameACanvas;
+
+      if (lockupSource || isTransitioning) {
+        const comp = getCompositeScratch(baseLogo.width, baseLogo.height);
         const cctx = comp.getContext('2d');
         if (cctx) {
           cctx.clearRect(0, 0, comp.width, comp.height);
           cctx.globalCompositeOperation = 'source-over';
-          cctx.globalAlpha = seq.alphaA;
-          cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
-          cctx.globalAlpha = seq.alphaB;
-          cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+          if (isTransitioning) {
+            cctx.globalAlpha = seq.alphaA;
+            cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
+            cctx.globalAlpha = seq.alphaB;
+            cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+          } else if (seq.active && seq.alphaB >= 0.999) {
+            cctx.globalAlpha = 1;
+            cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+          } else {
+            cctx.globalAlpha = 1;
+            cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
+          }
+
+          if (lockupSource) {
+            cctx.globalAlpha = 1;
+            cctx.drawImage(lockupSource, 0, 0, comp.width, comp.height);
+          }
           cctx.globalAlpha = 1;
           activeLogoSource = comp;
         }
