@@ -143,38 +143,40 @@ export function spawnScreenBloodSpray(
     const zoneRoll = Math.random();
     let nx: number;
     let ny: number;
-    if (zoneRoll < 0.44) {
-      nx = 0.08 + Math.random() * 0.84;
-      ny = 0.83 + Math.random() * 0.13;
-    } else if (zoneRoll < 0.8) {
-      const onRight = Math.random() < (biasRight ? 0.72 : 0.28);
-      nx = onRight ? 0.84 + Math.random() * 0.13 : 0.03 + Math.random() * 0.12;
-      ny = 0.24 + Math.random() * 0.68;
+    if (zoneRoll < 0.45) {
+      // Side perifoveal visor margins
+      const onRight = Math.random() < (biasRight ? 0.68 : 0.32);
+      nx = onRight ? 0.74 + Math.random() * 0.21 : 0.05 + Math.random() * 0.21;
+      ny = 0.16 + Math.random() * 0.74;
+    } else if (zoneRoll < 0.82) {
+      // Lower mid-frame visor rim
+      nx = 0.18 + Math.random() * 0.64;
+      ny = 0.76 + Math.random() * 0.17;
     } else {
-      const onRight = Math.random() < (biasRight ? 0.7 : 0.3);
-      nx = onRight ? 0.89 + Math.random() * 0.09 : 0.02 + Math.random() * 0.08;
-      ny = 0.14 + Math.random() * 0.16;
+      // Upper mid-frame visor rim
+      nx = 0.18 + Math.random() * 0.64;
+      ny = 0.12 + Math.random() * 0.12;
     }
 
-    const r = 2.8 + Math.random() * 4.8;
+    const r = 7.5 + Math.random() * 10.5;
     sb.active = true;
     sb.nx = nx;
     sb.ny = ny;
     sb.radius = r;
-    sb.stretchY = 1.06 + Math.random() * 0.34;
+    sb.stretchY = 1.08 + Math.random() * 0.34;
     sb.slideOffsetPx = 0;
-    sb.slideSpeed = (1.6 + Math.random() * 2.8) * viscousMul;
+    sb.slideSpeed = (3.8 + Math.random() * 5.2) * viscousMul;
     sb.streakLen = 0;
     sb.owner = owner;
     sb.age = 0;
-    sb.lifespan = 5.0 + Math.random() * 3.2;
-    sb.alpha = 0.82 + Math.random() * 0.12;
+    sb.lifespan = 6.2 + Math.random() * 3.4;
+    sb.alpha = 0.88 + Math.random() * 0.1;
     sb.seed = Math.random() * 100;
     const satAng = (Math.random() - 0.5) * Math.PI * 2;
-    const satDist = r + 3 + Math.random() * 5;
+    const satDist = r + 4 + Math.random() * 7;
     sb.satelliteDx = Math.cos(satAng) * satDist;
     sb.satelliteDy = Math.sin(satAng) * satDist;
-    sb.satelliteR = Math.max(1.0, r * (0.28 + Math.random() * 0.2));
+    sb.satelliteR = Math.max(1.8, r * (0.28 + Math.random() * 0.2));
   }
 }
 
@@ -188,24 +190,25 @@ function maybeSprayFourthWallVisor(
 ): void {
   if (sim.screenBloodCooldown > 0) return;
 
-  if (weaponKind === 'plasma') {
-    if (isKo && Math.random() < 0.35) {
-      spawnScreenBloodSpray(sim, owner, 1, sourceX);
-      sim.screenBloodCooldown = 1.2;
-    }
-    return;
-  }
-
   let dropCount = 0;
   if (isKo) {
-    dropCount = weaponKind === 'melee' ? 3 + (Math.random() < 0.5 ? 1 : 0) : 2 + (Math.random() < 0.45 ? 1 : 0);
-    sim.screenBloodCooldown = 0.45;
-  } else if (intensity >= 1.25) {
-    dropCount = Math.random() < 0.72 ? (weaponKind === 'melee' ? 2 : 1 + (Math.random() < 0.4 ? 1 : 0)) : 0;
-    if (dropCount > 0) sim.screenBloodCooldown = 0.85;
-  } else if (Math.random() < 0.24) {
-    dropCount = 1 + (Math.random() < 0.35 ? 1 : 0);
-    sim.screenBloodCooldown = 1.15;
+    dropCount =
+      weaponKind === 'plasma'
+        ? 2 + (Math.random() < 0.5 ? 1 : 0)
+        : 3 + Math.floor(Math.random() * 3);
+    sim.screenBloodCooldown = 0.28;
+  } else if (intensity >= 1.15) {
+    dropCount =
+      weaponKind === 'plasma'
+        ? 1 + (Math.random() < 0.5 ? 1 : 0)
+        : 2 + Math.floor(Math.random() * 3);
+    sim.screenBloodCooldown = 0.42;
+  } else {
+    const chance = weaponKind === 'plasma' ? 0.25 : 0.58;
+    if (Math.random() < chance) {
+      dropCount = 1 + (Math.random() < 0.45 ? 1 : 0);
+      sim.screenBloodCooldown = 0.65;
+    }
   }
 
   if (dropCount > 0) {

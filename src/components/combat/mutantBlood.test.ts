@@ -8,6 +8,7 @@ import {
   createCombatStageSim,
 } from './combatStageTypes';
 import { applyCombatCues, spawnAlienBloodImpact, stepCombatSimulation } from './combatVfx';
+import { addOrGrowFloorBlood } from './combatBloodDecals';
 import {
   computeBloodWeatheringState,
   getBloodBiologyProfile,
@@ -35,6 +36,7 @@ test('all 7 enemy archetypes map to distinct biologically grounded blood profile
     assert.equal(profile.hasSuspendedVeins, rule.veins);
     assert.ok(profile.iridescence >= rule.minIri);
     assert.ok(profile.dropletPalette.length >= 4);
+    assert.notEqual(profile.freshCore, profile.freshBody, 'Beer-Lambert depth requires darker arterial core');
   }
 });
 
@@ -88,6 +90,15 @@ test('resolveWeaponDecalKind maps kinetic, plasma, and melee attacks cleanly', (
       equippedDefIds: ['predictive_aim'],
     }),
     'melee',
+  );
+  assert.equal(
+    resolveWeaponDecalKind({
+      attackMode: 'shoot',
+      characterId: 'kira',
+      equippedDefIds: ['predictive_aim'],
+      isSurge: true,
+    }),
+    'kinetic',
   );
   assert.equal(
     resolveWeaponDecalKind({
@@ -246,31 +257,71 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
   assert.equal(remainingCover, 0);
 });
 
-test('fourth-wall visor blood drops spray occasionally on lethal hits, stay peripheral, slide slowly, and disappear', () => {
+test('fourth-wall visor blood drops spray reliably on lethal/surge hits, stay perifoveal, slide with streaks, and disappear', () => {
   const sim = createCombatStageSim();
   sim.size = { w: 1200, h: 420 };
 
-  // Lethal melee hit on Chitin Stalker should spray peripheral visor droplets
+  // Lethal melee hit on Chitin Stalker should spray perifoveal visor droplets
   spawnAlienBloodImpact(sim, 760, 240, 330, 'stalker', 'melee', 1.6, true, 1);
 
   const activeDrops = sim.screenBlood.filter((sb) => sb.active);
-  assert.ok(activeDrops.length >= 2 && activeDrops.length <= 4, 'KO should spray a few small visor drops');
+  assert.ok(activeDrops.length >= 3 && activeDrops.length <= 5, 'KO should spray 3..5 visor drops');
   for (const sb of activeDrops) {
     assert.equal(sb.owner, 'stalker');
-    // Must stay outside central combat lane / top HUD strip
-    const inSideMargin = sb.nx <= 0.17 || sb.nx >= 0.83;
-    const inLowerBezel = sb.ny >= 0.82;
-    assert.ok(inSideMargin || inLowerBezel, `drop (${sb.nx}, ${sb.ny}) should stay peripheral`);
+    assert.ok(sb.radius >= 7.5 && sb.radius <= 18.5, `visor drop radius ${sb.radius} should be clearly visible`);
+    const inSideMargin = sb.nx <= 0.27 || sb.nx >= 0.73;
+    const inLowerBezel = sb.ny >= 0.75;
+    const inUpperRim = sb.ny <= 0.25;
+    assert.ok(inSideMargin || inLowerBezel || inUpperRim, `drop (${sb.nx}, ${sb.ny}) should stay perifoveal`);
   }
 
-  // Step 2 seconds: drops slide slightly and remain visible
-  for (let i = 0; i < 20; i++) stepCombatSimulation(sim, 0.1);
+  // Step 4 seconds: drops slide with visible gravity runner streaks
+  for (let i = 0; i < 40; i++) stepCombatSimulation(sim, 0.1);
   const midDrops = sim.screenBlood.filter((sb) => sb.active);
   assert.ok(midDrops.length > 0);
-  assert.ok(midDrops.every((sb) => sb.slideOffsetPx > 0));
+  assert.ok(midDrops.every((sb) => sb.slideOffsetPx > 0 && sb.streakLen > 0));
 
-  // Step 9 more seconds: all drops slowly evaporate and clear
-  for (let i = 0; i < 90; i++) stepCombatSimulation(sim, 0.1);
+  // Step 8 more seconds: all drops slowly evaporate and clear
+  for (let i = 0; i < 80; i++) stepCombatSimulation(sim, 0.1);
   const afterDrops = sim.screenBlood.filter((sb) => sb.active);
   assert.equal(afterDrops.length, 0, 'fourth-wall screen blood drops should slowly disappear');
+
+  // High-intensity plasma/overdrive impact also sprays visor drops when cooldown is clear
+  sim.screenBloodCooldown = 0;
+  spawnAlienBloodImpact(sim, 760, 240, 330, 'spitter', 'plasma', 1.5, false, 1);
+  const plasmaDrops = sim.screenBlood.filter((sb) => sb.active);
+  assert.ok(plasmaDrops.length >= 1, 'high-intensity plasma/overdrive should also spray visor drops');
+});
+
+test('overlapping floor blood puddles coalesce into a single continuous pool on impact and during spread', () => {
+  const sim = createCombatStageSim();
+  sim.size = { w: 1000, h: 400 };
+
+  // Two nearby splatters of the same biology coalesce immediately via elliptical overlap
+  addOrGrowFloorBlood(sim, 600, 315, 5.5, 4, { owner: 'skitter', shapeKind: 'puddle' });
+  const firstPool = sim.floorBlood.find((p) => p.active);
+  assert.ok(firstPool);
+  const initialRx = firstPool.targetRx;
+
+  addOrGrowFloorBlood(sim, 618, 317, 5.0, 3, { owner: 'skitter', shapeKind: 'puddle' });
+  const activeCountAfterOverlap = sim.floorBlood.filter((p) => p.active).length;
+  assert.equal(activeCountAfterOverlap, 1, 'nearby overlapping splatters should coalesce into one pool');
+  assert.ok(firstPool.targetRx > initialRx, 'coalesced pool should grow in radius');
+
+  // Two separate pools placed just outside initial merge threshold coalesce as they spread
+  const sepX = Math.round(firstPool.x + firstPool.targetRx + 8);
+  addOrGrowFloorBlood(sim, sepX, firstPool.y, 4.5, 2, { owner: 'skitter', shapeKind: 'puddle' });
+  const poolsBeforeSpread = sim.floorBlood.filter((p) => p.active);
+  assert.equal(poolsBeforeSpread.length, 2, 'distant pool starts separate before spreading');
+  for (const p of poolsBeforeSpread) {
+    p.flowVx = 0;
+    p.flowVy = 0;
+    p.spreadRateX = 5;
+  }
+  for (let i = 0; i < 30; i++) stepCombatSimulation(sim, 0.1);
+  assert.equal(
+    sim.floorBlood.filter((p) => p.active).length,
+    1,
+    'neighboring pools should merge seamlessly as they spread into each other',
+  );
 });

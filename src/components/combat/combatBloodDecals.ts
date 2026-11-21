@@ -186,32 +186,6 @@ export function addOrGrowFloorBlood(
     }
   }
 
-  if (shapeKind === 'puddle' || shapeKind === 'cone_droplet') {
-    for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
-      const existing = sim.floorBlood[i];
-      if (!existing.active) continue;
-      if (
-        existing.owner === owner &&
-        existing.createdTurn === createdTurn &&
-        (existing.shapeKind === 'puddle' || existing.shapeKind === 'cone_droplet') &&
-        Math.abs(existing.x - clampedX) < 14 &&
-        Math.abs(existing.y - clampedY) < 5
-      ) {
-        existing.targetRx = Math.min(56, existing.targetRx + dropSize * 0.6 + initialRxBoost * 0.35);
-        existing.targetRy = Math.min(14.5, existing.targetRy + dropSize * 0.16 + initialRxBoost * 0.1);
-        existing.maxTendrilLen = Math.min(32, existing.maxTendrilLen + dropSize * 0.45);
-        existing.flowVx += (Math.random() - 0.38) * 1.2;
-        existing.flowVy = Math.min(4.0, existing.flowVy + 0.22);
-        existing.alpha = Math.min(0.95, existing.alpha + 0.3);
-        existing.age = Math.max(0, existing.age * 0.6);
-        return;
-      }
-    }
-  }
-
-  const puddle = sim.floorBlood[sim.floorBloodCursor];
-  sim.floorBloodCursor = (sim.floorBloodCursor + 1) % FLOOR_BLOOD_POOL_SIZE;
-
   const isTrail = shapeKind === 'trail_drop';
   const isScorch = shapeKind === 'scorch_ring';
   const isArc = shapeKind === 'melee_arc';
@@ -229,6 +203,51 @@ export function addOrGrowFloorBlood(
       : isArc
         ? Math.max(4.2, baseRx * 0.28)
         : Math.max(2.4, baseRx * (0.24 + Math.random() * 0.08));
+
+  if (shapeKind === 'puddle' || shapeKind === 'cone_droplet' || shapeKind === 'melee_arc') {
+    let bestIdx = -1;
+    let bestNormDist = 0.82;
+    for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
+      const existing = sim.floorBlood[i];
+      if (!existing.active) continue;
+      if (
+        existing.owner === owner &&
+        Math.abs(existing.createdTurn - createdTurn) <= 1 &&
+        (existing.shapeKind === 'puddle' ||
+          existing.shapeKind === 'cone_droplet' ||
+          existing.shapeKind === 'melee_arc')
+      ) {
+        const spanX = Math.max(12, existing.targetRx + baseRx * 0.75);
+        const spanY = Math.max(4, existing.targetRy + baseRy * 0.75);
+        const normDist = Math.hypot((existing.x - clampedX) / spanX, (existing.y - clampedY) / spanY);
+        if (normDist < bestNormDist) {
+          bestNormDist = normDist;
+          bestIdx = i;
+        }
+      }
+    }
+    if (bestIdx !== -1) {
+      const existing = sim.floorBlood[bestIdx];
+      const existingArea = Math.max(1, existing.targetRx * existing.targetRy);
+      const addedArea = Math.max(1, baseRx * baseRy * 0.55);
+      const weight = Math.min(0.35, addedArea / (existingArea + addedArea));
+      existing.x = Math.max(24, Math.min(w - 24, existing.x + (clampedX - existing.x) * weight));
+      existing.y = Math.max(minDeckY, Math.min(maxDeckY, existing.y + (clampedY - existing.y) * weight));
+      existing.targetRx = Math.min(68, Math.hypot(existing.targetRx, baseRx * 0.62));
+      existing.targetRy = Math.min(18, Math.hypot(existing.targetRy, baseRy * 0.62));
+      existing.maxTendrilLen = Math.min(34, existing.maxTendrilLen + dropSize * 0.45);
+      existing.flowVx += (Math.random() - 0.38) * 1.0;
+      existing.flowVy = Math.min(4.0, existing.flowVy + 0.18);
+      existing.alpha = Math.min(0.95, existing.alpha + 0.25);
+      existing.createdTurn = Math.max(existing.createdTurn, createdTurn);
+      existing.visualTurnAge = Math.max(0, sim.currentTurn - existing.createdTurn);
+      existing.age = Math.max(0, existing.age * 0.6);
+      return;
+    }
+  }
+
+  const puddle = sim.floorBlood[sim.floorBloodCursor];
+  sim.floorBloodCursor = (sim.floorBloodCursor + 1) % FLOOR_BLOOD_POOL_SIZE;
 
   const viscousSlowdown = 1.2 - profile.viscosity * 0.45;
   puddle.active = true;

@@ -193,6 +193,39 @@ export function stepBloodSimulation(sim: CombatStageSim, simDt: number): void {
     }
   }
 
+  // Coalesce neighboring fluid puddles of the same biology as they spread into each other
+  for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
+    const a = sim.floorBlood[i];
+    if (!a.active || a.shapeKind === 'scorch_ring' || a.shapeKind === 'trail_drop') continue;
+    for (let j = i + 1; j < FLOOR_BLOOD_POOL_SIZE; j++) {
+      const b = sim.floorBlood[j];
+      if (!b.active || b.owner !== a.owner || b.shapeKind === 'scorch_ring' || b.shapeKind === 'trail_drop') {
+        continue;
+      }
+      const spanX = Math.max(10, a.targetRx + b.targetRx * 0.7);
+      const spanY = Math.max(3.5, a.targetRy + b.targetRy * 0.7);
+      const normDist = Math.hypot((a.x - b.x) / spanX, (a.y - b.y) / spanY);
+      if (normDist < 0.76) {
+        const areaA = a.targetRx * a.targetRy;
+        const areaB = b.targetRx * b.targetRy;
+        const major = areaA >= areaB ? a : b;
+        const minor = areaA >= areaB ? b : a;
+        const totalArea = Math.max(1, areaA + areaB);
+        const minorW = (minor.targetRx * minor.targetRy) / totalArea;
+        major.x = Math.max(20, Math.min(w - 20, major.x + (minor.x - major.x) * minorW));
+        major.y = Math.min(edgeY, major.y + (minor.y - major.y) * minorW);
+        major.targetRx = Math.min(72, Math.hypot(major.targetRx, minor.targetRx * 0.65));
+        major.targetRy = Math.min(19, Math.hypot(major.targetRy, minor.targetRy * 0.65));
+        major.maxTendrilLen = Math.min(36, Math.max(major.maxTendrilLen, minor.maxTendrilLen));
+        major.createdTurn = Math.max(major.createdTurn, minor.createdTurn);
+        major.visualTurnAge = Math.min(major.visualTurnAge, minor.visualTurnAge);
+        major.alpha = Math.max(major.alpha, minor.alpha);
+        minor.active = false;
+        if (major === b) break;
+      }
+    }
+  }
+
   for (let i = 0; i < COVER_BLOOD_POOL_SIZE; i++) {
     const cd = sim.coverBlood[i];
     if (!cd.active) continue;
@@ -270,7 +303,7 @@ export function stepBloodSimulation(sim: CombatStageSim, simDt: number): void {
     const profile = getBloodBiologyProfile(sb.owner);
     const slideSlowdown = Math.max(0.05, 1 - lifeNorm * 1.15) * (1.15 - profile.viscosity * 0.4);
     sb.slideOffsetPx += sb.slideSpeed * slideSlowdown * simDt;
-    sb.streakLen = Math.min(18, sb.slideOffsetPx * 0.85);
+    sb.streakLen = Math.min(54, sb.slideOffsetPx * 0.92);
     if (lifeNorm > 0.35) {
       const fadeT = (lifeNorm - 0.35) / 0.65;
       sb.alpha = Math.max(0, 0.88 * (1 - fadeT * fadeT));

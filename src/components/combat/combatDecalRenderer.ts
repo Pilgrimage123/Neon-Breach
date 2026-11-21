@@ -10,8 +10,122 @@ import {
 import {
   computeBloodWeatheringState,
   getBloodBiologyProfile,
+  hexToRgba,
   sampleWeatheredBloodColors,
 } from './mutantBlood';
+
+const ORGANIC_NODE_COUNT = 14;
+
+function traceOrganicPoolPath(
+  ctx: CanvasRenderingContext2D,
+  rx: number,
+  ry: number,
+  seed: number,
+  isTrail: boolean,
+): void {
+  const amp1 = isTrail ? 0.08 : 0.14;
+  const amp2 = isTrail ? 0.05 : 0.09;
+  const amp3 = isTrail ? 0.02 : 0.05;
+  const ptsX: number[] = [];
+  const ptsY: number[] = [];
+
+  for (let i = 0; i < ORGANIC_NODE_COUNT; i++) {
+    const ang = (i / ORGANIC_NODE_COUNT) * Math.PI * 2;
+    const mod =
+      1 +
+      amp1 * Math.sin(ang * 2 + seed) +
+      amp2 * Math.cos(ang * 3 - seed * 1.7) +
+      amp3 * Math.sin(ang * 5 + seed * 2.3);
+    ptsX.push(Math.cos(ang) * rx * mod);
+    ptsY.push(Math.sin(ang) * ry * mod);
+  }
+
+  ctx.beginPath();
+  const startMidX = (ptsX[ORGANIC_NODE_COUNT - 1] + ptsX[0]) * 0.5;
+  const startMidY = (ptsY[ORGANIC_NODE_COUNT - 1] + ptsY[0]) * 0.5;
+  ctx.moveTo(startMidX, startMidY);
+  for (let i = 0; i < ORGANIC_NODE_COUNT; i++) {
+    const next = (i + 1) % ORGANIC_NODE_COUNT;
+    const midX = (ptsX[i] + ptsX[next]) * 0.5;
+    const midY = (ptsY[i] + ptsY[next]) * 0.5;
+    ctx.quadraticCurveTo(ptsX[i], ptsY[i], midX, midY);
+  }
+  ctx.closePath();
+}
+
+function getPuddleCreepRx(fp: FloorBloodPuddle, index: number, elapsed: number, dryness: number): number {
+  const creepWave =
+    fp.visualTurnAge < 1.5 ? Math.sin(elapsed * 1.8 + index * 0.9) * 0.45 * (1 - dryness) : 0;
+  return fp.rx + creepWave;
+}
+
+function fillPuddleOrganicTendrils(
+  ctx: CanvasRenderingContext2D,
+  fp: FloorBloodPuddle,
+  rx: number,
+  ry: number,
+): void {
+  if (fp.shapeKind !== 'trail_drop') {
+    ctx.save();
+    ctx.translate(fp.lobeOffsetX, fp.lobeOffsetY);
+    traceOrganicPoolPath(ctx, rx * fp.lobeScale, ry * fp.lobeScale, fp.seed + 3.1, false);
+    ctx.fill();
+    ctx.restore();
+  } else {
+    ctx.beginPath();
+    ctx.ellipse(-rx * 0.85, 0, rx * 0.45, ry * 0.45, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  if (fp.tendrilLen1 > 1 || fp.tendrilLen2 > 1) {
+    ctx.beginPath();
+    if (fp.tendrilLen1 > 1) {
+      const tx1 = fp.tendrilOffsetX1 + fp.flowVx * 0.45;
+      const ty1 = ry * 0.45 + fp.tendrilLen1 * 0.42;
+      ctx.ellipse(
+        (fp.tendrilOffsetX1 + tx1) * 0.5,
+        ty1 * 0.5,
+        Math.max(2.2, rx * 0.16),
+        Math.max(1.6, fp.tendrilLen1 * 0.26),
+        0.18,
+        0,
+        Math.PI * 2,
+      );
+      ctx.ellipse(tx1, ty1, Math.max(2.6, rx * 0.2), Math.max(1.5, ry * 0.38), 0, 0, Math.PI * 2);
+    }
+    if (fp.tendrilLen2 > 1) {
+      const tx2 = fp.tendrilOffsetX2 + fp.flowVx * 0.3;
+      const ty2 = ry * 0.4 + fp.tendrilLen2 * 0.38;
+      ctx.ellipse(
+        (fp.tendrilOffsetX2 + tx2) * 0.5,
+        ty2 * 0.5,
+        Math.max(1.8, rx * 0.13),
+        Math.max(1.3, fp.tendrilLen2 * 0.22),
+        -0.15,
+        0,
+        Math.PI * 2,
+      );
+    }
+    ctx.fill();
+  }
+}
+
+function buildBeerLambertFluidGradient(
+  ctx: CanvasRenderingContext2D,
+  rx: number,
+  ry: number,
+  colors: ReturnType<typeof sampleWeatheredBloodColors>,
+  baseOpacity: number,
+): CanvasGradient {
+  const maxR = Math.max(4, rx * 1.08);
+  const grad = ctx.createRadialGradient(0, 0, Math.max(1, maxR * 0.08), 0, 0, maxR);
+  grad.addColorStop(0, hexToRgba(colors.core, Math.min(0.96, baseOpacity + 0.08)));
+  grad.addColorStop(0.58, hexToRgba(colors.body, baseOpacity));
+  grad.addColorStop(0.92, hexToRgba(colors.rimShadow, Math.min(0.94, baseOpacity + 0.04)));
+  grad.addColorStop(1, hexToRgba(colors.body, 0));
+  void ry;
+  return grad;
+}
 
 export function renderFloorBloodDecal(
   ctx: CanvasRenderingContext2D,
@@ -141,59 +255,19 @@ export function renderFloorBloodDecal(
     ctx.rotate(fp.angle * 0.35);
   }
 
-  const rimThick = 0.8 + profile.viscosity * 0.8 + weathering.crustAmount * 0.5;
-  ctx.globalAlpha = (0.38 + weathering.crustAmount * 0.22) * fp.alpha;
+  const rimThick = 0.9 + profile.viscosity * 0.9 + weathering.crustAmount * 0.5;
+  ctx.globalAlpha = (0.34 + weathering.crustAmount * 0.2) * fp.alpha;
   ctx.fillStyle = colors.rimShadow;
-  ctx.beginPath();
-  ctx.ellipse(1.1, 1.0, rx + rimThick, ry + rimThick * 0.55, 0, 0, Math.PI * 2);
+  traceOrganicPoolPath(ctx, rx + rimThick, ry + rimThick * 0.55, fp.seed, fp.shapeKind === 'trail_drop');
   ctx.fill();
 
-  ctx.globalAlpha = (tacticalViewActive ? 0.92 : 0.86) * fp.alpha;
-  ctx.fillStyle = colors.body;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, rx, ry, 0, 0, Math.PI * 2);
-  if (fp.shapeKind !== 'trail_drop') {
-    ctx.ellipse(
-      fp.lobeOffsetX,
-      fp.lobeOffsetY,
-      rx * fp.lobeScale,
-      ry * fp.lobeScale,
-      0,
-      0,
-      Math.PI * 2,
-    );
-  } else {
-    ctx.ellipse(-rx * 0.85, 0, rx * 0.45, ry * 0.45, 0, 0, Math.PI * 2);
-  }
-
-  if (fp.tendrilLen1 > 1) {
-    const tx1 = fp.tendrilOffsetX1 + fp.flowVx * 0.45;
-    const ty1 = ry * 0.45 + fp.tendrilLen1 * 0.42;
-    ctx.ellipse(
-      (fp.tendrilOffsetX1 + tx1) * 0.5,
-      ty1 * 0.5,
-      Math.max(2.2, rx * 0.16),
-      Math.max(1.6, fp.tendrilLen1 * 0.26),
-      0.18,
-      0,
-      Math.PI * 2,
-    );
-    ctx.ellipse(tx1, ty1, Math.max(2.6, rx * 0.2), Math.max(1.5, ry * 0.38), 0, 0, Math.PI * 2);
-  }
-  if (fp.tendrilLen2 > 1) {
-    const tx2 = fp.tendrilOffsetX2 + fp.flowVx * 0.3;
-    const ty2 = ry * 0.4 + fp.tendrilLen2 * 0.38;
-    ctx.ellipse(
-      (fp.tendrilOffsetX2 + tx2) * 0.5,
-      ty2 * 0.5,
-      Math.max(1.8, rx * 0.13),
-      Math.max(1.3, fp.tendrilLen2 * 0.22),
-      -0.15,
-      0,
-      Math.PI * 2,
-    );
-  }
+  const bodyOpacity = tacticalViewActive ? 0.9 : 0.84;
+  ctx.globalAlpha = fp.alpha;
+  ctx.fillStyle = buildBeerLambertFluidGradient(ctx, rx, ry, colors, bodyOpacity);
+  traceOrganicPoolPath(ctx, rx, ry, fp.seed, fp.shapeKind === 'trail_drop');
   ctx.fill();
+  ctx.fillStyle = hexToRgba(colors.body, bodyOpacity * 0.88);
+  fillPuddleOrganicTendrils(ctx, fp, rx, ry);
 
   const iriAlpha = weathering.iridescenceIntensity * profile.iridescence * fp.alpha;
   if (iriAlpha > 0.05) {
@@ -210,18 +284,16 @@ export function renderFloorBloodDecal(
     ctx.stroke();
   }
 
-  ctx.globalAlpha = 0.78 * fp.alpha;
+  ctx.globalAlpha = 0.68 * fp.alpha;
   ctx.fillStyle = colors.core;
-  ctx.beginPath();
-  ctx.ellipse(0, 0.3, rx * 0.62, ry * 0.6, 0, 0, Math.PI * 2);
+  traceOrganicPoolPath(ctx, rx * 0.56, ry * 0.54, fp.seed + 1.2, true);
   ctx.fill();
 
   if (weathering.emissiveIntensity > 0.04 && profile.emissiveStrength > 0.15) {
     if (profile.hasSuspendedVeins) {
       const veinAlpha = weathering.emissiveIntensity * profile.emissiveStrength * fp.alpha * pulse;
       ctx.save();
-      ctx.beginPath();
-      ctx.ellipse(0, 0, rx * 0.88, ry * 0.85, 0, 0, Math.PI * 2);
+      traceOrganicPoolPath(ctx, rx * 0.88, ry * 0.85, fp.seed, false);
       ctx.clip();
 
       ctx.strokeStyle = colors.veinPrimary;
@@ -251,27 +323,20 @@ export function renderFloorBloodDecal(
   }
 
   if (weathering.glossiness > 0.18) {
-    ctx.globalAlpha = weathering.glossiness * 0.62 * fp.alpha;
-    ctx.fillStyle = colors.highlight;
+    ctx.globalAlpha = weathering.glossiness * 0.64 * fp.alpha;
+    ctx.strokeStyle = colors.highlight;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = Math.max(1.0, Math.min(2.2, ry * 0.26 * weathering.glossiness));
     ctx.beginPath();
-    ctx.ellipse(
-      -rx * 0.24,
-      -ry * 0.26,
-      Math.max(1.4, rx * 0.28 * weathering.glossiness),
-      Math.max(0.7, ry * 0.24 * weathering.glossiness),
-      -0.12,
-      0,
-      Math.PI * 2,
-    );
-    ctx.fill();
+    ctx.ellipse(-rx * 0.06, -ry * 0.06, rx * 0.72, ry * 0.68, -0.08, Math.PI * 1.05, Math.PI * 1.55);
+    ctx.stroke();
   }
 
   if (weathering.crustAmount > 0.15) {
     ctx.globalAlpha = weathering.crustAmount * 0.55 * fp.alpha;
     ctx.strokeStyle = colors.crust;
     ctx.lineWidth = 1.0;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, rx * 0.96, ry * 0.94, 0, 0, Math.PI * 2);
+    traceOrganicPoolPath(ctx, rx * 0.96, ry * 0.94, fp.seed, false);
     ctx.stroke();
 
     ctx.fillStyle = colors.highlight;
@@ -445,16 +510,190 @@ export function renderDecalPass(
   tacticalViewActive: boolean,
 ): void {
   ctx.save();
+
+  // Layer 0: Scorch rings & melee arcs (specialized weapon decals) + floor fissures
   for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
     const fp = sim.floorBlood[i];
     if (!fp.active || fp.alpha <= 0.01) continue;
-    renderFloorBloodDecal(ctx, fp, i, elapsed, tacticalViewActive);
+    if (fp.shapeKind === 'scorch_ring' || fp.shapeKind === 'melee_arc') {
+      renderFloorBloodDecal(ctx, fp, i, elapsed, tacticalViewActive);
+    }
   }
 
   for (let i = 0; i < FLOOR_FISSURE_POOL_SIZE; i++) {
     const ff = sim.floorFissures[i];
     if (!ff.active || ff.alpha <= 0.01) continue;
     renderBruteGroundFissure(ctx, ff, i, elapsed, tacticalViewActive);
+  }
+
+  // Layer 1: Unified Outer Surface-Tension Meniscus (eliminates internal seam lines when pools overlap)
+  for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
+    const fp = sim.floorBlood[i];
+    if (!fp.active || fp.alpha <= 0.01) continue;
+    if (fp.shapeKind === 'scorch_ring' || fp.shapeKind === 'melee_arc') continue;
+    const profile = getBloodBiologyProfile(fp.owner);
+    const weathering = computeBloodWeatheringState(fp.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, fp.visualTurnAge);
+    const rx = getPuddleCreepRx(fp, i, elapsed, weathering.dryness);
+    const ry = fp.ry;
+    const rimThick = 0.9 + profile.viscosity * 0.9 + weathering.crustAmount * 0.5;
+
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+    if (fp.shapeKind === 'cone_droplet' && Math.abs(fp.angle) > 0.01) {
+      ctx.rotate(fp.angle * 0.35);
+    }
+    ctx.globalAlpha = (0.34 + weathering.crustAmount * 0.2) * fp.alpha;
+    ctx.fillStyle = colors.rimShadow;
+    traceOrganicPoolPath(ctx, rx + rimThick, ry + rimThick * 0.55, fp.seed, fp.shapeKind === 'trail_drop');
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // Layer 2: Unified Translucent Fluid Body with Beer-Lambert Radial Depth Gradient
+  const bodyOpacity = tacticalViewActive ? 0.9 : 0.84;
+  for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
+    const fp = sim.floorBlood[i];
+    if (!fp.active || fp.alpha <= 0.01) continue;
+    if (fp.shapeKind === 'scorch_ring' || fp.shapeKind === 'melee_arc') continue;
+    const profile = getBloodBiologyProfile(fp.owner);
+    const weathering = computeBloodWeatheringState(fp.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, fp.visualTurnAge);
+    const rx = getPuddleCreepRx(fp, i, elapsed, weathering.dryness);
+    const ry = fp.ry;
+
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+    if (fp.shapeKind === 'cone_droplet' && Math.abs(fp.angle) > 0.01) {
+      ctx.rotate(fp.angle * 0.35);
+    }
+    ctx.globalAlpha = fp.alpha;
+    ctx.fillStyle = buildBeerLambertFluidGradient(ctx, rx, ry, colors, bodyOpacity);
+    traceOrganicPoolPath(ctx, rx, ry, fp.seed, fp.shapeKind === 'trail_drop');
+    ctx.fill();
+    ctx.fillStyle = hexToRgba(colors.body, bodyOpacity * 0.86);
+    fillPuddleOrganicTendrils(ctx, fp, rx, ry);
+    ctx.restore();
+  }
+
+  // Layer 3: Unified Deep Arterial Core, Subsurface Cellular Glow, Chitinous Veins & Fresnel Iridescence
+  for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
+    const fp = sim.floorBlood[i];
+    if (!fp.active || fp.alpha <= 0.01) continue;
+    if (fp.shapeKind === 'scorch_ring' || fp.shapeKind === 'melee_arc') continue;
+    const profile = getBloodBiologyProfile(fp.owner);
+    const weathering = computeBloodWeatheringState(fp.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, fp.visualTurnAge);
+    const rx = getPuddleCreepRx(fp, i, elapsed, weathering.dryness);
+    const ry = fp.ry;
+    const pulse = 0.72 + 0.28 * Math.sin(elapsed * 2.5 + fp.seed);
+
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+    if (fp.shapeKind === 'cone_droplet' && Math.abs(fp.angle) > 0.01) {
+      ctx.rotate(fp.angle * 0.35);
+    }
+
+    const iriAlpha = weathering.iridescenceIntensity * profile.iridescence * fp.alpha;
+    if (iriAlpha > 0.05) {
+      ctx.globalAlpha = 0.62 * iriAlpha;
+      ctx.strokeStyle = colors.iridescenceA;
+      ctx.lineWidth = 1.25;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 0.94, ry * 0.9, 0, Math.PI * 0.85, Math.PI * 1.85);
+      ctx.stroke();
+
+      ctx.strokeStyle = colors.iridescenceB;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, rx * 0.92, ry * 0.88, 0, -Math.PI * 0.1, Math.PI * 0.72);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = 0.62 * fp.alpha;
+    ctx.fillStyle = colors.core;
+    traceOrganicPoolPath(ctx, rx * 0.56, ry * 0.54, fp.seed + 1.2, true);
+    ctx.fill();
+
+    if (weathering.emissiveIntensity > 0.04 && profile.emissiveStrength > 0.15) {
+      if (profile.hasSuspendedVeins) {
+        const veinAlpha = weathering.emissiveIntensity * profile.emissiveStrength * fp.alpha * pulse;
+        ctx.save();
+        traceOrganicPoolPath(ctx, rx * 0.88, ry * 0.85, fp.seed, false);
+        ctx.clip();
+
+        ctx.strokeStyle = colors.veinPrimary;
+        ctx.globalAlpha = 0.88 * veinAlpha;
+        ctx.lineWidth = Math.max(1.0, Math.min(2.2, ry * 0.28));
+        ctx.beginPath();
+        ctx.moveTo(-rx * 0.68, -ry * 0.12);
+        ctx.quadraticCurveTo(-rx * 0.12, ry * 0.42, rx * 0.65, -ry * 0.08);
+        ctx.stroke();
+
+        ctx.strokeStyle = colors.veinSecondary;
+        ctx.globalAlpha = 0.76 * veinAlpha;
+        ctx.lineWidth = Math.max(0.85, Math.min(1.6, ry * 0.2));
+        ctx.beginPath();
+        ctx.moveTo(-rx * 0.34, ry * 0.38);
+        ctx.quadraticCurveTo(rx * 0.06, -ry * 0.34, rx * 0.52, ry * 0.28);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        const subAlpha = weathering.emissiveIntensity * profile.emissiveStrength * 0.42 * fp.alpha * pulse;
+        ctx.globalAlpha = subAlpha;
+        ctx.fillStyle = colors.emissive;
+        ctx.beginPath();
+        ctx.ellipse(0, 0, rx * 0.44, ry * 0.44, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.restore();
+  }
+
+  // Layer 4: Unified Wet Meniscus Specular Highlights & Dried Crust Flecks
+  for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
+    const fp = sim.floorBlood[i];
+    if (!fp.active || fp.alpha <= 0.01) continue;
+    if (fp.shapeKind === 'scorch_ring' || fp.shapeKind === 'melee_arc') continue;
+    const profile = getBloodBiologyProfile(fp.owner);
+    const weathering = computeBloodWeatheringState(fp.visualTurnAge);
+    const colors = sampleWeatheredBloodColors(profile, fp.visualTurnAge);
+    const rx = getPuddleCreepRx(fp, i, elapsed, weathering.dryness);
+    const ry = fp.ry;
+
+    ctx.save();
+    ctx.translate(fp.x, fp.y);
+    if (fp.shapeKind === 'cone_droplet' && Math.abs(fp.angle) > 0.01) {
+      ctx.rotate(fp.angle * 0.35);
+    }
+
+    if (weathering.glossiness > 0.18) {
+      ctx.globalAlpha = weathering.glossiness * 0.64 * fp.alpha;
+      ctx.strokeStyle = colors.highlight;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(1.0, Math.min(2.2, ry * 0.26 * weathering.glossiness));
+      ctx.beginPath();
+      ctx.ellipse(-rx * 0.06, -ry * 0.06, rx * 0.72, ry * 0.68, -0.08, Math.PI * 1.05, Math.PI * 1.55);
+      ctx.stroke();
+    }
+
+    if (weathering.crustAmount > 0.15) {
+      ctx.globalAlpha = weathering.crustAmount * 0.55 * fp.alpha;
+      ctx.strokeStyle = colors.crust;
+      ctx.lineWidth = 1.0;
+      traceOrganicPoolPath(ctx, rx * 0.96, ry * 0.94, fp.seed, false);
+      ctx.stroke();
+
+      ctx.fillStyle = colors.highlight;
+      ctx.globalAlpha = weathering.crustAmount * 0.42 * fp.alpha;
+      for (let c = 0; c < 3; c++) {
+        const cx = Math.sin(fp.seed * 3.1 + c * 2.4) * rx * 0.55;
+        const cy = Math.cos(fp.seed * 1.7 + c * 1.9) * ry * 0.45;
+        ctx.fillRect(cx - 0.8, cy - 0.6, 1.6, 1.2);
+      }
+    }
+
+    ctx.restore();
   }
 
   for (let i = 0; i < COVER_BLOOD_POOL_SIZE; i++) {

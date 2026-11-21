@@ -10,6 +10,7 @@ import {
 import {
   computeBloodWeatheringState,
   getBloodBiologyProfile,
+  hexToRgba,
   sampleWeatheredBloodColors,
 } from './mutantBlood';
 
@@ -262,6 +263,30 @@ export function renderSpitterBileTorrent(
   ctx.restore();
 }
 
+function traceVisorSplashCrownPath(
+  ctx: CanvasRenderingContext2D,
+  r: number,
+  ry: number,
+  seed: number,
+): void {
+  const nodes = 12;
+  const px: number[] = [];
+  const py: number[] = [];
+  for (let i = 0; i < nodes; i++) {
+    const ang = (i / nodes) * Math.PI * 2;
+    const mod = 1 + 0.16 * Math.sin(ang * 3 + seed) + 0.11 * Math.cos(ang * 5 - seed);
+    px.push(Math.cos(ang) * r * mod);
+    py.push(Math.sin(ang) * ry * mod);
+  }
+  ctx.beginPath();
+  ctx.moveTo((px[nodes - 1] + px[0]) * 0.5, (py[nodes - 1] + py[0]) * 0.5);
+  for (let i = 0; i < nodes; i++) {
+    const next = (i + 1) % nodes;
+    ctx.quadraticCurveTo(px[i], py[i], (px[i] + px[next]) * 0.5, (py[i] + py[next]) * 0.5);
+  }
+  ctx.closePath();
+}
+
 export function renderScreenBloodDrops(
   ctx: CanvasRenderingContext2D,
   sim: CombatStageSim,
@@ -299,63 +324,126 @@ export function renderScreenBloodDrops(
     ctx.save();
     ctx.translate(x, y);
 
-    if (sb.streakLen > 1.2) {
-      ctx.globalAlpha = 0.42 * sb.alpha;
-      ctx.fillStyle = colors.body;
+    // 0. Arrival impact flash & expanding wet refractive shock ring
+    if (sb.age < 0.28) {
+      const impactT = sb.age / 0.28;
+      const ringR = r * (1.1 + impactT * 2.3);
+      const ringAlpha = (1 - impactT) * 0.65 * sb.alpha;
+      ctx.globalAlpha = ringAlpha;
+      ctx.strokeStyle = colors.highlight;
+      ctx.lineWidth = Math.max(1.0, 2.5 * (1 - impactT));
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR, 0, Math.PI * 2);
+      ctx.stroke();
+
+      const flashGrad = ctx.createRadialGradient(0, 0, 1, 0, 0, ringR * 1.35);
+      flashGrad.addColorStop(0, hexToRgba(colors.emissive, ringAlpha * 0.45));
+      flashGrad.addColorStop(1, hexToRgba(colors.emissive, 0));
+      ctx.fillStyle = flashGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, ringR * 1.35, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 1. Glistening vertical gravity runner streak + swelling pendant teardrop bulb
+    if (sb.streakLen > 1.5) {
+      const runGrad = ctx.createLinearGradient(0, -sb.streakLen, 0, 0);
+      runGrad.addColorStop(0, hexToRgba(colors.body, 0.08 * sb.alpha));
+      runGrad.addColorStop(0.7, hexToRgba(colors.body, 0.45 * sb.alpha));
+      runGrad.addColorStop(1, hexToRgba(colors.core, 0.72 * sb.alpha));
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = runGrad;
       ctx.beginPath();
       ctx.moveTo(-r * 0.34, 0);
       ctx.quadraticCurveTo(-r * 0.1, -sb.streakLen * 0.65, 0, -sb.streakLen);
       ctx.quadraticCurveTo(r * 0.1, -sb.streakLen * 0.65, r * 0.34, 0);
       ctx.closePath();
       ctx.fill();
-    }
 
-    ctx.globalAlpha = 0.48 * sb.alpha;
-    ctx.fillStyle = colors.rimShadow;
-    ctx.beginPath();
-    ctx.ellipse(0.8, 0.9, r + 0.9, ry + 0.9, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.globalAlpha = 0.86 * sb.alpha;
-    ctx.fillStyle = colors.body;
-    ctx.beginPath();
-    ctx.ellipse(0, 0, r, ry, 0, 0, Math.PI * 2);
-    ctx.ellipse(sb.satelliteDx, sb.satelliteDy, sb.satelliteR, sb.satelliteR * 1.15, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (profile.hasSuspendedVeins) {
-      const pulse = 0.75 + 0.25 * Math.sin(elapsed * 2.8 + sb.seed);
-      ctx.globalAlpha = 0.8 * weathering.emissiveIntensity * sb.alpha * pulse;
-      ctx.strokeStyle = colors.veinPrimary;
-      ctx.lineWidth = Math.max(0.8, r * 0.22);
+      // Swelling pendant bulb at bottom tip of sliding drop
+      ctx.globalAlpha = 0.75 * sb.alpha;
+      ctx.fillStyle = colors.core;
       ctx.beginPath();
-      ctx.moveTo(-r * 0.45, -ry * 0.2);
-      ctx.quadraticCurveTo(0, ry * 0.32, r * 0.42, -ry * 0.15);
-      ctx.stroke();
-    } else if (profile.emissiveStrength > 0.35 && weathering.emissiveIntensity > 0.08) {
-      const pulse = 0.78 + 0.22 * Math.sin(elapsed * 2.6 + sb.seed);
-      ctx.globalAlpha = 0.45 * profile.emissiveStrength * weathering.emissiveIntensity * sb.alpha * pulse;
-      ctx.fillStyle = colors.emissive;
-      ctx.beginPath();
-      ctx.ellipse(0, 0, r * 0.48, ry * 0.48, 0, 0, Math.PI * 2);
+      ctx.ellipse(0, ry * 0.72, r * 0.46, ry * 0.52, 0, 0, Math.PI * 2);
       ctx.fill();
     }
 
+    // 2. Refractive dark meniscus rim on visor glass
+    ctx.globalAlpha = 0.42 * sb.alpha;
+    ctx.fillStyle = colors.rimShadow;
+    traceVisorSplashCrownPath(ctx, r + 1.1, ry + 1.1, sb.seed);
+    ctx.fill();
+
+    // 3. Translucent Beer-Lambert glass-lens refraction body + 3 radial satellite micro-droplets
+    const lensGrad = ctx.createRadialGradient(-r * 0.14, -ry * 0.14, r * 0.08, 0, 0, Math.max(r, ry) * 1.15);
+    lensGrad.addColorStop(0, hexToRgba(colors.emissive, 0.42 * sb.alpha));
+    lensGrad.addColorStop(0.55, hexToRgba(colors.body, 0.76 * sb.alpha));
+    lensGrad.addColorStop(0.92, hexToRgba(colors.core, 0.9 * sb.alpha));
+    lensGrad.addColorStop(1, hexToRgba(colors.rimShadow, 0.85 * sb.alpha));
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = lensGrad;
+    traceVisorSplashCrownPath(ctx, r, ry, sb.seed);
+    ctx.fill();
+
+    ctx.globalAlpha = 0.84 * sb.alpha;
+    ctx.fillStyle = colors.body;
+    ctx.beginPath();
+    ctx.ellipse(sb.satelliteDx, sb.satelliteDy, sb.satelliteR, sb.satelliteR * 1.15, 0, 0, Math.PI * 2);
+    for (let m = 0; m < 2; m++) {
+      const mAng = sb.seed * 1.3 + m * 2.4 + 0.8;
+      const mDist = r + 3.5 + m * 3.2;
+      const mr = Math.max(1.2, r * (0.22 - m * 0.05));
+      ctx.moveTo(Math.cos(mAng) * mDist + mr, Math.sin(mAng) * mDist);
+      ctx.arc(Math.cos(mAng) * mDist, Math.sin(mAng) * mDist, mr, 0, Math.PI * 2);
+    }
+    ctx.fill();
+
+    // 4. Biology-grounded interior shader detail on the glass
+    if (profile.hasSuspendedVeins) {
+      const pulse = 0.75 + 0.25 * Math.sin(elapsed * 2.8 + sb.seed);
+      ctx.globalAlpha = 0.82 * weathering.emissiveIntensity * sb.alpha * pulse;
+      ctx.strokeStyle = colors.veinPrimary;
+      ctx.lineWidth = Math.max(0.9, r * 0.2);
+      ctx.beginPath();
+      ctx.moveTo(-r * 0.48, -ry * 0.18);
+      ctx.quadraticCurveTo(0, ry * 0.34, r * 0.44, -ry * 0.12);
+      ctx.stroke();
+    } else if (profile.emissiveStrength > 0.35 && weathering.emissiveIntensity > 0.08) {
+      const pulse = 0.78 + 0.22 * Math.sin(elapsed * 2.6 + sb.seed);
+      ctx.globalAlpha = 0.46 * profile.emissiveStrength * weathering.emissiveIntensity * sb.alpha * pulse;
+      ctx.fillStyle = colors.emissive;
+      ctx.beginPath();
+      ctx.ellipse(0, 0, r * 0.46, ry * 0.46, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Fresnel oil-slick rim iridescence for Sulfur/Cobalt & Apex Hive
     if (profile.iridescence > 0.4 && weathering.iridescenceIntensity > 0.1) {
-      ctx.globalAlpha = 0.55 * profile.iridescence * weathering.iridescenceIntensity * sb.alpha;
+      ctx.globalAlpha = 0.58 * profile.iridescence * weathering.iridescenceIntensity * sb.alpha;
       ctx.strokeStyle = colors.iridescenceA;
-      ctx.lineWidth = 1.05;
+      ctx.lineWidth = 1.15;
       ctx.beginPath();
       ctx.ellipse(0, 0, r * 0.88, ry * 0.88, 0, Math.PI * 0.7, Math.PI * 1.7);
       ctx.stroke();
     }
 
+    // Caustic bottom-right glass refraction rim
     if (weathering.glossiness > 0.2) {
-      ctx.globalAlpha = 0.72 * weathering.glossiness * sb.alpha;
-      ctx.fillStyle = colors.highlight;
+      ctx.globalAlpha = 0.45 * weathering.glossiness * sb.alpha;
+      ctx.strokeStyle = colors.highlight;
+      ctx.lineCap = 'round';
+      ctx.lineWidth = Math.max(0.9, r * 0.14);
       ctx.beginPath();
-      ctx.ellipse(-r * 0.28, -ry * 0.28, Math.max(0.8, r * 0.28), Math.max(0.6, ry * 0.22), -0.3, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.ellipse(0, 0, r * 0.82, ry * 0.82, 0, Math.PI * 0.1, Math.PI * 0.48);
+      ctx.stroke();
+
+      // 5. Crisp curved top-left visor specular catchlight
+      ctx.globalAlpha = 0.78 * weathering.glossiness * sb.alpha;
+      ctx.strokeStyle = '#FFFFFF';
+      ctx.lineWidth = Math.max(1.0, r * 0.18);
+      ctx.beginPath();
+      ctx.ellipse(-r * 0.1, -ry * 0.1, r * 0.58, ry * 0.54, -0.25, Math.PI * 1.05, Math.PI * 1.55);
+      ctx.stroke();
     }
 
     ctx.restore();
