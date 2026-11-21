@@ -18,6 +18,16 @@ import {
   stepTitleEmblemVfx,
   triggerEmblemClickBurst,
 } from '../utils/titleEmblemVfx';
+import {
+  createSlimeEngineState,
+  renderSlimeEngine,
+  stepSlimeEngine,
+} from '../utils/titleSlimeEngine';
+import {
+  createVisorMatrixState,
+  renderVisorMatrix,
+  stepVisorMatrix,
+} from '../utils/titleVisorMatrix';
 
 interface TitleEmblemStageProps {
   className?: string;
@@ -38,6 +48,8 @@ export function TitleEmblemStage({
   const compositeCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const sheenCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const vfxRef = useRef(createTitleEmblemVfxState());
+  const visorRef = useRef(createVisorMatrixState());
+  const slimeRef = useRef(createSlimeEngineState());
   const pointerTargetRef = useRef({ x: 0, y: 0 });
   const burstCountRef = useRef(0);
 
@@ -268,13 +280,16 @@ export function TitleEmblemStage({
       const baseLogo = frames[0];
       if (!baseLogo) return;
 
+      stepVisorMatrix(visorRef.current, seq, dt, reducedMotion);
+      const isXenoShocked = seq.active && (seq.frameA >= 3 || seq.frameB >= 3);
+      stepSlimeEngine(slimeRef.current, vfx, dt, isXenoShocked, reducedMotion);
+
       const frameACanvas = frames[seq.frameA] ?? baseLogo;
       const frameBCanvas = frames[seq.frameB] ?? frameACanvas;
       const lockupSource = lockupRef.current;
 
-      // Build unified 960x541 offscreen composite: Plane 1 (dynamic character plane)
-      // beneath Plane 0 (Static Lockup Plane) so metallic lettering stays shimmer-free
-      // and shares the single drop-shadow and destination-in sheen silhouette.
+      // Build unified 960x541 offscreen composite in strict Z-order:
+      // Plane 1 (dynamic character) -> Visor Matrix -> Xeno Slime -> Plane 0 (Static Lockup Plane)
       let activeLogoSource: HTMLCanvasElement | TitleSpriteSource = frameACanvas;
       const isTransitioning =
         seq.active &&
@@ -282,34 +297,34 @@ export function TitleEmblemStage({
         seq.alphaB > 0.001 &&
         frameBCanvas !== frameACanvas;
 
-      if (lockupSource || isTransitioning) {
-        const comp = getCompositeScratch(baseLogo.width, baseLogo.height);
-        const cctx = comp.getContext('2d');
-        if (cctx) {
-          cctx.clearRect(0, 0, comp.width, comp.height);
-          cctx.globalCompositeOperation = 'source-over';
-          if (isTransitioning) {
-            cctx.globalAlpha = seq.alphaA;
-            cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
-            cctx.globalAlpha = seq.alphaB;
-            cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
-          } else if (seq.active && seq.alphaB >= 0.999) {
-            cctx.globalAlpha = 1;
-            cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
-          } else {
-            cctx.globalAlpha = 1;
-            cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
-          }
-
-          if (lockupSource) {
-            cctx.globalAlpha = 1;
-            cctx.drawImage(lockupSource, 0, 0, comp.width, comp.height);
-          }
+      const comp = getCompositeScratch(baseLogo.width, baseLogo.height);
+      const cctx = comp.getContext('2d');
+      if (cctx) {
+        cctx.clearRect(0, 0, comp.width, comp.height);
+        cctx.globalCompositeOperation = 'source-over';
+        if (isTransitioning) {
+          cctx.globalAlpha = seq.alphaA;
+          cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
+          cctx.globalAlpha = seq.alphaB;
+          cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+        } else if (seq.active && seq.alphaB >= 0.999) {
           cctx.globalAlpha = 1;
-          activeLogoSource = comp;
+          cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+        } else {
+          cctx.globalAlpha = 1;
+          cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
         }
-      } else if (seq.active && seq.alphaB >= 0.999) {
-        activeLogoSource = frameBCanvas;
+        cctx.globalAlpha = 1;
+
+        renderVisorMatrix(cctx, visorRef.current, comp.width, comp.height, 0, reducedMotion);
+        renderSlimeEngine(cctx, slimeRef.current, comp.width, comp.height, reducedMotion);
+
+        if (lockupSource) {
+          cctx.globalAlpha = 1;
+          cctx.drawImage(lockupSource, 0, 0, comp.width, comp.height);
+        }
+        cctx.globalAlpha = 1;
+        activeLogoSource = comp;
       }
 
       const baseEmblemW = cw / totalWMult;

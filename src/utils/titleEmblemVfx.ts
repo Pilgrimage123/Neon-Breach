@@ -231,6 +231,33 @@ export function spawnZoneParticle(
   return p;
 }
 
+/**
+ * Emits 3 lime bio-spores into the existing left bio_left particle pool when a Xeno Slime drop splashes.
+ */
+export function spawnSlimeSplashSpores(
+  state: TitleEmblemVfxState,
+  nx: number,
+  ny: number,
+): void {
+  for (let i = 0; i < 3; i++) {
+    const p = claimParticleSlot(state);
+    p.active = true;
+    p.zone = 'bio_left';
+    p.nx = nx + randRange(state, -0.008, 0.008);
+    p.ny = ny;
+    p.vx = randRange(state, -0.08, 0.08);
+    p.vy = randRange(state, -0.14, -0.05);
+    p.age = 0;
+    p.maxLife = randRange(state, 0.65, 1.15);
+    p.size = randRange(state, 2.6, 4.8);
+    p.color = '#bef264';
+    p.glowColor = '#84cc16';
+    p.phase = randRange(state, 0, Math.PI * 2);
+    p.shape = 0;
+    p.behind = false;
+  }
+}
+
 export function spawnHeartKissStream(state: TitleEmblemVfxState): void {
   const count = 14;
   for (let i = 0; i < count; i++) {
