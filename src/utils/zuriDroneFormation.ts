@@ -79,8 +79,8 @@ export interface ZuriDronePose {
  */
 export function sampleZuriDroneFormation(params: {
   animState: HeroAnimState;
-  heroineX: number;
-  heroineDrawBottomY: number;
+  heroX: number;
+  heroDrawBottomY: number;
   groundY: number;
   targetX: number;
   targetMidY: number;
@@ -90,8 +90,8 @@ export function sampleZuriDroneFormation(params: {
 }): Record<ZuriDroneId, ZuriDronePose> {
   const {
     animState,
-    heroineX,
-    heroineDrawBottomY,
+    heroX,
+    heroDrawBottomY,
     groundY,
     targetX,
     targetMidY,
@@ -104,50 +104,50 @@ export function sampleZuriDroneFormation(params: {
   const dur = Math.max(0.001, animState.duration);
   const u = Math.max(0, Math.min(1, animState.elapsed / dur));
   const pulse = Math.sin(u * Math.PI);
-  const heroineAltitudeDelta = heroineDrawBottomY - groundY;
+  const heroAltitudeDelta = heroDrawBottomY - groundY;
 
   // 1. SHIELD DRONE (Aegis Quad-Walker — stationed clearly forward on the bridge deck in vanguard position)
   const shieldSpec = ZURI_DRONE_FRAMES[0];
-  let shieldX = heroineX + 114 * scale + Math.sin(totalTime * 1.9) * 3 * scale;
+  let shieldX = heroX + 114 * scale + Math.sin(totalTime * 1.9) * 3 * scale;
   let shieldY = groundY + 4 * scale + Math.abs(Math.sin(totalTime * 1.9)) * -2 * scale;
   let shieldTilt = 0;
   let shieldScaleMult = 1;
   let shieldGlow = hoveredColor === 'defense' ? 0.65 : 0.15;
 
   if (mode === 'guard') {
-    shieldX = heroineX + (114 + pulse * 48) * scale;
+    shieldX = heroX + (114 + pulse * 48) * scale;
     shieldY = groundY - pulse * 8 * scale;
     shieldScaleMult = 1 + pulse * 0.12;
     shieldGlow = 0.95;
   } else if (mode === 'overdrive') {
     const surge = Math.sin(u * Math.PI);
-    shieldX = heroineX + (114 + surge * 72) * scale;
+    shieldX = heroX + (114 + surge * 72) * scale;
     shieldY = groundY - surge * 12 * scale;
     shieldScaleMult = 1 + surge * 0.11;
     shieldGlow = 0.9;
   } else if (mode === 'hit') {
-    shieldX = heroineX + (114 - pulse * 14) * scale;
+    shieldX = heroX + (114 - pulse * 14) * scale;
   }
 
   // 2. MED DRONE (Ankh Bio-Med Quad-Rotor — hovering high above-rear of Zuri with clear silhouette)
   const medSpec = ZURI_DRONE_FRAMES[1];
   const medBobY = Math.sin(totalTime * 2.9 + 1.2) * 8 * scale;
   const medBobX = Math.cos(totalTime * 1.9 + 0.6) * 4.5 * scale;
-  let medX = heroineX - 88 * scale + medBobX;
-  let medY = groundY - 178 * scale + heroineAltitudeDelta * 0.38 + medBobY;
+  let medX = heroX - 88 * scale + medBobX;
+  let medY = groundY - 178 * scale + heroAltitudeDelta * 0.38 + medBobY;
   let medTilt = Math.sin(totalTime * 2.3) * 0.035;
   let medScaleMult = 1;
   let medGlow = hoveredColor === 'tech' ? 0.7 : 0.2;
 
   if (mode === 'upgrade') {
-    medX = heroineX + (-88 + pulse * 88) * scale;
-    medY = groundY - (182 + Math.sin(u * Math.PI * 2) * 24) * scale + heroineAltitudeDelta * 0.35;
+    medX = heroX + (-88 + pulse * 88) * scale;
+    medY = groundY - (182 + Math.sin(u * Math.PI * 2) * 24) * scale + heroAltitudeDelta * 0.35;
     medTilt = Math.sin(u * Math.PI * 2) * 0.075;
     medScaleMult = 1 + pulse * 0.14;
     medGlow = 1;
   } else if (mode === 'overdrive') {
-    medX = heroineX + (-88 + pulse * 102) * scale;
-    medY = groundY - (184 - pulse * 20) * scale + heroineAltitudeDelta * 0.35;
+    medX = heroX + (-88 + pulse * 102) * scale;
+    medY = groundY - (184 - pulse * 20) * scale + heroAltitudeDelta * 0.35;
     medScaleMult = 1 + pulse * 0.12;
     medGlow = 0.92;
   }
@@ -156,8 +156,8 @@ export function sampleZuriDroneFormation(params: {
   const strikeSpec = ZURI_DRONE_FRAMES[2];
   const strikeBobY = Math.sin(totalTime * 3.2 + 2.4) * 7.5 * scale;
   const strikeBobX = Math.sin(totalTime * 2.1) * 5 * scale;
-  const strikeBaseX = heroineX + 144 * scale;
-  const strikeBaseY = groundY - 176 * scale + heroineAltitudeDelta * 0.34;
+  const strikeBaseX = heroX + 144 * scale;
+  const strikeBaseY = groundY - 176 * scale + heroAltitudeDelta * 0.34;
   let strikeX = strikeBaseX + strikeBobX;
   let strikeY = strikeBaseY + strikeBobY;
   let strikeTilt = Math.sin(totalTime * 2.4) * 0.03;

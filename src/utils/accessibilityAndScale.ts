@@ -191,8 +191,8 @@ export function getNodeCornerPip(type: MapNodeType): CornerPipSpec {
         symbol: '◉',
         shapeId: 'ring',
         shortCode: 'BOSS',
-        labelEn: 'Sector Boss (◉)',
-        labelCs: 'Královna sektoru (◉)',
+        labelEn: 'Stage Boss (◉)',
+        labelCs: 'Boss úseku (◉)',
         accentHex: '#84CC16',
       };
   }
@@ -260,8 +260,8 @@ export function getEnemyRolePip(archetype: EnemyArchetype): CornerPipSpec {
         symbol: '◉',
         shapeId: 'ring',
         shortCode: 'APEX',
-        labelEn: 'Apex Sovereign (◉)',
-        labelCs: 'Vládce úlu (◉)',
+        labelEn: 'Xenomorph Matriarch (◉)',
+        labelCs: 'Xenomorfní Matriarcha (◉)',
         accentHex: '#84CC16',
       };
   }

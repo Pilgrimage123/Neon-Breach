@@ -1,6 +1,6 @@
 import type { AnimationCue, CombatState, EnemyArchetype, HeroState } from '../../engine/types';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
-import { HEROINE_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
+import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
 import type { CameraActorBounds } from './ActionCameraController';
 import type { CutInActionKind, CutInStagingMode } from './CombatActionSequencer';
 import { syncCombatBloodState } from './combatBloodSimulation';
@@ -533,7 +533,7 @@ export function applyCombatCues(
     const baseBeatSec =
       computeNonCutInBeatMs(cueKinds, livingEnemyCount, presCfg.adaptivePackSpeedup) / 1000;
     sim.batchMicroTimerRemaining = dispatchState.kiraDodgeScheduled
-      ? Math.max(baseBeatSec, HEROINE_DODGE_DURATION + 0.14)
+      ? Math.max(baseBeatSec, KIRA_DODGE_DURATION + 0.14)
       : baseBeatSec;
   }
 }

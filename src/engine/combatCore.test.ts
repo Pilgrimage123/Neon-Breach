@@ -1080,3 +1080,134 @@ test('full Moving Lock rules, TECH effects, Zuri Swarm Uplink, and armorDamage v
   assert.equal(armorCue?.armorDamage, 6);
   assert.equal(afterArmorBlock.hero.armor, 2);
 });
+
+test('executeOverdrive and executeSingleEnemyAction keep masterPool synced on victory and guard out-of-range enemy intents', () => {
+  const base = createInitialRun(2026, 'kira');
+  assert.ok(base.combat);
+
+  const bossNode = base.mapNodes.find((n) => n.type === 'BOSS')!;
+  const bossRun = startNodeEncounter(base, bossNode.id);
+  assert.ok(bossRun.combat);
+
+  const trialInstanceId = 'beta_trial_test_chip';
+  const trialTile = { ...makeTile('trial_tile_1', 'attack', 6), sourceId: trialInstanceId };
+  const heroWithTrial = {
+    ...bossRun.hero,
+    overdrive: 100,
+    ownedChips: [
+      ...bossRun.hero.ownedChips,
+      { instanceId: trialInstanceId, defId: 'overclock_surge' },
+    ],
+    equippedInstanceIds: [...bossRun.hero.equippedInstanceIds, trialInstanceId],
+    betaTrialChip: {
+      defId: 'overclock_surge',
+      instanceId: trialInstanceId,
+      combatsRemaining: 1,
+      resolvesLogged: 0,
+      upgraded: false,
+    },
+  };
+
+  // 1. Overdrive victory on BOSS expires 1-combat Beta Trial chip AND rebuilds masterPool so no orphan tiles remain
+  const odVictoryRun: RunState = {
+    ...bossRun,
+    hero: heroWithTrial,
+    masterPool: [...bossRun.masterPool, trialTile],
+    combat: {
+      ...bossRun.combat,
+      enemies: [
+        {
+          ...bossRun.combat.enemies[0],
+          hp: 10,
+          armor: 0,
+          shieldPips: 0,
+          phaseGatePct: undefined,
+        },
+      ],
+    },
+  };
+  const afterOdVictory = executeOverdrive(odVictoryRun);
+  assert.equal(afterOdVictory.combat?.phase, 'VICTORY');
+  assert.equal(
+    afterOdVictory.hero.ownedChips.some((c) => c.instanceId === trialInstanceId),
+    false,
+    'Beta Trial chip with combatsRemaining=1 should expire on BOSS Overdrive victory',
+  );
+  assert.equal(
+    afterOdVictory.masterPool.some((t) => t.sourceId === trialInstanceId),
+    false,
+    'masterPool must be rebuilt without tiles from expired Beta Trial chip on Overdrive victory',
+  );
+
+  // 2. Kinetic Reflector victory on BOSS increments heirloomStacks AND syncs masterPool
+  const engravedDefId = bossRun.hero.ownedChips[0].defId;
+  const reflectorBossRun: RunState = {
+    ...bossRun,
+    hero: {
+      ...heroWithTrial,
+      shield: 15,
+      implants: ['kinetic_reflector'],
+      heirloomEngravedId: engravedDefId,
+      heirloomStacks: 0,
+    },
+    masterPool: [...bossRun.masterPool, trialTile],
+    combat: {
+      ...bossRun.combat,
+      phase: 'PLAYER_RESOLVED',
+      enemies: [
+        {
+          ...bossRun.combat.enemies[0],
+          hp: 2,
+          armor: 0,
+          shieldPips: 0,
+          phaseGatePct: undefined,
+          intentCycle: [{ kind: 'attack', value: 8 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+  const afterReflectorBoss = executeSingleEnemyAction(reflectorBossRun, 0);
+  assert.equal(afterReflectorBoss.combat?.phase, 'VICTORY');
+  assert.equal(afterReflectorBoss.hero.heirloomStacks, 1);
+  assert.equal(
+    afterReflectorBoss.masterPool.some((t) => t.sourceId === trialInstanceId),
+    false,
+    'masterPool must sync on Reflector victory',
+  );
+
+  // 3. Out-of-bounds currentIntentIndex and empty intentCycle never throw in executeSingleEnemyAction or previewHeroThreat
+  const oobIntentRun: RunState = {
+    ...base,
+    combat: {
+      ...base.combat,
+      phase: 'PLAYER_RESOLVED',
+      enemies: [
+        {
+          ...base.combat.enemies[0],
+          hp: 20,
+          intentCycle: [{ kind: 'attack', value: 5 }],
+          currentIntentIndex: 99,
+        },
+        {
+          ...base.combat.enemies[0],
+          id: 'empty_cycle_enemy',
+          hp: 15,
+          intentCycle: [],
+          currentIntentIndex: -3,
+        },
+      ],
+    },
+  };
+  const oobPreview = previewHeroThreat(
+    { ...oobIntentRun.combat!, phase: 'PLAYER_IDLE' },
+    oobIntentRun.hero,
+    null,
+  );
+  assert.equal(oobPreview.rawIncomingDamage, 5);
+  const afterOob0 = executeSingleEnemyAction(oobIntentRun, 0);
+  assert.equal(afterOob0.combat?.enemies[0].currentIntentIndex, 0);
+  const afterOob1 = executeSingleEnemyAction(afterOob0, 1);
+  assert.equal(afterOob1.combat?.enemies[1].hp, 15);
+});
+

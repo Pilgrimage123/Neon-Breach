@@ -1,7 +1,7 @@
 import type { CharacterId } from '../engine/types';
 import type { HeroAnimMode, HeroAnimState, HeroAnimStepContext, HeroFrameSample } from './heroAnimator';
 import { stepAuralineAnimState, triggerAuralineAnimation } from './auralineSpriteSheet';
-import { stepHeroineAnimState, triggerHeroineAnimation } from './kiraSpriteSheet';
+import { stepKiraAnimState, triggerKiraAnimation } from './kiraSpriteSheet';
 import { stepZuriAnimState, triggerZuriAnimation } from './zuriSpriteSheet';
 
 export function triggerCharacterAnimation(
@@ -16,7 +16,7 @@ export function triggerCharacterAnimation(
   if (characterId === 'zuri') {
     return triggerZuriAnimation(prev, mode, options);
   }
-  return triggerHeroineAnimation(prev, mode, options);
+  return triggerKiraAnimation(prev, mode, options);
 }
 
 export function stepCharacterAnimState(
@@ -31,5 +31,5 @@ export function stepCharacterAnimState(
   if (characterId === 'zuri') {
     return stepZuriAnimState(prev, dt, context);
   }
-  return stepHeroineAnimState(prev, dt, context);
+  return stepKiraAnimState(prev, dt, context);
 }

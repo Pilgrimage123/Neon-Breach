@@ -7,20 +7,20 @@ import {
   computeContextualMicroPrompt,
   computeEncounterObjectives,
   computeOptimalTurnHint,
-  formatDiscretePipMath,
+  formatQuantizedScale,
   repositionFrontEnemies,
 } from './tacticalSandboxAndHints';
 
-test('formatDiscretePipMath converts raw integers into small discrete pips (1 Pip = 5 units)', () => {
-  const zero = formatDiscretePipMath(0, 5);
+test('formatQuantizedScale converts raw integers into quantized pips (1 Pip = 5 units)', () => {
+  const zero = formatQuantizedScale(0, 5);
   assert.equal(zero.pips, 0);
   assert.equal(zero.pipString, '○');
 
-  const small = formatDiscretePipMath(3, 5);
+  const small = formatQuantizedScale(3, 5);
   assert.equal(small.pips, 1);
   assert.equal(small.compactLabel, '1P (3)');
 
-  const medium = formatDiscretePipMath(18, 5);
+  const medium = formatQuantizedScale(18, 5);
   assert.equal(medium.pips, 4);
   assert.equal(medium.pipString, '▮▮▮▮');
   assert.equal(medium.compactLabel, '4P (18)');
@@ -153,43 +153,43 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
   assert.equal(buffed.hero.shield, 10);
   assert.equal(buffed.hero.overdrive, 50);
 
-  // Respects alreadySwappedThisTurn = true and Aurelia's heldTileBonus = 0
+  // Respects alreadySwappedThisTurn = true and Auraline's heldTileBonus = 0
   const hintAfterSwap = computeOptimalTurnHint(run, 'en', true);
   assert.ok(hintAfterSwap && hintAfterSwap.recommendedAction !== 'swap');
 
-  const aureliaRun = createInitialRun(104729, 'auraline');
-  assert.ok(aureliaRun.combat);
-  const aureliaTurn2 = {
-    ...aureliaRun,
+  const auralineRun = createInitialRun(104729, 'auraline');
+  assert.ok(auralineRun.combat);
+  const auralineTurn2 = {
+    ...auralineRun,
     combat: {
-      ...aureliaRun.combat,
+      ...auralineRun.combat,
       turn: 2,
-      board: aureliaRun.combat.board.map((t, i) => ({
+      board: auralineRun.combat.board.map((t, i) => ({
         ...t,
         type: i % 2 === 0 ? ('attack' as const) : ('defense' as const),
         isHeldFromPrevTurn: true,
       })),
     },
   };
-  const aureliaPrompt = computeContextualMicroPrompt({
-    run: aureliaTurn2,
+  const auralinePrompt = computeContextualMicroPrompt({
+    run: auralineTurn2,
     countByColor: { attack: 3, defense: 3, tech: 0 },
     alreadySwappedThisTurn: false,
     lang: 'en',
   });
-  assert.ok(!aureliaPrompt || !aureliaPrompt.includes('HELD tiles gain'));
+  assert.ok(!auralinePrompt || !auralinePrompt.includes('HELD tiles gain'));
 
   // Tier 4 & 5 pay tight-economy secondary objective credits and Tier 5 marks 2-Star as Mandatory
   const clearedT4 = {
-    ...aureliaRun.combat,
+    ...auralineRun.combat,
     turn: 4,
     phase: 'VICTORY' as const,
-    enemies: aureliaRun.combat.enemies.map((e) => ({ ...e, hp: 0 })),
+    enemies: auralineRun.combat.enemies.map((e) => ({ ...e, hp: 0 })),
   };
   const objT4 = computeEncounterObjectives({
     combat: clearedT4,
-    hero: aureliaRun.hero,
-    startingHp: aureliaRun.hero.hp,
+    hero: auralineRun.hero,
+    startingHp: auralineRun.hero.hp,
     undosUsed: 0,
     difficultyTier: 4,
     lang: 'en',
@@ -197,8 +197,8 @@ test('computeContextualMicroPrompt and applyFailForwardBuff support onboarding a
   assert.equal(objT4.bonusCredits, 14);
   const objT5 = computeEncounterObjectives({
     combat: clearedT4,
-    hero: aureliaRun.hero,
-    startingHp: aureliaRun.hero.hp,
+    hero: auralineRun.hero,
+    startingHp: auralineRun.hero.hp,
     undosUsed: 0,
     difficultyTier: 5,
     lang: 'en',

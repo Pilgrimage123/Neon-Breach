@@ -84,3 +84,43 @@ test('clearActiveRun removes active save reliably and saveInheritedHeirloom caps
   const capped = saveInheritedHeirloom('predictive_aim', 12);
   assert.equal(capped.inheritedHeirloom?.bonusStacks, MAX_HEIRLOOM_STACKS);
 });
+
+test('parseAndValidateRun deduplicates/prunes equippedInstanceIds, clamps hero bounds, and rejects malformed tiles or combat invariants', () => {
+  const validRun = createInitialRun(314, 'kira');
+  assert.ok(validRun.combat);
+
+  // 1. Deduplicates and prunes orphaned equippedInstanceIds & clamps hero hp/overdrive/counters
+  const dirtyStats = structuredClone(validRun);
+  const realId = dirtyStats.hero.equippedInstanceIds[0];
+  dirtyStats.hero.equippedInstanceIds = [realId, realId, 'ghost_instance_999'];
+  dirtyStats.hero.hp = 9999;
+  dirtyStats.hero.overdrive = 250;
+  dirtyStats.hero.shield = -10;
+  dirtyStats.hero.credits = -50;
+  const sanitized = parseAndValidateRun(JSON.stringify(dirtyStats));
+  assert.ok(sanitized);
+  assert.deepEqual(sanitized.hero.equippedInstanceIds, [realId]);
+  assert.equal(sanitized.hero.hp, sanitized.hero.maxHp);
+  assert.equal(sanitized.hero.overdrive, 100);
+  assert.equal(sanitized.hero.shield, 0);
+  assert.equal(sanitized.hero.credits, 0);
+
+  // 2. Rejects malformed tiles in masterPool and combat board
+  const badPool = structuredClone(validRun);
+  (badPool.masterPool[0] as { type: string }).type = 'plasma_beam';
+  assert.equal(parseAndValidateRun(JSON.stringify(badPool)), null);
+
+  const badBoardTile = structuredClone(validRun);
+  (badBoardTile.combat!.board[0] as { id: string }).id = '';
+  assert.equal(parseAndValidateRun(JSON.stringify(badBoardTile)), null);
+
+  // 3. Rejects combat.turn < 1 or negative rewardCredits
+  const zeroTurn = structuredClone(validRun);
+  zeroTurn.combat!.turn = 0;
+  assert.equal(parseAndValidateRun(JSON.stringify(zeroTurn)), null);
+
+  const negCredits = structuredClone(validRun);
+  negCredits.combat!.rewardCredits = -5;
+  assert.equal(parseAndValidateRun(JSON.stringify(negCredits)), null);
+});
+

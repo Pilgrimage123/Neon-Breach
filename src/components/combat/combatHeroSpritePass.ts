@@ -9,9 +9,9 @@ import type {
 } from '../../engine/types';
 import { AURALINE_SHEET_FRAMES } from '../../utils/auralineSpriteSheet';
 import {
-  HEROINE_SHEET_FRAMES,
+  KIRA_SHEET_FRAMES,
   type HeroFrameDef as SpriteFrame,
-  type HeroineFrameSample,
+  type HeroFrameSample,
 } from '../../utils/kiraSpriteSheet';
 import {
   ZURI_SHEET_FRAMES,
@@ -26,7 +26,7 @@ import {
   type ICharacterStageRenderer,
   createDefaultShaderUniforms,
   createIdentityControlPoints,
-  deriveHeroineDeformAndUniforms,
+  deriveHeroDeformAndUniforms,
 } from './stageSpriteAdapter';
 
 export function drawCanvas2DCutInFlash(
@@ -91,7 +91,7 @@ export function renderHeroReflection(params: {
   reflDimmerAlpha: number;
   heroCutInDrawX: number;
   groundY: number;
-  heroSample: HeroineFrameSample;
+  heroSample: HeroFrameSample;
   isProne: boolean;
   tacticalViewActive: boolean;
 }): void {
@@ -169,7 +169,7 @@ export function renderHeroSpritePass(params: {
   hero: HeroState;
   charId: CharacterId;
   hoveredColor: TileType | null;
-  heroSample: HeroineFrameSample;
+  heroSample: HeroFrameSample;
   resolvedHeroFrameIndex: number;
   resolvedHeroFrame: SpriteFrame;
   defaultRefFrame: SpriteFrame;
@@ -240,7 +240,7 @@ export function renderHeroSpritePass(params: {
       ? AURALINE_SHEET_FRAMES
       : charId === 'zuri'
         ? ZURI_SHEET_FRAMES
-        : HEROINE_SHEET_FRAMES;
+        : KIRA_SHEET_FRAMES;
 
   const shadowRadiusX = isProne ? heroTargetHeight * 0.54 : heroTargetHeight * 0.32;
   baseCtx.fillStyle = 'rgba(3, 7, 18, 0.68)';
@@ -425,7 +425,7 @@ export function renderHeroSpritePass(params: {
         : heroSample.tiltRad + heroCutIn.leanRad;
 
       if (webglRenderer) {
-        const { deform, uniforms } = deriveHeroineDeformAndUniforms({
+        const { deform, uniforms } = deriveHeroDeformAndUniforms({
           mode: heroSample.state.mode,
           breathScaleX: heroSample.breathScaleX,
           breathScaleY: heroSample.breathScaleY,

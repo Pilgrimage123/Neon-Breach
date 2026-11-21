@@ -96,6 +96,26 @@ export function saveActiveRun(run: RunState): void {
   setStorageItem(ACTIVE_RUN_KEY, JSON.stringify(run));
 }
 
+const VALID_TILE_TYPE_SET = new Set<string>(['attack', 'defense', 'tech']);
+
+function isValidTileList(tiles: unknown): boolean {
+  if (!Array.isArray(tiles)) return false;
+  for (let i = 0; i < tiles.length; i++) {
+    const t = tiles[i] as { id?: unknown; type?: unknown; value?: unknown } | null | undefined;
+    if (
+      !t ||
+      typeof t.id !== 'string' ||
+      t.id.length === 0 ||
+      typeof t.type !== 'string' ||
+      !VALID_TILE_TYPE_SET.has(t.type) ||
+      !isFiniteNumber(t.value)
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 export function parseAndValidateRun(raw: string | null): RunState | null {
   try {
     if (!raw) return null;
@@ -125,7 +145,7 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
       !Array.isArray(hero.equippedInstanceIds) ||
       !Array.isArray(parsed.mapNodes) ||
       (parsed.mapNodes.length !== 11 && parsed.mapNodes.length !== 32) ||
-      !Array.isArray(parsed.masterPool) ||
+      !isValidTileList(parsed.masterPool) ||
       !Array.isArray(parsed.clinicChoices) ||
       !Array.isArray(parsed.chipDealerChoices)
     ) {
@@ -141,16 +161,37 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
       return null;
     }
 
+    const ownedInstanceIds = new Set<string>();
     for (const owned of hero.ownedChips) {
       if (
         !owned ||
         typeof owned.instanceId !== 'string' ||
+        owned.instanceId.length === 0 ||
         typeof owned.defId !== 'string' ||
         !SKILL_CHIPS_BY_ID[owned.defId]
       ) {
         return null;
       }
+      ownedInstanceIds.add(owned.instanceId);
     }
+
+    // Deduplicate and prune equipped chip IDs that do not correspond to owned chips
+    const seenEquipped = new Set<string>();
+    hero.equippedInstanceIds = hero.equippedInstanceIds.filter((id): id is string => {
+      if (typeof id !== 'string' || !ownedInstanceIds.has(id) || seenEquipped.has(id)) {
+        return false;
+      }
+      seenEquipped.add(id);
+      return true;
+    });
+
+    // Clamp mutable hero numeric invariants to valid domain bounds
+    hero.hp = Math.max(0, Math.min(hero.maxHp, hero.hp));
+    hero.overdrive = Math.max(0, Math.min(100, hero.overdrive));
+    hero.shield = Math.max(0, hero.shield);
+    hero.corrode = Math.max(0, hero.corrode);
+    hero.credits = Math.max(0, hero.credits);
+    hero.damageBoostPct = Math.max(0, hero.damageBoostPct);
 
     if (
       parsed.difficultyTier !== undefined &&
@@ -172,8 +213,8 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
     }
     if (typeof hero.emergencyDefibUsed !== 'boolean') hero.emergencyDefibUsed = false;
     if (!isFiniteNumber(hero.overclockCount)) hero.overclockCount = 0;
-    if (!isFiniteNumber(hero.armor)) hero.armor = 0;
-    if (!isFiniteNumber(hero.pendingUpcharge)) hero.pendingUpcharge = 0;
+    if (!isFiniteNumber(hero.armor) || hero.armor < 0) hero.armor = 0;
+    if (!isFiniteNumber(hero.pendingUpcharge) || hero.pendingUpcharge < 0) hero.pendingUpcharge = 0;
     if (!isFiniteNumber(hero.nextChipInstanceSeq)) {
       hero.nextChipInstanceSeq = hero.ownedChips.length + 1;
     }
@@ -220,10 +261,14 @@ export function parseAndValidateRun(raw: string | null): RunState | null {
       if (
         !c ||
         !VALID_COMBAT_PHASE_SET.has(c.phase) ||
+        !Number.isInteger(c.turn) ||
+        c.turn < 1 ||
+        !isFiniteNumber(c.rewardCredits) ||
+        c.rewardCredits < 0 ||
         !Array.isArray(c.rewardChipChoices) ||
-        !Array.isArray(c.board) ||
-        !Array.isArray(c.drawPile) ||
-        !Array.isArray(c.discardPile) ||
+        !isValidTileList(c.board) ||
+        !isValidTileList(c.drawPile) ||
+        !isValidTileList(c.discardPile) ||
         !Array.isArray(c.enemies) ||
         c.enemies.length === 0
       ) {

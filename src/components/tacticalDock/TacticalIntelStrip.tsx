@@ -1,7 +1,7 @@
 import type { Tile, TileType, TurnPreview } from '../../engine/types';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import {
-  formatDiscretePipMath,
+  formatQuantizedScale,
   type OptimalMoveHint,
 } from '../../utils/tacticalSandboxAndHints';
 import { formatTileDetailText } from '../../utils/tileDisplay';
@@ -62,7 +62,7 @@ export interface TacticalIntelStripProps {
   activePreview: TurnPreview | null;
   selectedColor: TileType | null;
   canPlay: boolean;
-  pipMathMode: boolean;
+  quantizedScaleMode: boolean;
   lockOutcomePreview: LockOutcomePreview | null;
   inspectedTile: Tile | null;
   activeHint: OptimalMoveHint | null;
@@ -87,7 +87,7 @@ export function TacticalIntelStrip({
   activePreview,
   selectedColor,
   canPlay,
-  pipMathMode,
+  quantizedScaleMode,
   lockOutcomePreview,
   inspectedTile,
   activeHint,
@@ -132,9 +132,9 @@ export function TacticalIntelStrip({
               {activePreview.totalDamage > 0 && (
                 <span className="font-bold text-rose-200">
                   +{activePreview.totalDamage} {t.previewDamage}
-                  {pipMathMode && (
+                  {quantizedScaleMode && (
                     <span className="ml-1 rounded bg-rose-950/80 px-1 text-[#FFC700]">
-                      [{formatDiscretePipMath(activePreview.totalDamage).compactLabel}]
+                      [{formatQuantizedScale(activePreview.totalDamage).compactLabel}]
                     </span>
                   )}
                   {activePreview.damageBoostPct > 0 && (
@@ -155,9 +155,9 @@ export function TacticalIntelStrip({
               {activePreview.shieldGained > 0 && (
                 <span className="font-bold text-cyan-200">
                   +{activePreview.shieldGained} {t.previewShield}
-                  {pipMathMode && (
+                  {quantizedScaleMode && (
                     <span className="ml-1 rounded bg-cyan-950/80 px-1 text-[#00F0FF]">
-                      [{formatDiscretePipMath(activePreview.shieldGained).compactLabel}]
+                      [{formatQuantizedScale(activePreview.shieldGained).compactLabel}]
                     </span>
                   )}
                 </span>

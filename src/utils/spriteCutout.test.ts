@@ -167,7 +167,7 @@ test('cleanWhiteBackgroundData removes bottom floor shadow & trapped between-boo
   assert.equal(data[(45 * w + 50) * 4 + 3], 255);
 });
 
-test('Aurelia sprite sheet frames clean bottom floor wedges/shadows without punching holes in dress or muzzle flashes', () => {
+test('Auraline sprite sheet frames clean bottom floor wedges/shadows without punching holes in dress or muzzle flashes', () => {
   const sheet = decodePngRgba('src/assets/sprites/auraline_spritesheet.png');
   const targetIds = ['aurelia_r0_f0', 'aurelia_r0_f4', 'aurelia_r0_f7', 'aurelia_r0_f9', 'aurelia_r1_f4', 'aurelia_r1_f6'];
 

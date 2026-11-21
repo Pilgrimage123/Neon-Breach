@@ -29,10 +29,10 @@ export interface StalkerSpriteFrame extends SpriteRect {
  * 4x4 Sprite Sheet (`1024x1024`) for the Chitin Stalker (Obsidian Carapace + Crimson-Magenta Quills):
  * - Row 0 (`0..3`): Idle breathing, stealth stalk & deep coiled Ambush Crouch (`if_no_shield`)
  * - Row 1 (`4..7`): Scythe Pounce Slash (windup -> lunge -> extended slash -> recovery)
- * - Row 2 (`8..11`): Thorny Carapace Harden & Quill Retaliation (hunker -> ignite -> peak spike flare -> bristled guard)
+ * - Row 2 (`8..11`): Spike Retaliation Harden & Quill Flare (hunker -> ignite -> peak spike flare -> bristled guard)
  * - Row 3 (`12..15`): Hit Pain Recoil, Buckling Stagger & Ichor Puddle Collapse
  *
- * Source figures face right and are mirrored (`scale(-1, 1)`) in the combat stage to face the heroine on the left.
+ * Source figures face right and are mirrored (`scale(-1, 1)`) in the combat stage to face the hero on the left.
  */
 export const STALKER_SHEET_FRAMES: readonly StalkerSpriteFrame[] = [
   // Row 0: Idle & Ambush Crouch
@@ -278,7 +278,7 @@ export interface StalkerFrameSample {
   prevFrame: StalkerSpriteFrame;
   frameBlendAlpha: number;
   transitionState: FrameTransitionResult;
-  /** Additional local horizontal dash/lunge ratio relative to size (negative = left toward heroine) */
+  /** Additional local horizontal dash/lunge ratio relative to size (negative = left toward hero) */
   xOffsetRatio: number;
   /** Additional vertical leap/hop in unscaled sprite pixels (negative = upward) */
   yHopPx: number;

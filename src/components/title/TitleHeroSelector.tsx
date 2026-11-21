@@ -21,7 +21,7 @@ export function TitleHeroSelector({
   return (
     <div
       role="radiogroup"
-      aria-label={t.selectOperativeLabel}
+      aria-label={t.selectHeroLabel}
       className={`grid gap-2 ${
         compactCards ? 'grid-cols-3' : 'grid-cols-1 sm:grid-cols-3'
       }`}

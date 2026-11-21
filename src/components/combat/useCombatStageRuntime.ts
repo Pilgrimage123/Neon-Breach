@@ -10,14 +10,6 @@ import {
 import {
   areCriticalCombatAssetsReady,
   ensureCombatAssetsReady,
-  getPreloadedBackdrop,
-  getPreloadedBruteFrames,
-  getPreloadedCrawlerFrames,
-  getPreloadedEnemyCutout,
-  getPreloadedHeroFrames,
-  getPreloadedSpitterFrames,
-  getPreloadedStalkerFrames,
-  getPreloadedZuriDroneFrames,
   subscribePreloadUpdates,
 } from '../../assets/assetPreloader';
 import type {
@@ -29,38 +21,16 @@ import type {
   TileType,
   TurnPreview,
 } from '../../engine/types';
-import {
-  AURALINE_CANONICAL_HEIGHT,
-  AURALINE_SHEET_FRAMES,
-} from '../../utils/auralineSpriteSheet';
-import { stepCharacterAnimState } from '../../utils/characterAnimator';
-import {
-  HEROINE_CANONICAL_HEIGHT,
-  HEROINE_SHEET_FRAMES,
-} from '../../utils/kiraSpriteSheet';
-import { sampleZuriDroneFormation } from '../../utils/zuriDroneFormation';
-import {
-  ZURI_CANONICAL_HEIGHT,
-  ZURI_SHEET_FRAMES,
-} from '../../utils/zuriSpriteSheet';
 import type { CombatDevLabsRuntimeState } from './CombatDevLabsPanel';
-import { computeEffectiveSlotCount } from './combatEnemyUi';
+import { hydrateSimFromPreload } from './combatAssetHydration';
+import { stepAndDispatchHeroFrame } from './combatFrameStepper';
 import { computeAutoFocusTarget, renderCombatStage } from './combatRenderer';
-import type { ProjectileVisualProfile } from './combatStagingClassifier';
 import {
   type CombatStageSim,
   createCombatStageSim,
-  getStageLayoutMetrics,
   resetCombatStageSim,
 } from './combatStageTypes';
-import {
-  addOrGrowFloorBlood,
-  applyCombatCues,
-  drainTriggerImpacts,
-  spawnBurst,
-  spawnStyledProjectileVolley,
-  stepCombatSimulation,
-} from './combatVfx';
+import { applyCombatCues, stepCombatSimulation } from './combatVfx';
 import type { RendererMode } from './stageSpriteAdapter';
 import { WebGL2CharacterStageRenderer } from './webglMeshRenderer';
 
@@ -259,10 +229,6 @@ export function useCombatStageRuntime(
     const container = containerRef.current;
     if (!sim || !canvas || !container) return;
 
-    if (webglCanvas && !webglRendererRef.current) {
-      webglRendererRef.current = new WebGL2CharacterStageRenderer(webglCanvas);
-    }
-
     const activeSim: CombatStageSim = sim;
     const activeCanvas: HTMLCanvasElement = canvas;
     const activeContainer: HTMLDivElement = container;
@@ -287,6 +253,27 @@ export function useCombatStageRuntime(
     function scheduleFrame() {
       if (unmounted || rafId !== 0 || yieldTimerId !== 0 || typeof window === 'undefined') return;
       rafId = requestAnimationFrame(renderFrame);
+    }
+
+    if (webglCanvas && !webglRendererRef.current) {
+      webglRendererRef.current = new WebGL2CharacterStageRenderer(webglCanvas, undefined, undefined, {
+        onContextStatusChange: (ready) => {
+          if (unmounted) return;
+          if (!ready && fgCanvasRef.current) {
+            const fgCtx = fgCanvasRef.current.getContext('2d');
+            if (fgCtx) {
+              fgCtx.setTransform(1, 0, 0, 1, 0, 0);
+              fgCtx.clearRect(0, 0, fgCanvasRef.current.width, fgCanvasRef.current.height);
+            }
+          }
+          activeSim.needsRedraw = true;
+          if (stageReadyRef.current) {
+            cancelScheduledFrame();
+            lastTime = typeof performance !== 'undefined' ? performance.now() : Date.now();
+            renderFrame(lastTime);
+          }
+        },
+      });
     }
 
     function renderFrame(now: number) {
@@ -352,204 +339,16 @@ export function useCombatStageRuntime(
         elapsed += simDt;
       }
 
-      const activeCharId: CharacterId = currentHero.characterId ?? 'kira';
-      const canonicalHeight =
-        activeCharId === 'auraline'
-          ? AURALINE_CANONICAL_HEIGHT
-          : activeCharId === 'zuri'
-            ? ZURI_CANONICAL_HEIGHT
-            : HEROINE_CANONICAL_HEIGHT;
-      const heroSample = stepCharacterAnimState(activeSim.heroState, simDt, activeCharId, {
-        isDead: currentHero.hp <= 0 || currentCombat.phase === 'DEFEAT',
-        isVictory: currentCombat.phase === 'VICTORY' && activeSim.pendingImpacts.length === 0,
+      const heroSample = stepAndDispatchHeroFrame({
+        sim: activeSim,
+        combat: currentCombat,
+        hero: currentHero,
         hoveredColor: hoveredColorRef.current,
-        totalTime: elapsed,
+        simDt,
+        elapsed,
+        isPaused,
+        activeCanvas,
       });
-      activeSim.heroState = heroSample.state;
-
-      if (activeCanvas.dataset.heroAnim !== heroSample.state.mode) {
-        activeCanvas.dataset.heroAnim = heroSample.state.mode;
-      }
-
-      const heroFrame = heroSample.frame;
-      if (!isPaused && simDt > 0) {
-        const effectiveSlotCount = computeEffectiveSlotCount(
-          currentCombat.enemies,
-          currentCombat.director?.pendingReinforcements,
-        );
-        const heroCutIn = activeSim.actionSequencer.getActorJuice('hero');
-        const isKiraDodging = activeCharId === 'kira' && heroSample.state.mode === 'dodge';
-        const effectiveHeroXProgress = isKiraDodging
-          ? heroSample.xProgress
-          : heroCutIn.isMeleeClash || (heroCutIn.active && heroCutIn.role === 'target')
-            ? 0
-            : heroCutIn.active && activeCharId === 'auraline'
-              ? Math.max(-0.06, Math.min(0.06, heroSample.xProgress))
-              : heroSample.xProgress;
-        const { groundY, baseScale, heroX, heroY, heroDrawScale } = getStageLayoutMetrics(
-          activeSim.size.w,
-          activeSim.size.h,
-          effectiveSlotCount,
-          activeSim.dashTargetX,
-          effectiveHeroXProgress,
-          heroSample.yHopPx,
-          heroFrame.rowScale,
-          canonicalHeight,
-        );
-        const heroLiveX = isKiraDodging
-          ? Math.max(activeSim.size.w * 0.08, heroX + (heroCutIn.active ? heroCutIn.clashSlideX : 0))
-          : heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0);
-
-        const zuriDrones =
-          activeCharId === 'zuri'
-            ? sampleZuriDroneFormation({
-                animState: heroSample.state,
-                heroineX: heroLiveX,
-                heroineDrawBottomY: heroY,
-                groundY,
-                targetX: activeSim.pendingShotTargetX,
-                targetMidY: activeSim.pendingShotTargetY,
-                scale: baseScale,
-                totalTime: elapsed,
-                hoveredColor: hoveredColorRef.current,
-              })
-            : null;
-
-        if (heroSample.isDashing && (!heroCutIn.isMeleeClash || isKiraDodging)) {
-          const needsInitialDodgeGhost =
-            isKiraDodging && !activeSim.ghosts.some((g) => g.isDodge);
-          activeSim.ghostSampleTimer += simDt;
-          const ghostInterval = isKiraDodging ? 0.036 : 0.028;
-          if (needsInitialDodgeGhost || activeSim.ghostSampleTimer >= ghostInterval) {
-            activeSim.ghostSampleTimer = 0;
-            activeSim.ghosts.push({
-              x: heroLiveX,
-              y: heroY,
-              frameIndex: heroSample.frameIndex,
-              drawScale: heroDrawScale,
-              alpha: isKiraDodging ? 0.78 : 0.42,
-              isDodge: isKiraDodging,
-            });
-            const maxGhosts = isKiraDodging ? 9 : 6;
-            if (activeSim.ghosts.length > maxGhosts) activeSim.ghosts.shift();
-          }
-          if (
-            activeSim.heroTrailCooldown <= 0 &&
-            (currentHero.corrode > 0 || currentHero.hp <= currentHero.maxHp * 0.5)
-          ) {
-            activeSim.heroTrailCooldown = 0.055;
-            addOrGrowFloorBlood(
-              activeSim,
-              heroLiveX + (Math.random() - 0.5) * 10,
-              groundY + (Math.random() - 0.5) * 6,
-              2.2,
-              0,
-              {
-                owner: currentHero.corrode > 0 ? 'hero_corrode' : 'hero_blood',
-                shapeKind: 'trail_drop',
-              },
-            );
-          }
-        } else {
-          activeSim.ghostSampleTimer = 0;
-        }
-
-        const isLabOwnedCutIn =
-          activeSim.actionSequencer.isActive() && activeSim.pendingImpacts.length === 0;
-
-        if (!isLabOwnedCutIn && heroSample.shouldEmitShot && (heroFrame.muzzleRel || zuriDrones)) {
-          const mx = zuriDrones
-            ? zuriDrones.strike.muzzleX
-            : heroLiveX + (heroFrame.muzzleRel?.dx ?? 120) * heroDrawScale;
-          const my = zuriDrones
-            ? zuriDrones.strike.muzzleY
-            : heroY + (heroFrame.muzzleRel?.dy ?? -140) * heroDrawScale;
-          const isOverdrive = heroSample.state.mode === 'overdrive';
-          const triggerKey = heroSample.state.emittedShots === 1 ? 'shot1' : 'shot2';
-          const baseImpact = drainTriggerImpacts(activeSim, triggerKey);
-          const onImpact =
-            triggerKey === 'shot1'
-              ? () => {
-                  activeSim.actionSequencer.triggerImpactNow();
-                  if (baseImpact) baseImpact();
-                }
-              : baseImpact;
-          const profile: ProjectileVisualProfile =
-            activeCharId === 'zuri'
-              ? 'drone_plasma'
-              : activeCharId === 'auraline'
-                ? 'scattergun'
-                : 'pistol_bolt';
-          spawnStyledProjectileVolley(activeSim, {
-            profile,
-            sx: mx,
-            sy: my,
-            tx: activeSim.pendingShotTargetX,
-            ty: activeSim.pendingShotTargetY,
-            isOverdrive,
-            onPrimaryImpact: onImpact,
-          });
-          if (activeCharId === 'zuri' && zuriDrones && isOverdrive) {
-            spawnStyledProjectileVolley(activeSim, {
-              profile: 'pistol_bolt',
-              sx: zuriDrones.shield.muzzleX,
-              sy: zuriDrones.shield.muzzleY,
-              tx: activeSim.pendingShotTargetX,
-              ty: activeSim.pendingShotTargetY,
-              isOverdrive: true,
-            });
-          }
-          spawnBurst(
-            activeSim,
-            mx,
-            my,
-            activeCharId === 'zuri' ? 9 : activeCharId === 'auraline' ? 8 : 6,
-            activeCharId === 'kira' ? '#FDE047' : '#FFC700',
-            0,
-            activeCharId === 'kira' ? 0.75 : 0.92,
-            0,
-            0.28,
-            0.28,
-            2,
-            3.8,
-          );
-          if (activeCharId !== 'zuri') {
-            spawnBurst(
-              activeSim,
-              heroLiveX + 26 * heroDrawScale,
-              heroY - 145 * heroDrawScale,
-              3,
-              '#FBBF24',
-              1,
-              0.45,
-              0,
-              0.28,
-              0.28,
-              2,
-              3.5,
-            );
-          }
-        }
-
-        if (!isLabOwnedCutIn && heroSample.shouldEmitKickImpact && (heroFrame.kickTipRel || zuriDrones)) {
-          const kx = zuriDrones
-            ? zuriDrones.strike.muzzleX
-            : heroLiveX + (heroFrame.kickTipRel?.dx ?? 150) * heroDrawScale;
-          const ky = zuriDrones
-            ? zuriDrones.strike.muzzleY
-            : heroY + (heroFrame.kickTipRel?.dy ?? -120) * heroDrawScale;
-          activeSim.kickWaveTimer = 0.28;
-          activeSim.kickWaveX = kx;
-          activeSim.kickWaveY = ky;
-          spawnBurst(activeSim, kx, ky, 18, '#FF2E7E', 1, 1.15, 0, 0.28, 0.28, 2, 3.5);
-          if (activeCharId === 'auraline' || activeCharId === 'zuri') {
-            spawnBurst(activeSim, kx, ky, 14, '#FFC700', 0, 1.25, 0, 0.3, 0.26, 2.4, 4.2);
-          }
-          activeSim.actionSequencer.triggerImpactNow();
-          const kickCb = drainTriggerImpacts(activeSim, 'kick');
-          if (kickCb) kickCb();
-        }
-      }
 
       activeSim.lastFrameDt = isPaused ? 0 : simDt;
       const fgCtx = fgCanvasRef.current?.getContext('2d') ?? null;
@@ -630,72 +429,9 @@ export function useCombatStageRuntime(
       }
     }
 
-    const ensureHeroFrameSlots = (id: CharacterId) => {
-      if (!activeSim.heroFramesByChar[id]) {
-        const len =
-          id === 'auraline'
-            ? AURALINE_SHEET_FRAMES.length
-            : id === 'zuri'
-              ? ZURI_SHEET_FRAMES.length
-              : HEROINE_SHEET_FRAMES.length;
-        activeSim.heroFramesByChar[id] = new Array<HTMLCanvasElement>(len);
-      }
-      return activeSim.heroFramesByChar[id] as HTMLCanvasElement[];
-    };
-
-    const hydrateSimFromPreload = (): boolean => {
-      let addedNewCutout = false;
-      const cachedBg = getPreloadedBackdrop();
-      if (cachedBg && !activeSim.backdropImg) {
-        activeSim.backdropImg = cachedBg;
-      }
-      for (const cid of ['kira', 'auraline', 'zuri'] as const) {
-        const cachedFrames = getPreloadedHeroFrames(cid);
-        if (cachedFrames) {
-          const slots = ensureHeroFrameSlots(cid);
-          for (let i = 0; i < cachedFrames.length; i++) {
-            if (cachedFrames[i]) slots[i] = cachedFrames[i];
-          }
-        }
-      }
-      const cachedDrones = getPreloadedZuriDroneFrames();
-      if (cachedDrones) {
-        activeSim.zuriDroneFrames = cachedDrones;
-      }
-      for (const variant of ['larva', 'skitter', 'stinger'] as const) {
-        const cachedCrawler = getPreloadedCrawlerFrames(variant);
-        if (cachedCrawler && !activeSim.crawlerFrames.has(variant)) {
-          activeSim.crawlerFrames.set(variant, cachedCrawler);
-        }
-      }
-      const cachedStalker = getPreloadedStalkerFrames();
-      if (cachedStalker && !activeSim.stalkerFrames) {
-        activeSim.stalkerFrames = cachedStalker;
-        addedNewCutout = true;
-      }
-      const cachedSpitter = getPreloadedSpitterFrames();
-      if (cachedSpitter && !activeSim.spitterFrames) {
-        activeSim.spitterFrames = cachedSpitter;
-        addedNewCutout = true;
-      }
-      const cachedBrute = getPreloadedBruteFrames();
-      if (cachedBrute && !activeSim.bruteFrames) {
-        activeSim.bruteFrames = cachedBrute;
-        addedNewCutout = true;
-      }
-      for (const arch of ['stalker', 'spitter', 'brute', 'boss'] as const) {
-        const cachedEnemy = getPreloadedEnemyCutout(arch);
-        if (cachedEnemy && !activeSim.enemyCutouts.has(arch)) {
-          activeSim.enemyCutouts.set(arch, cachedEnemy);
-          addedNewCutout = true;
-        }
-      }
-      return addedNewCutout;
-    };
-
     syncAndDrawNowRef.current = () => {
       if (unmounted) return;
-      if (hydrateSimFromPreload()) {
+      if (hydrateSimFromPreload(activeSim)) {
         setCutoutVersion((v) => v + 1);
       }
       activeSim.needsRedraw = true;
@@ -706,11 +442,11 @@ export function useCombatStageRuntime(
 
     requestDrawRef.current = scheduleFrame;
 
-    hydrateSimFromPreload();
+    hydrateSimFromPreload(activeSim);
 
     const unsubscribePreload = subscribePreloadUpdates(() => {
       if (unmounted) return;
-      if (hydrateSimFromPreload()) {
+      if (hydrateSimFromPreload(activeSim)) {
         setCutoutVersion((v) => v + 1);
       }
       activeSim.needsRedraw = true;

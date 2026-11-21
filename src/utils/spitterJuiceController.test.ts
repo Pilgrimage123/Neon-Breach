@@ -122,7 +122,7 @@ test('Attack Lunge / Spit drives smooth spitWindupProgress then spitStreamProgre
   }
 
   assert.ok(maxWindup > 0.7, 'Windup phase should build throat bile condensation');
-  assert.ok(maxStream > 0.9, 'Spit phase should drive full bile stream progress to heroine');
+  assert.ok(maxStream > 0.9, 'Spit phase should drive full bile stream progress to hero');
   assert.ok(seenFrames.has(4) && seenFrames.has(5) && seenFrames.has(6), 'Spit sequence should progress through frames 4, 5, 6');
 
   // Verify cast_charge holds Frame 4 without toggling to Frame 3

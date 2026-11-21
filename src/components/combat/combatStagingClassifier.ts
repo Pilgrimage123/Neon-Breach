@@ -24,9 +24,9 @@ export interface EnemyAttackClassification {
 }
 
 /**
- * Pure archetype-aware classifier for all 3 heroines:
+ * Pure archetype-aware classifier for all 3 heroes:
  * - Zuri: 100% ranged aerial drone commander (Strike Drone plasma volleys; never melee clash).
- * - Aurelia: 100% ranged twin-barrel plasma scattergun (spread pellets; never melee clash).
+ * - Auraline: 100% ranged twin-barrel plasma scattergun (spread pellets; never melee clash).
  * - Kira: Hybrid melee/pistol (high-plasma dash-kick melee clashes on Surges/heavy/odd turns;
  *   cyber-pistol ranged cuts on standard/multi-target volleys).
  */

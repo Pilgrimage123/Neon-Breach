@@ -124,7 +124,7 @@ test('sampleSpitterFrame drives idle, blightCharge, pustuleHover guard, spit, cl
   );
   assert.equal(clawMid.mode, 'claw');
   assert.equal(clawMid.frameIndex, 9);
-  assert.ok(clawMid.xOffsetRatio < -0.1, 'Claw Rend lunge must travel left toward heroine');
+  assert.ok(clawMid.xOffsetRatio < -0.1, 'Claw Rend lunge must travel left toward hero');
 
   const pain = sampleSpitterFrame(
     {

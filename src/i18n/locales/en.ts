@@ -4,7 +4,7 @@ export const EN_TRANSLATIONS: TranslationPack = {
   startRun: 'Start Run',
   continueRun: 'Continue Run',
   newRun: 'New Run',
-  selectOperativeLabel: 'Select Hero',
+  selectHeroLabel: 'Select Hero',
   controlsHint: 'F Fullscreen · P Pause · M Mute · L Language',
   howToPlay: {
     title: 'How to Play',
@@ -313,7 +313,7 @@ export const EN_TRANSLATIONS: TranslationPack = {
     spike_retaliate: {
       archetype: 'The Punisher · Rule Modifier',
       name: 'Spike Retaliation',
-      rule: '**Retaliates 3 DMG**. +4 DMG at 0 Shield.',
+      rule: '**Spike Retaliation:** 3 DMG (+4 at 0 Shield).',
       counter: 'Use **Surge (4+)** and keep **1+ Shield**.',
     },
     acid_jam: {

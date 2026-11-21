@@ -18,7 +18,7 @@ import type {
 } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 
-export interface DiscretePipDisplay {
+export interface QuantizedScaleDisplay {
   raw: number;
   pips: number;
   pipString: string;
@@ -59,12 +59,12 @@ export interface EncounterObjectivesSummary {
 }
 
 /**
- * Pillar 1.1: Keep Numbers Small (Discrete Pip Math).
- * Converts larger HP/damage integers into small discrete pips (1 Pip = 5 units, minimum 1 if > 0)
- * so casual players can do instant mental arithmetic (e.g., 2 DMG Pips vs 4 HP Pips)
+ * Pillar 1.1: Keep Numbers Small (Quantized Scale).
+ * Converts larger HP/damage integers into compact 5-unit increments (minimum 1 if > 0)
+ * so casual players can do instant mental arithmetic
  * while preserving exact integer precision.
  */
-export function formatDiscretePipMath(rawValue: number, unitPerPip = 5): DiscretePipDisplay {
+export function formatQuantizedScale(rawValue: number, unitPerPip = 5): QuantizedScaleDisplay {
   const safeVal = Math.max(0, Math.round(rawValue));
   if (safeVal === 0) {
     return {
@@ -496,7 +496,7 @@ export function computeContextualMicroPrompt(params: {
       : `★ Match ${maxGroup}× tiles. Trigger STACK SURGE!`;
   }
 
-  // Step 2: Introduce Held Tile Momentum on Turn 2 when held tiles are on the board (for operatives with held bonus)
+  // Step 2: Introduce Held Tile Momentum on Turn 2 when held tiles are on the board (for heroes with held bonus)
   const heldCount = combat.board.filter((t) => t.isHeldFromPrevTurn).length;
   const heldTileBonus = getHeroSpec(run.hero.characterId).heldTileBonus;
   if (combat.turn === 2 && heldCount > 0 && heldTileBonus > 0) {

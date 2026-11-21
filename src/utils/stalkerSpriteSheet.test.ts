@@ -103,7 +103,7 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
   );
   assert.equal(atkMid.mode, 'attack');
   assert.equal(atkMid.frameIndex, 6);
-  assert.ok(atkMid.xOffsetRatio < -0.1, 'Lunge slash must travel left toward heroine');
+  assert.ok(atkMid.xOffsetRatio < -0.1, 'Lunge slash must travel left toward hero');
 
   const pain = sampleStalkerFrame(
     {

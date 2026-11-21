@@ -167,7 +167,7 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
       },
     ],
   };
-  // Force shoot toggle even so primaryAttackMode = 'shoot' (Aurelia scattergun = kinetic)
+  // Force shoot toggle even so primaryAttackMode = 'shoot' (Auraline scattergun = kinetic)
   sim.attackToggle = 0;
   applyCombatCues(sim, kineticCombat, run.hero);
   for (const pi of sim.pendingImpacts) pi.execute();

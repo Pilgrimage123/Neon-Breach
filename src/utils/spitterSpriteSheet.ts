@@ -20,7 +20,7 @@ export interface SpitterSpriteFrame extends SpriteRect {
   anchorX: number;
   /** Vertical offset inside frame rect where claws/feet touch the bridge deck */
   bottomY: number;
-  /** Relative offset from (anchorX, bottomY) in unscaled pixels (after left-flip, -dx is left/forward toward heroine) */
+  /** Relative offset from (anchorX, bottomY) in unscaled pixels (after left-flip, -dx is left/forward toward hero) */
   mouthOriginRel: { dx: number; dy: number };
   /** Relative offset from (anchorX, bottomY) in unscaled pixels centered on bulging shoulder pustules */
   pustuleOriginRel: { dx: number; dy: number };
@@ -33,7 +33,7 @@ export interface SpitterSpriteFrame extends SpriteRect {
  * - Row 2 (`8..11`): Caustic Claw Rend & Pustule Guard (overhead double-claw windup -> forward rake -> glowing pustule guard -> guard stance)
  * - Row 3 (`12..15`): Bursting Pustule Recoil, Stagger, Collapse & Liquefying Acid Carcass
  *
- * Source figures face right and are mirrored (`scale(-1, 1)`) in the combat stage to face the heroine on the left.
+ * Source figures face right and are mirrored (`scale(-1, 1)`) in the combat stage to face the hero on the left.
  */
 export const SPITTER_SHEET_FRAMES: readonly SpitterSpriteFrame[] = [
   // Row 0: Idle & Swollen Blight Crouch
@@ -134,7 +134,7 @@ export const SPITTER_SHEET_FRAMES: readonly SpitterSpriteFrame[] = [
     h: 246,
     anchorX: 77,
     bottomY: 245,
-    // Trim truncated horizontal bile bar past the open jaws so the procedural bile stream flows continuously to the heroine
+    // Trim truncated horizontal bile bar past the open jaws so the procedural bile stream flows continuously to the hero
     excludeRects: [{ x: 160, y: 34, w: 26, h: 90 }],
     mouthOriginRel: { dx: -82, dy: -175 },
     pustuleOriginRel: { dx: -20, dy: -166 },
@@ -298,7 +298,7 @@ export interface SpitterFrameSample {
   prevFrame: SpitterSpriteFrame;
   frameBlendAlpha: number;
   transitionState: FrameTransitionResult;
-  /** Additional horizontal dash/lunge ratio relative to size (negative = left toward heroine) */
+  /** Additional horizontal dash/lunge ratio relative to size (negative = left toward hero) */
   xOffsetRatio: number;
   /** Additional vertical leap/hop in unscaled sprite pixels (negative = upward) */
   yHopPx: number;

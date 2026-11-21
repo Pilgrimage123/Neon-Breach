@@ -156,7 +156,7 @@ test('computeEnemyArmorPreview handles partial absorb, full absorb, armor break,
   assert.equal(techShredBack.willBreakArmor, true);
   assert.equal(techShredBack.remainingArmor, 0);
   assert.equal(techShredBack.previewHpLoss, 0);
-  // Aegis Shield Pip absorbs hit completely -> 0 HP loss, willCrackShieldPip = true
+  // Aegis Pip absorbs hit completely -> 0 HP loss, willCrackShieldPip = true
   const pipEnemy = makeEnemy({ hp: 20, maxHp: 20, armor: 4, shieldPips: 1, maxShieldPips: 1 });
   const pipPrev = computeEnemyArmorPreview(pipEnemy, 0, 0, makePreview({ totalDamage: 25 }));
   assert.equal(pipPrev.willCrackShieldPip, true);
@@ -181,7 +181,7 @@ test('computeEnemyArmorPreview handles partial absorb, full absorb, armor break,
   assert.equal(gatePrev.previewHpLoss, 15);
   assert.equal(gatePrev.willDie, false);
 
-  // Frontline Spore Mite (volatile_burst) dying chains +6 Pierce Bio-Burst to backline ally
+  // Frontline Spore Mite (volatile_burst) dying chains +6 Pierce Bio-Rupture to backline ally
   const frontLarva = makeEnemy({
     id: 'larva-1',
     archetype: 'larva',

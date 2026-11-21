@@ -6,10 +6,10 @@ import {
   isCrawlerArchetype,
 } from '../utils/crawlerSpriteSheet';
 import {
-  HEROINE_COMBAT_FRAMES,
-  HEROINE_DODGE_FRAMES,
-  HEROINE_EMOTE_FRAMES,
-  HEROINE_SHEET_FRAMES,
+  KIRA_COMBAT_FRAMES,
+  KIRA_DODGE_FRAMES,
+  KIRA_EMOTE_FRAMES,
+  KIRA_SHEET_FRAMES,
 } from '../utils/kiraSpriteSheet';
 import {
   NURSE_FRAMES,
@@ -143,8 +143,8 @@ interface SheetSpec<R extends SpriteRect = SpriteRect> {
 
 const SHEET_SPECS = {
   auraline: { url: GAME_ASSETS.auraline, frames: AURALINE_SHEET_FRAMES, options: AURALINE_SHEET_OPTIONS },
-  kiraCombat: { url: GAME_ASSETS.kira, frames: HEROINE_COMBAT_FRAMES, options: KIRA_COMBAT_OPTIONS },
-  kiraEmote: { url: GAME_ASSETS.kiraEmote, frames: HEROINE_EMOTE_FRAMES, options: KIRA_EMOTE_OPTIONS },
+  kiraCombat: { url: GAME_ASSETS.kira, frames: KIRA_COMBAT_FRAMES, options: KIRA_COMBAT_OPTIONS },
+  kiraEmote: { url: GAME_ASSETS.kiraEmote, frames: KIRA_EMOTE_FRAMES, options: KIRA_EMOTE_OPTIONS },
   zuriCombat: { url: GAME_ASSETS.zuri, frames: ZURI_COMBAT_FRAMES, options: ZURI_SHEET_OPTIONS },
   zuriEmote: { url: GAME_ASSETS.zuriEmote, frames: ZURI_EMOTE_FRAMES, options: ZURI_SHEET_OPTIONS },
   zuriDrones: { url: GAME_ASSETS.zuriDrones, frames: ZURI_DRONE_FRAMES, options: ZURI_DRONES_OPTIONS },
@@ -219,7 +219,7 @@ function getPortraitSpec(charId: CharacterId): { url: string; frame: SpriteRect;
   if (charId === 'zuri') {
     return { url: GAME_ASSETS.zuri, frame: ZURI_SHEET_FRAMES[8], options: ZURI_SHEET_OPTIONS };
   }
-  return { url: GAME_ASSETS.kira, frame: HEROINE_COMBAT_FRAMES[0], options: KIRA_COMBAT_OPTIONS };
+  return { url: GAME_ASSETS.kira, frame: KIRA_COMBAT_FRAMES[0], options: KIRA_COMBAT_OPTIONS };
 }
 
 export function getPreloadedPortraitFrame(charId: CharacterId): HTMLCanvasElement | null {
@@ -341,15 +341,15 @@ export function getPreloadedHeroFrames(charId: CharacterId): HTMLCanvasElement[]
   }
   const combat = getSheet(SHEET_SPECS.kiraCombat);
   if (!combat) return null;
-  const slots = new Array<HTMLCanvasElement>(HEROINE_SHEET_FRAMES.length);
+  const slots = new Array<HTMLCanvasElement>(KIRA_SHEET_FRAMES.length);
   for (let i = 0; i < combat.length; i++) slots[i] = combat[i];
   const emote = getSheet(SHEET_SPECS.kiraEmote);
   if (emote) {
-    const offset = HEROINE_COMBAT_FRAMES.length;
+    const offset = KIRA_COMBAT_FRAMES.length;
     for (let i = 0; i < emote.length; i++) slots[offset + i] = emote[i];
   }
-  const dodgeOffset = HEROINE_COMBAT_FRAMES.length + HEROINE_EMOTE_FRAMES.length;
-  for (let i = 0; i < HEROINE_DODGE_FRAMES.length; i++) {
+  const dodgeOffset = KIRA_COMBAT_FRAMES.length + KIRA_EMOTE_FRAMES.length;
+  for (let i = 0; i < KIRA_DODGE_FRAMES.length; i++) {
     const url = GAME_ASSETS.kiraDodge[i];
     const dodgeCanvas = url ? getCachedSpriteCutout(url, KIRA_DODGE_OPTIONS) : null;
     if (dodgeCanvas) slots[dodgeOffset + i] = dodgeCanvas;

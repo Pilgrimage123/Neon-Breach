@@ -35,7 +35,7 @@ export interface BruteSpriteFrame extends SpriteRect {
  * - Row 2 (`8..11`): Seismic Carapace Crush & Claw/Maw Crunch (coiled 2-arm windup -> airborne smash peak -> 2-fist ground smash -> lunging jaw & claw strike)
  * - Row 3 (`12..15`): Hit Pain Recoil, Knee Stagger, Buckling Collapse & Flat Defeated Collapse
  *
- * Source figures face right and are mirrored (`scale(-1, 1)`) on stage to face the heroine on the left.
+ * Source figures face right and are mirrored (`scale(-1, 1)`) on stage to face the hero on the left.
  */
 export const BRUTE_SHEET_FRAMES: readonly BruteSpriteFrame[] = [
   // Row 0: Breathing Idle Loop
@@ -308,7 +308,7 @@ export interface BruteFrameSample {
   prevFrame: BruteSpriteFrame;
   frameBlendAlpha: number;
   transitionState: FrameTransitionResult;
-  /** Additional horizontal dash/lunge ratio relative to size (negative = left toward heroine) */
+  /** Additional horizontal dash/lunge ratio relative to size (negative = left toward hero) */
   xOffsetRatio: number;
   /** Additional vertical leap/hop in unscaled sprite pixels (negative = upward) */
   yHopPx: number;

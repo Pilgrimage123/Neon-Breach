@@ -14,27 +14,21 @@ import {
 
 export {
   createInitialHeroAnimState,
-  createInitialHeroineAnimState,
   type HeroAnimMode,
   type HeroAnimState,
   type HeroFrameDef,
   type HeroFrameSample,
   type HeroSheetSource,
-  type HeroineAnimMode,
-  type HeroineAnimState,
-  type HeroineFrameDef,
-  type HeroineFrameSample,
-  type HeroineSheetSource,
 } from './heroAnimator';
 
-export const HEROINE_SHEET_WIDTH = 2115;
-export const HEROINE_SHEET_HEIGHT = 1189;
-export const HEROINE_EMOTE_SHEET_WIDTH = 2095;
-export const HEROINE_EMOTE_SHEET_HEIGHT = 1007;
-export const HEROINE_CANONICAL_HEIGHT = 214;
-export const HEROINE_DODGE_DURATION = 0.96;
+export const KIRA_SHEET_WIDTH = 2115;
+export const KIRA_SHEET_HEIGHT = 1189;
+export const KIRA_EMOTE_SHEET_WIDTH = 2095;
+export const KIRA_EMOTE_SHEET_HEIGHT = 1007;
+export const KIRA_CANONICAL_HEIGHT = 214;
+export const KIRA_DODGE_DURATION = 0.96;
 
-export const HEROINE_COMBAT_FRAMES: readonly HeroFrameDef[] = [
+export const KIRA_COMBAT_FRAMES: readonly HeroFrameDef[] = [
   // Row 0: Idle & Sprint Run (7 frames, normalized to exact 214.0px standing height)
   { id: 'r0_f0', row: 0, col: 0, x: 16, y: 16, w: 136, h: 224, anchorX: 79, bottomY: 219, rowScale: 1.019, sheet: 'combat' },
   { id: 'r0_f1', row: 0, col: 1, x: 170, y: 16, w: 140, h: 222, anchorX: 70.5, bottomY: 217, rowScale: 1.034, sheet: 'combat' },
@@ -82,7 +76,7 @@ export const HEROINE_COMBAT_FRAMES: readonly HeroFrameDef[] = [
   { id: 'r4_f7', row: 4, col: 7, x: 1786, y: 1024, w: 313, h: 80, anchorX: 154.06, bottomY: 72.86, rowScale: 1, sheet: 'combat' },
 ];
 
-export const HEROINE_EMOTE_FRAMES: readonly HeroFrameDef[] = [
+export const KIRA_EMOTE_FRAMES: readonly HeroFrameDef[] = [
   // Row 5 (Emote Sheet Row 0): IDLE1 — Hair Twirl & Wink (indices 36..44, exact 214.0px standing height)
   { id: 'r5_f0', row: 5, col: 0, x: 16, y: 16, w: 126, h: 213, anchorX: 76.5, bottomY: 211, rowScale: 1.039, sheet: 'emote' },
   { id: 'r5_f1', row: 5, col: 1, x: 160, y: 16, w: 124, h: 212, anchorX: 74.5, bottomY: 210, rowScale: 1.044, sheet: 'emote' },
@@ -128,7 +122,7 @@ export const HEROINE_EMOTE_FRAMES: readonly HeroFrameDef[] = [
   { id: 'r8_f8', row: 8, col: 8, x: 1632, y: 761, w: 238, h: 230, anchorX: 125.58, bottomY: 226.71, rowScale: 1, sheet: 'emote' },
 ];
 
-export const HEROINE_DODGE_FRAMES: readonly HeroFrameDef[] = [
+export const KIRA_DODGE_FRAMES: readonly HeroFrameDef[] = [
   // Row 9 (Dedicated resized transparent RGBA dodge poses, indices 72..75)
   { id: 'dodge_vault', row: 9, col: 0, x: 0, y: 0, w: 193, h: 256, anchorX: 102, bottomY: 245, rowScale: 0.96, sheet: 'dodge' },
   { id: 'dodge_slide_1', row: 9, col: 1, x: 0, y: 0, w: 215, h: 264, anchorX: 105, bottomY: 256, rowScale: 0.91, sheet: 'dodge' },
@@ -136,10 +130,10 @@ export const HEROINE_DODGE_FRAMES: readonly HeroFrameDef[] = [
   { id: 'dodge_land', row: 9, col: 3, x: 0, y: 0, w: 192, h: 248, anchorX: 96, bottomY: 240, rowScale: 0.92, sheet: 'dodge' },
 ];
 
-export const HEROINE_SHEET_FRAMES: readonly HeroFrameDef[] = [
-  ...HEROINE_COMBAT_FRAMES,
-  ...HEROINE_EMOTE_FRAMES,
-  ...HEROINE_DODGE_FRAMES,
+export const KIRA_SHEET_FRAMES: readonly HeroFrameDef[] = [
+  ...KIRA_COMBAT_FRAMES,
+  ...KIRA_EMOTE_FRAMES,
+  ...KIRA_DODGE_FRAMES,
 ];
 
 /** Pure rule determining whether an incoming enemy attack triggers Kira's evasive dodge choreography. */
@@ -316,7 +310,7 @@ const MODE_DURATIONS: Record<HeroAnimMode, number> = {
   dash_kick: 0.78,
   overdrive: 0.88,
   guard: 0.48,
-  dodge: HEROINE_DODGE_DURATION,
+  dodge: KIRA_DODGE_DURATION,
   upgrade: 0.90,
   hit: 0.46,
   defeat: 1.10,
@@ -326,7 +320,7 @@ const MODE_DURATIONS: Record<HeroAnimMode, number> = {
 const FRAME_BLEND_DURATION = 0.052;
 const DODGE_FRAME_BLEND_DURATION = 0.072;
 
-export function triggerHeroineAnimation(
+export function triggerKiraAnimation(
   prev: HeroAnimState,
   mode: HeroAnimMode,
   options?: { lowHpHit?: boolean },
@@ -376,7 +370,7 @@ function sampleAmbientIdleFrame(totalTime: number, hoveredColor: TileType | null
   return { frameIndex: 0, yHopPx: 0 };
 }
 
-export function stepHeroineAnimState(
+export function stepKiraAnimState(
   prev: HeroAnimState,
   dt: number,
   context: {
@@ -389,14 +383,14 @@ export function stepHeroineAnimState(
   let state = prev;
 
   if (context.isDead && state.mode !== 'defeat') {
-    state = triggerHeroineAnimation(state, 'defeat');
+    state = triggerKiraAnimation(state, 'defeat');
   } else if (!context.isDead && state.mode === 'defeat') {
     state = createInitialHeroAnimState();
   }
 
   if (state.mode === 'idle') {
     if (context.isVictory) {
-      state = triggerHeroineAnimation(state, 'victory');
+      state = triggerKiraAnimation(state, 'victory');
     } else {
       const { frameIndex, yHopPx } = sampleAmbientIdleFrame(
         context.totalTime,
@@ -417,9 +411,9 @@ export function stepHeroineAnimState(
       return {
         state: nextIdleState,
         frameIndex,
-        frame: HEROINE_SHEET_FRAMES[frameIndex],
+        frame: KIRA_SHEET_FRAMES[frameIndex],
         prevFrameIndex: trans.prevFrameIndex,
-        prevFrame: HEROINE_SHEET_FRAMES[trans.prevFrameIndex],
+        prevFrame: KIRA_SHEET_FRAMES[trans.prevFrameIndex],
         frameBlendAlpha: trans.frameBlendAlpha,
         xProgress: 0,
         yHopPx: idleBobY,
@@ -440,7 +434,7 @@ export function stepHeroineAnimState(
       prevFrameIndex: state.prevFrameIndex ?? 0,
       frameBlendElapsed: state.frameBlendElapsed ?? 0,
     };
-    return stepHeroineAnimState(idleState, dt, context);
+    return stepKiraAnimState(idleState, dt, context);
   }
 
   const nextElapsed = state.elapsed + dt;
@@ -452,7 +446,7 @@ export function stepHeroineAnimState(
       prevFrameIndex: state.prevFrameIndex ?? 0,
       frameBlendElapsed: state.frameBlendElapsed ?? 0,
     };
-    return stepHeroineAnimState(idleState, 0, context);
+    return stepKiraAnimState(idleState, 0, context);
   }
 
   const clampedElapsed = Math.min(nextElapsed, state.duration);
@@ -569,9 +563,9 @@ export function stepHeroineAnimState(
   return {
     state: nextState,
     frameIndex: sampled.frameIndex,
-    frame: HEROINE_SHEET_FRAMES[sampled.frameIndex],
+    frame: KIRA_SHEET_FRAMES[sampled.frameIndex],
     prevFrameIndex: trans.prevFrameIndex,
-    prevFrame: HEROINE_SHEET_FRAMES[trans.prevFrameIndex],
+    prevFrame: KIRA_SHEET_FRAMES[trans.prevFrameIndex],
     frameBlendAlpha: trans.frameBlendAlpha,
     xProgress: sampled.xProgress,
     yHopPx: sampled.yHopPx,

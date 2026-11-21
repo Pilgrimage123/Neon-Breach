@@ -274,17 +274,17 @@ describe('spatialMinimalistUi — Anti-Wordiness, AAA Typography & Spatial Board
         const passWords = countUiWords(char.passive);
         assert.ok(
           passWords <= 8,
-          `Heroine ${id} [${lang}] passive exceeds 8 words (${passWords}): "${char.passive}"`
+          `Hero ${id} [${lang}] passive exceeds 8 words (${passWords}): "${char.passive}"`
         );
         const odWords = countUiWords(char.overdriveDesc);
         assert.ok(
           odWords <= 8,
-          `Heroine ${id} [${lang}] overdrive exceeds 8 words (${odWords}): "${char.overdriveDesc}"`
+          `Hero ${id} [${lang}] overdrive exceeds 8 words (${odWords}): "${char.overdriveDesc}"`
         );
         const sumWords = countUiWords(char.summary);
         assert.ok(
           sumWords <= 8,
-          `Heroine ${id} [${lang}] summary exceeds 8 words (${sumWords}): "${char.summary}"`
+          `Hero ${id} [${lang}] summary exceeds 8 words (${sumWords}): "${char.summary}"`
         );
       }
     }

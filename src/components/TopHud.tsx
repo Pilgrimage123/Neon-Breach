@@ -39,8 +39,8 @@ export function TopHud({
 }: TopHudProps) {
   const t = TRANSLATIONS[lang];
   const codexT = CODEX_TRANSLATIONS[lang];
-  const { hero: heroine } = run;
-  const usedWeight = getEquippedChipMemory(heroine);
+  const { hero } = run;
+  const usedWeight = getEquippedChipMemory(hero);
   const [inspectImplantId, setInspectImplantId] = useState<CyberImplantId | null>(null);
   const barRef = useRef<HTMLElement | null>(null);
 
@@ -133,7 +133,7 @@ export function TopHud({
               <div className="flex items-center gap-1 font-mono-tabular text-xs sm:text-sm font-bold text-[#F4F4F6] whitespace-nowrap shrink-0">
                 <span className="text-rose-300">♥</span>
                 <span className="tactical-numeral-stroke">
-                  {heroine.hp}/{heroine.maxHp}
+                  {hero.hp}/{hero.maxHp}
                 </span>
               </div>
             </>
@@ -145,12 +145,12 @@ export function TopHud({
 
           <div className="hidden sm:flex items-center gap-1 font-mono-tabular text-xs sm:text-sm font-bold text-amber-300 whitespace-nowrap shrink-0">
             <span aria-hidden="true">◈</span>
-            <span>{heroine.credits}</span>
+            <span>{hero.credits}</span>
           </div>
 
-          {heroine.implants.length > 0 && (
+          {hero.implants.length > 0 && (
             <div className="hidden md:flex items-center gap-1 pl-1 border-l border-white/15 shrink-0">
-              {heroine.implants.map((impId) => {
+              {hero.implants.map((impId) => {
                 const def = CYBER_IMPLANTS.find((c) => c.id === impId);
                 const copy = t.implants[impId];
                 if (!def || !copy) return null;
@@ -275,7 +275,7 @@ export function TopHud({
             <span>▣</span>
             <span className="hidden lg:inline">{t.inspectPool}</span>
             <span className="text-slate-300">
-              {usedWeight}/{heroine.memoryCapacity}
+              {usedWeight}/{hero.memoryCapacity}
             </span>
           </button>
 

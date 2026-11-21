@@ -53,7 +53,7 @@ export default function App() {
   } | null>(null);
   const [altHeldTactical, setAltHeldTactical] = useState<boolean>(false);
   const [hoveringSwap, setHoveringSwap] = useState<boolean>(false);
-  const [pipMathMode, setPipMathMode] = useState<boolean>(false);
+  const [quantizedScaleMode, setQuantizedScaleMode] = useState<boolean>(false);
 
   const screenProfile = useMemo(
     () =>
@@ -169,9 +169,9 @@ export default function App() {
     setLang((prev) => (prev === 'en' ? 'cs' : 'en'));
   }, []);
 
-  const handleTogglePipMath = useCallback(() => {
+  const handleToggleQuantizedScale = useCallback(() => {
     soundEngine.playClick();
-    setPipMathMode((prev) => !prev);
+    setQuantizedScaleMode((prev) => !prev);
   }, []);
 
   const handleOpenPool = useCallback(() => {
@@ -486,7 +486,7 @@ export default function App() {
                 tacticalView={effectiveTacticalView}
                 autoFocusCamera={a11yPrefs.autoFocusCamera}
                 highContrastBorders={a11yPrefs.highContrastBorders}
-                pipMathMode={pipMathMode}
+                quantizedScaleMode={quantizedScaleMode}
                 hoveringSwap={hoveringSwap}
                 difficultyTier={controller.diffProfile.tier}
                 onUndoTurn={controller.handleUndoTurn}
@@ -517,7 +517,7 @@ export default function App() {
               semanticZoom={a11yPrefs.semanticZoom}
               twoStepConfirm={a11yPrefs.twoStepConfirm}
               highContrastBorders={a11yPrefs.highContrastBorders}
-              pipMathMode={pipMathMode}
+              quantizedScaleMode={quantizedScaleMode}
               canSwapEnemies={canRepositionEnemies(combat, controller.swappedThisTurn)}
               activeHint={controller.activeHint}
               hintsAllowed={controller.diffProfile.hintsAllowed}
@@ -564,7 +564,7 @@ export default function App() {
             tacticalView: effectiveTacticalView,
             semanticZoom: a11yPrefs.semanticZoom,
             autoFocusCamera: a11yPrefs.autoFocusCamera,
-            pipMathMode,
+            quantizedScaleMode,
             hudMinimized,
             twoStepConfirm: a11yPrefs.twoStepConfirm,
             muted,
@@ -575,7 +575,7 @@ export default function App() {
             onToggleTacticalView: handleToggleTacticalView,
             onCycleSemanticZoom: handleCycleSemanticZoom,
             onToggleAutoFocusCamera: handleToggleAutoFocusCamera,
-            onTogglePipMath: handleTogglePipMath,
+            onToggleQuantizedScale: handleToggleQuantizedScale,
             onToggleHudMinimized: handleToggleHudMinimized,
             onToggleTwoStepConfirm: handleToggleTwoStepConfirm,
             onToggleMute: handleToggleMute,

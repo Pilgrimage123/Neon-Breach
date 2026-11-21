@@ -2,7 +2,7 @@ import { soundEngine } from '../../audio/soundEngine';
 import type { CombatState, HeroState, TileType, TurnPreview } from '../../engine/types';
 import type { BruteJuiceConfig } from '../../utils/bruteJuiceController';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
-import { HEROINE_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
+import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
 import type { SpitterJuiceConfig } from '../../utils/spitterJuiceController';
 import {
   addCoverBloodDecal,
@@ -69,7 +69,7 @@ export function triggerKiraDodgeVfx(
 ): void {
   sim.heroState = triggerCharacterAnimation(sim.heroState, 'dodge', 'kira');
   sim.shieldDomeTimer = 0;
-  sim.dodgeZoomTimer = HEROINE_DODGE_DURATION;
+  sim.dodgeZoomTimer = KIRA_DODGE_DURATION;
   sim.trauma = Math.min(1, sim.trauma + 0.05);
   soundEngine.playDodgeWhoosh();
 
@@ -521,7 +521,7 @@ export function stepCombatSimulation(
   sim.cameraRotRad = seqFrame.cameraRotRad;
 
   if (sim.dodgeZoomTimer > 0 && !seqFrame.active && !options?.tacticalViewActive && !options?.reducedMotion) {
-    const dodgeU = Math.max(0, Math.min(1, 1 - sim.dodgeZoomTimer / HEROINE_DODGE_DURATION));
+    const dodgeU = Math.max(0, Math.min(1, 1 - sim.dodgeZoomTimer / KIRA_DODGE_DURATION));
     const dodgePulse = Math.sin(dodgeU * Math.PI);
     const nextZoom = Math.min(1.32, sim.cameraZoom + 0.08 * dodgePulse);
     const heroFocusPanX = sim.size.w * 0.075 * dodgePulse;

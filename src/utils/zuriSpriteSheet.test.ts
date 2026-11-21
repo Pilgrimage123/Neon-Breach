@@ -154,8 +154,8 @@ test('sampleZuriDroneFormation dispatches Strike Drone toward target during atta
   const idleState = createInitialHeroAnimState();
   const idleDrones = sampleZuriDroneFormation({
     animState: idleState,
-    heroineX: 200,
-    heroineDrawBottomY: 380,
+    heroX: 200,
+    heroDrawBottomY: 380,
     groundY: 410,
     targetX: 820,
     targetMidY: 320,
@@ -170,8 +170,8 @@ test('sampleZuriDroneFormation dispatches Strike Drone toward target during atta
   };
   const attackDrones = sampleZuriDroneFormation({
     animState: dashState,
-    heroineX: 200,
-    heroineDrawBottomY: 380,
+    heroX: 200,
+    heroDrawBottomY: 380,
     groundY: 410,
     targetX: 820,
     targetMidY: 320,

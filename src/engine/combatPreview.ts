@@ -1,3 +1,4 @@
+import { getSafeEnemyIntent } from './combatBoardOps';
 import { getHeroSpec } from './data';
 import {
   BLIGHT_HOLD_CHIP_DAMAGE,
@@ -391,8 +392,8 @@ export function previewHeroThreat(
   for (let i = 0; i < combat.enemies.length; i++) {
     const enemy = combat.enemies[i];
     if (enemy.hp <= 0 || enemy.escaped) continue;
-    const intent = enemy.intentCycle[enemy.currentIntentIndex];
-    if (isDamagingIntent(intent)) {
+    const { intent } = getSafeEnemyIntent(enemy);
+    if (intent && isDamagingIntent(intent)) {
       baselineIncoming += getEffectiveEnemyIntentValue(enemy, intent, {
         battlefieldRule: combat.battlefieldRule,
       });
@@ -473,7 +474,8 @@ export function previewHeroThreat(
     for (let i = 0; i < simEnemies.length; i++) {
       const enemy = simEnemies[i];
       if (enemy.hp <= 0 || enemy.escaped) continue;
-      const intent = enemy.intentCycle[enemy.currentIntentIndex];
+      const { intent } = getSafeEnemyIntent(enemy);
+      if (!intent) continue;
       const intentCtx = {
         shieldAfterPlayer: simShield,
         colorPlayed,

@@ -36,7 +36,7 @@ interface TacticalDockProps {
   semanticZoom?: SemanticZoomLevel;
   twoStepConfirm?: boolean;
   highContrastBorders?: boolean;
-  pipMathMode?: boolean;
+  quantizedScaleMode?: boolean;
   canSwapEnemies?: boolean;
   activeHint?: OptimalMoveHint | null;
   hintsAllowed?: boolean;
@@ -67,7 +67,7 @@ export function TacticalDock({
   semanticZoom = 'standard',
   twoStepConfirm = false,
   highContrastBorders = false,
-  pipMathMode = false,
+  quantizedScaleMode = false,
   canSwapEnemies = false,
   activeHint = null,
   hintsAllowed = true,
@@ -347,7 +347,7 @@ export function TacticalDock({
           activePreview={activePreview}
           selectedColor={selectedColor}
           canPlay={canPlay}
-          pipMathMode={pipMathMode}
+          quantizedScaleMode={quantizedScaleMode}
           lockOutcomePreview={lockOutcomePreview}
           inspectedTile={inspectedTile}
           activeHint={activeHint}

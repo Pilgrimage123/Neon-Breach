@@ -102,10 +102,3 @@ export function createInitialHeroAnimState(): HeroAnimState {
   };
 }
 
-/** Temporary Phase 5–6 compatibility aliases until Phase 6–7 callers complete cleanup. */
-export type HeroineSheetSource = HeroSheetSource;
-export type HeroineFrameDef = HeroFrameDef;
-export type HeroineAnimMode = HeroAnimMode;
-export type HeroineAnimState = HeroAnimState;
-export type HeroineFrameSample = HeroFrameSample;
-export const createInitialHeroineAnimState = createInitialHeroAnimState;

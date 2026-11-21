@@ -142,10 +142,10 @@ export interface ICharacterStageRenderer {
 }
 
 /**
- * Maps Heroine animation state, status effects, and hit-flash timers into
+ * Maps Hero animation state, status effects, and hit-flash timers into
  * 4-control-point anatomical spline deformations and GPU shader uniforms.
  */
-export function deriveHeroineDeformAndUniforms(params: {
+export function deriveHeroDeformAndUniforms(params: {
   mode: string;
   breathScaleX: number;
   breathScaleY: number;
@@ -241,7 +241,7 @@ export function deriveHeroineDeformAndUniforms(params: {
       deform.head.rotRad += tiltRad * 0.65;
     }
 
-    // Dramatic cut-in static pose emphasis layered on heroine spine (suppressed during Kira's dodge!)
+    // Dramatic cut-in static pose emphasis layered on hero spine (suppressed during Kira's dodge!)
     if (!isDodging) {
       if (cutIn && cutIn.poseOverride === 'attack_pose') {
         deform.pelvis.dx += 4.5;
@@ -368,8 +368,8 @@ export function deriveEnemyDeformAndUniforms(params: {
     facingSign,
   } = params;
 
-  // Local +X maps to world -X (toward heroine) when facingSign < 0, and to world +X when facingSign > 0.
-  // Multiply all forward-toward-heroine local dx & rotRad bends by fwdSign so EVERY archetype leans the right way!
+  // Local +X maps to world -X (toward hero) when facingSign < 0, and to world +X when facingSign > 0.
+  // Multiply all forward-toward-hero local dx & rotRad bends by fwdSign so EVERY archetype leans the right way!
   const effectiveFacing =
     facingSign ??
     (spitterJuice

@@ -5,7 +5,7 @@ export interface PauseSettingsProps {
   tacticalView: boolean;
   semanticZoom: 'overview' | 'standard' | 'closeup';
   autoFocusCamera: boolean;
-  pipMathMode: boolean;
+  quantizedScaleMode: boolean;
   hudMinimized: boolean;
   twoStepConfirm: boolean;
   muted: boolean;
@@ -16,7 +16,7 @@ export interface PauseSettingsProps {
   onToggleTacticalView: () => void;
   onCycleSemanticZoom: () => void;
   onToggleAutoFocusCamera: () => void;
-  onTogglePipMath: () => void;
+  onToggleQuantizedScale: () => void;
   onToggleHudMinimized: () => void;
   onToggleTwoStepConfirm: () => void;
   onToggleMute: () => void;
@@ -133,13 +133,13 @@ export function PauseModal({
               <button
                 type="button"
                 data-testid="tactical-pip-math-toggle"
-                onClick={settings.onTogglePipMath}
-                aria-pressed={settings.pipMathMode}
+                onClick={settings.onToggleQuantizedScale}
+                aria-pressed={settings.quantizedScaleMode}
                 className={`chrome-pill rounded-lg px-2.5 py-1.5 text-left font-bold transition cursor-pointer ${
-                  settings.pipMathMode ? 'border-[#FFC700] bg-amber-500/20 text-white' : 'text-slate-200'
+                  settings.quantizedScaleMode ? 'border-[#FFC700] bg-amber-500/20 text-white' : 'text-slate-200'
                 }`}
               >
-                ⊞ {lang === 'cs' ? 'Přepočet 1P=5' : '1P=5 Math'}: {settings.pipMathMode ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
+                ⊞ {lang === 'cs' ? 'Kvantizovaná škála' : 'Quantized Scale'}: {settings.quantizedScaleMode ? (lang === 'cs' ? 'ZAP' : 'ON') : (lang === 'cs' ? 'VYP' : 'OFF')}
               </button>
               <button
                 type="button"

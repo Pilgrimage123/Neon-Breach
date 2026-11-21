@@ -4,7 +4,7 @@ export const CS_TRANSLATIONS: TranslationPack = {
   startRun: 'Spustit výpravu',
   continueRun: 'Pokračovat ve výpravě',
   newRun: 'Nová výprava',
-  selectOperativeLabel: 'Výběr hrdinky',
+  selectHeroLabel: 'Výběr hrdinky',
   controlsHint: 'F Celá obrazovka · P Pauza · M Zvuk · L Jazyk',
   howToPlay: {
     title: 'Jak hrát',

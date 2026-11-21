@@ -688,8 +688,8 @@ test('CombatActionSequencer isolates throwing callbacks and still completes Phas
   assert.equal(seq.getActorJuice('e2').poseOverride, 'none');
 });
 
-test('classifyHeroAttackStaging keeps Aurelia and Zuri 100% ranged and Kira hybrid melee/pistol', () => {
-  // Aurelia is strictly ranged (scattergun) even on Surge or Overdrive
+test('classifyHeroAttackStaging keeps Auraline and Zuri 100% ranged and Kira hybrid melee/pistol', () => {
+  // Auraline is strictly ranged (scattergun) even on Surge or Overdrive
   const aureliaSingle = classifyHeroAttackStaging({
     charId: 'auraline',
     isSurge: true,
@@ -809,7 +809,7 @@ test('computeNoseToNoseMeleeSlides guarantees tight contact gap across Slots 1-5
     });
     const finalEnemyAtkX = enemyBounds.x + enemyAtk.attackerSlideX;
     const finalHeroDefX = heroBounds.x + (enemyAtk.targetSlidesX.get('hero') ?? 0);
-    assert.ok(finalHeroDefX < finalEnemyAtkX, 'attacking enemy stays strictly right of heroine');
+    assert.ok(finalHeroDefX < finalEnemyAtkX, 'attacking enemy stays strictly right of hero');
     assert.ok(
       Math.abs((finalEnemyAtkX - finalHeroDefX) - viewportW * gapVw) < 1.0,
       `enemy clash gap (${(finalEnemyAtkX - finalHeroDefX).toFixed(1)}px) matches target`,
@@ -856,7 +856,7 @@ test('SpriteJuiceFeedbackHandler knockback eases out smoothly with zero rubber-b
   assert.ok(peakKb > 54, `knockback reaches near peak (${peakKb.toFixed(1)}px)`);
 });
 
-test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right enemies toward heroine on attack and away on recoil', () => {
+test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right enemies toward hero on attack and away on recoil', () => {
   const makeCutIn = (poseOverride: 'attack_pose' | 'recoil_pose') => ({
     active: true,
     role: poseOverride === 'attack_pose' ? ('attacker' as const) : ('target' as const),
@@ -873,7 +873,7 @@ test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right ene
   });
 
   // 1. Native left-facing enemy (Crawler / Boss, facingSign = +1):
-  // Local +X = screen RIGHT, Local -X = screen LEFT (toward heroine).
+  // Local +X = screen RIGHT, Local -X = screen LEFT (toward hero).
   const larvaAtk = deriveEnemyDeformAndUniforms({
     archetype: 'larva',
     idx: 0,
@@ -913,8 +913,8 @@ test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right ene
     facingSign: 1,
   });
   // Screen dx = local dx * facingSign (+1): attack bends LEFT (< 0), recoil bends RIGHT (> 0)
-  assert.ok(larvaAtk.deform.head.dx * 1 < 0, 'native-left larva attack bends toward heroine (left)');
-  assert.ok(larvaRecoil.deform.head.dx * 1 > 0, 'native-left larva recoil bends away from heroine (right)');
+  assert.ok(larvaAtk.deform.head.dx * 1 < 0, 'native-left larva attack bends toward hero (left)');
+  assert.ok(larvaRecoil.deform.head.dx * 1 > 0, 'native-left larva recoil bends away from hero (right)');
 
   // 2. Mirrored right-facing enemy (Stalker, facingSign = -1):
   // Screen dx = local dx * facingSign (-1): so local dx > 0 bends LEFT on screen!
@@ -956,8 +956,8 @@ test('deriveEnemyDeformAndUniforms bends both native-left and mirrored-right ene
     cutIn: makeCutIn('recoil_pose'),
     facingSign: -1,
   });
-  assert.ok(stalkerAtk.deform.head.dx * -1 < 0, 'mirrored stalker attack bends toward heroine (left on screen)');
-  assert.ok(stalkerRecoil.deform.head.dx * -1 > 0, 'mirrored stalker recoil bends away from heroine (right on screen)');
+  assert.ok(stalkerAtk.deform.head.dx * -1 < 0, 'mirrored stalker attack bends toward hero (left on screen)');
+  assert.ok(stalkerRecoil.deform.head.dx * -1 > 0, 'mirrored stalker recoil bends away from hero (right on screen)');
 });
 
 test('SpriteJuiceFeedbackHandler.triggerTargetEvade clears recoil/flash/knockback while preserving melee clash slide', () => {
@@ -1062,7 +1062,7 @@ test('CombatActionSequencer runs melee Darkest Dungeon clash with 50ms tension p
   await done;
   assert.equal(impacts, 1);
   assert.ok(maxEnemyApproachPx > 100, `melee attacker must advance nose-to-nose (moved ${maxEnemyApproachPx.toFixed(1)}px)`);
-  assert.ok(maxHeroApproachPx > 100, `heroine must meet enemy in center-stage clash (moved ${maxHeroApproachPx.toFixed(1)}px)`);
+  assert.ok(maxHeroApproachPx > 100, `hero must meet enemy in center-stage clash (moved ${maxHeroApproachPx.toFixed(1)}px)`);
   assert.ok(
     hitStopElapsedSec >= 0.04 && hitStopElapsedSec <= 0.06,
     `evade micro tension pause should be ~50ms (got ${(hitStopElapsedSec * 1000).toFixed(0)}ms)`,

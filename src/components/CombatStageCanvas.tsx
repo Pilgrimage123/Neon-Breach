@@ -47,7 +47,7 @@ interface CombatStageCanvasProps {
   tacticalView?: boolean;
   autoFocusCamera?: boolean;
   highContrastBorders?: boolean;
-  pipMathMode?: boolean;
+  quantizedScaleMode?: boolean;
   hoveringSwap?: boolean;
   difficultyTier?: DifficultyTier;
   onUndoTurn?: () => void;
@@ -88,7 +88,7 @@ export function CombatStageCanvas({
   tacticalView = false,
   autoFocusCamera = false,
   highContrastBorders = false,
-  pipMathMode = false,
+  quantizedScaleMode = false,
   hoveringSwap = false,
   difficultyTier = 3,
   onUndoTurn,
@@ -390,7 +390,7 @@ export function CombatStageCanvas({
         isCompactLandscape={isCompactLandscape}
         tacticalView={tacticalView}
         highContrastBorders={highContrastBorders}
-        pipMathMode={pipMathMode}
+        quantizedScaleMode={quantizedScaleMode}
         revealDropArchetype={diff.revealDropArchetype}
         rendererMode={rendererMode}
         setRendererMode={setRendererMode}

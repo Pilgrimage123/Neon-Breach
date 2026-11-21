@@ -2,7 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, it } from 'node:test';
-import { SKILL_CHIPS_BY_ID } from '../engine/data';
+import { getBloodBiologyProfile } from '../components/combat/mutantBlood';
+import { ENEMY_TEMPLATES, SKILL_CHIPS_BY_ID } from '../engine/data';
+import { STAGE_BOSS_TELEGRAPH, getBossTelegraphIntel } from '../engine/mapTacticalIntel';
+import type { EnemyArchetype, EnemyUnit, MapNodeType } from '../engine/types';
+import { getEnemyRolePip, getNodeCornerPip } from '../utils/accessibilityAndScale';
+import {
+  KEYWORD_NESTED_TOOLTIPS,
+  formatEnemyStreamlinedRule,
+} from '../utils/tacticalCopySpecs';
 import { CODEX_TRANSLATIONS } from './codexTranslations';
 import { TRANSLATIONS } from './translations';
 
@@ -82,6 +90,74 @@ describe('Translations and Czech default localization', () => {
             `Forbidden legacy term ${pattern} found at ${path}: "${value}"`,
           );
         }
+      }
+    }
+  });
+
+  it('aligns combat tooltips, enemy rules, boss telegraphs, role pips, and blood profiles with GLOSSARY.md', () => {
+    const avoidedGlossaryTerms: RegExp[] = [
+      /\bBio-Burst\b/i,
+      /\bPhase Lock\b/i,
+      /\bApex Sovereign\b/i,
+      /\bApex Brood\b/i,
+      /\bAegis Shield\b/i,
+      /\bOperatives?\b/i,
+      /\bHeroines?\b/i,
+      /\bAurelia\b/i,
+      /\bDiscrete Pip/i,
+    ];
+
+    const archetypes = Object.keys(ENEMY_TEMPLATES) as EnemyArchetype[];
+    const enemyRules = archetypes.flatMap((archetype) => {
+      const tpl = ENEMY_TEMPLATES[archetype];
+      const mockEnemy: EnemyUnit = {
+        id: `glossary_${archetype}`,
+        archetype,
+        hp: tpl.maxHp,
+        maxHp: tpl.maxHp,
+        armor: tpl.startingArmor,
+        shieldPips: tpl.startingShieldPips,
+        maxShieldPips: tpl.startingShieldPips,
+        passive: tpl.passive,
+        roleColor: tpl.roleColor,
+        phaseGatePct: tpl.phaseGatePct,
+        intentCycle: tpl.intentCycle,
+        currentIntentIndex: 0,
+      };
+      return [
+        formatEnemyStreamlinedRule(mockEnemy, 'en'),
+        formatEnemyStreamlinedRule(mockEnemy, 'cs'),
+      ];
+    });
+
+    const nodeTypes: MapNodeType[] = [
+      'COMBAT',
+      'ELITE',
+      'CYBER_CLINIC',
+      'CHIP_DEALER',
+      'MED_BAY',
+      'EVENT',
+      'BOSS',
+    ];
+
+    const inspectedPayload = {
+      KEYWORD_NESTED_TOOLTIPS,
+      enemyRules,
+      STAGE_BOSS_TELEGRAPH,
+      bossTelegraphEn: getBossTelegraphIntel('en'),
+      bossTelegraphCs: getBossTelegraphIntel('cs'),
+      nodePips: nodeTypes.map((t) => getNodeCornerPip(t)),
+      enemyRolePips: archetypes.map((a) => getEnemyRolePip(a)),
+      heroBloodProfile: getBloodBiologyProfile('hero_blood'),
+    };
+
+    for (const { path, value } of collectLeafStrings(inspectedPayload, 'glossarySurface')) {
+      for (const pattern of avoidedGlossaryTerms) {
+        assert.doesNotMatch(
+          value,
+          pattern,
+          `Avoided GLOSSARY.md term ${pattern} found at ${path}: "${value}"`,
+        );
       }
     }
   });

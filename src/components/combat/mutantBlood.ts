@@ -241,7 +241,7 @@ export const BLOOD_BIOLOGY_PROFILES: Record<BloodBiologyId, BloodBiologyProfile>
 
   hero_blood: {
     id: 'hero_blood',
-    biochemistryLabel: 'Operative Nanite-Hemoglobin',
+    biochemistryLabel: 'Hero Nanite-Hemoglobin',
     freshBody: '#E11D48',
     freshCore: '#881337',
     freshHighlight: '#FDA4AF',

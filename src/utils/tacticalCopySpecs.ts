@@ -115,8 +115,8 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
   retaliate: {
     id: 'retaliate',
     icon: '⚠',
-    labelEn: 'Retaliate',
-    labelCs: 'Odplata',
+    labelEn: 'Spike Retaliation',
+    labelCs: 'Odveta trnů',
     ruleEn: 'Deals 3 DMG back on non-Surge hit.',
     ruleCs: 'Vrátí 3 DMG při běžném Útoku.',
     accentHex: '#FF2E7E',
@@ -151,7 +151,7 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
   bioburst: {
     id: 'bioburst',
     icon: '💥',
-    labelEn: 'Bio-Burst',
+    labelEn: 'Bio-Rupture',
     labelCs: 'Bio-exploze',
     ruleEn: 'Explodes for 6 Pierce DMG on death.',
     ruleCs: 'Při smrti vybuchne za 6 DMG.',
@@ -178,8 +178,8 @@ export const KEYWORD_NESTED_TOOLTIPS: Record<CoreMechanicKeywordId, NestedKeywor
   stagger: {
     id: 'stagger',
     icon: '⚡',
-    labelEn: 'Stagger',
-    labelCs: 'Omráčení',
+    labelEn: 'Broken Stance',
+    labelCs: 'Prolomený postoj',
     ruleEn: '16+ burst cancels Charge or Heavy.',
     ruleCs: '16+ náraz zruší Nabíjení či Těžký úder.',
     accentHex: '#00F0FF',
@@ -408,7 +408,7 @@ export function formatEnemyStreamlinedRule(
         shortRule:
           lang === 'cs'
             ? `**Bio-exploze:** Smrt udělí 6 **Průraz** DMG.`
-            : `**Bio-Burst:** Death deals 6 **Pierce** DMG.`,
+            : `**Bio-Rupture:** Death deals 6 **Pierce** DMG.`,
         counterMath: lang === 'cs' ? `⇄ **Prohoď** k obrněným cílům.` : `⇄ **Push** near **Armor** targets.`,
         keywords: withUnique(['bioburst', 'pierce', 'push']),
       };
@@ -434,8 +434,8 @@ export function formatEnemyStreamlinedRule(
       return {
         shortRule:
           lang === 'cs'
-            ? `**Odplata 3 DMG.** +4 DMG bez **Štítu**.`
-            : `**Retaliate 3 DMG.** +4 DMG at 0 **Shield**.`,
+            ? `**Odveta trnů:** 3 DMG, +4 bez **Štítu**.`
+            : `**Spike Retaliation:** 3 DMG, +4 at 0 **Shield**.`,
         counterMath: lang === 'cs' ? `★ Spusť **Přetížení** 4+ a **Štít**.` : `★ Use **Surge** 4+ and **Shield**.`,
         keywords: withUnique(['retaliate', 'shield', 'surge']),
       };
@@ -465,8 +465,8 @@ export function formatEnemyStreamlinedRule(
       return {
         shortRule:
           lang === 'cs'
-            ? `**50% Zámek:** +10 **Brnění**, +1 **Pip**, **Kletba**.`
-            : `**50% Lock:** +10 **Armor**, +1 **Pip**, **Hex**.`,
+            ? `**50% Fázová brána:** +10 **Brnění**, +1 **Pip**, **Kletba**.`
+            : `**50% Phase Gate:** +10 **Armor**, +1 **Pip**, **Hex**.`,
         counterMath: lang === 'cs' ? `⚡ **Drcení** Brnění a 16+ **Omráčení**.` : `⚡ **Shred** **Armor** and 16+ **Stagger**.`,
         keywords: withUnique(['armor', 'pip', 'hex']),
       };

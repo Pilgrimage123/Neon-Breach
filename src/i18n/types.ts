@@ -67,7 +67,7 @@ export interface TranslationPack {
   startRun: string;
   continueRun: string;
   newRun: string;
-  selectOperativeLabel: string;
+  selectHeroLabel: string;
   controlsHint: string;
   howToPlay: HowToPlayTranslations;
   hpLabel: string;

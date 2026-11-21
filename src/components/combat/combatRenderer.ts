@@ -9,9 +9,9 @@ import type {
 import { AURALINE_CANONICAL_HEIGHT, AURALINE_SHEET_FRAMES } from '../../utils/auralineSpriteSheet';
 import { DEFAULT_BRUTE_JUICE_CONFIG } from '../../utils/bruteJuiceController';
 import {
-  HEROINE_CANONICAL_HEIGHT,
-  HEROINE_SHEET_FRAMES,
-  type HeroineFrameSample,
+  KIRA_CANONICAL_HEIGHT,
+  KIRA_SHEET_FRAMES,
+  type HeroFrameSample,
 } from '../../utils/kiraSpriteSheet';
 import { DEFAULT_SPITTER_JUICE_CONFIG } from '../../utils/spitterJuiceController';
 import {
@@ -116,7 +116,7 @@ export function computeAutoFocusTarget(params: {
     0,
     0,
     1,
-    HEROINE_CANONICAL_HEIGHT,
+    KIRA_CANONICAL_HEIGHT,
   );
   const groundY = Math.round(h * 0.785);
   const cx = w * 0.5;
@@ -165,7 +165,7 @@ export function renderCombatStage(
   combat: CombatState,
   hero: HeroState,
   hoveredColor: TileType | null,
-  heroSample: HeroineFrameSample,
+  heroSample: HeroFrameSample,
   elapsed: number,
   activePreview: TurnPreview | null = null,
   hoveredEnemyId: string | null = null,
@@ -211,14 +211,14 @@ export function renderCombatStage(
       ? AURALINE_SHEET_FRAMES
       : charId === 'zuri'
         ? ZURI_SHEET_FRAMES
-        : HEROINE_SHEET_FRAMES;
+        : KIRA_SHEET_FRAMES;
   const defaultRefFrame = sheetFrames[charId === 'zuri' ? 8 : 0];
   const canonicalHeight =
     charId === 'auraline'
       ? AURALINE_CANONICAL_HEIGHT
       : charId === 'zuri'
         ? ZURI_CANONICAL_HEIGHT
-        : HEROINE_CANONICAL_HEIGHT;
+        : KIRA_CANONICAL_HEIGHT;
   const pendingDrops = combat.director?.pendingReinforcements ?? [];
   const { slotCenters, dropCenters, effectiveSlotCount } = computeEnemySlotLayout(
     enemies,
@@ -410,8 +410,8 @@ export function renderCombatStage(
     charId === 'zuri'
       ? sampleZuriDroneFormation({
           animState: heroSample.state,
-          heroineX: heroCutInDrawX,
-          heroineDrawBottomY: heroY,
+          heroX: heroCutInDrawX,
+          heroDrawBottomY: heroY,
           groundY,
           targetX: droneTargetX,
           targetMidY: droneTargetMidY,
@@ -500,7 +500,7 @@ export function renderCombatStage(
     baseCtx.restore();
   }
 
-  // Pass 3: Heroine Sprite, Zuri Drones, Shield Dome & Underfoot Lifebar
+  // Pass 3: Hero Sprite, Zuri Drones, Shield Dome & Underfoot Lifebar
   renderHeroSpritePass({
     baseCtx,
     fgCtx,

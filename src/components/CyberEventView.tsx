@@ -21,7 +21,7 @@ export function CyberEventView({
   const t = TRANSLATIONS[lang];
   const isCs = lang === 'cs';
   const event = run.activeEvent ? localizeCyberEvent(run.activeEvent, lang) : null;
-  const heroine = run.hero;
+  const hero = run.hero;
 
   useEffect(() => {
     if (!event) return;
@@ -32,7 +32,7 @@ export function CyberEventView({
         const choice = event.choices[idx];
         const costCr = choice.costCredits ?? 0;
         const hpCost = choice.hpCost ?? 0;
-        if (heroine.credits >= costCr && (heroine.hp > hpCost || hpCost === 0)) {
+        if (hero.credits >= costCr && (hero.hp > hpCost || hpCost === 0)) {
           e.preventDefault();
           onChoice(idx);
         }
@@ -40,7 +40,7 @@ export function CyberEventView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [event, heroine.credits, heroine.hp, onChoice]);
+  }, [event, hero.credits, hero.hp, onChoice]);
 
   if (!event) return null;
 
@@ -110,8 +110,8 @@ export function CyberEventView({
           {event.choices.map((choice: CyberEventChoice, idx: number) => {
             const costCr = choice.costCredits ?? 0;
             const hpCost = choice.hpCost ?? 0;
-            const canAffordCr = heroine.credits >= costCr;
-            const canAffordHp = heroine.hp > hpCost || hpCost === 0;
+            const canAffordCr = hero.credits >= costCr;
+            const canAffordHp = hero.hp > hpCost || hpCost === 0;
             const isDisabled = !canAffordCr || !canAffordHp;
 
             return (

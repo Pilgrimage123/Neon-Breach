@@ -387,7 +387,7 @@ export function TitleScreen({
             <div className="min-w-0">
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="text-[12px] font-bold uppercase tracking-widest text-cyan-200/90">
-                  {t.selectOperativeLabel}
+                  {t.selectHeroLabel}
                 </span>
                 {onOpenCodex && (
                   <div className="flex items-center gap-1.5">
@@ -470,7 +470,7 @@ export function TitleScreen({
                     }`}
                   >
                     <span className="pb-0.5 text-[12px] sm:text-[12.5px] font-bold uppercase tracking-widest text-cyan-200/95 whitespace-nowrap">
-                      {t.selectOperativeLabel}
+                      {t.selectHeroLabel}
                     </span>
                     {onOpenCodex && (
                       <div className="flex items-center gap-1.5">

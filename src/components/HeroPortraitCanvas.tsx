@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { getPreloadedPortraitFrame, loadPortraitFrame } from '../assets/assetPreloader';
 import type { CharacterId } from '../engine/types';
 import { AURALINE_SHEET_FRAMES } from '../utils/auralineSpriteSheet';
-import { HEROINE_COMBAT_FRAMES } from '../utils/kiraSpriteSheet';
+import { KIRA_COMBAT_FRAMES } from '../utils/kiraSpriteSheet';
 import { ZURI_SHEET_FRAMES } from '../utils/zuriSpriteSheet';
 
 export interface HeroPortraitCanvasProps {
@@ -53,7 +53,7 @@ export function HeroPortraitCanvas({
         ? AURALINE_SHEET_FRAMES[0]
         : characterId === 'zuri'
           ? ZURI_SHEET_FRAMES[8]
-          : HEROINE_COMBAT_FRAMES[0];
+          : KIRA_COMBAT_FRAMES[0];
     const pad = variant === 'codex' ? 3 : 4;
 
     const paint = (frame: HTMLCanvasElement) => {

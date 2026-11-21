@@ -8,10 +8,10 @@ import {
   createIdentityControlPoints,
   createMeshGridTopology,
   deriveEnemyDeformAndUniforms,
-  deriveHeroineDeformAndUniforms,
+  deriveHeroDeformAndUniforms,
   evaluateAnatomicalSplineRow,
 } from './stageSpriteAdapter';
-import { MeshSprite } from './webglMeshRenderer';
+import { MeshSprite, WebGL2CharacterStageRenderer } from './webglMeshRenderer';
 
 test('createMeshGridTopology generates a 4x6 subdivided grid with 35 vertices and 48 triangles', () => {
   const topo = createMeshGridTopology(4, 6);
@@ -159,8 +159,8 @@ test('MeshSprite updates in-place without reallocating its vertex Float32Array',
   assert.notEqual(deform.head.dx, 0);
 });
 
-test('deriveHeroineDeformAndUniforms configures corrode UV distortion and hit spine bend', () => {
-  const res = deriveHeroineDeformAndUniforms({
+test('deriveHeroDeformAndUniforms configures corrode UV distortion and hit spine bend', () => {
+  const res = deriveHeroDeformAndUniforms({
     mode: 'hit',
     breathScaleX: 1,
     breathScaleY: 1,
@@ -283,8 +283,8 @@ test('deriveEnemyDeformAndUniforms composes Carapace Brute juice spline with pin
   assert.ok(uniforms.tintRgba[0] > 1.0);
 });
 
-test('deriveHeroineDeformAndUniforms suppresses enemy cut-in recoil_pose and hit flash during dodge', () => {
-  const res = deriveHeroineDeformAndUniforms({
+test('deriveHeroDeformAndUniforms suppresses enemy cut-in recoil_pose and hit flash during dodge', () => {
+  const res = deriveHeroDeformAndUniforms({
     mode: 'dodge',
     breathScaleX: 1,
     breathScaleY: 1,
@@ -320,5 +320,214 @@ test('deriveHeroineDeformAndUniforms suppresses enemy cut-in recoil_pose and hit
   assert.equal(res.uniforms.tintRgba[1], 1);
   assert.equal(res.uniforms.tintRgba[2], 1);
 });
+
+test('MeshSprite.setTransform assigns anchorOffsetYPx independently of anchorOffsetXPx', () => {
+  const topo = createMeshGridTopology(4, 6);
+  const fakeCanvas = { width: 128, height: 256 } as HTMLCanvasElement;
+  const sprite = new MeshSprite('hero_anchor_test', topo, fakeCanvas);
+
+  sprite.setTransform(240, 360, 110, 220, 48, 212, 1, 0);
+
+  assert.equal(sprite.command.anchorOffsetXPx, 48);
+  assert.equal(sprite.command.anchorOffsetYPx, 212);
+  assert.notEqual(sprite.command.anchorOffsetYPx, sprite.command.anchorOffsetXPx);
+});
+
+test('WebGL2CharacterStageRenderer handles context loss/restore, bounded LRU texture eviction, and dispose cleanup', () => {
+  let contextLost = false;
+  let deletedTextures = 0;
+  let deletedPrograms = 0;
+  let deletedBuffers = 0;
+  let deletedVaos = 0;
+  let texSeq = 1;
+  const listeners = new Map<string, Set<(e: Event) => void>>();
+
+  const mockCanvas = {
+    width: 1200,
+    height: 420,
+    addEventListener(type: string, fn: (e: Event) => void) {
+      if (!listeners.has(type)) listeners.set(type, new Set());
+      listeners.get(type)!.add(fn);
+    },
+    removeEventListener(type: string, fn: (e: Event) => void) {
+      listeners.get(type)?.delete(fn);
+    },
+    dispatch(type: string) {
+      let prevented = false;
+      const evt = {
+        preventDefault() {
+          prevented = true;
+        },
+      } as unknown as Event;
+      for (const fn of listeners.get(type) ?? []) {
+        fn(evt);
+      }
+      return prevented;
+    },
+    getContext(kind: string) {
+      if (kind !== 'webgl2') return null;
+      return mockGl;
+    },
+  };
+
+  const mockGl = {
+    canvas: mockCanvas,
+    VERTEX_SHADER: 0x8b31,
+    FRAGMENT_SHADER: 0x8b30,
+    COMPILE_STATUS: 0x8b81,
+    LINK_STATUS: 0x8b82,
+    ARRAY_BUFFER: 0x8892,
+    ELEMENT_ARRAY_BUFFER: 0x8893,
+    DYNAMIC_DRAW: 0x88e8,
+    STATIC_DRAW: 0x88e4,
+    FLOAT: 0x1406,
+    TEXTURE_2D: 0x0de1,
+    TEXTURE0: 0x84c0,
+    TEXTURE1: 0x84c1,
+    UNPACK_PREMULTIPLY_ALPHA_WEBGL: 0x9241,
+    UNPACK_FLIP_Y_WEBGL: 0x9240,
+    TEXTURE_MIN_FILTER: 0x2801,
+    TEXTURE_MAG_FILTER: 0x2800,
+    TEXTURE_WRAP_S: 0x2802,
+    TEXTURE_WRAP_T: 0x2803,
+    LINEAR: 0x2601,
+    CLAMP_TO_EDGE: 0x812f,
+    RGBA: 0x1908,
+    UNSIGNED_BYTE: 0x1401,
+    SCISSOR_TEST: 0x0c11,
+    COLOR_BUFFER_BIT: 0x4000,
+    BLEND: 0x0be2,
+    ONE: 1,
+    ONE_MINUS_SRC_ALPHA: 0x0303,
+    TRIANGLES: 0x0004,
+    UNSIGNED_SHORT: 0x1403,
+    isContextLost: () => contextLost,
+    createShader: () => ({ id: 'shader' }),
+    shaderSource: () => {},
+    compileShader: () => {},
+    getShaderParameter: () => true,
+    getShaderInfoLog: () => '',
+    deleteShader: () => {},
+    createProgram: () => ({ id: 'program' }),
+    attachShader: () => {},
+    linkProgram: () => {},
+    getProgramParameter: () => true,
+    getProgramInfoLog: () => '',
+    deleteProgram: () => {
+      deletedPrograms++;
+    },
+    getUniformLocation: (_prog: unknown, name: string) => ({ name }),
+    createVertexArray: () => ({ id: 'vao' }),
+    deleteVertexArray: () => {
+      deletedVaos++;
+    },
+    createBuffer: () => ({ id: 'buf' }),
+    deleteBuffer: () => {
+      deletedBuffers++;
+    },
+    bindVertexArray: () => {},
+    bindBuffer: () => {},
+    bufferData: () => {},
+    bufferSubData: () => {},
+    enableVertexAttribArray: () => {},
+    vertexAttribPointer: () => {},
+    viewport: () => {},
+    disable: () => {},
+    enable: () => {},
+    scissor: () => {},
+    clearColor: () => {},
+    clear: () => {},
+    useProgram: () => {},
+    blendFunc: () => {},
+    uniformMatrix3fv: () => {},
+    uniform1i: () => {},
+    uniform1f: () => {},
+    uniform2f: () => {},
+    uniform3f: () => {},
+    uniform4f: () => {},
+    activeTexture: () => {},
+    bindTexture: () => {},
+    createTexture: () => ({ id: texSeq++ }),
+    deleteTexture: () => {
+      deletedTextures++;
+    },
+    pixelStorei: () => {},
+    texParameteri: () => {},
+    texImage2D: () => {},
+    drawElements: () => {},
+  };
+
+  const statusEvents: boolean[] = [];
+  const renderer = new WebGL2CharacterStageRenderer(
+    mockCanvas as unknown as HTMLCanvasElement,
+    4,
+    6,
+    {
+      maxCachedTextures: 16,
+      onContextStatusChange: (ready) => statusEvents.push(ready),
+    },
+  );
+  assert.equal(renderer.isReady, true);
+
+  // Bounded LRU texture cache evicts oldest textures when > maxCachedTextures (16)
+  renderer.beginFrame({
+    width: 1200,
+    height: 420,
+    dpr: 1,
+    cameraZoom: Number.NaN, // verifies finite parameter guard
+    cameraPanX: 0,
+    cameraPanY: 0,
+    shakeOffsetX: 0,
+    shakeOffsetY: 0,
+    deckBackY: 280,
+    deckFrontY: 360,
+  });
+  for (let i = 0; i < 20; i++) {
+    const src = { width: 64, height: 64, id: i } as unknown as HTMLCanvasElement;
+    renderer.drawSprite({
+      id: `sprite_${i}`,
+      primarySource: src,
+      worldX: 100 + i * 20,
+      worldY: 320,
+      widthPx: 64,
+      heightPx: 64,
+      anchorOffsetXPx: 32,
+      anchorOffsetYPx: 64,
+      facingSign: 1,
+      rotationRad: 0,
+      alpha: 1,
+      deform: createIdentityControlPoints(),
+      uniforms: createDefaultShaderUniforms(),
+    });
+  }
+  renderer.endFrame();
+  assert.equal(renderer.cachedTextureCount, 16);
+  assert.equal(deletedTextures, 4);
+
+  // Context loss calls preventDefault, drops ready state, clears texture cache without calling gl.deleteTexture
+  contextLost = true;
+  const prevented = mockCanvas.dispatch('webglcontextlost');
+  assert.equal(prevented, true);
+  assert.equal(renderer.isReady, false);
+  assert.equal(renderer.cachedTextureCount, 0);
+  assert.equal(deletedTextures, 4);
+  assert.deepEqual(statusEvents, [false]);
+
+  // Context restore reinitializes WebGL resources and notifies ready=true
+  contextLost = false;
+  mockCanvas.dispatch('webglcontextrestored');
+  assert.equal(renderer.isReady, true);
+  assert.deepEqual(statusEvents, [false, true]);
+
+  // Dispose removes event listeners and releases GPU resources
+  renderer.dispose();
+  assert.equal(renderer.isReady, false);
+  assert.equal(listeners.get('webglcontextlost')?.size ?? 0, 0);
+  assert.equal(listeners.get('webglcontextrestored')?.size ?? 0, 0);
+  assert.equal(deletedPrograms, 1);
+  assert.equal(deletedVaos, 1);
+  assert.equal(deletedBuffers, 2);
+});
+
 
 
