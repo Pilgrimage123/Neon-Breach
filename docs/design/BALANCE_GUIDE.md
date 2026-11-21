@@ -40,7 +40,7 @@ NEON BREACH runs on a **Hybrid Tactical Curve**: **Fast/Lethal (`2–3` Turns)**
 | **1 Direct HP Heal** | **`1.65 TPU`** | Permanent across Stages, ignores `corrode`. |
 | **1% Damage Boost** | **`0.24 – 0.35 TPU`** | Additive buff (`-10%/Turn` decay). |
 | **1% Overdrive Charge** | **`0.30 – 0.50 TPU`** | Charges the `0-AP` Overdrive ultimate (`16–20` Pierce AoE + utility). |
-| **Overdrive per Tile** | **ATK/DEF:** `+4%` · **TECH:** `+15%` (`+20%` Kira, `+25%` Zuri) | TECH Tiles drive Overdrive cadence (`3.75×–6.25×` faster than ATK/DEF). |
+| **Overdrive per Tile** | **Kira:** `+10%` ATK / `+4%` DEF / `+12%` TECH<br>**Auraline:** `+5%` ATK·DEF / `+15%` Dud·Reactor·TECH<br>**Zuri:** `+4%` ATK·DEF / `+25%` TECH | Aligns Overdrive cadence with each Hero's core engine (Attack tempo, Reactor malfunctions, or TECH cycling). |
 | **Stack Surge (`4+` Tiles, `3+` w/ Resonator)** | **ATK:** `100%` Armor Break + `50%` Cleave<br>**DEF:** `8` direct DMG to front Mutant<br>**TECH:** `+15%` OD + `6` Shield | Rewards holding Tiles across Turns to hit the `4+` threshold. |
 
 ---
@@ -48,9 +48,9 @@ NEON BREACH runs on a **Hybrid Tactical Curve**: **Fast/Lethal (`2–3` Turns)**
 ## 2. AI Skill Chips & Tile Catalog (`src/engine/data.ts`)
 
 ### A. Innate Core Tiles (Per Hero)
-* **Kira (`5` Innate Tiles):** `ATK 3`, `DEF 8`, `TECH Boost +42% ×2`, `TECH Heal 2`.
-* **Auraline (`6` Innate Tiles, `3` Duds):** `ATK 5`, `ATK Dud 0`, `DEF 8`, `DEF Dud 0`, `TECH Boost +42%`, `TECH Dud 0`.
-* **Zuri (`5` Innate Tiles):** `ATK 4`, `DEF 7`, `DEF 6`, `TECH Tactical Shield (+4 SHD / +24% DMG)`, `TECH Armor Shred (-8 ARM / 3 Pierce)`.
+* **Kira (`5` Innate Tiles):** `ATK 4`, `ATK 3`, `DEF 8`, `DEF 6`, `TECH Boost +42%`.
+* **Auraline (`6` Innate Tiles, `3` Reactor Core Duds):** `ATK 5`, `ATK Dud 0 (Reactor Core)`, `DEF 8`, `DEF Dud 0 (Reactor Core)`, `TECH Boost +42%`, `TECH Dud 0 (Reactor Core)`.
+* **Zuri (`5` Innate Tiles):** `ATK 4`, `DEF 7`, `TECH Tactical Shield (+4 SHD / +24% DMG)`, `TECH Armor Shred (-8 ARM / 3 Pierce)`, `TECH Boost +36%`.
 
 ### B. AI Skill Chip Efficiency (`SKILL_CHIP_CATALOG`)
 Equipped **AI Skill Chips** inject specialized Tiles into `masterPool` up to the Hero's **Memory** capacity (`12` Kira / `14` Auraline / `13` Zuri):
@@ -84,11 +84,11 @@ Equipped **AI Skill Chips** inject specialized Tiles into `masterPool` up to the
 | Dimension | **Kira (`KIRA-09`)**<br>*Agile Tempo Striker* | **Auraline (`AURALINE-07`)**<br>*Armored Juggernaut* | **Zuri (`ZURI-03`)**<br>*Solar Swarm Commander* |
 | :--- | :--- | :--- | :--- |
 | **Base Stats & Memory** | `58 HP` · `0` Armor · `45 CR` · `12 Mem` | `78 HP` · **`18` Armor** · `35 CR` · **`14 Mem`** | `62 HP` · `0` Armor · **`50 CR`** · `13 Mem` |
-| **Signature Passive** | **Cyber-Momentum:** **Held** Tiles gain `+1 ATK / +1 DEF`. TECH Tiles grant `+20%` OD. | **Juggernaut Core:** Starts every combat with `18` persistent Armor. Gains **`+1` UpCharge** per **Dud** resolved. | **Swarm Uplink:** TECH Tiles grant **`+25%` OD** (fastest Overdrive cycle). |
-| **Overdrive (`0 AP`)** | **Plasma Blitz:** `20` Pierce All · `+30%` DMG · `+6` Shield | **Sovereign Broadside:** `20` Pierce All · `+10` Armor · `+2` UpCharge | **Solar Swarm Protocol:** `16` Pierce All · `-12` Armor All · `+8` Shield · `-2` Corrode |
-| **Starting Pool** | `9` Tiles (`3 ATK / 2 DEF / 4 TECH`) | `9` Tiles (`3 ATK + 1 Dud / 2 DEF + 1 Dud / 1 TECH + 1 Dud`) | `9` Tiles (`3 ATK / 3 DEF / 3 TECH`) |
-| **Core Strength** | Turn-1 TECH Surge & rapid *Plasma Blitz* chains into Held Attacks. | Persistent `18` Armor tanks attrition while Duds feed `7–9` slot UpCharge Boards. | Built-in AoE Armor Shred (`-8` / `-12`) and rapid `+25%/Tile` Overdrive tempo. |
-| **Blind Spot** | Only `3` starting ATK Tiles and `58 HP` / `12` Mem ceiling. | `3` zero-value Duds dilute early raw output without UpCharge or Prodigy conversion. | Even `3/3/3` split cannot hit `4+` Stack Surge at start without drafting. |
+| **Signature Passive** | **Blitz Reflex & Momentum:** Resolving `ATK` grants **`+1` Free Turn** (`2`-Turn CD, instant Board refill). Full-Shield **Evasive Dodge** reduces Blitz CD by `-1`. **Held** Tiles gain `+1 ATK / +1 DEF`. | **Juggernaut Reactor Core:** Starts every combat with `18` persistent Armor. Each **Dud** (or upgraded **Reactor Core** tile) resolved grants **`+1` UpCharge** and **`+3` Armor**. | **Tri-Drone Sync & Swarm Uplink:** Resolving a color primes that Drone (`ATK` Hawk `+4 Pierce`, `DEF` Aegis `+4 Shield`, `TECH` Med-Rotor `+3 HP`); switching colors fires the primed Drone. TECH Tiles grant **`+25%` OD**. |
+| **Overdrive (`0 AP`)** | **Energy Dropkick:** `14` Frontline Kick + Knockback + `10` All Shockwave (`24` Front) · `+8` Shield | **Sovereign Broadside:** `20` DMG All · `+10` Armor · `+2` UpCharge | **Solar Swarm Protocol:** `-12` Armor All · `16` DMG All · `+8` Shield · `-2` Corrode |
+| **Starting Pool** | `9` Tiles (`4 ATK / 3 DEF / 2 TECH`) | `9` Tiles (`3 ATK + 1 Dud / 2 DEF + 1 Dud / 1 TECH + 1 Dud`) | `9` Tiles (`3 ATK / 2 DEF / 4 TECH`) |
+| **Core Strength** | Turn-1 `ATK` free-turn chain (`ATK → DEF/TECH`), `4-ATK` Stack Surge threat, and Dodge cooldown resets. | Persistent `18` Armor + `+3` Armor per Reactor tile tanks attrition while feeding `7–9` slot UpCharge Boards even after Prodigy/Stork upgrades. | Turn-1 `4-TECH` Stack Surge, continuous `+4 Pierce / +4 SHD / +3 HP` Tri-Drone color-weaving, and `+25%/Tile` Overdrive tempo. |
+| **Blind Spot** | `58 HP` and `12` Mem ceiling demand using Blitz follow-ups and Shield dodges cleanly. | `3` zero-value Duds require UpCharge cycling or Dynasty upgrades to hit peak tile density. | Staying on the same color consecutively skips Tri-Drone Sync pulses; `0` starting Armor. |
 
 ---
 

@@ -41,45 +41,45 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
   tacticalTipLabel: 'Tactical Tip',
   heroes: {
     kira: {
-      roleTag: 'Tech-Surge Tempo · Scaling Burst',
+      roleTag: 'Blitz Reflex Tempo · Evasive Striker',
       playstyleLead:
-        'High-speed cyber-duelist Hero built around banking Held Attack/Defense Tiles across Turns, stacking massive TECH Damage Boosts, and firing frequent Plasma Blitz Overdrives.',
+        'High-speed cyber-duelist Hero built around chaining a free bonus turn on Attack resolutions (Blitz Reflex), shaving cooldowns via full-Shield Evasive Dodges, and banking +1 Momentum on Held Tiles.',
       passivePowers: [
         {
+          name: 'Blitz Reflex (Free Turn)',
+          badge: 'ATK → +1 Free Turn (2T CD)',
+          description:
+            'Resolving Attack Tiles while Blitz Reflex is Ready immediately refills the Board and grants a free bonus turn before Mutants act (2-Turn cooldown).',
+        },
+        {
+          name: 'Evasive Dodge',
+          badge: 'Full Shield Block → -1 CD',
+          description:
+            'Completely blocking an incoming Mutant attack with Shield (0 HP damage taken) triggers an acrobatic vault dodge that reduces Blitz Reflex cooldown by -1 Turn.',
+        },
+        {
           name: 'Held Tile Momentum',
-          badge: '+1 ATK / DEF Held',
+          badge: '+1 ATK / DEF Held · +10% OD/ATK',
           description:
-            'Every Attack or Defense Tile left unresolved on the Board from the previous Turn (marked HELD) gains +1 flat base value this Turn. Stacks additively with Mono-Wire Edge (+2).',
-        },
-        {
-          name: 'Synapse Overdrive Engine',
-          badge: '+20% OD per TECH',
-          description:
-            'Resolving TECH Tiles charges +20% Overdrive per Tile (compared to +4% per Attack/Defense Tile), allowing rapid Overdrive cycles.',
-        },
-        {
-          name: 'Offensive Focus (Zero Retain)',
-          badge: '0 Retain · 0 Counter',
-          description:
-            'Retains 0 Shield between Turns without Aegis Capacitor, favoring proactive kills or full-Turn Defense stacks.',
+            'Every Attack or Defense Tile kept on the Board from the previous Turn (or across Blitz Reflex) gains +1 flat value, and Attack Tiles charge +10% Overdrive each.',
         },
       ],
       overdriveRule:
-        'Available at 100% Overdrive [Space]. Firing Plasma Blitz resets Overdrive to 0%, immediately hits ALL living Mutants, and keeps you in your active command phase so you can still resolve a Tile color on the same Turn!',
+        'Available at 100% Overdrive [Space]. Firing Energy Dropkick resets Overdrive to 0%, slams the frontline Mutant and knocks it backward, blasts ALL living Mutants with an energy shockwave, and keeps you in your active command phase!',
       overdriveBreakdown: [
-        'Deals 20 Pierce DMG to ALL living Mutants (ignores Mutant Armor; still absorbed by active Aegis Pips).',
-        'Grants +30% DMG Boost immediately (amplifies an Attack stack played on the same Turn!).',
-        'Grants +6 Shield to absorb upcoming counter-attacks.',
+        'Deals 14 DMG to the frontline Mutant and knocks a surviving target backward 1 slot.',
+        'Detonates a 10 DMG energy shockwave across ALL living Mutants (including the frontline target, for 24 total frontline DMG!).',
+        'Grants +8 Shield to absorb upcoming counter-attacks.',
       ],
       synergies:
-        'Mono-Wire Edge (+2 on Held Attack Tiles), Surge Resonator (3-Tile Stack Surges), Flux Injector (+10% extra OD on TECH), and Phase-Blade Emitter (30% Armor Pierce).',
+        'Mono-Wire Edge (+2 on Held Attack Tiles), Surge Resonator (3-Tile Stack Surges), Aegis Capacitor (50% Shield retain for Evasive Dodge setups), and Phase-Blade Emitter (30% Armor Pierce).',
       tacticalLoop:
-        'Turn 1: Resolve TECH (+42% DMG Boost & +20% OD/Tile) while holding Attack Tiles to power them up (+1 each). Turn 2: Trigger Plasma Blitz (+30% DMG Boost), then unleash the boosted Attack Stack Surge!',
+        'Turn 1: Resolve Attack to trigger Blitz Reflex (free bonus turn + instant Board refill), then use your free turn on Defense (+1 Held Momentum) to full-block the enemy strike and trigger Evasive Dodge (-1 Blitz CD)!',
     },
     auraline: {
-      roleTag: 'Armored Juggernaut · UpCharge Anchor',
+      roleTag: 'Armored Juggernaut · Reactor Core Anchor',
       playstyleLead:
-        'Frontline heavy juggernaut Hero with 78 Max HP, 18 persistent starting Armor every combat, and 14 Memory. Starts with 1 Dud in each color—and converts every Dud resolved into +1 UpCharge.',
+        'Frontline heavy juggernaut Hero with 78 Max HP, 18 persistent starting Armor every combat, and 14 Memory. Starts with 1 Reactor Core Dud in each color—converting every Dud (or upgraded Reactor Core tile) into +1 UpCharge, +3 Armor, and +15% Overdrive.',
       passivePowers: [
         {
           name: 'Juggernaut Armor',
@@ -88,10 +88,10 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
             'Starts every encounter with 18 persistent Armor underneath Shield (DMG -> Shield -> Armor -> HP), absorbing hits across Turns without decaying or suffering Corrode.',
         },
         {
-          name: 'Dud Overclock (UpCharge)',
-          badge: '+1 UpCharge per Dud',
+          name: 'Reactor Core (UpCharge & Plating)',
+          badge: '+1 UC · +3 ARM · +15% OD',
           description:
-            'Starts with 3 Dud Tiles (1 Attack, 1 Defense, 1 TECH). Resolving any Dud grants +1 UpCharge (+1 extra Tile drawn onto next Turn’s Board), letting her cycle faster without needing to purge every Dud.',
+            'Starts with 3 Reactor Core Dud Tiles (1 Attack, 1 Defense, 1 TECH). Resolving any Dud—even after upgrading it into an active tile at the Charter Academy, Stork Nursery, or FabLab—grants +1 UpCharge, +3 persistent Armor, and +15% Overdrive.',
         },
         {
           name: 'High-Memory Neural Rig',
@@ -108,32 +108,32 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Grants +2 UpCharge so your next Turn draws +2 extra Tiles onto the Board.',
       ],
       synergies:
-        'Plasma Amplifier & Nano-Weave Plating (turns 0-value Duds into +2 ATK / +2 DEF Tiles), Synapse Overclock (+3 SHD on TECH Duds), Surge Resonator (3-Tile Surges using Duds), and Tempo Feed.AI.',
+        'Charter Academy & Stork Nursery (upgrades 0-value Duds into active tiles while preserving their Reactor Core +1 UC / +3 ARM bonus), Plasma Amplifier, Nano-Weave Plating, and Surge Resonator.',
       tacticalLoop:
-        'Let your 18 starting Armor absorb early hits while cycling 1-Dud-per-color into +1 UpCharge draws, stack Surge thresholds with Duds, and drop Sovereign Broadside (+10 Armor, +2 UpCharge) to overpower Boss phases.',
+        'Let your 18 starting Armor absorb early hits while resolving Reactor Core Duds for +1 UpCharge and +3 Armor, upgrade your Duds at Dynasty facilities, and drop Sovereign Broadside (+10 Armor, +2 UpCharge) to overpower Boss phases.',
     },
     zuri: {
-      roleTag: 'Armor-Shred Tactician · TECH Specialist',
+      roleTag: 'Tri-Drone Tactician · TECH Specialist',
       playstyleLead:
-        'Airborne swarm commander Hero specializing in AoE Armor Shred, hybrid Tactical Shielding, and the fastest Overdrive generation in the roster—trading away Held bonuses and native Turn-1 Surges.',
+        'Airborne swarm commander Hero who weaves between Tile colors to fire synchronized Tri-Drone support pulses (+4 Pierce DMG, +4 Shield, or +3 HP) while charging the fastest TECH Overdrive (+25%/Tile) in the roster.',
       passivePowers: [
+        {
+          name: 'Tri-Drone Sync',
+          badge: 'Hawk +4⚔ · Aegis +4🛡 · Med-Rotor +3💚',
+          description:
+            'Resolving a Tile color primes the matching autonomous drone (Attack = Solar Hawk +4 Pierce DMG; Defense = Aegis Walker +4 Shield; TECH = Med-Rotor +3 HP). Switching to a different color on the next Turn fires the primed drone alongside your new action!',
+        },
         {
           name: 'Solar Capacitor Uplink',
           badge: '+25% OD per TECH',
           description:
-            'Resolving TECH Tiles generates +25% Overdrive per Tile—the highest in the roster—allowing frequent Solar Swarm Protocol activations.',
+            'Starts with 4 TECH Tiles in her 9-Tile pool and generates +25% Overdrive per TECH Tile resolved—the highest in the roster—unlocking Turn-1 TECH Surges and frequent Solar Swarm Protocol activations.',
         },
         {
-          name: 'Innate Armor Shred Core',
-          badge: '-8 ARM All · 3 Pierce',
+          name: 'Innate Armor Shred & Tactical Shield',
+          badge: '-8 ARM All · +4 SHD / +24% DMG',
           description:
-            'Zuri carries an innate TECH Armor Shred Tile that strips 8 Armor from ALL Mutants while dealing 3 direct Pierce DMG to the frontline target.',
-        },
-        {
-          name: 'Hybrid Tactical Shield',
-          badge: '+4 SHD · +24% DMG',
-          description:
-            'Zuri’s second core TECH Tile grants +4 Shield and +24% DMG Boost simultaneously, bridging defense and offense while charging +25% Overdrive.',
+            'Carries innate TECH tiles that strip -8 Armor from ALL Mutants (+3 Pierce DMG) and project +4 Shield with +24% DMG Boost.',
         },
       ],
       overdriveRule:
@@ -144,9 +144,9 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Cleanses -2 Corrode stacks from your Hero.',
       ],
       synergies:
-        'Synapse Overclock (+3 Shield per TECH Tile), Surge Resonator (unlocks 3-Tile Surges on her 3/3/3 balanced Master Tile Pool), Flux Injector (+35% OD per TECH Tile!), and Armor Crack.AI.',
+        'Bloodline Crest (pairs two colors to double-dip with Tri-Drone Sync color alternation!), Synapse Overclock (+3 Shield per TECH Tile), Flux Injector (+35% OD per TECH Tile!), and Armor Crack.AI.',
       tacticalLoop:
-        'Respect your 3/3/3 Blind Spot (no Turn-1 Surge without extra AI Skill Chips or Surge Resonator): weave innate TECH Tiles to strip Armor, gain +4 Shield/+24% DMG, charge +25% OD per Tile, then unleash Solar Swarm Protocol (-12 Armor All + 16 Pierce) into an Attack stack.',
+        'Alternate Tile colors each Turn (e.g. TECH → Attack → Defense) so your primed Tri-Drone fires on every single action (+3 HP, +4 Pierce DMG, +4 Shield) while cycling +25% OD TECH Tiles into Solar Swarm Protocol.',
     },
   },
   glossary: {
@@ -275,10 +275,10 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: '0 AP Ultimate',
       summary: '100%-charged Hero ultimate maneuver (0 AP, does not end Turn) dealing Armor-piercing AoE damage plus signature utility.',
       mechanics:
-        'Attack/Defense Tiles grant +4% OD each. TECH Tiles grant +20% (Kira), +15% (Auraline), or +25% (Zuri), plus +10% with Flux Injector and +15% on TECH Surge. Firing Overdrive resets OD to 0%, hits ALL Mutants with 100% Pierce damage, cleanses Jammed/Hex/Slag on Board, and does NOT end your Turn.',
+        'Kira charges +10% OD per Attack Tile (+4% DEF / +12% TECH). Auraline charges +15% OD per Reactor Core Dud or TECH Tile (+5% ATK/DEF). Zuri charges +25% OD per TECH Tile (+4% ATK/DEF). Firing Overdrive resets OD to 0%, hits ALL Mutants with 100% Pierce damage, cleanses Jammed/Hex/Slag on Board, and does NOT end your Turn.',
       tacticalTip:
-        'Fire Kira’s Overdrive (+30% DMG Boost) or Zuri’s Overdrive (-12 Armor All) BEFORE resolving your Attack stack on the same Turn!',
-      keywords: ['overdrive', 'od', 'space', 'plasma blitz', 'broadside', 'swarm'],
+        'Fire Kira’s Energy Dropkick (+30% DMG Boost) or Zuri’s Solar Swarm Protocol (-12 Armor All) BEFORE resolving your Attack stack on the same Turn!',
+      keywords: ['overdrive', 'od', 'space', 'energy dropkick', 'broadside', 'swarm'],
     },
     corrode: {
       term: 'Corrode (COR)',

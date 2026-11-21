@@ -3,6 +3,7 @@ import type {
   CombatDirectorState,
   HeroState,
   HeroThreatPreview,
+  TileType,
   TurnPreview,
 } from '../../engine/types';
 import type { TranslationPack } from '../../i18n/translations';
@@ -15,6 +16,8 @@ export interface CombatHeroHeaderPodProps {
   director: CombatDirectorState | undefined;
   activePreview: TurnPreview | null;
   heroThreat: HeroThreatPreview;
+  blitzReflexCooldown?: number;
+  primedDrone?: TileType | null;
   isCompactLandscape: boolean;
   hasUltraDenseEnemyRow: boolean;
   hcBorderClass: string;
@@ -35,6 +38,8 @@ export function CombatHeroHeaderPod({
   director,
   activePreview,
   heroThreat,
+  blitzReflexCooldown = 0,
+  primedDrone = null,
   isCompactLandscape,
   hasUltraDenseEnemyRow,
   hcBorderClass,
@@ -226,6 +231,28 @@ export function CombatHeroHeaderPod({
             {heroThreat.retaliateDamage > 0 && (
               <span className="font-bold text-[#FF2E7E] whitespace-nowrap">
                 ⚠ {t.retaliateLabel}
+              </span>
+            )}
+            {(hero.characterId ?? 'kira') === 'kira' && (
+              <span
+                data-testid="hero-blitz-reflex-badge"
+                className={`font-bold whitespace-nowrap ${
+                  blitzReflexCooldown === 0 ? 'text-[#00F0FF]' : 'text-slate-400'
+                }`}
+              >
+                {blitzReflexCooldown === 0 ? '⚡ BLITZ READY' : `⚡ BLITZ CD:${blitzReflexCooldown}`}
+              </span>
+            )}
+            {hero.characterId === 'zuri' && primedDrone && (
+              <span
+                data-testid="hero-primed-drone-badge"
+                className="font-bold text-[#FFC700] whitespace-nowrap"
+              >
+                {primedDrone === 'attack'
+                  ? '🛸 HAWK +4⚔'
+                  : primedDrone === 'defense'
+                    ? '🛸 AEGIS +4🛡'
+                    : '🛸 MED +3💚'}
               </span>
             )}
           </div>

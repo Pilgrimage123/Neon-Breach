@@ -24,7 +24,6 @@ import {
   executeSingleEnemyAction,
   HOT_POTATO_PASS_DAMAGE,
   HOT_POTATO_SELF_DAMAGE,
-  PLASMA_BARREL_BURST_DAMAGE,
   previewColorResolution,
   previewHeroThreat,
   PUSTULE_RUPTURE_CORRODE,
@@ -823,9 +822,9 @@ test('Pillar 3, 4 & 5: Overkill Weapon-Break (22+ DMG), Desperation Telegraph (<
   };
   const afterBarrel = resolvePlayerColor(barrelRun, 'attack');
   assert.equal(afterBarrel.combat?.enemies[0].hp, 0);
-  // Bystander takes 10 Pierce DMG directly to HP (ignoring 8 armor)
-  assert.equal(afterBarrel.combat?.enemies[1].hp, 25 - PLASMA_BARREL_BURST_DAMAGE);
-  assert.equal(afterBarrel.combat?.enemies[1].armor, 8);
+  // Bystander takes 10 Barrel DMG against 8 Armor (90% Armor absorption: 1 HP bleed + 8 absorbed by Armor + 1 excess to HP = 2 HP lost, 0 Armor left)
+  assert.equal(afterBarrel.combat?.enemies[1].hp, 23);
+  assert.equal(afterBarrel.combat?.enemies[1].armor, 0);
 
   // 4. Bio-Husk spawns when a non-prop enemy dies while Boss is alive, and revives after 2 turns
   const fallenStalker = makeEnemy({

@@ -96,7 +96,8 @@ export function absorbHeroDamage(
   const safeIncoming = Math.max(0, incoming);
   const blockedByShield = Math.min(Math.max(0, shield), safeIncoming);
   const afterShield = safeIncoming - blockedByShield;
-  const blockedByArmor = Math.min(Math.max(0, armor), afterShield);
+  const maxArmorAbsorb = Math.max(0, afterShield - Math.floor(afterShield * 0.1));
+  const blockedByArmor = Math.min(Math.max(0, armor), maxArmorAbsorb);
   const hpDamage = afterShield - blockedByArmor;
   return {
     nextShield: Math.max(0, shield - blockedByShield),

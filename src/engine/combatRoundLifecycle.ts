@@ -304,6 +304,10 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
     });
   }
 
+  const prevBlitzCd = combat.blitzReflexCooldown ?? 0;
+  const nextBlitzCd =
+    !combat.blitzUsedThisRound && prevBlitzCd > 0 ? prevBlitzCd - 1 : prevBlitzCd;
+
   return {
     ...run,
     hero: nextHero,
@@ -319,6 +323,9 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
       director: nextDirector,
       lastColorPlayed: null,
       cradleObjective: nextCradleObjective,
+      blitzReflexCooldown: nextBlitzCd,
+      blitzUsedThisRound: false,
+      evasiveDodgeTriggeredThisRound: false,
     },
     turnsCompleted: run.turnsCompleted + 1,
   };

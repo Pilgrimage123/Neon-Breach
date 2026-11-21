@@ -440,7 +440,9 @@ test('zero-reward sweeper kill awards 0 score while normal resolvePlayerColor wi
       ...run.combat,
       enemies: [weakSweeper],
       board: run.combat.board.map((t, i) =>
-        i < 3 ? { ...t, type: 'attack' as const, value: 4, isJammed: false } : t,
+        i < 3
+          ? { ...t, type: 'attack' as const, value: 4, isJammed: false }
+          : { ...t, type: 'defense' as const, value: 6, isJammed: false },
       ),
     },
   };

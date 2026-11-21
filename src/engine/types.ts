@@ -12,6 +12,7 @@ export interface TileSpec {
   value: number;
   techEffect?: TechEffect;
   isDud?: boolean;
+  isReactorCore?: boolean;
   upcharge?: number;
   secondaryType?: TileType;
   secondaryValue?: number;
@@ -24,6 +25,7 @@ export interface Tile {
   value: number;
   techEffect?: TechEffect;
   isDud?: boolean;
+  isReactorCore?: boolean;
   upcharge?: number;
   secondaryType?: TileType;
   secondaryValue?: number;
@@ -394,6 +396,9 @@ export interface TurnPreview {
   temptationCleaveBonus?: number;
   upchargeGained?: number;
   dudCount?: number;
+  armorGained?: number;
+  freeTurnTriggered?: boolean;
+  droneSyncTriggered?: TileType | null;
 }
 
 export interface HeroThreatPreview {
@@ -518,6 +523,10 @@ export interface CombatState {
   edgeLockActive?: boolean;
   cradleObjective?: CradleObjectiveState;
   bloodlineResonanceActive?: TileType | null;
+  blitzReflexCooldown?: number;
+  blitzUsedThisRound?: boolean;
+  evasiveDodgeTriggeredThisRound?: boolean;
+  primedDrone?: TileType | null;
 }
 
 export type ScreenPhase = 'title' | 'map' | 'combat' | 'clinic' | 'chip_dealer' | 'medbay' | 'event' | 'victory' | 'gameover';

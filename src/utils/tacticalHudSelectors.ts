@@ -283,6 +283,9 @@ export function computeSmartActionTriggerSummaries(
     } else if (fillsOverdrive) {
       outcomeTag = '⚡ 100% OD';
       outcomeTone = 'overdrive';
+    } else if (preview.freeTurnTriggered) {
+      outcomeTag = isCs ? '⚡ +TAH ZDARMA' : '⚡ +FREE TURN';
+      outcomeTone = 'overdrive';
     } else if (preview.surgeTriggered) {
       outcomeTag = isCs ? '★ PŘETÍŽENÍ' : '★ SURGE';
       outcomeTone = 'surge';

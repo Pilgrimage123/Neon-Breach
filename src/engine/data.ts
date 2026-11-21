@@ -24,6 +24,8 @@ export const MAX_OVERCLOCK_STACKS = 2;
 
 export interface HeroOverdriveSpec {
   damage: number;
+  frontKickDamage?: number;
+  knockbackFront?: boolean;
   armor?: number;
   upcharge?: number;
   armorShred?: number;
@@ -32,15 +34,27 @@ export interface HeroOverdriveSpec {
   cleanseCorrode: number;
 }
 
+export interface HeroTriDroneSyncSpec {
+  attackPierceDamage: number;
+  defenseShield: number;
+  techHeal: number;
+}
+
 export interface HeroSpec {
   id: CharacterId;
   maxHp: number;
   startingArmor: number;
   dudUpchargePerTile: number;
+  dudArmorPerTile: number;
+  dudOverdrivePerTile: number;
   startingCredits: number;
   memoryCapacity: number;
   heldTileBonus: number;
+  attackOverdrivePerTile: number;
+  defenseOverdrivePerTile: number;
   techOverdrivePerTile: number;
+  blitzReflexCooldownTurns?: number;
+  triDroneSync?: HeroTriDroneSyncSpec;
   overdrive: HeroOverdriveSpec;
 }
 
@@ -50,14 +64,21 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
     maxHp: 58,
     startingArmor: 0,
     dudUpchargePerTile: 0,
+    dudArmorPerTile: 0,
+    dudOverdrivePerTile: 0,
     startingCredits: 45,
     memoryCapacity: KIRA_MEMORY_CAPACITY,
     heldTileBonus: 1,
-    techOverdrivePerTile: 20,
+    attackOverdrivePerTile: 10,
+    defenseOverdrivePerTile: 4,
+    techOverdrivePerTile: 12,
+    blitzReflexCooldownTurns: 2,
     overdrive: {
-      damage: 20,
-      shield: 6,
-      damageBoostPct: 30,
+      damage: 10,
+      frontKickDamage: 14,
+      knockbackFront: true,
+      shield: 8,
+      damageBoostPct: 0,
       cleanseCorrode: 0,
     },
   },
@@ -66,9 +87,13 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
     maxHp: 78,
     startingArmor: 18,
     dudUpchargePerTile: 1,
+    dudArmorPerTile: 3,
+    dudOverdrivePerTile: 15,
     startingCredits: 35,
     memoryCapacity: AURALINE_MEMORY_CAPACITY,
     heldTileBonus: 0,
+    attackOverdrivePerTile: 5,
+    defenseOverdrivePerTile: 5,
     techOverdrivePerTile: 15,
     overdrive: {
       damage: 20,
@@ -84,10 +109,19 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
     maxHp: 62,
     startingArmor: 0,
     dudUpchargePerTile: 0,
+    dudArmorPerTile: 0,
+    dudOverdrivePerTile: 0,
     startingCredits: 50,
     memoryCapacity: ZURI_MEMORY_CAPACITY,
     heldTileBonus: 0,
+    attackOverdrivePerTile: 4,
+    defenseOverdrivePerTile: 4,
     techOverdrivePerTile: 25,
+    triDroneSync: {
+      attackPierceDamage: 4,
+      defenseShield: 4,
+      techHeal: 3,
+    },
     overdrive: {
       damage: 16,
       armorShred: 12,
@@ -103,42 +137,33 @@ export function getHeroSpec(characterId: CharacterId = 'kira'): HeroSpec {
 }
 
 const KIRA_INNATE_TILES: readonly TileSpec[] = [
+  { type: 'attack', value: 4 },
   { type: 'attack', value: 3 },
   { type: 'defense', value: 8 },
+  { type: 'defense', value: 6 },
   {
     type: 'tech',
     value: 0,
     techEffect: { kind: 'damage_boost', percent: 42, decayPerTurn: 10 },
-  },
-  {
-    type: 'tech',
-    value: 0,
-    techEffect: { kind: 'damage_boost', percent: 42, decayPerTurn: 10 },
-  },
-  {
-    type: 'tech',
-    value: 0,
-    techEffect: { kind: 'heal', amount: 2 },
   },
 ];
 
 const AURALINE_INNATE_TILES: readonly TileSpec[] = [
   { type: 'attack', value: 5 },
-  { type: 'attack', value: 0, isDud: true },
+  { type: 'attack', value: 0, isDud: true, isReactorCore: true },
   { type: 'defense', value: 8 },
-  { type: 'defense', value: 0, isDud: true },
+  { type: 'defense', value: 0, isDud: true, isReactorCore: true },
   {
     type: 'tech',
     value: 0,
     techEffect: { kind: 'damage_boost', percent: 42, decayPerTurn: 10 },
   },
-  { type: 'tech', value: 0, isDud: true },
+  { type: 'tech', value: 0, isDud: true, isReactorCore: true },
 ];
 
 const ZURI_INNATE_TILES: readonly TileSpec[] = [
   { type: 'attack', value: 4 },
   { type: 'defense', value: 7 },
-  { type: 'defense', value: 6 },
   {
     type: 'tech',
     value: 0,
@@ -148,6 +173,11 @@ const ZURI_INNATE_TILES: readonly TileSpec[] = [
     type: 'tech',
     value: 0,
     techEffect: { kind: 'armor_shred', shredAmount: 8, pierceDamage: 3 },
+  },
+  {
+    type: 'tech',
+    value: 0,
+    techEffect: { kind: 'damage_boost', percent: 36, decayPerTurn: 10 },
   },
 ];
 

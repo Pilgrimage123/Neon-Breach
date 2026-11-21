@@ -93,6 +93,8 @@ export function CombatStageHudOverlay({
           director={director}
           activePreview={activePreview}
           heroThreat={heroThreat}
+          blitzReflexCooldown={combat.blitzReflexCooldown ?? 0}
+          primedDrone={combat.primedDrone ?? null}
           isCompactLandscape={isCompactLandscape}
           hasUltraDenseEnemyRow={hasUltraDenseEnemyRow}
           hcBorderClass={hcBorderClass}

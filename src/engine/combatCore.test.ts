@@ -13,6 +13,7 @@ import {
   claimCombatChipReward,
   createInitialRun,
   drawToSix,
+  enrollCharterProdigyTile,
   executeEnemyTurn,
   executeOverdrive,
   executeSingleEnemyAction,
@@ -45,7 +46,7 @@ function makeTile(
   };
 }
 
-test('initial run builds Kira 9-tile pool (5 innate + 4 starting chips, 3/12 Memory, 3 ATK · 2 DEF · 4 TECH) and draws 6', () => {
+test('initial run builds Kira 9-tile pool (5 innate + 4 starting chips, 3/12 Memory, 4 ATK · 3 DEF · 2 TECH) and draws 6', () => {
   const run = createInitialRun(42);
   assert.ok(run.combat);
   assert.equal(run.hero.hp, 58);
@@ -55,26 +56,26 @@ test('initial run builds Kira 9-tile pool (5 innate + 4 starting chips, 3/12 Mem
   assert.equal(getEquippedChipMemory(run.hero), 3);
   assert.equal(run.masterPool.length, 9);
 
+  const atk4 = run.masterPool.filter((t) => t.type === 'attack' && t.value === 4);
   const atk3 = run.masterPool.filter((t) => t.type === 'attack' && t.value === 3);
   const atk5 = run.masterPool.filter((t) => t.type === 'attack' && t.value === 5);
   const def8 = run.masterPool.filter((t) => t.type === 'defense' && t.value === 8);
+  const def6 = run.masterPool.filter((t) => t.type === 'defense' && t.value === 6);
   const def7 = run.masterPool.filter((t) => t.type === 'defense' && t.value === 7);
   const dmgBoosts = run.masterPool.filter(
     (t) => t.type === 'tech' && t.techEffect?.kind === 'damage_boost' && t.techEffect.percent === 42,
-  );
-  const heal2 = run.masterPool.filter(
-    (t) => t.type === 'tech' && t.techEffect?.kind === 'heal' && t.techEffect.amount === 2,
   );
   const heal3 = run.masterPool.filter(
     (t) => t.type === 'tech' && t.techEffect?.kind === 'heal' && t.techEffect.amount === 3,
   );
 
+  assert.equal(atk4.length, 1);
   assert.equal(atk3.length, 1);
   assert.equal(atk5.length, 2);
   assert.equal(def8.length, 1);
+  assert.equal(def6.length, 1);
   assert.equal(def7.length, 1);
-  assert.equal(dmgBoosts.length, 2);
-  assert.equal(heal2.length, 1);
+  assert.equal(dmgBoosts.length, 1);
   assert.equal(heal3.length, 1);
 
   assert.equal(run.combat.board.length, 6);
@@ -99,6 +100,7 @@ test('resolving one color sums explicit tile values, keeps unresolved tiles, and
     combat: {
       ...base.combat,
       board: customBoard,
+      blitzReflexCooldown: 1,
     },
   };
 
@@ -150,7 +152,7 @@ test('TECH Damage booster stacks additively, boosts ATK, decays 10%/turn, preser
   const techPreview = previewColorResolution(seededRun, 'tech');
   assert.equal(techPreview.damageBoostAddedPct, 102);
   assert.equal(techPreview.healAmount, 2);
-  assert.equal(techPreview.overdriveGained, 60);
+  assert.equal(techPreview.overdriveGained, 36);
 
   const afterTech = resolvePlayerColor(seededRun, 'tech');
   assert.equal(afterTech.hero.damageBoostPct, 102);
@@ -272,11 +274,11 @@ test('stack surge triggers at 4+ tiles or 3+ with Surge Resonator implant, inclu
     'tech',
   );
   assert.equal(techSurgePrev.surgeTriggered, true);
-  assert.equal(techSurgePrev.overdriveGained, 75);
+  assert.equal(techSurgePrev.overdriveGained, 51);
   assert.equal(techSurgePrev.shieldGained, 6);
 });
 
-test('Kira Overdrive (Plasma Blitz) deals 20 piercing damage, grants +6 shield and +30% DMG boost, and syncs zero-reward kill & victory bookkeeping', () => {
+test('Kira Overdrive (Energy Dropkick) executes 14 frontline kick + knockback + 10 all-enemy shockwave, grants +8 shield, and syncs zero-reward kill & victory bookkeeping', () => {
   const base = createInitialRun(404);
   assert.ok(base.combat);
   const chargedRun = {
@@ -291,9 +293,10 @@ test('Kira Overdrive (Plasma Blitz) deals 20 piercing damage, grants +6 shield a
   const afterOd = executeOverdrive(chargedRun);
   assert.ok(afterOd.combat);
   assert.equal(afterOd.hero.overdrive, 0);
-  assert.equal(afterOd.hero.shield, 6);
-  assert.equal(afterOd.hero.damageBoostPct, 30);
-  assert.equal(afterOd.combat.enemies[0].hp, 10);
+  assert.equal(afterOd.hero.shield, 8);
+  assert.equal(afterOd.hero.damageBoostPct, 0);
+  assert.equal(afterOd.combat.enemies[0].armor, 0);
+  assert.equal(afterOd.combat.enemies[0].hp, 16);
   assert.equal(afterOd.combat.phase, 'PLAYER_IDLE');
 
   // Regression: Overdrive killing zero-reward sweeper awards 0 kill score and increments turnsCompleted on victory
@@ -380,7 +383,7 @@ test('all 10 cybernetic implants function deterministically in combat preview & 
   };
   const techPrev = previewColorResolution(techRun, 'tech');
   assert.equal(techPrev.shieldGained, 6);
-  assert.equal(techPrev.overdriveGained, 50);
+  assert.equal(techPrev.overdriveGained, 34);
   assert.equal(techPrev.damageBoostAddedPct, 51);
   assert.equal(techPrev.healAmount, 2);
 
@@ -694,10 +697,11 @@ test('Auraline Juggernaut stats, Armor, 3 Duds, UpCharge, and Overdrive work acc
   const defPrev = previewColorResolution(auralineDefBoard, 'defense');
   assert.equal(defPrev.shieldGained, 8);
   assert.equal(defPrev.upchargeGained, 1);
+  assert.equal(defPrev.armorGained, 3);
 
   const afterDef = resolvePlayerColor(auralineDefBoard, 'defense');
   const afterRound = executeEnemyTurn(afterDef);
-  assert.equal(afterRound.hero.armor, 14);
+  assert.equal(afterRound.hero.armor, 17);
   assert.equal(afterRound.hero.hp, 78);
   assert.equal(afterRound.combat?.board.length, 7);
 
@@ -711,7 +715,8 @@ test('Auraline Juggernaut stats, Armor, 3 Duds, UpCharge, and Overdrive work acc
   });
   assert.equal(odRes.hero.armor, 20);
   assert.equal(odRes.hero.pendingUpcharge, 2);
-  assert.equal(odRes.combat?.enemies[0].hp, 10);
+  assert.equal(odRes.combat?.enemies[0].armor, 0);
+  assert.equal(odRes.combat?.enemies[0].hp, 20);
 });
 
 test('Zuri starter stats, Swarm Uplink passive, Solar Swarm Protocol Overdrive work accurately', () => {
@@ -733,8 +738,8 @@ test('Zuri starter stats, Swarm Uplink passive, Solar Swarm Protocol Overdrive w
   });
   assert.equal(odRes.hero.shield, 10);
   assert.equal(odRes.hero.corrode, 1);
-  assert.equal(odRes.combat?.enemies[0].hp, 14);
-  assert.equal(odRes.combat?.enemies[0].armor, 3);
+  assert.equal(odRes.combat?.enemies[0].hp, 17);
+  assert.equal(odRes.combat?.enemies[0].armor, 0);
 });
 
 test('Moving Lock enemy rules, Bio-Husk exclusion from Volatile Burst, and Defense+Attack/Tech spliced hybrid tiles', () => {
@@ -909,7 +914,7 @@ test('Duds + Implant salvage, UpCharge Chips capped at 9 board tiles, and Armor 
 
   const afterAtk = resolvePlayerColor(dudSalvageRun, 'attack');
   const afterSpitterTurn = executeEnemyTurn(afterAtk);
-  assert.equal(afterSpitterTurn.hero.armor, 10);
+  assert.equal(afterSpitterTurn.hero.armor, 13);
   assert.equal(afterSpitterTurn.hero.hp, 78);
   assert.equal(afterSpitterTurn.combat?.board.length, MAX_UPCHARGE_BOARD_CAPACITY);
   assert.ok(!afterSpitterTurn.combat?.board.some((t) => t.isJammed));
@@ -1209,5 +1214,186 @@ test('executeOverdrive and executeSingleEnemyAction keep masterPool synced on vi
   assert.equal(afterOob0.combat?.enemies[0].currentIntentIndex, 0);
   const afterOob1 = executeSingleEnemyAction(afterOob0, 1);
   assert.equal(afterOob1.combat?.enemies[1].hp, 15);
+});
+
+test('Revised Hero Engines: Kira Blitz Reflex + Evasive Dodge + Energy Dropkick knockback, Auraline Reactor Core Prodigy retention, Zuri Tri-Drone Sync, and 90% Armor absorption', () => {
+  // 1. Kira Blitz Reflex: resolving Attack at 0 CD grants an immediate free bonus turn, refills board, promotes Held (+1), sets CD=2, and Evasive Dodge shaves -1 CD
+  const kiraBase = createInitialRun(701, 'kira');
+  assert.ok(kiraBase.combat);
+  const kiraTurn1: RunState = {
+    ...kiraBase,
+    hero: { ...kiraBase.hero, shield: 0, overdrive: 0 },
+    combat: {
+      ...kiraBase.combat,
+      board: [
+        makeTile('ka1', 'attack', 5),
+        makeTile('ka2', 'attack', 5),
+        makeTile('kd1', 'defense', 7),
+        makeTile('kd2', 'defense', 6),
+        makeTile('kt1', 'tech', 0, false, { kind: 'heal', amount: 3 }),
+        makeTile('kt2', 'tech', 0, false, { kind: 'damage_boost', percent: 42, decayPerTurn: 10 }),
+      ],
+      drawPile: [makeTile('kdraw1', 'attack', 4), makeTile('kdraw2', 'defense', 8)],
+      discardPile: [],
+      enemies: [
+        {
+          ...kiraBase.combat.enemies[0],
+          id: 'front_pip',
+          hp: 40,
+          maxHp: 40,
+          armor: 10,
+          shieldPips: 0,
+          intentCycle: [{ kind: 'attack', value: 12 }],
+          currentIntentIndex: 0,
+        },
+        {
+          ...kiraBase.combat.enemies[0],
+          id: 'back_unit',
+          hp: 30,
+          maxHp: 30,
+          armor: 0,
+          shieldPips: 0,
+          intentCycle: [{ kind: 'armor', value: 4 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+
+  const atkPrev1 = previewColorResolution(kiraTurn1, 'attack');
+  assert.equal(atkPrev1.freeTurnTriggered, true);
+  assert.equal(atkPrev1.overdriveGained, 20); // +10% per ATK tile
+
+  // Action 1: Resolve Attack -> triggers Blitz Reflex free turn!
+  // 10 DMG against 10 Armor (90% Armor absorption: 1 HP bleed + 9 absorbed by Armor -> 39 HP, 1 Armor)
+  const afterBlitzAtk = resolvePlayerColor(kiraTurn1, 'attack');
+  assert.ok(afterBlitzAtk.combat);
+  assert.equal(afterBlitzAtk.combat.phase, 'PLAYER_IDLE');
+  assert.equal(afterBlitzAtk.combat.blitzReflexCooldown, 2);
+  assert.equal(afterBlitzAtk.combat.board.length, 6);
+  assert.equal(afterBlitzAtk.combat.enemies[0].hp, 39);
+  assert.equal(afterBlitzAtk.combat.enemies[0].armor, 1);
+
+  // Kept Defense tiles (kd1=7, kd2=6) were promoted to HELD (+1 each -> 8 and 7), plus drawn kdraw2=8 -> total Shield = 8 + 7 + 8 = 23
+  const defPrevBonusTurn = previewColorResolution(afterBlitzAtk, 'defense');
+  assert.equal(defPrevBonusTurn.shieldGained, 23);
+  const afterBonusDef = resolvePlayerColor(afterBlitzAtk, 'defense');
+  assert.equal(afterBonusDef.combat?.phase, 'PLAYER_RESOLVED');
+  assert.equal(afterBonusDef.hero.shield, 23);
+
+  // Enemy attacks for 12 into 23 Shield -> 0 HP damage (full-Shield Evasive Dodge!) -> shaves -1 off Blitz CD (2 -> 1)
+  // Since Blitz was used on Turn 1, round-end does not double-decrement; entering Turn 2 CD is 1 (instead of 2)
+  const kiraTurn2 = executeEnemyTurn(afterBonusDef);
+  assert.equal(kiraTurn2.combat?.turn, 2);
+  assert.equal(kiraTurn2.combat?.blitzReflexCooldown, 1);
+
+  // 2. Kira Energy Dropkick Overdrive: 14 Frontline Kick cracks Aegis Pip & knocks surviving front enemy back 1 slot, then 10 Shockwave hits ALL enemies
+  const dropkickRun: RunState = {
+    ...kiraTurn2,
+    hero: { ...kiraTurn2.hero, overdrive: 100, shield: 0 },
+    combat: {
+      ...kiraTurn2.combat!,
+      enemies: [
+        {
+          ...kiraTurn2.combat!.enemies[0],
+          id: 'pip_front',
+          hp: 30,
+          armor: 0,
+          shieldPips: 1,
+        },
+        {
+          ...kiraTurn2.combat!.enemies[1],
+          id: 'back_two',
+          hp: 25,
+          armor: 0,
+          shieldPips: 0,
+        },
+      ],
+    },
+  };
+  const afterDropkick = executeOverdrive(dropkickRun);
+  assert.equal(afterDropkick.hero.shield, 8);
+  // Hit 1 (14) cracked pip_front's Aegis Pip and knocked it to slot 1; Hit 2 (10) hit BOTH enemies for 10 DMG!
+  assert.equal(afterDropkick.combat?.enemies[0].id, 'back_two');
+  assert.equal(afterDropkick.combat?.enemies[0].hp, 15);
+  assert.equal(afterDropkick.combat?.enemies[1].id, 'pip_front');
+  assert.equal(afterDropkick.combat?.enemies[1].shieldPips, 0);
+  assert.equal(afterDropkick.combat?.enemies[1].hp, 20);
+
+  // 3. Auraline Reactor Core Dud retains +1 UpCharge, +3 Armor, and +15% OD even after Charter Academy Prodigy upgrade
+  const auralineBase = createInitialRun(702, 'auraline');
+  const dudTile = auralineBase.masterPool.find((t) => t.isDud && t.type === 'attack')!;
+  assert.equal(dudTile.isReactorCore, true);
+  const clinicAuraline: RunState = {
+    ...auralineBase,
+    screen: 'clinic',
+    hero: { ...auralineBase.hero, credits: 100 },
+  };
+  const prodigyAuraline = enrollCharterProdigyTile(clinicAuraline, dudTile.id);
+  const upgradedReactorTile = prodigyAuraline.masterPool.find((t) => t.id === dudTile.id)!;
+  assert.equal(upgradedReactorTile.isDud, false);
+  assert.equal(upgradedReactorTile.isReactorCore, true);
+  assert.equal(upgradedReactorTile.value, 6);
+
+  const auralineReactorCombat: RunState = {
+    ...prodigyAuraline,
+    screen: 'combat',
+    hero: { ...prodigyAuraline.hero, armor: 10, overdrive: 0, pendingUpcharge: 0 },
+    combat: {
+      ...auralineBase.combat!,
+      board: [{ ...upgradedReactorTile, isHeldFromPrevTurn: false }],
+    },
+  };
+  const reactorPrev = previewColorResolution(auralineReactorCombat, 'attack');
+  assert.equal(reactorPrev.dudCount, 1);
+  assert.equal(reactorPrev.armorGained, 3);
+  assert.equal(reactorPrev.upchargeGained, 2); // 1 from Prodigy + 1 from Auraline Reactor Core passive
+  assert.equal(reactorPrev.overdriveGained, 15); // +15% OD from Reactor Core
+  const afterReactorAtk = resolvePlayerColor(auralineReactorCombat, 'attack');
+  assert.equal(afterReactorAtk.hero.armor, 13);
+
+  // 4. Zuri Tri-Drone Sync: alternating colors fires primed drone (+4 Pierce DMG on ATK, +4 Shield on DEF, +3 HP on TECH)
+  const zuriBase = createInitialRun(703, 'zuri');
+  const zuriCombat: RunState = {
+    ...zuriBase,
+    hero: { ...zuriBase.hero, hp: 50, maxHp: 62, shield: 0 },
+    combat: {
+      ...zuriBase.combat!,
+      primedDrone: null,
+      board: [
+        makeTile('za1', 'attack', 4),
+        makeTile('zd1', 'defense', 7),
+        makeTile('zt1', 'tech', 0, false, { kind: 'damage_boost', percent: 36, decayPerTurn: 10 }),
+      ],
+      enemies: [{ ...zuriBase.combat!.enemies[0], hp: 30, armor: 10, shieldPips: 0 }],
+    },
+  };
+  // Step A: Resolve Attack -> primes Solar Hawk ('attack')
+  const afterZuriAtk = resolvePlayerColor(zuriCombat, 'attack');
+  assert.equal(afterZuriAtk.combat?.primedDrone, 'attack');
+  // Step B: On next turn, preview/resolve Defense while Solar Hawk ('attack') is primed -> +4 Pierce DMG fires alongside Defense!
+  const zuriTurn2: RunState = {
+    ...afterZuriAtk,
+    combat: {
+      ...afterZuriAtk.combat!,
+      phase: 'PLAYER_IDLE',
+    },
+  };
+  const zuriDefPrev = previewColorResolution(zuriTurn2, 'defense');
+  assert.equal(zuriDefPrev.droneSyncTriggered, 'attack');
+  assert.equal(zuriDefPrev.techPierceDamage, 4);
+  const afterZuriDef = resolvePlayerColor(zuriTurn2, 'defense');
+  assert.equal(afterZuriDef.combat?.primedDrone, 'defense');
+  // Step C: Resolve TECH while Aegis ('defense') is primed -> +4 bonus Shield fires alongside TECH!
+  const zuriTurn3: RunState = {
+    ...afterZuriDef,
+    combat: {
+      ...afterZuriDef.combat!,
+      phase: 'PLAYER_IDLE',
+    },
+  };
+  const zuriTechPrev = previewColorResolution(zuriTurn3, 'tech');
+  assert.equal(zuriTechPrev.droneSyncTriggered, 'defense');
+  assert.equal(zuriTechPrev.shieldGained, 4);
 });
 

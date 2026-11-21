@@ -162,6 +162,7 @@ export function rebuildMasterPool(
 
     let value = spec.value;
     let isDud = spec.isDud;
+    const isReactorCore = Boolean(spec.isReactorCore || spec.isDud);
     let upcharge = spec.upcharge;
     let techEffect = spec.techEffect ? { ...spec.techEffect } : undefined;
     let pierceBoost: boolean | undefined;
@@ -207,6 +208,7 @@ export function rebuildMasterPool(
       value,
       techEffect,
       isDud,
+      ...(isReactorCore ? { isReactorCore: true } : {}),
       upcharge,
       ...(pierceBoost ? { pierceBoost } : {}),
       ...(shieldAuraBonus ? { shieldAuraBonus } : {}),

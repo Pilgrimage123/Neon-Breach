@@ -98,7 +98,7 @@ export function simulatePlayerActionOnEnemies(
 
   const frontIdx = nextEnemies.findIndex((e) => e.hp > 0 && !e.escaped);
   if (preview.color === 'attack' && frontIdx !== -1) {
-    const pierce = preview.armorPiercing ? 0.3 : 0;
+    const pierce = preview.armorPiercing ? 0.4 : 0;
     const frontResult = applyHit(
       frontIdx,
       preview.totalDamage,

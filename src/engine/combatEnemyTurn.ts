@@ -1,3 +1,4 @@
+import { getHeroSpec } from './data';
 import { createSlagTile, rebuildMasterPool } from './poolBuilder';
 import {
   MAX_ACTIVE_BLIGHT_TILES,
@@ -43,6 +44,9 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
   const nextDiscardPile = combat.discardPile.map((t) => ({ ...t }));
   let nextTugOfWarMeter = combat.tugOfWarMeter;
   let nextCradleObjective = combat.cradleObjective ? { ...combat.cradleObjective } : undefined;
+  let nextBlitzCooldown = combat.blitzReflexCooldown ?? 0;
+  let nextEvasiveDodgeTriggered = combat.evasiveDodgeTriggeredThisRound ?? false;
+  const heroSpec = getHeroSpec(nextHero.characterId);
 
   const { intent, safeIndex } = getSafeEnemyIntent(enemy);
   const cycleLen = Math.max(1, enemy.intentCycle.length);
@@ -136,6 +140,18 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
     const hpDamage = abs.hpDamage;
     nextHero.hp = Math.max(0, nextHero.hp - hpDamage);
 
+    if (
+      (heroSpec.blitzReflexCooldownTurns ?? 0) > 0 &&
+      incoming > 0 &&
+      hpDamage === 0 &&
+      abs.blockedByArmor === 0 &&
+      abs.blockedByShield > 0 &&
+      !nextEvasiveDodgeTriggered
+    ) {
+      nextEvasiveDodgeTriggered = true;
+      nextBlitzCooldown = Math.max(0, nextBlitzCooldown - 1);
+    }
+
     if (hpDamage > 0 && nextTugOfWarMeter !== undefined) {
       nextTugOfWarMeter = Math.max(0, nextTugOfWarMeter - hpDamage * 3);
     }
@@ -174,7 +190,9 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
     if (intent.kind === 'acid') {
       nextHero.corrode += intent.secondaryValue ?? 2;
       let jammedTile = false;
-      if (hpDamage > 0 && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
+      const postShieldAcid = Math.max(0, incoming - abs.blockedByShield);
+      const unblockedAcidHit = hpDamage > Math.floor(postShieldAcid * 0.1);
+      if (unblockedAcidHit && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
         const jamIdx = nextBoard.findIndex((t) => !t.isJammed);
         if (jamIdx !== -1) {
           nextBoard[jamIdx] = { ...nextBoard[jamIdx], isJammed: true };
@@ -348,6 +366,8 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       director: directorReflectUpdate.director,
       tugOfWarMeter: nextTugOfWarMeter,
       cradleObjective: nextCradleObjective,
+      blitzReflexCooldown: nextBlitzCooldown,
+      evasiveDodgeTriggeredThisRound: nextEvasiveDodgeTriggered,
     },
     enemiesDefeated: run.enemiesDefeated + defeatedNow,
     score: run.score + reflectedDamage * 2 + rewardedKills * 50,
@@ -357,11 +377,19 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
 export function executeEnemyTurn(run: RunState): RunState {
   if (!run.combat) return run;
   const combat = run.combat;
-  if (combat.phase !== 'PLAYER_RESOLVED' && combat.phase !== 'ENEMY_ACTING') {
+  const canStepFromBlitzIdle =
+    combat.phase === 'PLAYER_IDLE' && Boolean(combat.blitzUsedThisRound);
+  if (
+    combat.phase !== 'PLAYER_RESOLVED' &&
+    combat.phase !== 'ENEMY_ACTING' &&
+    !canStepFromBlitzIdle
+  ) {
     return run;
   }
 
-  let current = run;
+  let current: RunState = canStepFromBlitzIdle
+    ? { ...run, combat: { ...combat, phase: 'PLAYER_RESOLVED' } }
+    : run;
   const accumulatedCues: AnimationCue[] = [];
   for (let i = 0; i < combat.enemies.length; i++) {
     if (

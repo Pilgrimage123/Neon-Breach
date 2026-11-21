@@ -10,9 +10,33 @@ A turn-based cyberpunk tactical puzzle roguelite where cybernetic heroes defend 
 A playable cybernetic protagonist leading a Run across the sky-bridge (Kira, Auraline, or Zuri; Czech: _Hrdinka_ / _Hrdinky_).
 _Avoid_: Operative, Heroine, Agent, Operativka
 
+**Kira**:
+The agile plasma striker Hero (`KIRA-09`) whose Attack resolutions trigger **Blitz Reflex** for a free bonus turn, backed by Held-tile Momentum, full-Shield **Evasive Dodge**, and her **Energy Dropkick** Overdrive.
+_Avoid_: Kira-9, Vanguard, Plasma Blitz
+
 **Auraline**:
-The armored juggernaut Hero (`AURALINE-07`) whose high persistent Armor and Dud-to-UpCharge engine convert malfunctions into extra tile draws.
+The armored juggernaut Hero (`AURALINE-07`) whose persistent Armor and Dud-to-UpCharge engine convert malfunctions (and upgraded **Reactor Core** tiles) into extra tile draws and Armor plating.
 _Avoid_: Aurelia
+
+**Zuri**:
+The solar swarm commander Hero (`ZURI-03`) whose high-capacity TECH Overdrive engine and **Tri-Drone Sync** fire autonomous drone support pulses whenever she alternates Tile colors.
+_Avoid_: Zuri-3, Swarm Queen
+
+**Blitz Reflex**:
+Kira's signature combat passive granting an immediate free bonus turn (with an instant Board refill) after resolving Attack tiles, subject to a short turn cooldown.
+_Avoid_: Extra Action, Double Turn, Phase Step
+
+**Evasive Dodge**:
+Kira's defensive reflex triggered when her Shield blocks an incoming Mutant attack completely (`0` HP damage), vaulting her clear and accelerating her **Blitz Reflex** cooldown.
+_Avoid_: Perfect Block, Parry
+
+**Reactor Core**:
+The innate origin tag on Auraline's starting Dud tiles that persists even after a Dud is upgraded at a Dynasty facility, continuing to trigger her UpCharge and Armor-restoration passive on resolution.
+_Avoid_: Upcycled Dud, Malfunction Tag
+
+**Tri-Drone Sync**:
+Zuri's signature command passive where resolving a Tile color primes the matching autonomous drone (Solar Hawk on Attack, Aegis Walker on Defense, Med-Rotor on TECH) so it fires a support pulse when she switches to a different color on the following Turn.
+_Avoid_: Drone Combo, Swarm Resonance
 
 **AI Skill Chip**:
 An installable software module equipping specialized Tactical Tiles into a Hero's Master Tile Pool up to her Memory limit.
@@ -95,8 +119,12 @@ The bonus payoff triggered when resolving `4+` matching-color Tiles in one Turn 
 _Avoid_: Combo, Chain
 
 **Overdrive**:
-The `100%`-charged Hero ultimate maneuver (`0 AP`, does not end the Turn) that deals Armor-piercing AoE damage plus signature Hero utility.
+The `100%`-charged Hero ultimate maneuver (`0 AP`, does not end the Turn) that unleashes signature Hero multi-target damage and tactical utility.
 _Avoid_: Ultimate, Limit Break
+
+**Energy Dropkick**:
+Kira's signature Overdrive that slams the frontline Mutant, knocks a surviving target backward one slot, blasts all Mutants with an energy shockwave, and projects a reflex Shield.
+_Avoid_: Plasma Blitz
 
 **UpCharge**:
 A Tile property (`⚡`) that banks `+1` extra Tile draw onto the next Turn's Board (capped at `9` total slots).
@@ -123,7 +151,7 @@ Temporary single-Turn damage mitigation gained from Defense Tiles and TECH effec
 _Avoid_: Block, Barrier, Aegis Shield
 
 **Armor**:
-Persistent damage mitigation (held by Auraline and armored Mutants) sitting beneath Shield that absorbs hits across Turns until shredded or broken.
+Persistent damage mitigation (held by Auraline and armored Mutants) sitting beneath Shield that absorbs `90%` of post-Shield damage across Turns (allowing `10%` to bleed through to HP) until shredded or broken.
 _Avoid_: Plating, Chitin, Mitigation
 
 **Corrode**:

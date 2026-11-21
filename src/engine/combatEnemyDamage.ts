@@ -50,7 +50,8 @@ export function applyDamageToEnemy(
   let nextArmor = breakArmorFirst ? 0 : enemy.armor;
   let nextHp = enemy.hp;
 
-  const piercingDmg = Math.floor(damage * pierceRatio);
+  const effectivePierceRatio = breakArmorFirst ? 0 : Math.max(0.1, pierceRatio);
+  const piercingDmg = Math.floor(damage * effectivePierceRatio);
   const regularDmg = damage - piercingDmg;
 
   const absorbed = Math.min(nextArmor, regularDmg);
@@ -127,7 +128,8 @@ export function triggerVolatileBursts(
 
     for (let i = 0; i < nextEnemies.length; i++) {
       if (nextEnemies[i].id === sourceId || nextEnemies[i].hp <= 0 || nextEnemies[i].escaped) continue;
-      const burstRes = applyDamageToEnemy(nextEnemies[i], burstDmg, 1.0, false);
+      const burstPierce = isPlasmaBarrel ? 0 : 1.0;
+      const burstRes = applyDamageToEnemy(nextEnemies[i], burstDmg, burstPierce, false);
       nextEnemies[i] = burstRes.enemy;
       extraDamageDealt += burstRes.effectiveDamageDealt;
       if (cues) {

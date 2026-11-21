@@ -90,7 +90,7 @@ test('computeEnemyArmorPreview handles partial absorb, full absorb, armor break,
   assert.equal(surgeBreak.previewHpLoss, 18);
   assert.equal(surgeBreak.projectedHp, 12);
 
-  // Phase-Blade 30% armor pierce: 10 raw damage -> 3 piercing, 7 regular vs 8 armor -> 3 HP loss, 1 armor remaining
+  // Phase-Blade 40% armor pierce: 10 raw damage -> 4 piercing, 6 regular vs 8 armor -> 4 HP loss, 2 armor remaining
   const pierce = computeEnemyArmorPreview(
     brute,
     0,
@@ -98,10 +98,10 @@ test('computeEnemyArmorPreview handles partial absorb, full absorb, armor break,
     makePreview({ totalDamage: 10, armorPiercing: true }),
   );
   assert.equal(pierce.willBreakArmor, false);
-  assert.equal(pierce.armorAbsorbed, 7);
-  assert.equal(pierce.remainingArmor, 1);
-  assert.equal(pierce.previewHpLoss, 3);
-  assert.equal(pierce.projectedHp, 27);
+  assert.equal(pierce.armorAbsorbed, 6);
+  assert.equal(pierce.remainingArmor, 2);
+  assert.equal(pierce.previewHpLoss, 4);
+  assert.equal(pierce.projectedHp, 26);
 
   // Backline enemy gets cleaveDamage instead of totalDamage and is not broken by front surge
   const backline = makeEnemy({ id: 'enemy-2', hp: 10, maxHp: 10, armor: 4 });

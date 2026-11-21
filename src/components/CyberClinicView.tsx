@@ -67,9 +67,7 @@ export function CyberClinicView({
 
   const eligibleStorkTiles = useMemo(
     () =>
-      run.masterPool.filter(
-        (tile) => !tile.isDud && isTileEligibleForStork(tile, run.hero),
-      ),
+      run.masterPool.filter((tile) => isTileEligibleForStork(tile, run.hero)),
     [run.masterPool, run.hero],
   );
 

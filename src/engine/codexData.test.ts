@@ -17,9 +17,9 @@ test('getHeroCodexProfile mirrors HERO_SPECS, innate tiles, and starting chips a
     CharacterId,
     { atk: number; def: number; tech: number; memory: number }
   > = {
-    kira: { atk: 3, def: 2, tech: 4, memory: 3 },
+    kira: { atk: 4, def: 3, tech: 2, memory: 3 },
     auraline: { atk: 4, def: 3, tech: 2, memory: 4 },
-    zuri: { atk: 3, def: 3, tech: 3, memory: 4 },
+    zuri: { atk: 3, def: 2, tech: 4, memory: 4 },
   };
 
   for (const charId of ['kira', 'auraline', 'zuri'] as const) {

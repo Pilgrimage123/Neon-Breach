@@ -240,6 +240,12 @@ export function computeOptimalTurnHint(
         reasonsCs.push(`spustí ${preview.tileCount}× Přetížení (${surgeThreshold}+)`);
       }
 
+      if (preview.freeTurnTriggered) {
+        score += 35;
+        reasonsEn.push('grants a FREE bonus turn (Blitz Reflex)');
+        reasonsCs.push('přidá TAH ZDARMA (Bleskový reflex)');
+      }
+
       score +=
         preview.totalDamage * 2.4 +
         preview.cleaveDamage * 2.2 +
@@ -247,6 +253,8 @@ export function computeOptimalTurnHint(
         preview.healAmount * 3.0 +
         preview.damageBoostAddedPct * 0.45 +
         preview.armorShredAmount * 3.2 +
+        preview.techPierceDamage * 2.5 +
+        (preview.armorGained ?? 0) * 2.8 +
         (preview.upchargeGained ?? 0) * 9 +
         (preview.blightPurgeCount ?? 0) * 14;
 

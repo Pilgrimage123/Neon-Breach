@@ -40,45 +40,45 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
   tacticalTipLabel: 'Taktický tip',
   heroes: {
     kira: {
-      roleTag: 'TECH-Přetížení · Nárazové kombo',
+      roleTag: 'Bleskový reflex · Úhybná útočnice',
       playstyleLead:
-        'Rychlá kyber-duelistka zaměřená na držení dílků Útoku a Obrany přes tahy, skládání silného TECH posílení útoku a časté spouštění Plazmového výpadu.',
+        'Rychlá kyber-duelistka zaměřená na řetězení tahu zdarma po aktivaci Útoku (Bleskový reflex), zkracování přebíjení plným vykrytím úderu do Štítu (Úhybný skok) a bonus +1 pro držené dílky.',
       passivePowers: [
         {
+          name: 'Bleskový reflex (Tah zdarma)',
+          badge: 'Útok → +1 Tah zdarma (2T CD)',
+          description:
+            'Aktivace dílků Útoku, když je Bleskový reflex připraven, okamžitě doplní desku a poskytne tah zdarma ještě před akcí mutantů (přebíjení 2 tahy).',
+        },
+        {
+          name: 'Úhybný skok',
+          badge: 'Plné krytí Štítem → -1 CD',
+          description:
+            'Plné vykrytí útoku mutanta pomocí Štítu (0 ztráty Zdraví) spustí akrobatický úhyb, který zkrátí přebíjení Bleskového reflexu o -1 tah.',
+        },
+        {
           name: 'Hybnost držených dílků',
-          badge: '+1 ATK / DEF Držené',
+          badge: '+1 ATK / DEF Držené · +10 % OD/ATK',
           description:
-            'Každý dílek Útoku či Obrany ponechaný na desce z minulého tahu (označený DRŽENO) získá tento tah +1 k základní hodnotě. Sčítá se s kyber-implantátem Monovláknové ostří (+2).',
-        },
-        {
-          name: 'Synaptický Overdrive motor',
-          badge: '+20 % OD za TECH',
-          description:
-            'Aktivace dílků TECH dobíjí +20 % Overdrive za každý dílek (oproti +4 % za Útok/Obranu), což umožňuje časté řetězení Overdrive.',
-        },
-        {
-          name: 'Ofenzivní zaměření (0 přenos)',
-          badge: '0 přenos · 0 protiúder',
-          description:
-            'Nepřenáší Štít mezi tahy bez Kondenzátoru Aegis — sází na včasnou likvidaci mutantů nebo silné obranné sady.',
+            'Každý dílek Útoku či Obrany ponechaný na desce z minulého tahu (nebo z Bleskového reflexu) získá +1 k hodnotě a dílky Útoku nabíjejí +10 % Overdrive.',
         },
       ],
       overdriveRule:
-        'Dostupné při 100 % Overdrive [Mezerník]. Plazmový výpad vynuluje Overdrive na 0 %, okamžitě zasáhne VŠECHNY živé mutanty a nechá tě v tahu, takže hned můžeš aktivovat i barvu dílků.',
+        'Dostupné při 100 % Overdrive [Mezerník]. Energetický dropkick vynuluje Overdrive na 0 %, zasáhne předního mutanta a odkopne ho dozadu, pošle tlakovou vlnu přes VŠECHNY mutanty a nechá tě v tahu.',
       overdriveBreakdown: [
-        'Udělí 20 průrazného DMG VŠEM živým mutantům (ignoruje Brnění; pohltí jej jen aktivní Aegis Pip).',
-        'Okamžitě přidá +30 % posílení útoku (zesílí útočnou sadu zahranou ještě v témže tahu).',
-        'Přidá +6 Štítu na vykrytí příchozích úderů.',
+        'Udělí 14 DMG přednímu mutantovi a přeživší cíl odkopne o 1 pozici dozadu.',
+        'Odpálí tlakovou vlnu za 10 DMG do VŠECH živých mutantů (včetně předního cíle — celkem 24 DMG do čela!).',
+        'Přidá +8 Štítu na vykrytí příchozích úderů.',
       ],
       synergies:
-        'Monovláknové ostří (+2 pro držené Útoky), Rezonátor přetížení (Přetížení už od 3 dílků), Fluxový injektor (+10 % OD navíc za TECH) a Fázový emitor čepele (30 % průraz).',
+        'Monovláknové ostří (+2 pro držené Útoky), Rezonátor přetížení (Přetížení už od 3 dílků), Kondenzátor Aegis (50 % přenos Štítu pro Úhybný skok) a Fázový emitor čepele (30 % průraz).',
       tacticalLoop:
-        '1. tah: Aktivuj TECH (+42 % posílení útoku a +20 % OD/dílek) a podrž dílky Útoku pro bonus +1. 2. tah: Spusť Plazmový výpad (+30 % DMG) a doraž vlnu posíleným Přetížením Útoku.',
+        '1. tah: Aktivuj Útok pro spuštění Bleskového reflexu (tah zdarma + okamžité doplnění desky), v tahu zdarma aktivuj Obranu (+1 za držení) pro plné krytí a Úhybným skokem zkrať přebíjení o -1 tah!',
     },
     auraline: {
-      roleTag: 'Obrněný kolos · Kotva s Nabitím',
+      roleTag: 'Obrněný kolos · Jádro reaktoru',
       playstyleLead:
-        'Těžká frontová hrdinka se 78 Max HP, 18 body stálého Brnění na startu každého boje a 14 RAM pro AI čipy dovedností. Začíná s 1 Slepým dílkem v každé barvě a každý aktivovaný jí dodá +1 Nabití.',
+        'Těžká frontová hrdinka se 78 Max HP, 18 body stálého Brnění na startu každého boje a 14 RAM. Začíná s 1 Slepým dílkem Jádra reaktoru v každé barvě a každý aktivovaný jí dodá +1 Nabití, +3 Brnění a +15 % Overdrive.',
       passivePowers: [
         {
           name: 'Brnění kolosu',
@@ -87,10 +87,10 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
             'Každý boj začíná s 18 body stálého Brnění pod Štítem (DMG → Štít → Brnění → HP), které neubývá na konci tahu a nepodléhá Korozi.',
         },
         {
-          name: 'Přetaktování slepých dílků',
-          badge: '+1 Nabití za Slepý',
+          name: 'Jádro reaktoru (Nabití a Brnění)',
+          badge: '+1 UC · +3 BRN · +15 % OD',
           description:
-            'Začíná se 3 Slepými dílky (1 Útok, 1 Obrana, 1 TECH). Každý aktivovaný Slepý dílek dá +1 Nabití (+1 dílek navíc na desce v příštím tahu), takže rychle točí zásobník bez nutnosti čistky.',
+            'Začíná se 3 Slepými dílky Jádra reaktoru (1 Útok, 1 Obrana, 1 TECH). Aktivace jakéhokoli dílku Jádra reaktoru — i po jeho vylepšení v Akademii, Čapích jeslích nebo FabLabu — přidá +1 Nabití, +3 stálého Brnění a +15 % Overdrive.',
         },
         {
           name: 'Vysoká paměť čipů',
@@ -107,32 +107,32 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Přidá +2 Nabití (+2 dílky na desku v příštím tahu).',
       ],
       synergies:
-        'Plazmový zesilovač a Nanovláknová zbroj (promění nulové Slepé dílky v +2 ATK/+2 DEF), Synaptické přetaktování (+3 Štít za TECH Slepý), Rezonátor přetížení a Smyčka tempa.AI.',
+        'Akademie a Čapí jesle (promění nulové Slepé dílky v silné aktivní dílky se zachováním bonusu Jádra reaktoru +1 UC / +3 Brnění), Plazmový zesilovač, Nanovláknová zbroj a Rezonátor přetížení.',
       tacticalLoop:
-        'Nech 18 Brnění pohltit úvodní údery, toč Slepé dílky do +1 Nabití, skládej s nimi Přetížení a odpaluj Královskou salvu (+10 Brnění, +2 Nabití) před klíčovými tahy.',
+        'Nech 18 Brnění pohltit úvodní údery, toč dílky Jádra reaktoru pro +1 Nabití a +3 Brnění, vylepši je v dynastických zařízeních a odpaluj Královskou salvu (+10 Brnění, +2 Nabití).',
     },
     zuri: {
-      roleTag: 'Specialistka na drcení brnění · TECH',
+      roleTag: 'Tri-Dron taktička · TECH specialistka',
       playstyleLead:
-        'Létající hrdinka a velitelka solárního roje zaměřená na plošné Drcení brnění, hybridní taktický štít a nejrychlejší nabíjení Overdrive — bez bonusu za držení a bez Přetížení v 1. tahu.',
+        'Létající velitelka solárního roje, která střídáním barev dílků odpaluje synchronizované pulzy tří dronů (+4 Průraz DMG, +4 Štít nebo +3 HP) a nejrychleji nabíjí TECH Overdrive (+25 %/dílek).',
       passivePowers: [
+        {
+          name: 'Synchronizace tří dronů',
+          badge: 'Jestřáb +4⚔ · Aegis +4🛡 · Med-Rotor +3💚',
+          description:
+            'Aktivace barvy nabije odpovídající dron (Útok = Solární jestřáb +4 Průraz DMG; Obrana = Chodec Aegis +4 Štít; TECH = Med-Rotor +3 HP). Přepnutí na jinou barvu v dalším tahu odpálí nabitý dron společně s novou akcí!',
+        },
         {
           name: 'Solární uplink kondenzátoru',
           badge: '+25 % OD za TECH',
           description:
-            'Aktivace dílků TECH dodá +25 % Overdrive za každý dílek — nejrychlejší nabíjení Overdrive ze všech hrdinek.',
+            'Začíná se 4 TECH dílky v 9dílném zásobníku a získává +25 % Overdrive za každý aktivovaný TECH dílek — nejrychlejší nabíjení ze všech hrdinek.',
         },
         {
-          name: 'Vrozené jádro drcení brnění',
-          badge: '-8 BRN všem · 3 Průraz',
+          name: 'Vrozené drcení brnění a taktický štít',
+          badge: '-8 BRN všem · +4 Štít / +24 % DMG',
           description:
-            'Zuri nese vrozený TECH dílek, který strhne 8 Brnění VŠEM mutantům a přednímu cíli udělí 3 přímého průrazného DMG.',
-        },
-        {
-          name: 'Hybridní taktický štít',
-          badge: '+4 Štít · +24 % DMG',
-          description:
-            'Druhý jádrový TECH dílek přidá +4 Štítu i +24 % posílení útoku najednou, propojuje obranu s přípravou útoku a nabíjí +25 % OD.',
+            'Nese vrozené TECH dílky pro plošné stržení -8 Brnění VŠEM mutantům (+3 Průraz DMG) a +4 Štítu s +24 % posílením útoku.',
         },
       ],
       overdriveRule:
@@ -143,9 +143,9 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Očistí -2 Koroze z tvé hrdinky.',
       ],
       synergies:
-        'Synaptické přetaktování (+3 Štít za TECH dílek), Rezonátor přetížení (odemkne 3dílná Přetížení na rozložení 3/3/3), Fluxový injektor (+35 % OD za TECH!) a Lamač pancíře.AI.',
+        'Rodový erb (spárování dvou barev zdvojnásobí odměnu za střídání barev s Tri-Dron Sync!), Synaptické přetaktování (+3 Štít za TECH), Fluxový injektor (+35 % OD za TECH!) a Lamač pancíře.AI.',
       tacticalLoop:
-        'Počítej s rozložením 3/3/3 (žádné Přetížení v 1. tahu bez dalších čipů): toč vrozené TECH dílky pro drcení Brnění a +4 Štít/+24 % DMG, nabíjej +25 % OD a spusť Protokol Solární roj (-12 BRN + 16 Průraz) těsně před Útokem.',
+        'Střídej barvy dílků v každém tahu (např. TECH → Útok → Obrana), aby tvůj nabitý dron pálil v každé akci (+3 HP, +4 Průraz DMG, +4 Štít) a rychle nabíjej Protokol Solární roj.',
     },
   },
   glossary: {
@@ -274,10 +274,10 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: '0 AP manévr',
       summary: '100% nabitý speciální manévr hrdinky (0 AP, neukončí tah), který udělí plošné průrazné poškození a unikátní efekt.',
       mechanics:
-        'Útok a Obrana dávají +4 % OD za dílek. TECH dává +20 % (Kira), +15 % (Auraline) nebo +25 % (Zuri), plus +10 % s Fluxovým injektorem a +15 % při Přetížení TECH. Spuštění Overdrive vynuluje OD, zasáhne VŠECHNY mutanty průrazně, očistí desku od Bloku/Kletby/Strusky a NEUKONČÍ tah.',
+        'Kira nabíjí +10 % OD za Útok (+4 % DEF / +12 % TECH). Auraline nabíjí +15 % OD za Slepý dílek Jádra reaktoru či TECH (+5 % ATK/DEF). Zuri nabíjí +25 % OD za TECH (+4 % ATK/DEF). Spuštění Overdrive vynuluje OD, zasáhne VŠECHNY mutanty průrazně, očistí desku od Bloku/Kletby/Strusky a NEUKONČÍ tah.',
       tacticalTip:
-        'Spusť Overdrive Kiry (+30 % DMG) nebo Zuri (-12 BRN všem) PŘED aktivací Útoku ve stejném tahu!',
-      keywords: ['overdrive', 'od', 'mezerník', 'výpad', 'salva', 'roj'],
+        'Spusť Energetický dropkick Kiry (+30 % DMG) nebo Protokol Solární roj Zuri (-12 BRN všem) PŘED aktivací Útoku ve stejném tahu!',
+      keywords: ['overdrive', 'od', 'mezerník', 'dropkick', 'salva', 'roj'],
     },
     corrode: {
       term: 'Koroze (KOR)',

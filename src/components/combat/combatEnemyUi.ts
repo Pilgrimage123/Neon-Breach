@@ -218,10 +218,13 @@ export function computeEnemyArmorPreview(
           enemy.armor > 0,
       );
       const pierceRatio =
-        activePreview.color === 'attack' && activePreview.armorPiercing ? 0.3 : 0;
+        activePreview.color === 'attack' && activePreview.armorPiercing ? 0.4 : 0;
+      const effectivePierce = willBreakArmor ? 0 : Math.max(0.1, pierceRatio);
       const effectiveArmor = willBreakArmor ? 0 : remainingArmor;
       const piercingDmg =
-        Math.floor(baseActionDmg * pierceRatio) + hotPotatoBonus + Math.floor(temptationBonus * 0.5);
+        Math.floor(baseActionDmg * effectivePierce) +
+        hotPotatoBonus +
+        Math.floor(temptationBonus * 0.5);
       const regularDmg = Math.max(0, baseAndOtherRaw - piercingDmg);
       const absorbed = Math.min(effectiveArmor, regularDmg);
       armorAbsorbed += absorbed;

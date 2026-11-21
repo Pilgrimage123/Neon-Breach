@@ -1,8 +1,10 @@
 import {
+  BOARD_CAPACITY,
   MAX_OVERCLOCK_STACKS,
   MAX_UPCHARGE_BOARD_CAPACITY,
   getHeroSpec,
 } from './data';
+import { drawToSix } from './combatBoardOps';
 import { createSlagTile, rebuildMasterPool } from './poolBuilder';
 import {
   HEX_ARMOR_AMOUNT,
@@ -81,6 +83,9 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
   if ((preview.upchargeGained ?? 0) > 0) {
     nextHero.pendingUpcharge = (nextHero.pendingUpcharge ?? 0) + (preview.upchargeGained ?? 0);
   }
+  if ((preview.armorGained ?? 0) > 0) {
+    nextHero.armor = (nextHero.armor ?? 0) + (preview.armorGained ?? 0);
+  }
   const cues: AnimationCue[] = [];
 
   if (contagionDiscardedTiles.length > 0) {
@@ -107,10 +112,16 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     if (preview.damageBoostAddedPct > 0) {
       nextHero.damageBoostPct += preview.damageBoostAddedPct;
     }
+    if (preview.healAmount > 0) {
+      nextHero.hp = Math.min(nextHero.maxHp, nextHero.hp + preview.healAmount);
+    }
   } else if (color === 'defense') {
     nextHero.shield += preview.shieldGained;
     if (preview.damageBoostAddedPct > 0) {
       nextHero.damageBoostPct += preview.damageBoostAddedPct;
+    }
+    if (preview.healAmount > 0) {
+      nextHero.hp = Math.min(nextHero.maxHp, nextHero.hp + preview.healAmount);
     }
     cues.push({
       id: `cue_${combat.turn}_def`,
@@ -330,12 +341,50 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     };
   }
 
+  const heroSpec = getHeroSpec(nextHero.characterId);
+  const nextPrimedDrone: TileType | null = heroSpec.triDroneSync
+    ? color
+    : (combat.primedDrone ?? null);
+
+  let finalBoard = keptTiles;
+  let finalDrawPile = combat.drawPile.map((t) => ({ ...t }));
+  let finalDiscardPile = nextDiscard;
+  let nextPhase: CombatState['phase'] = anyLivingEnemy ? 'PLAYER_RESOLVED' : 'VICTORY';
+  let nextBlitzCooldown = combat.blitzReflexCooldown ?? 0;
+  let nextBlitzUsedThisRound = combat.blitzUsedThisRound ?? false;
+
+  if (anyLivingEnemy && preview.freeTurnTriggered) {
+    const heldBoard = keptTiles.map((t) => ({
+      ...t,
+      isHeldFromPrevTurn: true,
+      isHotPotato: undefined,
+    }));
+    const drawTarget = BOARD_CAPACITY + Math.max(0, nextHero.pendingUpcharge ?? 0);
+    const priorDiscard = combat.discardPile.map((t) => ({ ...t }));
+    const drawn = drawToSix(
+      heldBoard,
+      finalDrawPile,
+      priorDiscard,
+      run.seed,
+      combat.turn * 10 + 1,
+      drawTarget,
+    );
+    nextHero.pendingUpcharge = 0;
+    finalBoard = clearDeadCasterHexes(drawn.board, nextEnemies);
+    finalDrawPile = drawn.drawPile;
+    const newlyDiscardedThisAction = nextDiscard.slice(combat.discardPile.length);
+    finalDiscardPile = [...drawn.discardPile, ...newlyDiscardedThisAction];
+    nextPhase = 'PLAYER_IDLE';
+    nextBlitzCooldown = heroSpec.blitzReflexCooldownTurns ?? 2;
+    nextBlitzUsedThisRound = true;
+  }
+
   const updatedCombat: CombatState = {
     ...combat,
-    phase: anyLivingEnemy ? 'PLAYER_RESOLVED' : 'VICTORY',
-    board: keptTiles,
-    drawPile: combat.drawPile.map((t) => ({ ...t })),
-    discardPile: nextDiscard,
+    phase: nextPhase,
+    board: finalBoard,
+    drawPile: finalDrawPile,
+    discardPile: finalDiscardPile,
     enemies: nextEnemies,
     lastCues: cues,
     totalDamageDealt,
@@ -348,6 +397,9 @@ export function resolvePlayerColor(run: RunState, color: TileType): RunState {
     mercyBonusAwarded: mercy.mercyBonusAwarded,
     lootBountyAwarded: (combat.lootBountyAwarded ?? 0) + lootBountyEarnedNow,
     bloodlineResonanceActive: nextBloodlineResonance,
+    blitzReflexCooldown: nextBlitzCooldown,
+    blitzUsedThisRound: nextBlitzUsedThisRound,
+    primedDrone: nextPrimedDrone,
   };
 
   const transition = !anyLivingEnemy
@@ -386,15 +438,70 @@ export function executeOverdrive(run: RunState): RunState {
   let totalDamageDealt = combat.totalDamageDealt;
   const newlyDefeatedIds: string[] = [];
   const cues: AnimationCue[] = [
-    { id: `cue_${combat.turn}_od`, kind: 'hero_overdrive', value: odSpec.damage, surge: true },
+    {
+      id: `cue_${combat.turn}_od`,
+      kind: 'hero_overdrive',
+      value: (odSpec.frontKickDamage ?? 0) + odSpec.damage,
+      surge: true,
+    },
   ];
 
+  let nextEnemies = combat.enemies.map((enemy) => ({ ...enemy }));
+
+  // Step 1: Frontline Dropkick Impact + Knockback Swap (Kira's Energy Dropkick)
+  if ((odSpec.frontKickDamage ?? 0) > 0) {
+    const frontIdx = nextEnemies.findIndex(
+      (e) => e.hp > 0 && !e.escaped && !e.isMercyTarget,
+    );
+    if (frontIdx !== -1) {
+      const frontEnemy = nextEnemies[frontIdx];
+      const kickRes = applyDamageToEnemy(
+        frontEnemy,
+        odSpec.frontKickDamage!,
+        0,
+        false,
+      );
+      nextEnemies[frontIdx] = kickRes.enemy;
+      totalDamageDealt += kickRes.effectiveDamageDealt;
+      if (kickRes.phaseGateHit) {
+        cues.push({
+          id: `cue_${combat.turn}_od_kick_phase_${frontEnemy.id}`,
+          kind: 'enemy_phase_gate',
+          targetId: frontEnemy.id,
+          value: PHASE_GATE_ARMOR_BONUS,
+        });
+      }
+      if (kickRes.defeated) {
+        defeatedNow++;
+        newlyDefeatedIds.push(frontEnemy.id);
+        cues.push({
+          id: `cue_${combat.turn}_od_kick_ko_${frontEnemy.id}`,
+          kind: 'enemy_ko',
+          targetId: frontEnemy.id,
+        });
+      } else if (odSpec.knockbackFront) {
+        const livingIndices: number[] = [];
+        nextEnemies.forEach((e, idx) => {
+          if (e.hp > 0 && !e.escaped && !e.isMercyTarget) livingIndices.push(idx);
+        });
+        if (livingIndices.length >= 2) {
+          const idxA = livingIndices[0];
+          const idxB = livingIndices[1];
+          const temp = nextEnemies[idxA];
+          nextEnemies[idxA] = nextEnemies[idxB];
+          nextEnemies[idxB] = temp;
+        }
+      }
+    }
+  }
+
+  // Step 2: All-Enemy Shockwave / AoE Bombardment
   const armorShred = odSpec.armorShred ?? 0;
-  let nextEnemies = combat.enemies.map((enemy) => {
+  nextEnemies = nextEnemies.map((enemy) => {
     if (enemy.hp <= 0 || enemy.escaped || enemy.isMercyTarget) return { ...enemy };
     const preppedEnemy =
       armorShred > 0 ? { ...enemy, armor: Math.max(0, enemy.armor - armorShred) } : enemy;
-    const res = applyDamageToEnemy(preppedEnemy, odSpec.damage, 1.0, false);
+    const res = applyDamageToEnemy(preppedEnemy, odSpec.damage, 0, false);
     totalDamageDealt += res.effectiveDamageDealt;
     if (res.phaseGateHit) {
       cues.push({

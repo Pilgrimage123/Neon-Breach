@@ -27,6 +27,10 @@ import type {
   TurnPreview,
 } from './types';
 
+export function isReactorCoreTile(tile: Pick<Tile, 'isDud' | 'isReactorCore'>): boolean {
+  return Boolean(tile.isDud || tile.isReactorCore);
+}
+
 export function getEffectiveTileValue(
   tile: Pick<Tile, 'type' | 'value' | 'isHeldFromPrevTurn' | 'isBlight'>,
   hero: Pick<HeroState, 'characterId' | 'implants' | 'bloodlineCrest'>,
@@ -97,6 +101,9 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     pustuleRuptureCorrode: 0,
     upchargeGained: 0,
     dudCount: 0,
+    armorGained: 0,
+    freeTurnTriggered: false,
+    droneSyncTriggered: null,
   };
 
   if (!combat) {
@@ -126,7 +133,42 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
 
   const stayCount = Math.max(0, combat.board.length - matching.length - contagionDiscardedCount);
   const surgeTriggered = cleanMatching.length >= surgeThreshold;
-  const dudCount = cleanMatching.filter((t) => Boolean(t.isDud)).length;
+  const dudCount = cleanMatching.filter((t) => isReactorCoreTile(t)).length;
+  const armorGained = dudCount * (heroSpec.dudArmorPerTile ?? 0);
+  const freeTurnTriggered =
+    color === 'attack' &&
+    cleanMatching.length > 0 &&
+    (heroSpec.blitzReflexCooldownTurns ?? 0) > 0 &&
+    (combat.blitzReflexCooldown ?? 0) === 0;
+  const droneSyncTriggered: TileType | null =
+    heroSpec.triDroneSync &&
+    combat.primedDrone &&
+    combat.primedDrone !== color &&
+    cleanMatching.length > 0
+      ? combat.primedDrone
+      : null;
+  const dronePierceBonus =
+    droneSyncTriggered === 'attack' ? (heroSpec.triDroneSync?.attackPierceDamage ?? 0) : 0;
+  const droneShieldBonus =
+    droneSyncTriggered === 'defense' ? (heroSpec.triDroneSync?.defenseShield ?? 0) : 0;
+  const droneHealBonus =
+    droneSyncTriggered === 'tech' ? (heroSpec.triDroneSync?.techHeal ?? 0) : 0;
+
+  const computeBaseOverdriveFromTiles = (): number => {
+    let sum = 0;
+    for (const t of cleanMatching) {
+      if (isReactorCoreTile(t) && (heroSpec.dudOverdrivePerTile ?? 0) > 0) {
+        sum += heroSpec.dudOverdrivePerTile;
+      } else if (color === 'attack') {
+        sum += heroSpec.attackOverdrivePerTile;
+      } else if (color === 'defense') {
+        sum += heroSpec.defenseOverdrivePerTile;
+      } else {
+        sum += heroSpec.techOverdrivePerTile;
+      }
+    }
+    return sum;
+  };
   const isBloodlineResonant =
     Boolean(run.hero.bloodlineCrest) && combat.bloodlineResonanceActive === color;
   const upchargeGained =
@@ -204,14 +246,14 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       if (surgeTriggered) return 0;
       const front = combat.enemies.find((e) => e.hp > 0 && !e.escaped);
       if (!front || front.passive !== 'spike_retaliate') return 0;
-      const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.3 : 0, false);
+      const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.4 : 0, false);
       return simHit.defeated ? 0 : 3;
     })();
     const pustuleRuptureCorrode = (() => {
       if (surgeTriggered || totalDamage <= 0) return 0;
       const front = combat.enemies.find((e) => e.hp > 0 && !e.escaped);
       if (!front || front.passive !== 'acid_jam' || front.propKind) return 0;
-      const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.3 : 0, false);
+      const simHit = applyDamageToEnemy(front, totalDamage, armorPiercing ? 0.4 : 0, false);
       return simHit.defeated ? 0 : PUSTULE_RUPTURE_CORRODE;
     })();
     return withSurvivingHexBonuses({
@@ -223,21 +265,24 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       totalDamage,
       cleaveDamage,
       armorPiercing,
-      shieldGained: hybridShieldBonus + storkShieldBonus,
+      shieldGained: hybridShieldBonus + storkShieldBonus + droneShieldBonus,
       damageBoostAddedPct: hybridBoostPct,
-      healAmount: 0,
-      overdriveGained: cleanMatching.length * 4,
+      healAmount: droneHealBonus,
+      overdriveGained: computeBaseOverdriveFromTiles(),
       surgeTriggered,
       surgeThreshold,
       reflectOnBlock: 0,
       armorShredAmount: 0,
-      techPierceDamage: 0,
+      techPierceDamage: dronePierceBonus,
       cleanseCorrodeAmount: 0,
       retaliateDamage,
       pustuleRuptureCorrode,
       blightPurgeCount,
       upchargeGained,
       dudCount,
+      armorGained,
+      freeTurnTriggered,
+      droneSyncTriggered,
     });
   }
 
@@ -262,7 +307,8 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     }
     const magneticBonus =
       combat.battlefieldRule === 'magnetic_surge' && cleanMatching.length > 0 ? 2 : 0;
-    const shieldGained = Math.max(0, rawShield - run.hero.corrode) + magneticBonus + storkShieldBonus;
+    const shieldGained =
+      Math.max(0, rawShield - run.hero.corrode) + magneticBonus + storkShieldBonus + droneShieldBonus;
     const surgeReflect = surgeTriggered ? 8 : 0;
     return withSurvivingHexBonuses({
       color,
@@ -275,28 +321,31 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
       armorPiercing: storkPierceBoost,
       shieldGained,
       damageBoostAddedPct: hybridBoostPct,
-      healAmount: 0,
-      overdriveGained: cleanMatching.length * 4,
+      healAmount: droneHealBonus,
+      overdriveGained: computeBaseOverdriveFromTiles(),
       surgeTriggered,
       surgeThreshold,
       reflectOnBlock: surgeReflect,
       armorShredAmount: 0,
-      techPierceDamage: hybridPierceDamage,
+      techPierceDamage: hybridPierceDamage + dronePierceBonus,
       cleanseCorrodeAmount: 0,
       retaliateDamage: 0,
       blightPurgeCount,
       upchargeGained,
       dudCount,
+      armorGained,
+      freeTurnTriggered,
+      droneSyncTriggered,
     });
   }
 
   let damageBoostAddedPct = isBloodlineResonant && cleanMatching.length > 0 ? 15 : 0;
-  let healAmount = 0;
+  let healAmount = droneHealBonus;
   let armorShredAmount = 0;
-  let techPierceDamage = 0;
+  let techPierceDamage = dronePierceBonus;
   let bonusOverdrive = 0;
   let cleanseCorrodeAmount = 0;
-  let techShieldFromTiles = 0;
+  let techShieldFromTiles = droneShieldBonus;
 
   for (const tile of cleanMatching) {
     const eff = tile.techEffect;
@@ -323,7 +372,7 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     }
   }
 
-  let overdriveGained = cleanMatching.length * heroSpec.techOverdrivePerTile + bonusOverdrive;
+  let overdriveGained = computeBaseOverdriveFromTiles() + bonusOverdrive;
   if (cleanMatching.length > 0 && hasImplant(implants, 'flux_injector')) {
     overdriveGained += 10;
   }
@@ -357,6 +406,9 @@ export function previewColorResolution(run: RunState, color: TileType): TurnPrev
     blightPurgeCount,
     upchargeGained,
     dudCount,
+    armorGained,
+    freeTurnTriggered,
+    droneSyncTriggered,
   });
 }
 
@@ -435,7 +487,9 @@ export function previewHeroThreat(
   }
 
   let simShield = shieldAfterPlayer;
-  const armorAfterPlayer = hero.armor ?? 0;
+  const armorAfterPlayer =
+    (hero.armor ?? 0) +
+    (activePreview && activePreview.tileCount > 0 ? (activePreview.armorGained ?? 0) : 0);
   let simArmor = armorAfterPlayer;
   let rawIncomingDamage = 0;
   let blockedDamage = 0;
@@ -499,7 +553,9 @@ export function previewHeroThreat(
       nonRetHpDamage += hpDmg;
       if (intent.kind === 'acid') {
         corrodeGained += intent.secondaryValue ?? 2;
-        if (hpDmg > 0 && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
+        const postShieldAcid = Math.max(0, incoming - abs.blockedByShield);
+        const unblockedAcidHit = hpDmg > Math.floor(postShieldAcid * 0.1);
+        if (unblockedAcidHit && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
           willJamTile = true;
         }
       } else if (intent.corrodeAmount && intent.corrodeAmount > 0) {

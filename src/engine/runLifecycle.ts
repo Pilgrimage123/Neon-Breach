@@ -445,7 +445,9 @@ export function createInitialRun(
 
   const inherited = inheritHeirloom ? loadBestRecord().inheritedHeirloom : null;
   const starterHeirloomId = inherited
-    ? startingChips.ownedChips[0]?.defId ?? inherited.defId
+    ? startingChips.ownedChips.find((c) => c.defId === inherited.defId)?.defId ??
+      startingChips.ownedChips[0]?.defId ??
+      inherited.defId
     : null;
   const starterHeirloomStacks = inherited
     ? Math.min(MAX_HEIRLOOM_STACKS, Math.max(1, inherited.bonusStacks))

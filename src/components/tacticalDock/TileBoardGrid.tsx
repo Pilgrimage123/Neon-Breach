@@ -107,6 +107,7 @@ export function TileBoardGrid({
           const isJammed = Boolean(tile.isJammed);
           const isBlight = Boolean(tile.isBlight);
           const isDud = Boolean(tile.isDud);
+          const isReactorCore = Boolean(tile.isDud || tile.isReactorCore);
           const hasUpcharge = (tile.upcharge ?? 0) > 0;
           const isHexed = Boolean(
             tile.hexedByEnemyId &&
@@ -116,7 +117,11 @@ export function TileBoardGrid({
           const isDimmed = isJammed || (activeColor !== null && activeColor !== tile.type);
           const theme = TILE_THEME[tile.type];
           const pip = getTileCornerPip(tile.type);
-          const effective = getEffectiveTileValue(tile, run.hero);
+          const effective = getEffectiveTileValue(
+            tile,
+            run.hero,
+            combat?.bloodlineResonanceActive,
+          );
           const shortValue = isBlight
             ? '0'
             : isDud && effective.value === 0
@@ -350,10 +355,10 @@ export function TileBoardGrid({
                 <span className="w-full truncate text-center text-[10px] font-extrabold leading-none text-purple-200">
                   {t.hexTag}
                 </span>
-              ) : isDud || hasUpcharge ? (
+              ) : isReactorCore || hasUpcharge ? (
                 <span className="w-full truncate text-center font-mono-tabular text-[10px] font-extrabold leading-none text-emerald-300">
-                  {isDud && run.hero.characterId === 'auraline'
-                    ? `+1 ${t.upchargeShort}`
+                  {isReactorCore && run.hero.characterId === 'auraline'
+                    ? `+1 ${t.upchargeShort} · +3 ${t.armorShort}`
                     : hasUpcharge
                       ? `⚡+${tile.upcharge} ${t.upchargeShort}`
                       : t.dudTag}

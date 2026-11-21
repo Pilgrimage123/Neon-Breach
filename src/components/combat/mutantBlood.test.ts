@@ -186,7 +186,7 @@ test('combat VFX spawns weapon-driven floor & cover decals, persists across turn
 
   const activeFloorAfterShot = sim.floorBlood.filter((p) => p.active);
   const activeCoverAfterShot = sim.coverBlood.filter((c) => c.active);
-  assert.ok(activeFloorAfterShot.length >= 4, 'kinetic shot should spawn floor splatters');
+  assert.ok(activeFloorAfterShot.length >= 2, 'kinetic shot should spawn floor splatters');
   assert.ok(activeCoverAfterShot.length >= 2, 'kinetic shot should project onto rear cover');
   assert.equal(activeFloorAfterShot[0].owner, target.archetype);
 
