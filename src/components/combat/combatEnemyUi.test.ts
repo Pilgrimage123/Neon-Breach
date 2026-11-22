@@ -257,8 +257,12 @@ test('intent formatters never expose enemy attack names in EN or CS', () => {
       }
     }
   }
-  const clawCompactEn = formatEnemyIntentCompact(intents[1], 'en');
-  assert.ok(clawCompactEn.includes('+2') && clawCompactEn.includes('+3'));
+  const compactAtk = formatEnemyIntentCompact(intents[0], 'en');
+  assert.equal(compactAtk, '7');
+  const pierceSummary = formatEnemyIntentSummary({ kind: 'attack', value: 5, pierceShield: true }, 'en');
+  assert.ok(pierceSummary.includes('Pierce'));
+  const overwhelmSummary = formatEnemyIntentSummary({ kind: 'heavy', value: 6, overwhelmMultiplier: 3 }, 'en');
+  assert.ok(overwhelmSummary.includes('Overwhelm'));
 });
 
 test('computeEnemyHitBoxes and hitTestEnemySprite track living enemies accurately across viewports', () => {
@@ -306,9 +310,9 @@ test('Carapace Brute occupies 2 bridge spots in computeEnemySlotLayout and forma
   assert.ok(boxes[1].width > boxes[0].width, '2-slot Brute hitbox should be wider than 1-slot Skitter');
   assert.ok(boxes[1].centerX > boxes[0].centerX && boxes[2].centerX > boxes[1].centerX);
 
-  const braceIntent: EnemyIntent = { kind: 'armor', value: 6, secondaryValue: 3 };
-  assert.equal(formatEnemyIntentCompact(braceIntent, 'en'), '+6 ARM · +3 HP');
-  assert.equal(formatEnemyIntentCompact(braceIntent, 'cs'), '+6 BRN · +3 Zdraví');
-  assert.equal(formatEnemyIntentSummary(braceIntent, 'en'), '+6 Armor · +3 HP');
-  assert.equal(formatEnemyIntentSummary(braceIntent, 'cs'), '+6 Brnění · +3 Zdraví');
+  const braceIntent: EnemyIntent = { kind: 'armor', value: 6 };
+  assert.equal(formatEnemyIntentCompact(braceIntent, 'en'), '+6');
+  assert.equal(formatEnemyIntentCompact(braceIntent, 'cs'), '+6');
+  assert.equal(formatEnemyIntentSummary(braceIntent, 'en'), '+6 Armor');
+  assert.equal(formatEnemyIntentSummary(braceIntent, 'cs'), '+6 Brnění');
 });

@@ -292,31 +292,31 @@ export function renderEnemySelectionAndUnderfootBar(params: {
     if (rawPreviewDmg > 0) {
       ctx.font = '700 12px "JetBrains Mono", monospace';
       ctx.textAlign = 'center';
-      let label = `-${previewHpLoss} HP`;
+      let label = `-${previewHpLoss}`;
       let labelColor = '#FDA4AF';
       if (willCrackShieldPip) {
-        label = 'PIP CRACK (0 HP)';
+        label = '◆ -1';
         labelColor = '#67E8F9';
       } else if (willDie) {
         label =
           enemy.passive === 'volatile_burst' && enemies.length > 1
-            ? `KILL · +6 BURST`
-            : `KILL (-${previewHpLoss})`;
+            ? `☠ 💥-6`
+            : `☠ -${previewHpLoss}`;
         labelColor = enemy.passive === 'volatile_burst' ? '#BEF264' : '#FFC700';
       } else if (willTriggerPhaseGate) {
-        label = `50% LOCK (-${previewHpLoss})`;
+        label = `50% -${previewHpLoss}`;
         labelColor = '#FDE047';
       } else if (chainedBurstDmg > 0) {
-        label = `-${previewHpLoss} HP (💥BURST)`;
+        label = `-${previewHpLoss} 💥`;
         labelColor = '#BEF264';
       } else if (willBreakArmor) {
-        label = `BREAK · -${previewHpLoss}`;
+        label = `🛡0 · -${previewHpLoss}`;
         labelColor = '#FFC700';
       } else if (armorAbsorbed > 0 && previewHpLoss === 0) {
-        label = `-${armorAbsorbed} ARM`;
+        label = `🛡-${armorAbsorbed}`;
         labelColor = '#FFC700';
       } else if (armorAbsorbed > 0) {
-        label = `-${previewHpLoss} HP (-${armorAbsorbed} ARM)`;
+        label = `-${previewHpLoss} (-${armorAbsorbed})`;
         labelColor = '#FDA4AF';
       }
       ctx.strokeStyle = 'rgba(2, 6, 23, 0.92)';
@@ -459,7 +459,9 @@ export function renderIntentVectorsAndSwapPass(params: {
 
       const midX = 0.25 * (ex - 16) + 0.5 * ctrlX + 0.25 * heroTargetX;
       const midY = 0.25 * ey + 0.5 * ctrlY + 0.25 * heroTargetY;
-      const badgeLabel = `${isAcid ? '☣' : '⚔'} ${effectiveVal}`;
+      const multSuffix = intent.overwhelmMultiplier ? `×${intent.overwhelmMultiplier}` : '';
+      const badgeIcon = isAcid ? '☣' : intent.pierceShield ? '🗡' : '⚔';
+      const badgeLabel = `${badgeIcon} ${effectiveVal}${multSuffix}`;
       ctx.font = '900 13px "JetBrains Mono", monospace';
       const tw = ctx.measureText(badgeLabel).width;
       const pw = tw + 12;

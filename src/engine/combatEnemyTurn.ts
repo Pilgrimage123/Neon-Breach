@@ -118,6 +118,8 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       value: bolsterAllAmount,
       textLabel: `+${bolsterAllAmount} ARM ALL`,
     });
+  } else if (intent.kind === 'pause') {
+    // Breather / windup turn: 0 DMG, advances intent cycle cleanly
   } else if (intent.kind === 'charge') {
     const turnsLeft = intent.secondaryValue ?? 1;
     cues.push({
@@ -133,7 +135,10 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       colorPlayed: combat.lastColorPlayed ?? null,
       battlefieldRule: combat.battlefieldRule,
     });
-    const abs = absorbHeroDamage(nextHero.shield, nextHero.armor ?? 0, incoming);
+    const abs = absorbHeroDamage(nextHero.shield, nextHero.armor ?? 0, incoming, {
+      pierceShield: intent.pierceShield,
+      overwhelmMultiplier: intent.overwhelmMultiplier,
+    });
     nextHero.shield = abs.nextShield;
     nextHero.armor = abs.nextArmor;
     const blocked = abs.blockedByShield + abs.blockedByArmor;
@@ -192,11 +197,13 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       let jammedTile = false;
       const postShieldAcid = Math.max(0, incoming - abs.blockedByShield);
       const unblockedAcidHit = hpDamage > Math.floor(postShieldAcid * 0.1);
-      if (unblockedAcidHit && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
-        const jamIdx = nextBoard.findIndex((t) => !t.isJammed);
-        if (jamIdx !== -1) {
-          nextBoard[jamIdx] = { ...nextBoard[jamIdx], isJammed: true };
-          jammedTile = true;
+      if (unblockedAcidHit && (enemy.archetype === 'spitter' || enemy.archetype === 'boss')) {
+        if (enemy.archetype === 'boss') {
+          const jamIdx = nextBoard.findIndex((t) => !t.isJammed);
+          if (jamIdx !== -1) {
+            nextBoard[jamIdx] = { ...nextBoard[jamIdx], isJammed: true };
+            jammedTile = true;
+          }
         }
         const blightInCombat = countTotalBlightTiles({
           board: nextBoard,

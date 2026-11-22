@@ -392,6 +392,7 @@ export function CombatStageCanvas({
         highContrastBorders={highContrastBorders}
         quantizedScaleMode={quantizedScaleMode}
         revealDropArchetype={diff.revealDropArchetype}
+        revealEnemyFutureCycle={diff.revealEnemyFutureCycle}
         rendererMode={rendererMode}
         setRendererMode={setRendererMode}
         debugMeshWireframe={debugMeshWireframe}

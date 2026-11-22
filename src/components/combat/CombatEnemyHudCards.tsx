@@ -8,10 +8,18 @@ import type {
 import type { Language, TranslationPack } from '../../i18n/translations';
 import { getEnemyRolePip } from '../../utils/accessibilityAndScale';
 import { formatQuantizedScale } from '../../utils/tacticalSandboxAndHints';
-import { ArmorCrestIcon, IntentIcon, ShieldPipIcon } from './CombatIcons';
+import {
+  ArmorCrestIcon,
+  IntentIcon,
+  OverwhelmBadge,
+  PassiveTraitIcon,
+  PierceBadgeIcon,
+  ShatterIcon,
+  ShieldPipIcon,
+} from './CombatIcons';
 import {
   formatEnemyIntentCompact,
-  getEnemyReactiveBark,
+  formatEnemyIntentSummary,
 } from './combatEnemyUi';
 import {
   FALLBACK_INTENT,
@@ -32,6 +40,7 @@ export interface CombatEnemyHudCardsProps {
   hcBorderClass: string;
   quantizedScaleMode: boolean;
   revealDropArchetype: boolean;
+  revealEnemyFutureCycle?: boolean;
   inspectedTarget: 'hero' | string | null;
   setInspectedTarget: Dispatch<SetStateAction<'hero' | string | null>>;
   setHoveredEnemyId: Dispatch<SetStateAction<string | null>>;
@@ -41,7 +50,6 @@ export function CombatEnemyHudCards({
   combat,
   pendingDrops,
   sequentialHudStates,
-  activePreview,
   lang,
   t,
   isCompactLandscape,
@@ -50,6 +58,7 @@ export function CombatEnemyHudCards({
   hcBorderClass,
   quantizedScaleMode,
   revealDropArchetype,
+  revealEnemyFutureCycle = true,
   inspectedTarget,
   setInspectedTarget,
   setHoveredEnemyId,
@@ -82,26 +91,30 @@ export function CombatEnemyHudCards({
           willTriggerPhaseGate,
           chainedBurstDmg,
           willStagger,
+          isStaggerable,
+          staggerProgress = 0,
         } = armorPreview;
         const conditionActive = hudState.conditionActive;
         const intentOptions = {
           staggered: enemy.staggered,
           conditionActive,
-          weaponBroken: enemy.weaponBroken,
-          desperationEnraged: enemy.desperationEnraged,
           sleepCounter: enemy.sleepCounter,
           isLootRunner: enemy.isLootRunner,
           escapeTurnsLeft: enemy.escapeTurnsLeft,
           propKind: enemy.propKind,
           reviveTimer: enemy.reviveTimer,
         };
-        const reactiveBark = getEnemyReactiveBark(
-          enemy,
-          activePreview,
-          armorPreview,
-          hudState.shieldBeforeThisEnemy,
-          lang,
-        );
+        const cycleLen = Math.max(1, enemy.intentCycle.length);
+        const nextIntent =
+          enemy.intentCycle.length > 1
+            ? enemy.intentCycle[(enemy.currentIntentIndex + 1) % cycleLen]
+            : null;
+        const intentTooltip = formatEnemyIntentSummary(intent, lang, enrageBonus, intentOptions);
+        const hasVisiblePassive =
+          enemy.passive === 'volatile_burst' || enemy.passive === 'phase_gate';
+        const passiveTooltip = hasVisiblePassive ? t.enemyPassives[enemy.passive].rule.replace(/\*\*/g, '') : '';
+        const chargeTurnsTotal = intent.kind === 'charge' ? 2 : 0;
+        const chargeTurnsLeft = intent.kind === 'charge' ? (intent.secondaryValue ?? 1) : 0;
         const remainingHpPct = Math.max(0, Math.round((projectedHp / safeEnemyMaxHp) * 100));
         const dmgBarPct = Math.max(0, hpPct - remainingHpPct);
         const hasArmor = !isDead && enemy.armor > 0;
@@ -294,80 +307,135 @@ export function CombatEnemyHudCards({
 
             <div className="mt-0.5 flex items-center justify-between gap-1 text-[11px] sm:text-[12px] font-mono-tabular">
               {!isDead ? (
-                <span
-                  className={`flex items-center gap-1 font-bold truncate ${
-                    enemy.staggered
-                      ? 'text-cyan-300'
-                      : conditionActive
-                        ? 'text-[#FF2E7E]'
-                        : 'text-lime-300'
-                  }`}
-                >
-                  <IntentIcon kind={intent.kind} size={12} />
-                  <span className="truncate">
-                    {formatEnemyIntentCompact(intent, lang, enrageBonus, intentOptions)}
+                <div className="flex items-center gap-1 min-w-0">
+                  <span
+                    title={intentTooltip}
+                    className={`flex items-center gap-1 font-bold truncate ${
+                      enemy.staggered
+                        ? 'text-cyan-300'
+                        : intent.kind === 'pause'
+                          ? 'text-slate-400'
+                          : intent.pierceShield || intent.overwhelmMultiplier
+                            ? 'text-[#FF85B3]'
+                            : 'text-lime-300'
+                    }`}
+                  >
+                    <IntentIcon kind={intent.kind} size={13} />
+                    <span className="truncate">
+                      {formatEnemyIntentCompact(intent, lang, enrageBonus, intentOptions)}
+                    </span>
+                    {intent.pierceShield && !enemy.staggered && (
+                      <PierceBadgeIcon size={11} className="shrink-0" />
+                    )}
+                    {intent.overwhelmMultiplier && !enemy.staggered && (
+                      <OverwhelmBadge multiplier={intent.overwhelmMultiplier} />
+                    )}
                   </span>
-                </span>
+                  {chargeTurnsTotal > 0 && !enemy.staggered && (
+                    <span
+                      className="inline-flex items-center gap-0.5 shrink-0"
+                      aria-label={`Charge ${chargeTurnsLeft}`}
+                    >
+                      {Array.from({ length: chargeTurnsTotal }).map((_, pipIdx) => (
+                        <span
+                          key={pipIdx}
+                          className={`h-1.5 w-1.5 rounded-full ${
+                            pipIdx < chargeTurnsTotal - chargeTurnsLeft + 1
+                              ? 'bg-[#FB923C] shadow-[0_0_4px_#FB923C]'
+                              : 'bg-slate-700'
+                          }`}
+                        />
+                      ))}
+                    </span>
+                  )}
+                  {nextIntent && (
+                    <span
+                      className="inline-flex items-center gap-0.5 opacity-55 shrink-0"
+                      title={
+                        revealEnemyFutureCycle
+                          ? formatEnemyIntentSummary(nextIntent, lang, enrageBonus)
+                          : '???'
+                      }
+                    >
+                      <span className="text-[10px] text-slate-400">›</span>
+                      {revealEnemyFutureCycle ? (
+                        <IntentIcon kind={nextIntent.kind} size={10} />
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-400">?</span>
+                      )}
+                    </span>
+                  )}
+                </div>
               ) : (
-                <span className="text-slate-400">KO</span>
+                <span className="text-slate-400">☠</span>
               )}
               <div className="flex items-center gap-1 shrink-0">
+                {!isDead && hasVisiblePassive && (
+                  <span
+                    data-testid={`enemy-passive-icon-${enemy.id}`}
+                    title={passiveTooltip}
+                    className="inline-flex items-center"
+                  >
+                    <PassiveTraitIcon
+                      passive={enemy.passive as 'volatile_burst' | 'phase_gate'}
+                      size={12}
+                    />
+                  </span>
+                )}
                 {!isDead &&
                   (enemy.staggered ? (
                     <span
                       data-testid={`enemy-staggered-${enemy.id}`}
-                      className="rounded bg-cyan-500/25 px-1 text-[10px] font-extrabold text-cyan-200"
+                      title={t.staggeredTag}
+                      className="inline-flex items-center rounded bg-cyan-500/25 px-1 py-0.5"
                     >
-                      {t.staggeredTag}
-                    </span>
-                  ) : enemy.weaponBroken ? (
-                    <span
-                      data-testid={`enemy-weapon-broken-${enemy.id}`}
-                      className="rounded bg-cyan-500/25 px-1 text-[10px] font-extrabold text-cyan-200"
-                    >
-                      🔨 -3
-                    </span>
-                  ) : enemy.desperationEnraged ? (
-                    <span
-                      data-testid={`enemy-desperation-${enemy.id}`}
-                      className="rounded bg-rose-500/35 px-1 text-[10px] font-extrabold text-rose-100"
-                    >
-                      🔥 +3
+                      <ShatterIcon size={11} active />
                     </span>
                   ) : enemy.isMercyTarget ? (
                     <span
                       data-testid={`enemy-mercy-${enemy.id}`}
                       className="rounded bg-emerald-500/30 px-1 text-[10px] font-extrabold text-emerald-200"
                     >
-                      🕊 MERCY
-                    </span>
-                  ) : enemy.enragedAlone ? (
-                    <span
-                      data-testid={`enemy-enraged-alone-${enemy.id}`}
-                      className="rounded bg-rose-500/35 px-1 text-[10px] font-extrabold text-rose-100"
-                    >
-                      {t.enragedAloneTag}
+                      🕊
                     </span>
                   ) : enemy.sosCharging ? (
-                    <span className="rounded bg-amber-400/25 px-1 text-[10px] font-extrabold text-amber-200">
-                      {t.sosFlareBadgeLabel}
+                    <span
+                      title={t.sosFlareBadgeLabel}
+                      className="inline-flex items-center gap-0.5 rounded bg-amber-400/20 px-1 py-0.5"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-300 animate-pulse" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-amber-300/40" />
                     </span>
                   ) : enrageBonus > 0 ? (
                     <span className="rounded bg-rose-500/25 px-1 text-[10px] font-extrabold text-rose-200">
                       +{enrageBonus}
                     </span>
-                  ) : enemy.isZeroReward ? (
-                    <span className="rounded bg-slate-700/70 px-1 text-[10px] font-bold text-slate-300">
-                      {t.zeroRewardBadgeLabel}
-                    </span>
                   ) : null)}
                 {hasShieldPips && (
-                  <span className="shrink-0 text-[10px] sm:text-[11px] font-bold uppercase tracking-wider text-sky-300">
+                  <span className="shrink-0 text-[10px] sm:text-[11px] font-bold tabular-nums text-sky-300">
                     {willCrackShieldPip ? `${enemy.shieldPips}→${remainingShieldPips}` : enemy.shieldPips}
                   </span>
                 )}
               </div>
             </div>
+
+            {isStaggerable && !isDead && rawPreviewDmg > 0 && (
+              <div
+                data-testid={`enemy-stagger-meter-${enemy.id}`}
+                className="mt-0.5 flex items-center gap-1"
+                title={t.staggerPreviewLabel}
+              >
+                <ShatterIcon size={10} active={Boolean(willStagger)} />
+                <div className="relative h-1 flex-1 overflow-hidden rounded-full bg-slate-900">
+                  <div
+                    className={`h-full transition-all duration-150 ${
+                      willStagger ? 'bg-[#00F0FF] animate-pulse' : 'bg-cyan-400/70'
+                    }`}
+                    style={{ width: `${Math.round(staggerProgress * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {rawPreviewDmg > 0 && !isDead && (
               <div className="mt-0.5 flex items-center justify-between gap-1 font-mono-tabular text-[11px] sm:text-[12px] font-bold">
@@ -380,49 +448,47 @@ export function CombatEnemyHudCards({
                         : 'text-[#FFC700]'
                   }
                 >
-                  {willCrackShieldPip && previewHpLoss === 0
-                    ? t.pipCrackLabel
-                    : armorAbsorbed > 0 && previewHpLoss === 0
-                      ? `-${armorAbsorbed} ${t.armorShort}`
-                      : `-${previewHpLoss} ${t.hpLabel}${
-                          armorAbsorbed > 0 && !willBreakArmor
-                            ? ` (-${armorAbsorbed} ${t.armorShort})`
-                            : ''
-                        }`}
+                  {willCrackShieldPip && previewHpLoss === 0 ? (
+                    <span className="inline-flex items-center gap-0.5">
+                      <ShieldPipIcon size={11} cracked />
+                      <span>-1</span>
+                    </span>
+                  ) : armorAbsorbed > 0 && previewHpLoss === 0 ? (
+                    <span className="inline-flex items-center gap-0.5">
+                      <ArmorCrestIcon size={11} broken={willBreakArmor} />
+                      <span>-{armorAbsorbed}</span>
+                    </span>
+                  ) : (
+                    <span>
+                      -{previewHpLoss}
+                      {armorAbsorbed > 0 && !willBreakArmor ? ` (-${armorAbsorbed})` : ''}
+                    </span>
+                  )}
                 </span>
                 <div className="flex items-center gap-1 shrink-0">
                   {willDie ? (
-                    <span className="rounded bg-[#FF2E7E] px-1 text-[10px] font-extrabold uppercase tracking-wider text-white">
-                      ☠ {t.lethalLabel}
+                    <span className="rounded bg-[#FF2E7E] px-1 text-[10px] font-extrabold text-white">
+                      ☠
                     </span>
                   ) : willStagger ? (
                     <span
                       data-testid={`enemy-will-stagger-${enemy.id}`}
-                      className="rounded bg-cyan-500/30 px-1 text-[10px] font-extrabold uppercase text-cyan-200 animate-pulse"
+                      className="inline-flex items-center rounded bg-cyan-500/30 px-1 py-0.5 animate-pulse"
                     >
-                      {t.staggerPreviewLabel}
+                      <ShatterIcon size={11} active />
                     </span>
                   ) : willTriggerPhaseGate ? (
-                    <span className="rounded bg-lime-400/20 px-1 text-[10px] font-extrabold uppercase text-lime-300">
-                      {t.phaseGateLabel}
+                    <span className="rounded bg-lime-400/20 px-1 text-[10px] font-extrabold text-lime-300">
+                      50%
                     </span>
                   ) : willBreakArmor ? (
-                    <span className="text-[#FFC700] uppercase">{t.armorBreakLabel}</span>
+                    <ArmorCrestIcon size={12} broken />
                   ) : chainedBurstDmg > 0 ? (
-                    <span className="rounded bg-lime-400/20 px-1 text-[10px] font-extrabold uppercase text-lime-300">
+                    <span className="rounded bg-lime-400/20 px-1 text-[10px] font-extrabold text-lime-300">
                       💥-{chainedBurstDmg}
                     </span>
                   ) : null}
                 </div>
-              </div>
-            )}
-
-            {reactiveBark && !isDead && !willDie && (
-              <div
-                data-testid={`enemy-reactive-bark-${enemy.id}`}
-                className="mt-0.5 truncate rounded bg-amber-500/20 px-1 py-0.5 text-center font-mono-tabular text-[10px] font-extrabold text-[#FFC700]"
-              >
-                {reactiveBark}
               </div>
             )}
           </button>

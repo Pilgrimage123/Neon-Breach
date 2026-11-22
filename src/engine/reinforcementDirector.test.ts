@@ -367,7 +367,7 @@ test('overtime heat_jam skips Caustic Slag, Tier 1 suppresses sweepers, and prop
   // Verify Enrage ATK matches across execution, preview, and UI formatter
   const enragedEnemy = otRes.enemies[0];
   assert.equal(getEffectiveEnemyIntentValue(enragedEnemy, enragedEnemy.intentCycle[0]), 8);
-  assert.equal(formatEnemyIntentCompact(enragedEnemy.intentCycle[0], 'en', enragedEnemy.enrageAtkBonus), '8 DMG');
+  assert.equal(formatEnemyIntentCompact(enragedEnemy.intentCycle[0], 'en', enragedEnemy.enrageAtkBonus), '8');
   assert.equal(formatEnemyIntentSummary(enragedEnemy.intentCycle[0], 'en', enragedEnemy.enrageAtkBonus), '8 DMG');
 
   const enragedCombatIdle = {

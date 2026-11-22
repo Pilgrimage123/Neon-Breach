@@ -227,7 +227,7 @@ export function advanceDirectorAtRoundEnd(params: {
 
   let nextThreatPool = director.threatPool;
   if (nextTurn >= director.mediumTurnThreshold || layer > 0 || nodeType !== 'COMBAT') {
-    nextThreatPool = Math.min(18, nextThreatPool + director.threatRatePerTurn);
+    nextThreatPool = Math.min(32, nextThreatPool + director.threatRatePerTurn);
   }
 
   const hazardRes = applyOvertimeHazards({
@@ -259,7 +259,7 @@ export function advanceDirectorAtRoundEnd(params: {
       ) {
         const sosArchetype: EnemyArchetype = allowOvertimeSweeper
           ? 'skitter'
-          : idleTurns >= 2 && nextThreatPool >= 6
+          : idleTurns >= 2 && nextThreatPool >= ARCHETYPE_THREAT_COST.skitter
             ? 'skitter'
             : 'larva';
         const dropId = `drop_sos_${nextTurn}_${seq + 1}`;
@@ -304,7 +304,7 @@ export function advanceDirectorAtRoundEnd(params: {
     (heatStage === 'medium' || heatStage === 'overtime');
 
   if (canQueueThreatWave) {
-    if (spawnedCount < director.maxReinforcementsSpawned && nextThreatPool >= 4) {
+    if (spawnedCount < director.maxReinforcementsSpawned && nextThreatPool >= ARCHETYPE_THREAT_COST.larva) {
       const isReactive = livingNow.length === 1 && nextEnemies.length >= 2;
       const freeSlotCount = Math.max(
         0,

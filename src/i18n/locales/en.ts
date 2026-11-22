@@ -292,6 +292,12 @@ export const EN_TRANSLATIONS: TranslationPack = {
     },
   },
   enemyPassives: {
+    none: {
+      archetype: 'Standard Mutant · Cadence Unit',
+      name: 'No Passive Trait',
+      rule: 'No persistent passive. Read **Intent** and **Cadence**.',
+      counter: 'Block **Overwhelm** fully; heal through **Pierce**.',
+    },
     volatile_burst: {
       archetype: 'The Chaff · Volatile Fodder',
       name: 'Bio-Rupture',
@@ -344,32 +350,32 @@ export const EN_TRANSLATIONS: TranslationPack = {
     skitter: {
       name: 'Cobalt Skitter',
       classification: 'The Anchor · Aegis Support',
-      bioNote: 'Has **1 Aegis Pip**. Armors allies. Enrages alone.',
+      bioNote: 'Has **1 Aegis Pip** & **2 Armor**. Bolsters all allies.',
     },
     stinger: {
       name: 'Pyre Stinger',
       classification: 'The Time-Bomb · Thermal Striker',
-      bioNote: 'Charges 2 turns for **16 DMG**. **16+ Staggers** it.',
+      bioNote: 'Charges 2 turns for **6 ×3 Overwhelm**. **16+ Staggers**.',
     },
     stalker: {
       name: 'Chitin Stalker',
-      classification: 'The Punisher · Spike Predator',
-      bioNote: 'Spike Retaliation deals **3 DMG**. +4 DMG at 0 Shield.',
+      classification: 'The Skulker · Shield-Pierce Striker',
+      bioNote: 'Pauses, then fires **5 Pierce** (ignores Shield) and **7 DMG**.',
     },
     spitter: {
       name: 'Bile Spitter',
-      classification: 'The Disrupter · Pustule Artillery',
-      bioNote: 'Pustules spray **+2 Corrode**. Jams tiles with Acid.',
+      classification: 'The Disrupter · Acid Artillery',
+      bioNote: 'Pauses, then sprays **Acid** (+2 Corrode) and **Caustic Slag**.',
     },
     brute: {
       name: 'Carapace Brute',
       classification: 'Heavy Anchor · 2-Slot Juggernaut',
-      bioNote: 'Two slots. **1 Pip**, mutagen heals, **14 DMG** crush.',
+      bioNote: 'Two slots. **1 Pip**, **Armor +6**, **6 ×2 Overwhelm**.',
     },
     boss: {
       name: 'Xenomorph Matriarch',
       classification: 'Stage 12 Boss · 50% Phase Gate',
-      bioNote: '**50% Phase Gate**. Taxes Attacks. Casts Tile Hexes.',
+      bioNote: '**50% Phase Gate**. Casts **Tile Hexes** & **Bio-Husks**.',
     },
   },
   implants: {

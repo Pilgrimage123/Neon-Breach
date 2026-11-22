@@ -4,6 +4,13 @@ import {
   ENEMY_TEMPLATES,
 } from './data';
 import { computeSmartScaledEnemyHp, getDifficultyProfile } from './difficulty';
+import { MAX_ACTIVE_BRIDGE_ENEMIES, getEnemySlotSpan } from './directorBridgeIntents';
+import {
+  ARCHETYPE_THREAT_RATING,
+  MULTI_ENEMY_TAX,
+  computeEncounterThreatRating,
+  getEncounterBudgetForNode,
+} from './threatRating';
 import type {
   CyberImplantId,
   DifficultyTier,
@@ -200,42 +207,6 @@ export function buildEncounterSpec(
     }
     return [{ archetype: 'boss', idSuffix: 'boss_1', hpBonus: 0 }];
   }
-  if (nodeType === 'ELITE') {
-    if (layer >= 3) {
-      if (mode === 'minimum') {
-        return [
-          { archetype: 'brute', idSuffix: 'elite_2', hpBonus: layer * 2, initialIntentIndex: 0 },
-          { archetype: 'stinger', idSuffix: 'elite_3', hpBonus: layer, initialIntentIndex: 0 },
-        ];
-      }
-      return [
-        {
-          archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
-          idSuffix: 'elite_1',
-          hpBonus: 0,
-          initialIntentIndex: 0,
-        },
-        { archetype: 'brute', idSuffix: 'elite_2', hpBonus: layer * 2, initialIntentIndex: 0 },
-        { archetype: 'stinger', idSuffix: 'elite_3', hpBonus: layer, initialIntentIndex: 0 },
-      ];
-    }
-    if (mode === 'hard' || mode === 'grandmaster') {
-      return [
-        { archetype: 'brute', idSuffix: 'elite_1', hpBonus: layer * 2, initialIntentIndex: 0 },
-        { archetype: 'spitter', idSuffix: 'elite_2', hpBonus: layer, initialIntentIndex: 0 },
-        {
-          archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
-          idSuffix: 'elite_3',
-          hpBonus: 0,
-          initialIntentIndex: 0,
-        },
-      ];
-    }
-    return [
-      { archetype: 'brute', idSuffix: 'elite_1', hpBonus: layer * 2, initialIntentIndex: 0 },
-      { archetype: 'spitter', idSuffix: 'elite_2', hpBonus: layer, initialIntentIndex: 0 },
-    ];
-  }
   if (
     nodeType === 'CYBER_CLINIC' ||
     nodeType === 'CHIP_DEALER' ||
@@ -244,95 +215,70 @@ export function buildEncounterSpec(
   ) {
     return [];
   }
-  // Stage 01 (Layer 0): Turn-1 Breathing Room (3 DMG from front Spore Mite; Stalker opens on Armor +4)
+  // Stage 01 (Layer 0): Turn-1 Breathing Room (3 DMG from front Spore Mite; Stalker opens on Pause)
   if (layer === 0) {
     return [
       { archetype: 'larva', idSuffix: 'l0_1', hpBonus: 0, initialIntentIndex: 0 },
-      { archetype: 'stalker', idSuffix: 'l0_2', hpBonus: -4, initialIntentIndex: 2 },
-    ];
-  }
-  const roll = Math.abs(seed + lane) % 2;
-
-  // Sawtooth Complexity Curve: pre-boss breather skirmish lets players test new Chips cleanly
-  if (isBreather && layer >= 2) {
-    return [
-      { archetype: 'larva', idSuffix: `l${layer}_${lane}_b1`, hpBonus: 0, initialIntentIndex: 0 },
-      {
-        archetype: roll === 0 ? 'stinger' : 'skitter',
-        idSuffix: `l${layer}_${lane}_b2`,
-        hpBonus: 0,
-        initialIntentIndex: 0,
-      },
+      { archetype: 'stalker', idSuffix: 'l0_2', hpBonus: -4, initialIntentIndex: 0 },
     ];
   }
 
-  // Stage 02 (Layer 1): Rule of Three + Threat Cap
-  if (layer === 1) {
-    if (roll === 0) {
-      if (mode === 'minimum' || mode === 'relaxed') {
-        return [
-          { archetype: 'larva', idSuffix: `l1_${lane}_1`, hpBonus: 0, initialIntentIndex: 0 },
-          { archetype: 'stinger', idSuffix: `l1_${lane}_3`, hpBonus: 0, initialIntentIndex: 0 },
-        ];
-      }
-      return [
-        {
-          archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
-          idSuffix: `l1_${lane}_1`,
-          hpBonus: 0,
-          initialIntentIndex: 0,
-        },
-        { archetype: 'skitter', idSuffix: `l1_${lane}_2`, hpBonus: 0, initialIntentIndex: 0 },
-        { archetype: 'stinger', idSuffix: `l1_${lane}_3`, hpBonus: 0, initialIntentIndex: 0 },
-      ];
-    }
-    if (mode === 'hard' || mode === 'grandmaster') {
-      return [
-        { archetype: 'skitter', idSuffix: `l1_${lane}_1`, hpBonus: 0, initialIntentIndex: 0 },
-        { archetype: 'spitter', idSuffix: `l1_${lane}_2`, hpBonus: 0, initialIntentIndex: 0 },
-        { archetype: 'stinger', idSuffix: `l1_${lane}_3`, hpBonus: 0, initialIntentIndex: 0 },
-      ];
-    }
-    return [
-      { archetype: 'skitter', idSuffix: `l1_${lane}_1`, hpBonus: 0, initialIntentIndex: 0 },
-      { archetype: 'spitter', idSuffix: `l1_${lane}_2`, hpBonus: 0, initialIntentIndex: 0 },
-    ];
+  const budget = getEncounterBudgetForNode(nodeType, layer, difficultyTier, isBreather);
+  const rng = mulberry32(seed + layer * 97 + lane * 31 + difficultyTier * 13);
+  const selected: Exclude<EnemyArchetype, 'boss'>[] = [];
+  const counts: Partial<Record<Exclude<EnemyArchetype, 'boss'>, number>> = {};
+  let usedSlots = 0;
+
+  if (nodeType === 'ELITE' && budget.allowedArchetypes.includes('brute')) {
+    selected.push('brute');
+    counts.brute = 1;
+    usedSlots += getEnemySlotSpan('brute');
   }
-  const lateBonus = Math.max(0, (layer - 1) * 2);
-  if (roll === 0) {
-    if (mode === 'minimum') {
-      return [
-        {
-          archetype: 'larva',
-          idSuffix: `l${layer}_${lane}_1`,
-          hpBonus: Math.min(3, lateBonus),
-          initialIntentIndex: 0,
-        },
-        { archetype: 'stinger', idSuffix: `l${layer}_${lane}_3`, hpBonus: lateBonus, initialIntentIndex: 0 },
-      ];
+
+  for (let step = 0; step < 12 && selected.length < budget.maxUnits; step++) {
+    const currentRating = computeEncounterThreatRating(selected);
+    if (selected.length >= 2 && currentRating >= budget.minBudget) {
+      break;
     }
-    return [
-      {
-        archetype: mode === 'grandmaster' ? 'skitter' : 'larva',
-        idSuffix: `l${layer}_${lane}_1`,
-        hpBonus: Math.min(3, lateBonus),
-        initialIntentIndex: 0,
-      },
-      { archetype: 'stalker', idSuffix: `l${layer}_${lane}_2`, hpBonus: lateBonus, initialIntentIndex: 2 },
-      { archetype: 'stinger', idSuffix: `l${layer}_${lane}_3`, hpBonus: lateBonus, initialIntentIndex: 0 },
-    ];
+
+    const candidates = budget.allowedArchetypes.filter((arch) => {
+      if ((counts[arch] ?? 0) >= budget.maxCopiesPerArchetype) return false;
+      const span = getEnemySlotSpan(arch);
+      if (usedSlots + span > MAX_ACTIVE_BRIDGE_ENEMIES) return false;
+      const nextRating =
+        currentRating + ARCHETYPE_THREAT_RATING[arch] + (selected.length > 0 ? MULTI_ENEMY_TAX : 0);
+      return nextRating <= budget.maxBudget;
+    });
+
+    if (candidates.length === 0) break;
+    const pick = candidates[Math.floor(rng() * candidates.length)];
+    selected.push(pick);
+    counts[pick] = (counts[pick] ?? 0) + 1;
+    usedSlots += getEnemySlotSpan(pick);
   }
-  if (mode === 'minimum') {
-    return [
-      { archetype: 'skitter', idSuffix: `l${layer}_${lane}_1`, hpBonus: lateBonus, initialIntentIndex: 0 },
-      { archetype: 'spitter', idSuffix: `l${layer}_${lane}_2`, hpBonus: lateBonus, initialIntentIndex: 0 },
-    ];
+
+  if (selected.length === 0) {
+    selected.push('larva', 'stinger');
   }
-  return [
-    { archetype: 'skitter', idSuffix: `l${layer}_${lane}_1`, hpBonus: lateBonus, initialIntentIndex: 0 },
-    { archetype: 'spitter', idSuffix: `l${layer}_${lane}_2`, hpBonus: lateBonus, initialIntentIndex: 0 },
-    { archetype: 'stinger', idSuffix: `l${layer}_${lane}_3`, hpBonus: lateBonus, initialIntentIndex: 0 },
-  ];
+
+  const lateBonus = nodeType === 'ELITE' ? layer * 2 : Math.max(0, (layer - 1) * 2);
+  return selected.map((archetype, idx) => ({
+    archetype,
+    idSuffix: `${nodeType === 'ELITE' ? 'elite' : isBreather ? `l${layer}_${lane}_b` : `l${layer}_${lane}`}_${idx + 1}`,
+    hpBonus:
+      archetype === 'larva'
+        ? nodeType === 'ELITE'
+          ? 0
+          : Math.min(3, lateBonus)
+        : isBreather
+          ? 0
+          : archetype === 'brute'
+            ? lateBonus
+            : nodeType === 'ELITE'
+              ? layer
+              : lateBonus,
+    initialIntentIndex: 0,
+  }));
 }
 
 export function buildEnemiesForNode(

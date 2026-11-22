@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { PASSIVE_TO_GLOSSARY_TERM } from '../../engine/codexData';
+import { ARCHETYPE_THREAT_RATING } from '../../engine/threatRating';
 import type { EnemyIntent, EnemyUnit } from '../../engine/types';
 import { CODEX_TRANSLATIONS, type GlossaryTermId } from '../../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
@@ -166,6 +167,12 @@ export function EnemyIntelPanel({
                   {meta.name}
                 </h3>
                 <span className="text-xs font-bold text-lime-300">· {meta.classification}</span>
+                <span
+                  data-testid="enemy-intel-threat-rating"
+                  className="rounded-md border border-cyan-300/45 bg-cyan-950/70 px-1.5 py-0.5 font-mono-tabular text-[11px] font-black text-cyan-200"
+                >
+                  TR {ARCHETYPE_THREAT_RATING[enemy.archetype]}
+                </span>
                 {enemy.archetype === 'brute' && (
                   <span
                     data-testid="enemy-intel-two-slot"
@@ -182,11 +189,6 @@ export function EnemyIntelPanel({
                 {armorPreview.willStagger && !enemy.staggered && (
                   <span className="rounded-md border border-cyan-300 bg-cyan-500/25 px-2 py-0.5 font-mono-tabular text-xs font-black text-cyan-100 animate-pulse">
                     {t.staggerPreviewLabel}
-                  </span>
-                )}
-                {enemy.enragedAlone && (
-                  <span className="rounded-md border border-rose-400 bg-rose-500/25 px-2 py-0.5 font-mono-tabular text-xs font-black text-rose-200">
-                    {t.enragedAloneTag} ATK
                   </span>
                 )}
                 {armorPreview.willDie && (
@@ -329,7 +331,7 @@ export function EnemyIntelPanel({
                     <span>
                       {t.passiveLabel}: {passiveInfo.name}
                     </span>
-                    {onOpenGlossaryTerm && (
+                    {onOpenGlossaryTerm && enemy.passive !== 'none' && (
                       <button
                         type="button"
                         data-testid="enemy-intel-passive-glossary"

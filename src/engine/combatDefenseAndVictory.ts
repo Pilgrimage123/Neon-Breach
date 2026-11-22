@@ -86,6 +86,7 @@ export function absorbHeroDamage(
   shield: number,
   armor: number,
   incoming: number,
+  options?: { pierceShield?: boolean; overwhelmMultiplier?: number },
 ): {
   nextShield: number;
   nextArmor: number;
@@ -94,8 +95,15 @@ export function absorbHeroDamage(
   hpDamage: number;
 } {
   const safeIncoming = Math.max(0, incoming);
-  const blockedByShield = Math.min(Math.max(0, shield), safeIncoming);
-  const afterShield = safeIncoming - blockedByShield;
+  const blockedByShield = options?.pierceShield
+    ? 0
+    : Math.min(Math.max(0, shield), safeIncoming);
+  const rawAfterShield = safeIncoming - blockedByShield;
+  const mult =
+    options?.overwhelmMultiplier && options.overwhelmMultiplier > 1
+      ? options.overwhelmMultiplier
+      : 1;
+  const afterShield = rawAfterShield > 0 ? rawAfterShield * mult : 0;
   const maxArmorAbsorb = Math.max(0, afterShield - Math.floor(afterShield * 0.1));
   const blockedByArmor = Math.min(Math.max(0, armor), maxArmorAbsorb);
   const hpDamage = afterShield - blockedByArmor;

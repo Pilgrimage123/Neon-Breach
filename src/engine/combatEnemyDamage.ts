@@ -4,8 +4,6 @@ import {
   PLASMA_BARREL_BURST_DAMAGE,
   STAGGER_BURST_THRESHOLD,
   VOLATILE_BURST_DAMAGE,
-  WEAPON_BREAK_THRESHOLD,
-  isDamagingIntent,
 } from './combatDefenseAndVictory';
 
 export function applyDamageToEnemy(
@@ -176,14 +174,6 @@ export function evaluateReactiveEnemyShifts(
   turn: number,
   cues?: AnimationCue[],
 ): EnemyUnit[] {
-  const livingBeforeCount = enemiesBefore.filter(
-    (e) => e.hp > 0 && !e.escaped && !e.propKind && !e.isMercyTarget,
-  ).length;
-  const livingAfterCount = enemiesAfter.filter(
-    (e) => e.hp > 0 && !e.escaped && !e.propKind && !e.isMercyTarget,
-  ).length;
-  const becameLoneSurvivor = livingBeforeCount >= 2 && livingAfterCount === 1;
-
   return enemiesAfter.map((after) => {
     if (after.hp <= 0 || after.escaped) {
       return { ...after, staggered: false };
@@ -211,71 +201,19 @@ export function evaluateReactiveEnemyShifts(
       nextTurnDmg >= STAGGER_BURST_THRESHOLD
     ) {
       const newlyStaggered = !nextEnemy.staggered;
-      const newlyBroken = !nextEnemy.weaponBroken && nextTurnDmg >= WEAPON_BREAK_THRESHOLD;
       nextEnemy = {
         ...nextEnemy,
         staggered: true,
-        ...(newlyBroken ? { weaponBroken: true } : {}),
       };
-      if (newlyStaggered || newlyBroken) {
+      if (newlyStaggered) {
         cues?.push({
           id: `cue_${turn}_stagger_${nextEnemy.id}`,
           kind: 'enemy_stagger',
           targetId: nextEnemy.id,
           value: nextTurnDmg,
-          textLabel: newlyBroken ? 'WEAPON BROKEN (-3 DMG)' : 'STAGGERED',
+          textLabel: 'STAGGERED',
         });
       }
-    }
-
-    if (
-      !nextEnemy.desperationEnraged &&
-      !nextEnemy.propKind &&
-      !nextEnemy.isLootRunner &&
-      !nextEnemy.isMercyTarget &&
-      (!nextEnemy.sleepCounter || nextEnemy.sleepCounter <= 0) &&
-      dmgDelta > 0 &&
-      nextEnemy.hp <= Math.ceil(nextEnemy.maxHp * 0.2)
-    ) {
-      const currentKind = nextEnemy.intentCycle[safeIntentIdx]?.kind;
-      const dmgIdx = nextEnemy.intentCycle.findIndex((i) => isDamagingIntent(i));
-      nextEnemy = {
-        ...nextEnemy,
-        desperationEnraged: true,
-        currentIntentIndex:
-          (currentKind === 'armor' || currentKind === 'bolster') && dmgIdx !== -1
-            ? dmgIdx
-            : safeIntentIdx,
-      };
-      cues?.push({
-        id: `cue_${turn}_desperation_${nextEnemy.id}`,
-        kind: 'enemy_enrage',
-        targetId: nextEnemy.id,
-        value: 3,
-        textLabel: 'DESPERATION +3 DMG',
-      });
-    }
-
-    if (becameLoneSurvivor && nextEnemy.passive === 'anchor_aegis' && !nextEnemy.enragedAlone) {
-      const nextBonus = (nextEnemy.enrageAtkBonus ?? 0) + 2;
-      const currentKind = nextEnemy.intentCycle[safeIntentIdx]?.kind;
-      const attackIdx = nextEnemy.intentCycle.findIndex((i) => i.kind === 'attack');
-      nextEnemy = {
-        ...nextEnemy,
-        enragedAlone: true,
-        enrageAtkBonus: nextBonus,
-        currentIntentIndex:
-          currentKind === 'bolster' && attackIdx !== -1
-            ? attackIdx
-            : safeIntentIdx,
-      };
-      cues?.push({
-        id: `cue_${turn}_enrage_alone_${nextEnemy.id}`,
-        kind: 'enemy_enrage',
-        targetId: nextEnemy.id,
-        value: nextBonus,
-        textLabel: 'ALONE +2 ATK',
-      });
     }
 
     return nextEnemy;

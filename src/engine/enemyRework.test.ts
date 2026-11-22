@@ -26,11 +26,9 @@ import {
   HOT_POTATO_SELF_DAMAGE,
   previewColorResolution,
   previewHeroThreat,
-  PUSTULE_RUPTURE_CORRODE,
   resolvePlayerColor,
   STAGGER_BURST_THRESHOLD,
   TEMPTATION_CLEAVE_BONUS,
-  WEAPON_BREAK_THRESHOLD,
 } from './gameEngine';
 import { parseAndValidateRun } from './persistence';
 import {
@@ -256,9 +254,9 @@ test('Enrage on Alone triggers when Cobalt Skitter loses its final ally, switchi
   const afterKill = resolvePlayerColor(duoRun, 'attack');
   assert.ok(afterKill.combat);
   const survivingSkitter = afterKill.combat.enemies[1];
-  assert.equal(survivingSkitter.enragedAlone, true);
-  assert.equal(survivingSkitter.enrageAtkBonus, 2);
-  assert.equal(survivingSkitter.intentCycle[survivingSkitter.currentIntentIndex].kind, 'attack');
+  assert.equal(Boolean(survivingSkitter.enragedAlone), false);
+  assert.equal(survivingSkitter.enrageAtkBonus ?? 0, 0);
+  assert.equal(survivingSkitter.intentCycle[survivingSkitter.currentIntentIndex].kind, 'bolster');
 
   // Solo 1v1 Skitter start should NOT trigger enragedAlone
   const soloRun = {
@@ -275,17 +273,17 @@ test('Enrage on Alone triggers when Cobalt Skitter loses its final ally, switchi
   assert.equal(Boolean(afterSoloHit.combat.enemies[0].enragedAlone), false);
 });
 
-test('Targeted Tile Hex marks a board tile on Turn 2+, heals living caster on resolution, and clears when caster dies or Overdrive fires', () => {
+test('Targeted Tile Hex marks a board tile on Turn 2+ for Boss, heals living caster on resolution, and clears when caster dies or Overdrive fires', () => {
   const baseRun = createInitialRun(404);
   assert.ok(baseRun.combat);
 
   const spitter = makeEnemy({
-    id: 'e_spitter',
-    archetype: 'spitter',
-    passive: 'acid_jam',
-    roleColor: 'violet',
-    hp: 20,
-    maxHp: 28,
+    id: 'e_boss_hex',
+    archetype: 'boss',
+    passive: 'phase_gate',
+    roleColor: 'apex',
+    hp: 90,
+    maxHp: 110,
     intentCycle: [{ kind: 'attack', value: 4 }],
     currentIntentIndex: 0,
   });
@@ -319,8 +317,8 @@ test('Targeted Tile Hex marks a board tile on Turn 2+, heals living caster on re
   const afterHexTrigger = resolvePlayerColor(turn2, 'attack');
   assert.ok(afterHexTrigger.combat);
   const healedSpitter = afterHexTrigger.combat.enemies[0];
-  // 20 - 7 dmg (Kira held +1 on h1 = 7) = 13 HP, then +4 HP hex heal = 17 HP & +3 ARM
-  assert.equal(healedSpitter.hp, 17);
+  // 90 - 7 dmg (Kira held +1 on h1 = 7) = 83 HP, then +4 HP hex heal = 87 HP & +3 ARM
+  assert.equal(healedSpitter.hp, 87);
   assert.equal(healedSpitter.armor, 3);
 
   // Overdrive clears all board Hexes cleanly without triggering enemy heal
@@ -761,22 +759,21 @@ test('Pillar 3, 4 & 5: Overkill Weapon-Break (22+ DMG), Desperation Telegraph (<
     },
   };
   const wbPreview = previewColorResolution(wbRun, 'attack');
-  assert.ok(wbPreview.totalDamage >= WEAPON_BREAK_THRESHOLD);
+  assert.ok(wbPreview.totalDamage >= STAGGER_BURST_THRESHOLD);
   const wbArmorPreview = computeEnemyArmorPreview(heavyBoss, 0, 0, wbPreview, [heavyBoss]);
-  assert.equal(wbArmorPreview.willBreakWeapon, true);
+  assert.equal(wbArmorPreview.willStagger, true);
 
   const bark = getEnemyReactiveBark(heavyBoss, wbPreview, wbArmorPreview, 0, 'en');
-  assert.equal(bark, '🔨 WEAPON BREAK!');
+  assert.equal(bark, null);
 
   const afterWb = resolvePlayerColor(wbRun, 'attack');
-  assert.equal(afterWb.combat?.enemies[0].weaponBroken, true);
   assert.equal(afterWb.combat?.enemies[0].staggered, true);
 
-  // 2. Desperation Telegraph at <= 20% HP switches passive armor/bolster to Attack +3
+  // 2. Desperation Enrage was removed in favor of passive-minimal Mutants
   const armorBrute = makeEnemy({
     id: 'e_desp_brute',
     archetype: 'brute',
-    passive: 'threshold_pip',
+    passive: 'none',
     hp: 12,
     maxHp: 40,
     intentCycle: [
@@ -796,9 +793,8 @@ test('Pillar 3, 4 & 5: Overkill Weapon-Break (22+ DMG), Desperation Telegraph (<
   };
   const afterDesp = resolvePlayerColor(despRun, 'attack');
   const enragedBrute = afterDesp.combat!.enemies[0];
-  assert.equal(enragedBrute.hp, 6); // 15% of 40 <= 20%
-  assert.equal(enragedBrute.desperationEnraged, true);
-  assert.equal(enragedBrute.intentCycle[enragedBrute.currentIntentIndex].kind, 'attack');
+  assert.equal(enragedBrute.hp, 6);
+  assert.equal(enragedBrute.desperationEnraged, undefined);
 
   // 3. Explosive Plasma Barrel deals 10 Pierce DMG to all living enemies + 20% Overdrive when destroyed
   const barrel = { ...createPropUnit('plasma_barrel', 'pb_1'), hp: 6 };
@@ -874,30 +870,31 @@ test('Pillar 3, 4 & 5: Overkill Weapon-Break (22+ DMG), Desperation Telegraph (<
   assert.equal(revivedUnit?.hp, 12);
 });
 
-test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge Attack) & Beat 2 Caustic Claw Rend (7 DMG +2 COR +3 ARM on HP hit)', () => {
+test('Bile Spitter streamlined cadence: Pause -> Acid 5 (+2 COR) -> Acid 6 (+2 COR + Caustic Slag, no Pustule Rupture or Tile Jam)', () => {
   const baseRun = createInitialRun(1010);
   assert.ok(baseRun.combat);
 
   const spitterTemplate = ENEMY_TEMPLATES.spitter;
-  assert.equal(spitterTemplate.intentCycle[1].kind, 'attack');
-  assert.equal(spitterTemplate.intentCycle[1].value, 7);
-  assert.equal(spitterTemplate.intentCycle[1].corrodeAmount, 2);
-  assert.equal(spitterTemplate.intentCycle[1].armorOnHit, 3);
-  assert.equal(spitterTemplate.intentCycle[1].clawRend, true);
+  assert.equal(spitterTemplate.passive, 'none');
+  assert.equal(spitterTemplate.intentCycle[0].kind, 'pause');
+  assert.equal(spitterTemplate.intentCycle[1].kind, 'acid');
+  assert.equal(spitterTemplate.intentCycle[1].value, 5);
+  assert.equal(spitterTemplate.intentCycle[2].kind, 'acid');
+  assert.equal(spitterTemplate.intentCycle[2].value, 6);
+  assert.equal(spitterTemplate.intentCycle[2].topDeckBlight, true);
 
   const spitterBeat2 = makeEnemy({
     id: 'e_spitter_rw',
     archetype: 'spitter',
-    passive: 'acid_jam',
-    roleColor: 'lime',
-    hp: 30,
-    maxHp: 30,
+    passive: 'none',
+    roleColor: 'violet',
+    hp: 22,
+    maxHp: 22,
     armor: 0,
     intentCycle: spitterTemplate.intentCycle.map((i) => ({ ...i })),
-    currentIntentIndex: 1,
+    currentIntentIndex: 2,
   });
 
-  // 1. Surviving non-Surge Attack triggers Pustule Rupture (+2 Corrode + cue + bark)
   const nonSurgeRun = {
     ...baseRun,
     hero: { ...baseRun.hero, hp: 50, shield: 0, corrode: 0 },
@@ -914,100 +911,35 @@ test('Bile Spitter rework: Pustule Rupture (+2 Corrode on surviving non-Surge At
   };
 
   const atkPreview = previewColorResolution(nonSurgeRun, 'attack');
-  assert.equal(atkPreview.surgeTriggered, false);
-  assert.equal(atkPreview.pustuleRuptureCorrode, PUSTULE_RUPTURE_CORRODE);
-
-  const armorPrev = computeEnemyArmorPreview(spitterBeat2, 0, 0, atkPreview, [spitterBeat2]);
-  assert.equal(armorPrev.willDie, false);
-  assert.equal(getEnemyReactiveBark(spitterBeat2, atkPreview, armorPrev, 0, 'en'), '☣ PUSTULE +2 COR!');
-  assert.equal(getEnemyReactiveBark(spitterBeat2, atkPreview, armorPrev, 0, 'cs'), '☣ PUSTULY +2 KOR!');
-
-  // Threat preview sums Pustule Rupture (+2) + Beat 2 Caustic Claw Rend (+2) = +4 Corrode
-  const atkThreat = previewHeroThreat(nonSurgeRun.combat, nonSurgeRun.hero, atkPreview);
-  assert.equal(atkThreat.corrodeGained, 4);
-
+  assert.equal(atkPreview.pustuleRuptureCorrode, 0);
   const afterNonSurgeAtk = resolvePlayerColor(nonSurgeRun, 'attack');
-  assert.equal(afterNonSurgeAtk.hero.corrode, PUSTULE_RUPTURE_CORRODE);
-  assert.ok(afterNonSurgeAtk.combat?.lastCues.some((c) => c.kind === 'enemy_pustule_rupture'));
+  assert.equal(afterNonSurgeAtk.hero.corrode, 0);
 
-  // 2. Beat 2 Caustic Claw Rend unblocked HP hit -> deals 7 DMG, +2 Corrode, Spitter swells +3 Armor
-  const afterClawHit = executeSingleEnemyAction(
+  const afterAcidHit = executeSingleEnemyAction(
     {
       ...afterNonSurgeAtk,
       combat: { ...afterNonSurgeAtk.combat!, phase: 'PLAYER_RESOLVED' as const },
     },
     0,
   );
-  assert.equal(afterClawHit.hero.hp, 50 - 7);
-  assert.equal(afterClawHit.hero.corrode, 4);
-  assert.equal(afterClawHit.combat?.enemies[0].armor, 3);
-
-  // 3. Beat 2 Caustic Claw Rend fully blocked by Defense Shield -> 0 HP damage, +2 Corrode, NO +3 Armor swell
-  const defThreat = previewHeroThreat(
-    nonSurgeRun.combat,
-    nonSurgeRun.hero,
-    previewColorResolution(nonSurgeRun, 'defense'),
+  assert.equal(afterAcidHit.hero.hp, 50 - 6);
+  assert.equal(afterAcidHit.hero.corrode, 2);
+  assert.equal(afterAcidHit.combat?.board.some((t) => Boolean(t.isJammed)), false);
+  assert.equal(
+    afterAcidHit.combat?.drawPile[0]?.isBlight || afterAcidHit.combat?.discardPile.some((t) => t.isBlight),
+    true,
   );
-  assert.equal(defThreat.hpDamageTaken, 0);
-  assert.equal(defThreat.corrodeGained, 2);
-
-  const afterDefense = resolvePlayerColor(nonSurgeRun, 'defense');
-  const afterBlockedClaw = executeSingleEnemyAction(
-    {
-      ...afterDefense,
-      combat: { ...afterDefense.combat!, phase: 'PLAYER_RESOLVED' as const },
-    },
-    0,
-  );
-  assert.equal(afterBlockedClaw.hero.hp, 50);
-  assert.equal(afterBlockedClaw.hero.corrode, 2);
-  assert.equal(afterBlockedClaw.combat?.enemies[0].armor, 0);
-
-  // 4. Attack Surge (4+ tiles) bypasses Pustule Rupture even when Spitter survives
-  const surgeRun = {
-    ...nonSurgeRun,
-    combat: {
-      ...nonSurgeRun.combat,
-      enemies: [{ ...spitterBeat2, hp: 40, maxHp: 40 }],
-      board: [
-        makeTile('s1', 'attack', 4),
-        makeTile('s2', 'attack', 4),
-        makeTile('s3', 'attack', 4),
-        makeTile('s4', 'attack', 4),
-      ],
-    },
-  };
-  const surgePreview = previewColorResolution(surgeRun, 'attack');
-  assert.equal(surgePreview.surgeTriggered, true);
-  assert.equal(surgePreview.pustuleRuptureCorrode, 0);
-  const afterSurge = resolvePlayerColor(surgeRun, 'attack');
-  assert.equal(afterSurge.hero.corrode, 0);
-  assert.equal(afterSurge.combat?.lastCues.some((c) => c.kind === 'enemy_pustule_rupture'), false);
-
-  // 5. Lethal 1-hit non-Surge Attack KO bypasses Pustule Rupture
-  const lethalRun = {
-    ...nonSurgeRun,
-    combat: {
-      ...nonSurgeRun.combat,
-      enemies: [{ ...spitterBeat2, hp: 6, maxHp: 30 }],
-    },
-  };
-  const lethalPreview = previewColorResolution(lethalRun, 'attack');
-  assert.equal(lethalPreview.pustuleRuptureCorrode, 0);
-  const afterLethal = resolvePlayerColor(lethalRun, 'attack');
-  assert.equal(afterLethal.hero.corrode, 0);
-  assert.equal(afterLethal.combat?.lastCues.some((c) => c.kind === 'enemy_pustule_rupture'), false);
 });
 
-test('Carapace Brute rework: occupies 2 bridge spots, Mutagen Vial Brace (+6 ARM +3 HP), and Seismic Crush (14 DMG Heavy + heavySmash)', () => {
+test('Carapace Brute rework: occupies 2 bridge spots, Armor +6, Overwhelm 6 (x2), and Pause', () => {
   const baseRun = createInitialRun(1111);
   assert.ok(baseRun.combat);
 
-  // 1. Template intent cycle matches Mutagen Vial Brace -> Seismic Carapace Crush -> Vein-Burst Maw Crunch
   const bruteTpl = ENEMY_TEMPLATES.brute;
-  assert.deepEqual(bruteTpl.intentCycle[0], { kind: 'armor', value: 6, secondaryValue: 3 });
-  assert.deepEqual(bruteTpl.intentCycle[1], { kind: 'heavy', value: 14 });
-  assert.deepEqual(bruteTpl.intentCycle[2], { kind: 'attack', value: 9 });
+  assert.equal(bruteTpl.passive, 'none');
+  assert.deepEqual(bruteTpl.intentCycle[0], { kind: 'armor', value: 6 });
+  assert.deepEqual(bruteTpl.intentCycle[1], { kind: 'heavy', value: 6, overwhelmMultiplier: 2 });
+  assert.deepEqual(bruteTpl.intentCycle[2], { kind: 'pause', value: 0 });
 
   // 2. 2-slot occupancy & reinforcement capacity enforcement
   assert.equal(getEnemySlotSpan('brute'), 2);
@@ -1062,19 +994,19 @@ test('Carapace Brute rework: occupies 2 bridge spots, Mutagen Vial Brace (+6 ARM
   const afterBrace = executeSingleEnemyAction(braceRun, 0);
   const bracedUnit = afterBrace.combat!.enemies[0];
   assert.equal(bracedUnit.armor, 8);
-  assert.equal(bracedUnit.hp, 40); // capped at maxHp (38 + 3 -> 40)
+  assert.equal(bracedUnit.hp, 38);
   const armorCue = afterBrace.combat!.lastCues.find((c) => c.kind === 'enemy_armor');
   assert.ok(armorCue);
   assert.equal(armorCue.value, 6);
-  assert.equal(armorCue.secondaryHeal, 2);
+  assert.equal(armorCue.secondaryHeal, undefined);
 
-  // 4. Beat 2 Seismic Carapace Crush (14 DMG Heavy) deals 14 DMG, emits heavySmash: true, and staggers at >= 16 burst
+  // 4. Beat 2 Seismic Carapace Crush (Overwhelm 6 x2 Heavy) deals 12 DMG unshielded, emits heavySmash: true, and staggers at >= 16 burst
   const heavyBrute = makeEnemy({
     id: 'b_heavy',
     archetype: 'brute',
-    passive: 'threshold_pip',
-    hp: 40,
-    maxHp: 40,
+    passive: 'none',
+    hp: 38,
+    maxHp: 38,
     armor: 0,
     intentCycle: bruteTpl.intentCycle.map((i) => ({ ...i })),
     currentIntentIndex: 1,
@@ -1089,7 +1021,7 @@ test('Carapace Brute rework: occupies 2 bridge spots, Mutagen Vial Brace (+6 ARM
     },
   };
   const afterHeavy = executeSingleEnemyAction(heavyRun, 0);
-  assert.equal(afterHeavy.hero.hp, 50 - 14);
+  assert.equal(afterHeavy.hero.hp, 50 - 12);
   const heavyCue = afterHeavy.combat!.lastCues.find((c) => c.kind === 'enemy_attack');
   assert.ok(heavyCue);
   assert.equal(heavyCue.heavySmash, true);

@@ -30,6 +30,7 @@ export interface CombatStageHudOverlayProps {
   highContrastBorders: boolean;
   quantizedScaleMode: boolean;
   revealDropArchetype: boolean;
+  revealEnemyFutureCycle?: boolean;
   rendererMode: RendererMode;
   setRendererMode: Dispatch<SetStateAction<RendererMode>>;
   debugMeshWireframe: boolean;
@@ -53,6 +54,7 @@ export function CombatStageHudOverlay({
   highContrastBorders,
   quantizedScaleMode,
   revealDropArchetype,
+  revealEnemyFutureCycle = true,
   rendererMode,
   setRendererMode,
   debugMeshWireframe,
@@ -121,6 +123,7 @@ export function CombatStageHudOverlay({
           hcBorderClass={hcBorderClass}
           quantizedScaleMode={quantizedScaleMode}
           revealDropArchetype={revealDropArchetype}
+          revealEnemyFutureCycle={revealEnemyFutureCycle}
           inspectedTarget={inspectedTarget}
           setInspectedTarget={setInspectedTarget}
           setHoveredEnemyId={setHoveredEnemyId}

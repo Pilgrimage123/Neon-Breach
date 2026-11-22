@@ -247,6 +247,24 @@ export function IntentIcon({ kind, size = 14, className = '' }: IntentIconProps)
     );
   }
 
+  if (kind === 'pause') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <circle cx="12" cy="12" r="9" fill="rgba(148,163,184,0.14)" stroke="#94A3B8" strokeWidth="1.8" />
+        <circle cx="8" cy="12" r="1.4" fill="#CBD5E1" />
+        <circle cx="12" cy="12" r="1.4" fill="#CBD5E1" />
+        <circle cx="16" cy="12" r="1.4" fill="#CBD5E1" />
+      </svg>
+    );
+  }
+
   return (
     <svg
       width={size}
@@ -264,6 +282,89 @@ export function IntentIcon({ kind, size = 14, className = '' }: IntentIconProps)
         strokeLinejoin="round"
       />
       <path d="M5.5 14.5L9.5 18.5" stroke="#FECDD3" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function PierceBadgeIcon({ size = 12, className = '' }: { size?: number; className?: string }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden="true"
+      className={className}
+    >
+      <path
+        d="M12 2L19 5.5V11C19 15.8 15.9 19.6 12 21.5C8.1 19.6 5 15.8 5 11V5.5L12 2Z"
+        stroke="#38BDF8"
+        strokeOpacity="0.45"
+        strokeWidth="1.6"
+        strokeDasharray="3 2"
+      />
+      <path
+        d="M4 20L20 4M14 4H20V10"
+        stroke="#FF2E7E"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function OverwhelmBadge({ multiplier }: { multiplier: 2 | 3 }) {
+  return (
+    <span className="inline-flex items-center rounded bg-[#FF2E7E]/25 px-1 text-[10px] font-black leading-tight text-[#FF85B3] ring-1 ring-[#FF2E7E]/60">
+      ×{multiplier}
+    </span>
+  );
+}
+
+export function ShatterIcon({ size = 12, active = false }: { size?: number; active?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M13 2L7 13H12L10.5 22L17.5 10.5H12.5L13 2Z"
+        fill={active ? '#00F0FF' : '#94A3B8'}
+        stroke={active ? '#E0F2FE' : '#475569'}
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function PassiveTraitIcon({
+  passive,
+  size = 13,
+}: {
+  passive: 'volatile_burst' | 'phase_gate';
+  size?: number;
+}) {
+  if (passive === 'volatile_burst') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="8.5" fill="rgba(163,230,53,0.18)" stroke="#A3E635" strokeWidth="1.8" />
+        <path
+          d="M12 6.5V17.5M6.5 12H17.5M8.2 8.2L15.8 15.8M15.8 8.2L8.2 15.8"
+          stroke="#BEF264"
+          strokeWidth="1.7"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M12 2.5L20 7V17L12 21.5L4 17V7L12 2.5Z"
+        fill="rgba(0,240,255,0.16)"
+        stroke="#00F0FF"
+        strokeWidth="1.8"
+      />
+      <path d="M4.5 12H19.5" stroke="#FFC700" strokeWidth="2" strokeDasharray="3 2" />
     </svg>
   );
 }

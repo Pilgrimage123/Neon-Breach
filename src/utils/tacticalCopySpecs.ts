@@ -403,6 +403,75 @@ export function formatEnemyStreamlinedRule(
     Array.from(new Set([...baseKeywords, ...extra]));
 
   switch (enemy.passive) {
+    case 'none': {
+      const hasPierce = enemy.intentCycle.some((i) => i.pierceShield);
+      const hasOverwhelm = enemy.intentCycle.some((i) => Boolean(i.overwhelmMultiplier));
+      const hasCharge = enemy.intentCycle.some((i) => i.kind === 'charge');
+      const hasAcid = enemy.intentCycle.some((i) => i.kind === 'acid');
+      if (hasCharge && hasOverwhelm) {
+        return {
+          shortRule:
+            lang === 'cs'
+              ? `**Nabíjí 2 tahy.** **Přetlak** násobí DMG.`
+              : `**Charge 2 turns.** **Overwhelm** multiplies DMG.`,
+          counterMath:
+            lang === 'cs'
+              ? `⚡ 16+ **Omráčení** nebo plný **Štít**.`
+              : `⚡ 16+ **Stagger** or full **Shield**.`,
+          keywords: withUnique(['stagger', 'shield']),
+        };
+      }
+      if (hasOverwhelm) {
+        return {
+          shortRule:
+            lang === 'cs'
+              ? `**1 Pip**, **Brnění +6**, **Přetlak ×2**.`
+              : `**1 Pip**, **Armor +6**, **Overwhelm ×2**.`,
+          counterMath:
+            lang === 'cs'
+              ? `🛡 Plný **Štít** nuluje; 16+ **Omráčení**.`
+              : `🛡 Full **Shield** blocks; 16+ **Stagger**.`,
+          keywords: withUnique(['pip', 'armor', 'stagger', 'shield']),
+        };
+      }
+      if (hasPierce) {
+        return {
+          shortRule:
+            lang === 'cs'
+              ? `**Pauza → Průraz** (ignoruje **Štít**) → **7 DMG**.`
+              : `**Pause → Pierce** (ignores **Shield**) → **7 DMG**.`,
+          counterMath:
+            lang === 'cs'
+              ? `⚡ Zabij rychle nebo přeléč **HP**.`
+              : `⚡ Burst down fast or heal **HP**.`,
+          keywords: withUnique(['pierce', 'shield']),
+        };
+      }
+      if (hasAcid) {
+        return {
+          shortRule:
+            lang === 'cs'
+              ? `**Kyselina:** +2 **Koroze** a **Žíravá struska**.`
+              : `**Acid:** +2 **Corrode** and **Caustic Slag**.`,
+          counterMath:
+            lang === 'cs'
+              ? `🛡 Kryj **Štítem**, čisti přes **TECH**.`
+              : `🛡 Block with **Shield**, purge via **TECH**.`,
+          keywords: withUnique(['corrode', 'blight', 'shield']),
+        };
+      }
+      return {
+        shortRule:
+          lang === 'cs'
+            ? `**1 Pip.** Posílí **Brnění** všem → **Útok** → **Pauza**.`
+            : `**1 Pip.** **Bolster** all **Armor** → **Attack** → **Pause**.`,
+        counterMath:
+          lang === 'cs'
+            ? `◆ Praskni **Pip**, pak **Přetížení**.`
+            : `◆ Crack **Pip**, then **Surge**.`,
+        keywords: withUnique(['pip', 'armor', 'surge']),
+      };
+    }
     case 'volatile_burst':
       return {
         shortRule:

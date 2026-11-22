@@ -3,3 +3,4 @@ export * from './combatPreview';
 export * from './combatTurnEngine';
 export * from './dynastyClinicEngine';
 export * from './runLifecycle';
+export * from './threatRating';

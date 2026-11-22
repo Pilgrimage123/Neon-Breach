@@ -142,6 +142,30 @@ _Avoid_: Swap, Reposition, Pull
 The optional accessibility display mode translating HP and damage values into compact `5`-unit increments.
 _Avoid_: Discrete Pip Math, Pip Math
 
+**Threat Rating**:
+The single multiplicative difficulty score of a Mutant template derived from its Effective HP, effective DPR over expected lifespan, cadence Windup, and move modifiers.
+_Avoid_: Monster Points, Power Score
+
+**Encounter Budget**:
+The Threat Rating capacity allocated to a combat or elite Node (including Multi-Enemy Tax) and spent by both initial spawning and the Reinforcement Director.
+_Avoid_: Room Budget, Wave Cap
+
+**Windup**:
+A Mutant's safe Turn-1 opening (`0 DMG` via `Pause`, `Charge`, `Armor`, or `Bolster`) that grants the Hero a setup turn and reduces the Mutant's Threat Rating.
+_Avoid_: Safe Round 1, Telegraph Turn
+
+**Pause**:
+A first-class `0 DMG`, non-staggerable breather or recovery Turn in a Mutant's intent cadence.
+_Avoid_: Idle, Skip Turn, Stun
+
+**Pierce**:
+A skulky Mutant attack property that ignores Hero `Shield` while still being mitigated by persistent `Armor`.
+_Avoid_: Shield-Bypass, True Damage
+
+**Overwhelm**:
+A clumsy-but-brutal Mutant attack property that multiplies unblocked post-`Shield` damage (`×2` or `×3`) before `Armor` and HP absorption; full `Shield` deflects it for `0`.
+_Avoid_: Brutal, Crush, Bleed-Through
+
 ---
 
 ### Defenses & Statuses
@@ -159,7 +183,7 @@ A Hero status stack that flatly subtracts from Shield gained on Defense plays (`
 _Avoid_: Poison, Acid Stack
 
 **Jammed**:
-A locked status on a single Board Tile caused by unblocked Mutant acid hits or Overtime heat, preventing that Tile from resolving for one Turn.
+A locked status on a single Board Tile caused by Overtime heat or Xenomorph Matriarch's unblocked acid hits, preventing that Tile from resolving for one Turn.
 _Avoid_: Frozen, Locked
 
 **Caustic Slag**:
@@ -167,11 +191,11 @@ An exhaustible `0`-value hazard Tile injected into the discard or top of the dra
 _Avoid_: Blight, Bio-Hazard, Curse
 
 **Tile Hex**:
-A targeted curse placed on a high-value Attack or Defense Tile by Bile Spitter or Xenomorph Matriarch that heals and armors the caster if resolved while the caster still lives.
+A targeted curse placed on a high-value Attack or Defense Tile by Xenomorph Matriarch that heals and armors the caster if resolved while the caster still lives.
 _Avoid_: Curse, Mark
 
 **Broken Stance**:
-The `Staggered` state triggered when a Mutant priming `Charge` or `Heavy` suffers `16+` single-Turn damage, reducing that action to `0 DMG`.
+The `Staggered` state triggered when a Mutant priming `Charge` or `Heavy` suffers `16+` single-Turn damage, reducing that action to `0 DMG` and resetting `Charge`.
 _Avoid_: Stunned, Interrupted
 
 ---
@@ -187,27 +211,27 @@ The fragile `9 HP` frontline Mutant carrying **Bio-Rupture**.
 _Avoid_: Larva, Fodder Mite
 
 **Cobalt Skitter**:
-The armored support Mutant protecting allies with **Aegis Projection** (`+4 Armor All`, `1 Aegis Pip`) that enrages if left alone.
+The `14 HP` armored support Mutant (`2` Armor, `1` Aegis Pip) cycling `Bolster +4 Armor All → Attack 5 → Pause`.
 _Avoid_: Aegis Skitter, Acid Skitter
 
 **Pyre Stinger**:
-The fragile `16 HP` ranged time-bomb Mutant charging a 2-Turn `16 DMG` Heavy blast unless Staggered or burst down.
+The fragile `16 HP` ranged time-bomb Mutant charging across 2 Turns before firing a staggerable `Overwhelm 6 (×3)` Heavy blast.
 _Avoid_: Stinger
 
 **Chitin Stalker**:
-The `24 HP` crimson punisher Mutant armed with **Spike Retaliation** and an opportunistic `+4 DMG` strike when the Hero lacks Shield.
+The `24 HP` crimson striker Mutant cycling `Pause → Pierce 5 → Attack 7`.
 _Avoid_: Spine Stalker
 
 **Bile Spitter**:
-The `22 HP` backline disrupter Mutant firing acid torrents, Caustic Claw Rends, **Tile Hexes**, and **Pustule Rupture** (`+2` Corrode on surviving non-Surge hits).
+The `22 HP` backline disrupter Mutant cycling `Pause → Acid 5 (+2 Corrode) → Acid 6 (+2 Corrode, Caustic Slag)`.
 _Avoid_: Spitter
 
 **Carapace Brute**:
-The `2`-slot `38 HP` heavyweight tank Mutant combining `8` starting Armor, `1 Aegis Pip`, Mutagen healing, and a staggerable `14 DMG` Heavy smash.
+The `2`-slot `38 HP` heavyweight tank Mutant combining `8` starting Armor, `1` Aegis Pip, `Armor +6`, a staggerable `Overwhelm 6 (×2)` Heavy smash, and `Pause`.
 _Avoid_: Brute
 
 **Xenomorph Matriarch**:
-The `110 HP` Stage 12 Apex Boss enforcing a **50% Phase Gate**, Attack-taxing strikes, Tile Hexes, and Bio-Husk corpse resurrection.
+The `110 HP` Stage 12 Apex Boss enforcing a **50% Phase Gate**, `Attack 13`, `Acid 8`, `Heavy 18`, Tile Hexes, and Bio-Husk corpse resurrection.
 _Avoid_: Hive Matriarch, Sector Hive Queen, Hive Boss, Brood Queen, Apex Sovereign
 
 **Aegis Pip**:
@@ -217,10 +241,6 @@ _Avoid_: Shield Pip, Carapace Pip, Armor Pip
 **Bio-Rupture**:
 Spore Mite's death passive dealing `6` Armor-piercing damage to all other living Mutants (and cracking Aegis Pips).
 _Avoid_: Bio-Burst, Volatile Burst
-
-**Spike Retaliation**:
-Chitin Stalker's passive punishing surviving non-Surge Attack hits with `3` immediate counter-damage (`+4` extra if the Hero has `0` Shield).
-_Avoid_: Thorny Carapace, Retaliate
 
 **50% Phase Gate**:
 Xenomorph Matriarch's threshold passive locking her HP at `50%` on first crossing to deploy `+10` Armor and `+1 Aegis Pip`.

@@ -501,6 +501,34 @@ test('staggered executeSingleEnemyAction, Kinetic Reflector zero-reward score, a
       ...eliteRun.combat,
       phase: 'PLAYER_RESOLVED' as const,
       board: eliteRun.combat.board.slice(0, 4),
+      enemies: [
+        {
+          id: 'test_brute_1',
+          archetype: 'brute' as const,
+          hp: 38,
+          maxHp: 38,
+          armor: 8,
+          shieldPips: 1,
+          maxShieldPips: 1,
+          passive: 'none' as const,
+          roleColor: 'gold' as const,
+          intentCycle: [{ kind: 'armor' as const, value: 6 }],
+          currentIntentIndex: 0,
+        },
+        {
+          id: 'test_spitter_2',
+          archetype: 'spitter' as const,
+          hp: 22,
+          maxHp: 22,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'none' as const,
+          roleColor: 'violet' as const,
+          intentCycle: [{ kind: 'acid' as const, value: 5, secondaryValue: 2 }],
+          currentIntentIndex: 0,
+        },
+      ],
     },
   };
 
@@ -1021,8 +1049,8 @@ test('full Moving Lock rules, TECH effects, Zuri Swarm Uplink, and armorDamage v
         enemies: [
           {
             ...base.combat.enemies[0],
-            archetype: 'spitter',
-            passive: 'acid_jam',
+            archetype: 'boss',
+            passive: 'phase_gate',
             intentCycle: [{ kind: 'acid', value: 5, secondaryValue: 2 }],
             currentIntentIndex: 0,
           },

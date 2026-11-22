@@ -277,7 +277,7 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
 
   for (const enemy of nextEnemies) {
     if (enemy.hp <= 0 || enemy.escaped || enemy.propKind) continue;
-    if (enemy.passive !== 'acid_jam' && enemy.archetype !== 'boss') continue;
+    if (enemy.archetype !== 'boss') continue;
     const alreadyHasHex = nextBoard.some((t) => t.hexedByEnemyId === enemy.id);
     if (alreadyHasHex) continue;
 

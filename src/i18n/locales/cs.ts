@@ -291,6 +291,12 @@ export const CS_TRANSLATIONS: TranslationPack = {
     },
   },
   enemyPassives: {
+    none: {
+      archetype: 'Standardní mutant · Kadence',
+      name: 'Bez pasivní vlastnosti',
+      rule: 'Žádná pasivka. Sleduj **Záměr** a **Kadenci**.',
+      counter: '**Přetlak** blokuj naplno; **Průraz** přeléč.',
+    },
     volatile_burst: {
       archetype: 'Pěšák · Výbušný roj',
       name: 'Bio-exploze',
@@ -343,32 +349,32 @@ export const CS_TRANSLATIONS: TranslationPack = {
     skitter: {
       name: 'Kobaltový běžec',
       classification: 'Kotva · Aegis podpora',
-      bioNote: 'Má **1 Aegis Pip**. Dává Brnění. Osamocený zuří.',
+      bioNote: 'Má **1 Aegis Pip** a **2 Brnění**. Posiluje spojence.',
     },
     stinger: {
       name: 'Žárový žahavec',
       classification: 'Časovaná bomba · Žárový útočník',
-      bioNote: 'Nabíjí 2 tahy na **16 DMG**. **16+ DMG** omráčí.',
+      bioNote: 'Nabíjí 2 tahy na **6 ×3 Přetlak**. **16+ DMG** omráčí.',
     },
     stalker: {
       name: 'Chitinový slídič',
-      classification: 'Trestající · Trnitý predátor',
-      bioNote: 'Trnová odplata **3 DMG**. +4 DMG bez Štítu.',
+      classification: 'Plíživý · Průrazný predátor',
+      bioNote: 'Pauza, pak **5 Průraz** (mimo Štít) a **7 DMG**.',
     },
     spitter: {
       name: 'Žlučový plivač',
       classification: 'Sabotér · Kyselinové dělostřelectvo',
-      bioNote: 'Pustuly dávají **+2 Koroze**. Kyselina blokuje dílky.',
+      bioNote: 'Pauza, pak **Kyselina** (+2 Koroze) a **Žíravá struska**.',
     },
     brute: {
       name: 'Krunýřový kolos',
       classification: 'Těžká kotva · Dvouslotový kolos',
-      bioNote: 'Dva sloty. **1 Pip**, mutagen léčí, **14 DMG** drtí.',
+      bioNote: 'Dva sloty. **1 Pip**, **Brnění +6**, **6 ×2 Přetlak**.',
     },
     boss: {
       name: 'Xenomorfní Matriarcha',
       classification: 'Boss 12. etapy · 50% Fázová brána',
-      bioNote: '**50% Fázová brána**. Trestá Útok. Sesílá Kletby.',
+      bioNote: '**50% Fázová brána**. Sesílá **Kletby** a **Bio-schránky**.',
     },
   },
   implants: {

@@ -156,6 +156,7 @@ export const GLOSSARY_TERMS: readonly GlossaryTermMeta[] = [
 ];
 
 export const PASSIVE_TO_GLOSSARY_TERM: Record<EnemyPassiveKind, GlossaryTermId> = {
+  none: 'aegis_pip',
   volatile_burst: 'volatile_burst',
   anchor_aegis: 'aegis_pip',
   time_bomb: 'thermal_charge',

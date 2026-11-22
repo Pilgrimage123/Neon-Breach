@@ -1,5 +1,6 @@
 import { SKILL_CHIPS_BY_ID } from './data';
 import { getEquippedChipMemory } from './poolBuilder';
+import { ARCHETYPE_THREAT_RATING } from './threatRating';
 import type {
   EnemyArchetype,
   EnemyIntent,
@@ -12,12 +13,12 @@ import type {
 export const MAX_ACTIVE_BRIDGE_ENEMIES = 6;
 
 export const ARCHETYPE_THREAT_COST: Record<Exclude<EnemyArchetype, 'boss'>, number> = {
-  larva: 4,
-  skitter: 6,
-  stinger: 7,
-  stalker: 8,
-  spitter: 8,
-  brute: 11,
+  larva: ARCHETYPE_THREAT_RATING.larva,
+  skitter: ARCHETYPE_THREAT_RATING.skitter,
+  stinger: ARCHETYPE_THREAT_RATING.stinger,
+  stalker: ARCHETYPE_THREAT_RATING.stalker,
+  spitter: ARCHETYPE_THREAT_RATING.spitter,
+  brute: ARCHETYPE_THREAT_RATING.brute,
 };
 
 export function deterministicHash(seed: number): number {
@@ -121,9 +122,10 @@ export function getEffectiveEnemyIntentValue(
       return 0;
     }
   }
+  if (intent.kind === 'pause') {
+    return 0;
+  }
   const bonus = Math.max(0, enemy.enrageAtkBonus ?? 0);
-  const desperationBonus = enemy.desperationEnraged ? 3 : 0;
-  const weaponPenalty = enemy.weaponBroken ? 3 : 0;
   const condBonus = isIntentConditionMet(intent, ctx) ? (intent.conditionBonus ?? 0) : 0;
   if (
     intent.kind === 'attack' ||
@@ -134,7 +136,7 @@ export function getEffectiveEnemyIntentValue(
   ) {
     const raw = Math.max(
       intent.value > 0 ? 1 : 0,
-      intent.value - weaponPenalty + bonus + desperationBonus + condBonus,
+      intent.value + bonus + condBonus,
     );
     if (ctx?.battlefieldRule === 'volatile_atmosphere' && raw > 0) {
       return Math.round(raw * 1.25);

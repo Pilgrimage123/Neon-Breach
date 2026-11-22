@@ -543,7 +543,10 @@ export function previewHeroThreat(
         conditionalBonusDamage += intent.conditionBonus ?? 0;
       }
       rawIncomingDamage += incoming;
-      const abs = absorbHeroDamage(simShield, simArmor, incoming);
+      const abs = absorbHeroDamage(simShield, simArmor, incoming, {
+        pierceShield: intent.pierceShield,
+        overwhelmMultiplier: intent.overwhelmMultiplier,
+      });
       simShield = abs.nextShield;
       simArmor = abs.nextArmor;
       blockedDamage += abs.blockedByShield + abs.blockedByArmor;
@@ -555,7 +558,7 @@ export function previewHeroThreat(
         corrodeGained += intent.secondaryValue ?? 2;
         const postShieldAcid = Math.max(0, incoming - abs.blockedByShield);
         const unblockedAcidHit = hpDmg > Math.floor(postShieldAcid * 0.1);
-        if (unblockedAcidHit && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
+        if (unblockedAcidHit && enemy.archetype === 'boss') {
           willJamTile = true;
         }
       } else if (intent.corrodeAmount && intent.corrodeAmount > 0) {

@@ -67,9 +67,18 @@ export type EnemyArchetype =
   | 'brute'
   | 'boss';
 
-export type IntentKind = 'attack' | 'acid' | 'armor' | 'bolster' | 'charge' | 'leech' | 'heavy';
+export type IntentKind =
+  | 'attack'
+  | 'acid'
+  | 'armor'
+  | 'bolster'
+  | 'charge'
+  | 'leech'
+  | 'heavy'
+  | 'pause';
 
 export type EnemyPassiveKind =
+  | 'none'
   | 'volatile_burst'
   | 'anchor_aegis'
   | 'time_bomb'
@@ -90,6 +99,8 @@ export interface EnemyIntent {
   kind: IntentKind;
   value: number;
   secondaryValue?: number;
+  pierceShield?: boolean;
+  overwhelmMultiplier?: 2 | 3;
   condition?: IntentConditionKind;
   conditionBonus?: number;
   topDeckBlight?: boolean;

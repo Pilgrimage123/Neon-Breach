@@ -2,7 +2,6 @@ import {
   PLASMA_BARREL_BURST_DAMAGE,
   STAGGER_BURST_THRESHOLD,
   VOLATILE_BURST_DAMAGE,
-  WEAPON_BREAK_THRESHOLD,
 } from '../../engine/gameEngine';
 import {
   getEffectiveEnemyIntentValue,
@@ -37,7 +36,8 @@ export interface EnemyArmorPreview {
   willTriggerPhaseGate: boolean;
   chainedBurstDmg: number;
   willStagger?: boolean;
-  willBreakWeapon?: boolean;
+  isStaggerable?: boolean;
+  staggerProgress?: number;
 }
 
 function applyPhaseGateClamp(
@@ -272,17 +272,15 @@ export function computeEnemyArmorPreview(
   const previewHpLoss = enemy.hp - projectedHp;
   const willDie = rawPreviewDmg > 0 && projectedHp <= 0;
   const curIntent = enemy.intentCycle[enemy.currentIntentIndex];
-  const totalBurstTurnDmg = (enemy.turnDamageTaken ?? 0) + previewHpLoss + armorAbsorbed;
-  const willStagger =
+  const isStaggerable =
     !willDie &&
     !enemy.staggered &&
-    (curIntent?.kind === 'charge' || curIntent?.kind === 'heavy') &&
-    totalBurstTurnDmg >= STAGGER_BURST_THRESHOLD;
-  const willBreakWeapon =
-    !willDie &&
-    !enemy.weaponBroken &&
-    (curIntent?.kind === 'charge' || curIntent?.kind === 'heavy') &&
-    totalBurstTurnDmg >= WEAPON_BREAK_THRESHOLD;
+    (curIntent?.kind === 'charge' || curIntent?.kind === 'heavy');
+  const totalBurstTurnDmg = (enemy.turnDamageTaken ?? 0) + previewHpLoss + armorAbsorbed;
+  const staggerProgress = isStaggerable
+    ? Math.min(1, totalBurstTurnDmg / STAGGER_BURST_THRESHOLD)
+    : 0;
+  const willStagger = isStaggerable && totalBurstTurnDmg >= STAGGER_BURST_THRESHOLD;
 
   return {
     rawPreviewDmg,
@@ -297,7 +295,8 @@ export function computeEnemyArmorPreview(
     willTriggerPhaseGate,
     chainedBurstDmg,
     willStagger,
-    willBreakWeapon,
+    isStaggerable,
+    staggerProgress,
   };
 }
 
@@ -315,25 +314,27 @@ export interface EnemyIntentFormatOptions {
 
 export function formatEnemyIntentCompact(
   intent: EnemyIntent,
-  lang: Language,
+  _lang: Language,
   enrageAtkBonus = 0,
   options?: EnemyIntentFormatOptions,
 ): string {
-  const t = TRANSLATIONS[lang];
   if (options?.propKind === 'plasma_barrel') {
-    return '🛢 10 AOE';
+    return '10';
   }
   if (options?.propKind === 'decoy_totem') {
-    return '⛩ DECOY';
+    return '+2';
   }
   if (options?.propKind === 'bio_husk') {
-    return `💀 ${options.reviveTimer ?? 2}T REV`;
+    return `${options.reviveTimer ?? 2}T`;
   }
   if (options?.isLootRunner) {
-    return `💰 ${options.escapeTurnsLeft ?? 3}T WARP`;
+    return `${options.escapeTurnsLeft ?? 3}T`;
   }
   if (options?.sleepCounter && options.sleepCounter > 0) {
-    return `💤 ${options.sleepCounter} HIT`;
+    return `${options.sleepCounter}`;
+  }
+  if (intent.kind === 'pause') {
+    return '···';
   }
   if (
     options?.staggered &&
@@ -343,48 +344,30 @@ export function formatEnemyIntentCompact(
       intent.kind === 'leech' ||
       intent.kind === 'charge')
   ) {
-    return '⚡ 0 DMG';
+    return '0';
   }
-  const hasMod =
-    enrageAtkBonus > 0 || Boolean(options?.weaponBroken) || Boolean(options?.desperationEnraged);
-  const val = hasMod
-    ? getEffectiveEnemyIntentValue(
-        {
-          enrageAtkBonus,
-          weaponBroken: options?.weaponBroken,
-          desperationEnraged: options?.desperationEnraged,
-        },
-        intent,
-      )
-    : intent.value;
-  const condVal =
-    intent.condition && intent.conditionBonus
-      ? options?.conditionActive
-        ? `${val + intent.conditionBonus} DMG!`
-        : `${val}(+${intent.conditionBonus}?) DMG`
-      : `${val} DMG`;
+  const val =
+    enrageAtkBonus > 0
+      ? getEffectiveEnemyIntentValue({ enrageAtkBonus }, intent)
+      : intent.value;
   switch (intent.kind) {
     case 'attack':
     case 'heavy': {
-      const extraParts: string[] = [];
-      if (intent.corrodeAmount) extraParts.push(`+${intent.corrodeAmount} ${t.corrodeShort}`);
-      if (intent.armorOnHit) extraParts.push(`+${intent.armorOnHit} ${t.armorShort}`);
-      return extraParts.length > 0 ? `${condVal} · ${extraParts.join(' ')}` : condVal;
+      const mult = intent.overwhelmMultiplier ? ` ×${intent.overwhelmMultiplier}` : '';
+      return `${val}${mult}`;
     }
     case 'acid':
-      return `${val} DMG +${intent.secondaryValue ?? 2} ${t.corrodeShort}`;
+      return `${val}`;
     case 'armor':
-      return intent.secondaryValue && intent.secondaryValue > 0
-        ? `+${val} ${t.armorShort} · +${intent.secondaryValue} ${t.hpLabel}`
-        : `+${val} ${t.armorShort}`;
+      return `+${val}`;
     case 'bolster':
-      return `+${val} ${t.armorShort} ${t.allShort}`;
+      return `+${val}`;
     case 'charge':
-      return `0 DMG (${intent.secondaryValue ?? 1}T → ${val})`;
+      return `${intent.secondaryValue ?? 1}T`;
     case 'leech':
-      return `${val} DMG +${intent.secondaryValue ?? 4} ${t.hpLabel}`;
+      return `${val}`;
     default:
-      return `${val} DMG`;
+      return `${val}`;
   }
 }
 
@@ -416,6 +399,9 @@ export function formatEnemyIntentSummary(
       ? `💤 SPÍCÍ · 0 DMG (${options.sleepCounter} ÚTOK PROBUDÍ)`
       : `💤 DORMANT · 0 DMG (${options.sleepCounter} ATK TO WAKE)`;
   }
+  if (intent.kind === 'pause') {
+    return lang === 'cs' ? '0 DMG · Pauza (připravuje další krok)' : '0 DMG · Pause (idle recovery turn)';
+  }
   if (
     options?.staggered &&
     (intent.kind === 'attack' ||
@@ -426,57 +412,41 @@ export function formatEnemyIntentSummary(
   ) {
     return lang === 'cs' ? '⚡ 0 DMG · OMRÁČEN' : '⚡ 0 DMG · STAGGERED';
   }
-  const hasMod =
-    enrageAtkBonus > 0 || Boolean(options?.weaponBroken) || Boolean(options?.desperationEnraged);
-  const val = hasMod
-    ? getEffectiveEnemyIntentValue(
-        {
-          enrageAtkBonus,
-          weaponBroken: options?.weaponBroken,
-          desperationEnraged: options?.desperationEnraged,
-        },
-        intent,
-      )
-    : intent.value;
-  const condTag =
-    intent.condition === 'if_no_shield'
-      ? lang === 'cs'
-        ? 'při 0 Štítu'
-        : 'if 0 Shield'
-      : intent.condition === 'if_play_attack'
-        ? lang === 'cs'
-          ? 'při Útoku'
-          : 'if ATK played'
-        : intent.condition === 'if_play_tech'
-          ? lang === 'cs'
-            ? 'při TECH'
-            : 'if TECH played'
-          : '';
+  const val =
+    enrageAtkBonus > 0
+      ? getEffectiveEnemyIntentValue({ enrageAtkBonus }, intent)
+      : intent.value;
   switch (intent.kind) {
     case 'attack':
     case 'heavy': {
-      if (intent.condition && intent.conditionBonus) {
-        return options?.conditionActive
-          ? `${val + intent.conditionBonus} DMG (+${intent.conditionBonus} ${condTag}!)`
-          : `${val} DMG (+${intent.conditionBonus} ${condTag})`;
+      if (intent.pierceShield) {
+        return lang === 'cs'
+          ? `${val} Průraz (ignoruje Štít)`
+          : `${val} Pierce (ignores Shield)`;
       }
-      const extraParts: string[] = [];
-      if (intent.corrodeAmount) extraParts.push(`+${intent.corrodeAmount} ${t.corrodeLabel}`);
-      if (intent.armorOnHit) {
-        extraParts.push(`+${intent.armorOnHit} ${t.armorLabel} (${lang === 'cs' ? 'při zásahu HP' : 'on HP hit'})`);
+      if (intent.overwhelmMultiplier) {
+        return lang === 'cs'
+          ? `${val} ×${intent.overwhelmMultiplier} Přetlak (násobí DMG po Štítu)`
+          : `${val} ×${intent.overwhelmMultiplier} Overwhelm (multiplies unblocked DMG)`;
       }
-      return extraParts.length > 0 ? `${val} DMG · ${extraParts.join(' · ')}` : `${val} DMG`;
+      return `${val} DMG`;
     }
-    case 'acid':
-      return `${val} DMG · +${intent.secondaryValue ?? 2} ${t.corrodeLabel}`;
+    case 'acid': {
+      const slagNote = intent.topDeckBlight
+        ? lang === 'cs'
+          ? ' · +Struska'
+          : ' · +Slag'
+        : '';
+      return `${val} DMG · +${intent.secondaryValue ?? 2} ${t.corrodeLabel}${slagNote}`;
+    }
     case 'armor':
-      return intent.secondaryValue && intent.secondaryValue > 0
-        ? `+${val} ${t.armorLabel} · +${intent.secondaryValue} ${t.hpLabel}`
-        : `+${val} ${t.armorLabel}`;
+      return `+${val} ${t.armorLabel}`;
     case 'bolster':
       return `+${val} ${t.armorLabel} (${t.allTargetsLabel})`;
-    case 'charge':
-      return `0 DMG · ${intent.secondaryValue ?? 1}T → ${val} DMG`;
+    case 'charge': {
+      const multTag = intent.overwhelmMultiplier ? ` ×${intent.overwhelmMultiplier}` : '';
+      return `0 DMG · ${intent.secondaryValue ?? 1}T → ${val}${multTag}`;
+    }
     case 'leech':
       return `${val} DMG · +${intent.secondaryValue ?? 4} ${t.hpLabel}`;
     default:
@@ -485,63 +455,11 @@ export function formatEnemyIntentSummary(
 }
 
 export function getEnemyReactiveBark(
-  enemy: EnemyUnit,
-  activePreview: TurnPreview | null,
-  armorPreview: EnemyArmorPreview,
-  shieldAfterPlayer: number,
-  lang: Language = 'en',
+  _enemy: EnemyUnit,
+  _activePreview: TurnPreview | null,
+  _armorPreview: EnemyArmorPreview,
+  _shieldAfterPlayer: number,
+  _lang: Language = 'en',
 ): string | null {
-  if (!activePreview || activePreview.tileCount === 0 || enemy.hp <= 0 || enemy.escaped) {
-    return null;
-  }
-  if (armorPreview.willDie) {
-    if (enemy.propKind === 'plasma_barrel') {
-      return lang === 'cs' ? '💥 10 AOE VÝBUCH!' : '💥 10 AOE BLAST!';
-    }
-    if (enemy.isLootRunner) {
-      return lang === 'cs' ? '💰 +25 CR KOŘIST!' : '💰 +25 CR BOUNTY!';
-    }
-    return null;
-  }
-  if (armorPreview.willBreakWeapon) {
-    return lang === 'cs' ? '🔨 ZBRAŇ ZLOMENA!' : '🔨 WEAPON BREAK!';
-  }
-  if (armorPreview.willStagger) {
-    return lang === 'cs' ? '⚡ OMRÁČENÍ!' : '⚡ STAGGERED!';
-  }
-  if (enemy.sleepCounter && enemy.sleepCounter > 0) {
-    if (activePreview.color === 'attack' && armorPreview.rawPreviewDmg > 0) {
-      return lang === 'cs' ? '⚠ PROBOUZÍ SE!' : '⚠ WAKING UP!';
-    }
-    return lang === 'cs' ? '💤 SPÍ DÁL' : '💤 UNDISTURBED';
-  }
-  const curIntent = enemy.intentCycle[enemy.currentIntentIndex];
-  if (
-    activePreview.color === 'attack' &&
-    !activePreview.surgeTriggered &&
-    enemy.passive === 'spike_retaliate' &&
-    armorPreview.rawPreviewDmg > 0
-  ) {
-    return lang === 'cs' ? '🩸 ODPLATA 3 DMG!' : '🩸 STRIKE & BLEED!';
-  }
-  if (
-    activePreview.color === 'attack' &&
-    !activePreview.surgeTriggered &&
-    enemy.passive === 'acid_jam' &&
-    !enemy.propKind &&
-    (activePreview.pustuleRuptureCorrode ?? 0) > 0 &&
-    armorPreview.rawPreviewDmg > 0
-  ) {
-    return lang === 'cs' ? '☣ PUSTULY +2 KOR!' : '☣ PUSTULE +2 COR!';
-  }
-  if (curIntent?.condition === 'if_no_shield' && shieldAfterPlayer === 0) {
-    return lang === 'cs' ? '🎯 BEZ ŠTÍTU +4!' : '🎯 UNSHIELDED PREY!';
-  }
-  if (curIntent?.condition === 'if_play_attack' && activePreview.color === 'attack') {
-    return lang === 'cs' ? '🔥 PROTIÚTOK +4!' : '🔥 COUNTER +4!';
-  }
-  if ((activePreview.hexedHealBonus ?? 0) > 0 && (enemy.passive === 'acid_jam' || enemy.archetype === 'boss')) {
-    return lang === 'cs' ? '⬡ KRMÍŠ MOU KLETBU!' : '⬡ FEED MY HEX!';
-  }
   return null;
 }
