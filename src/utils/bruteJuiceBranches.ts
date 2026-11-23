@@ -75,107 +75,122 @@ export function applyBruteAttackBranch(
   const prevU = hasCombatAttack ? prevAttackU : prevTriggerElapsed / dur;
 
   if (isHeavy) {
-    if (prevU < 0.5 && u >= 0.5) {
+    ctx.mode = 'heavySmash';
+    if (prevU < 0.48 && u >= 0.48) {
       const s = Math.max(0.5, config.seismicImpactStrength);
-      applyBruteSquash(state, 1 + 0.26 * s, 1 - 0.24 * s, 2.2 * s, -2.0 * s);
-      state.hitFlashTimer = Math.max(state.hitFlashTimer, 0.11);
+      applyBruteSquash(state, 1 + 0.28 * s, 1 - 0.26 * s, 2.4 * s, -2.2 * s);
+      state.hitFlashTimer = Math.max(state.hitFlashTimer, 0.12);
       ctx.seismicImpactTriggered = true;
     }
 
-    if (u < 0.22) {
-      const a = 0.5 - 0.5 * Math.cos((u / 0.22) * Math.PI);
+    if (u < 0.24) {
+      // Beat 1: High-tension backward & downward coil
+      const a = 0.5 - 0.5 * Math.cos((u / 0.24) * Math.PI);
       ctx.frameIndex = 8;
-      ctx.targetPosX = a * 18;
-      ctx.hopYPx -= a * 4;
-      ctx.rotationRad = a * 0.055;
-      ctx.deform.pelvis.dx = -a * 3.0;
-      ctx.deform.pelvis.scaleX = 1 + a * 0.06;
-      ctx.deform.waist.dx = -a * 6.5;
-      ctx.deform.waist.dy = a * 3.0;
-      ctx.deform.head.dx = -a * 10.5;
-      ctx.deform.head.rotRad = -a * 0.07;
-      ctx.shellGlowIntensity = 0.58 + a * 0.34;
-      ctx.vialGlowIntensity = 0.62;
-    } else if (u < 0.5) {
-      const s = (u - 0.22) / 0.28;
+      ctx.targetPosX = a * 20;
+      ctx.hopYPx += a * 3;
+      ctx.rotationRad = a * 0.062;
+      ctx.deform.pelvis.dx = -a * 3.5;
+      ctx.deform.pelvis.dy = a * 1.8;
+      ctx.deform.pelvis.scaleX = 1 + a * 0.07;
+      ctx.deform.waist.dx = -a * 7.5;
+      ctx.deform.waist.dy = a * 3.8;
+      ctx.deform.waist.scaleX = 1 + a * 0.05;
+      ctx.deform.head.dx = -a * 12.0;
+      ctx.deform.head.dy = a * 2.5;
+      ctx.deform.head.rotRad = -a * 0.082;
+      ctx.shellGlowIntensity = 0.62 + a * 0.32;
+      ctx.vialGlowIntensity = 0.66;
+    } else if (u < 0.48) {
+      // Beat 2: Explosive leap with quartic apex hang-time curve
+      const s = (u - 0.24) / 0.24;
       const thrust = Math.sin(s * (Math.PI * 0.5));
+      const hangArc = 1 - Math.pow(2 * s - 1, 4);
       ctx.frameIndex = 9;
-      ctx.targetPosX = 18 * (1 - thrust) - thrust * 74;
-      ctx.hopYPx -= Math.sin(s * Math.PI) * 30;
-      ctx.rotationRad = -0.045 * thrust;
-      ctx.deform.pelvis.dx = 3.5 * thrust;
-      ctx.deform.waist.dx = 7.5 * thrust;
-      ctx.deform.waist.dy = -4.5 * Math.sin(s * Math.PI);
-      ctx.deform.waist.scaleX = 0.94;
-      ctx.deform.head.dx = 12.0 * thrust;
-      ctx.deform.head.dy = -9.5 * Math.sin(s * Math.PI);
-      ctx.deform.head.rotRad = 0.06 * thrust;
-      ctx.shellGlowIntensity = 0.94;
-      ctx.vialGlowIntensity = 0.72;
-    } else if (u < 0.82) {
-      const f = (u - 0.5) / 0.32;
-      const crunch = Math.sin((1 - f * 0.45) * (Math.PI * 0.5));
+      ctx.targetPosX = 20 * (1 - thrust) - thrust * 76;
+      ctx.hopYPx -= hangArc * 34;
+      ctx.rotationRad = (0.04 * (1 - s) - 0.055 * s) * thrust;
+      ctx.deform.pelvis.dx = 3.8 * thrust;
+      ctx.deform.waist.dx = 8.2 * thrust;
+      ctx.deform.waist.dy = -5.5 * hangArc;
+      ctx.deform.waist.scaleX = 0.93;
+      ctx.deform.head.dx = 13.5 * thrust;
+      ctx.deform.head.dy = -11.0 * hangArc;
+      ctx.deform.head.rotRad = 0.072 * thrust;
+      ctx.shellGlowIntensity = 0.96;
+      ctx.vialGlowIntensity = 0.76;
+    } else if (u < 0.80) {
+      // Beat 3: Ground-locked impact crunch hold & expanding seismic shockwave
+      const f = (u - 0.48) / 0.32;
+      const isCrunchHold = f < 0.38;
+      const crunch = isCrunchHold
+        ? 1.0
+        : Math.sin((1 - ((f - 0.38) / 0.62) * 0.55) * (Math.PI * 0.5));
       ctx.frameIndex = 10;
-      ctx.targetPosX = -74 * (1 - f * 0.16);
-      ctx.rotationRad = -0.08 * crunch;
-      ctx.deform.pelvis.dx = 4.5 * crunch;
-      ctx.deform.pelvis.dy = 2.0 * crunch;
-      ctx.deform.waist.dx = 9.0 * crunch;
-      ctx.deform.waist.dy = 5.5 * crunch;
-      ctx.deform.waist.scaleX = 1 + 0.11 * crunch;
-      ctx.deform.head.dx = 14.0 * crunch;
-      ctx.deform.head.dy = 8.0 * crunch;
-      ctx.deform.head.rotRad = 0.11 * crunch;
-      ctx.shockwaveIntensity = Math.sin(f * Math.PI) * Math.min(1.25, config.seismicImpactStrength);
+      ctx.targetPosX = -76 * (1 - Math.max(0, f - 0.3) * 0.22);
+      ctx.rotationRad = -0.095 * crunch;
+      ctx.deform.pelvis.dx = 5.2 * crunch;
+      ctx.deform.pelvis.dy = 2.6 * crunch;
+      ctx.deform.waist.dx = 10.5 * crunch;
+      ctx.deform.waist.dy = 6.8 * crunch;
+      ctx.deform.waist.scaleX = 1 + 0.125 * crunch;
+      ctx.deform.head.dx = 16.0 * crunch;
+      ctx.deform.head.dy = 10.2 * crunch;
+      ctx.deform.head.rotRad = 0.13 * crunch;
+      ctx.shockwaveIntensity = Math.sin(f * Math.PI) * Math.min(1.3, config.seismicImpactStrength);
       ctx.seismicImpactProgress = Math.min(1, f);
-      ctx.shellGlowIntensity = 0.96 - f * 0.22;
-      ctx.vialGlowIntensity = 0.74;
+      ctx.shellGlowIntensity = 0.98 - f * 0.24;
+      ctx.vialGlowIntensity = 0.78;
     } else {
-      const r = (u - 0.82) / 0.18;
+      // Beat 4: Snarling follow-through & weighted recovery
+      const r = (u - 0.80) / 0.20;
       const ease = 0.5 + 0.5 * Math.cos(r * Math.PI);
       ctx.frameIndex = 11;
-      ctx.targetPosX = -62 * ease;
-      ctx.rotationRad = -0.03 * ease;
-      ctx.deform.waist.dx = 5.0 * ease;
-      ctx.deform.head.dx = 8.5 * ease;
-      ctx.shellGlowIntensity = 0.52 * ease + 0.18;
-      ctx.vialGlowIntensity = 0.5;
+      ctx.targetPosX = -64 * ease;
+      ctx.rotationRad = -0.035 * ease;
+      ctx.deform.waist.dx = 5.5 * ease;
+      ctx.deform.head.dx = 9.0 * ease;
+      ctx.shellGlowIntensity = 0.54 * ease + 0.2;
+      ctx.vialGlowIntensity = 0.52;
     }
     return;
   }
 
+  ctx.mode = 'clawMaw';
   if (prevU < 0.26 && u >= 0.26) {
-    applyBruteSquash(state, 1.18, 0.84, 1.5, -1.2);
+    applyBruteSquash(state, 1.20, 0.83, 1.6, -1.3);
   }
   if (u < 0.26) {
     const a = 0.5 - 0.5 * Math.cos((u / 0.26) * Math.PI);
     ctx.frameIndex = 8;
-    ctx.targetPosX = a * 16;
-    ctx.hopYPx -= a * 5;
-    ctx.rotationRad = a * 0.045;
-    ctx.deform.waist.dx = -a * 5.5;
-    ctx.deform.head.dx = -a * 9.0;
-    ctx.vialGlowIntensity = 0.58;
-    ctx.shellGlowIntensity = 0.45;
+    ctx.targetPosX = a * 18;
+    ctx.hopYPx -= a * 4;
+    ctx.rotationRad = a * 0.048;
+    ctx.deform.waist.dx = -a * 6.0;
+    ctx.deform.head.dx = -a * 10.0;
+    ctx.vialGlowIntensity = 0.62;
+    ctx.shellGlowIntensity = 0.48;
   } else if (u < 0.74) {
     const s = (u - 0.26) / 0.48;
     const thrust = Math.sin(s * (Math.PI * 0.5));
     ctx.frameIndex = 11;
-    ctx.targetPosX = 16 * (1 - thrust) - thrust * 68;
-    ctx.hopYPx -= Math.sin(s * Math.PI) * 6;
-    ctx.rotationRad = -0.075 * thrust;
-    ctx.deform.pelvis.dx = 4.0 * thrust;
-    ctx.deform.waist.dx = 9.0 * thrust;
-    ctx.deform.head.dx = 14.5 * thrust;
-    ctx.vialGlowIntensity = 0.66;
-    ctx.shellGlowIntensity = 0.52;
+    ctx.targetPosX = 18 * (1 - thrust) - thrust * 72;
+    ctx.hopYPx -= Math.sin(s * Math.PI) * 7;
+    ctx.rotationRad = -0.08 * thrust;
+    ctx.deform.pelvis.dx = 4.5 * thrust;
+    ctx.deform.waist.dx = 10.0 * thrust;
+    ctx.deform.head.dx = 16.0 * thrust;
+    ctx.deform.head.rotRad = 0.075 * thrust;
+    ctx.clawSlashProgress = Math.max(0.01, Math.min(1, s));
+    ctx.vialGlowIntensity = 0.74;
+    ctx.shellGlowIntensity = 0.58;
   } else {
     const r = (u - 0.74) / 0.26;
     const ease = 0.5 + 0.5 * Math.cos(r * Math.PI);
     ctx.frameIndex = 1;
-    ctx.targetPosX = -68 * ease;
-    ctx.deform.waist.dx = 4.0 * ease;
-    ctx.deform.head.dx = 7.0 * ease;
+    ctx.targetPosX = -72 * ease;
+    ctx.deform.waist.dx = 4.5 * ease;
+    ctx.deform.head.dx = 7.5 * ease;
   }
 }
 
@@ -198,6 +213,7 @@ export function applyBruteBraceBranch(
     : Math.max(0, Math.min(0.999, state.triggerElapsed / dur));
   const prevU = hasCombatBrace ? prevBristleU : prevTriggerElapsed / dur;
 
+  ctx.mode = 'brace';
   if (prevU < 0.24 && u >= 0.24) {
     applyBruteSquash(state, 1.18, 0.84, 1.4, -1.2);
     ctx.vialShatterTriggered = true;

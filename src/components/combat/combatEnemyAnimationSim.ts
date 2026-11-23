@@ -393,11 +393,11 @@ export function stepEnemyAnimationSamples(
       const isDead = enemy.hp <= 0;
       if (isDead && (!ea || !ea.dead || ea.koProgress >= 1)) continue;
       const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
-      const heavyPrimed =
-        !isDead &&
-        !enemy.staggered &&
-        !(enemy.sleepCounter && enemy.sleepCounter > 0) &&
-        activeIntent?.kind === 'heavy';
+      const isAwakeAndUnstaggered =
+        !isDead && !enemy.staggered && !(enemy.sleepCounter && enemy.sleepCounter > 0);
+      const armorPrimed = isAwakeAndUnstaggered && activeIntent?.kind === 'armor';
+      const heavyPrimed = isAwakeAndUnstaggered && activeIntent?.kind === 'heavy';
+      const pauseRecover = isAwakeAndUnstaggered && activeIntent?.kind === 'pause';
       const hoverArmorPrev =
         !isDead &&
         activePreview &&
@@ -406,7 +406,12 @@ export function stepEnemyAnimationSamples(
           ? computeEnemyArmorPreview(enemy, idx, frontLivingIdx, activePreview, enemies)
           : null;
       const staggerHover = Boolean(hoverArmorPrev?.willStagger);
-      const armoredGuard = !isDead && enemy.armor > 0;
+      const guardHover = Boolean(
+        hoverArmorPrev &&
+          !hoverArmorPrev.willStagger &&
+          !hoverArmorPrev.willDie &&
+          (enemy.armor > 0 || enemy.shieldPips > 0),
+      );
       const prevTrans = sim.bruteTransitions.get(enemy.id);
       const sample = sampleBruteFrame(
         ea
@@ -421,8 +426,10 @@ export function stepEnemyAnimationSamples(
               bristleTimer: ea.bristleTimer,
               bristleDuration: ea.bristleDuration,
               bristleKind: ea.bristleKind,
+              armorPrimed,
               heavyPrimed,
-              armoredGuard,
+              pauseRecover,
+              guardHover,
               staggered: Boolean(enemy.staggered),
               staggerHover,
             }
@@ -433,8 +440,10 @@ export function stepEnemyAnimationSamples(
               staggerDuration: 0.44,
               attackAnimTimer: 0,
               attackAnimDuration: 0.58,
+              armorPrimed,
               heavyPrimed,
-              armoredGuard,
+              pauseRecover,
+              guardHover,
               staggered: Boolean(enemy.staggered),
               staggerHover,
             },
@@ -464,22 +473,27 @@ export function stepEnemyAnimationSamples(
           staggerDuration: ea?.staggerDuration,
           bristleTimer: ea?.bristleTimer,
           bristleDuration: ea?.bristleDuration,
+          armorPrimed,
           heavyPrimed,
-          armoredGuard,
+          pauseRecover,
+          guardHover,
           staggerHover,
           staggeredStatus: Boolean(enemy.staggered),
           weaponBroken: Boolean(enemy.weaponBroken),
           instanceIndex: idx,
         },
       );
+      sample.mode = juiceSample.mode;
       sample.frameIndex = juiceSample.frameIndex;
       sample.frame = BRUTE_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
       sample.prevFrameIndex = juiceSample.prevFrameIndex;
       sample.prevFrame = BRUTE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
       sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
+      sample.transitionState = juiceState.transition;
       sample.vialGlowIntensity = juiceSample.vialGlowIntensity;
       sample.shellGlowIntensity = juiceSample.shellGlowIntensity;
       sample.shockwaveIntensity = Math.max(sample.shockwaveIntensity, juiceSample.shockwaveIntensity);
+      sample.clawSlashProgress = Math.max(sample.clawSlashProgress, juiceSample.clawSlashProgress);
 
       const bruteCutIn = getActorJuice(enemy.id);
       if (!ea?.dead && !bruteLabActive && bruteCutIn.active) {

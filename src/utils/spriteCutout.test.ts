@@ -10,6 +10,7 @@ import {
   computeSpriteBoundsFromData,
 } from './spriteCutout';
 import { AURALINE_SHEET_FRAMES } from './auralineSpriteSheet';
+import { BRUTE_SHEET_OPTIONS } from './bruteSpriteSheet';
 import { NURSE_FRAMES, NURSE_SHEET_OPTIONS } from './nurseSpriteSheet';
 import {
   ZURI_DRONES_OPTIONS,
@@ -284,9 +285,12 @@ test('computeSpriteBoundsFromData computes normalized ratios for opaque pixels',
 
 test('buildOptionsKey differentiates maxDimension, unmixDarkHoloGlass, and default options', () => {
   const fullKey = buildOptionsKey({ removeInteriorWhite: true, minPocketArea: 18 });
+  const bruteKey = buildOptionsKey(BRUTE_SHEET_OPTIONS);
   const scaledKey = buildOptionsKey({ removeInteriorWhite: true, minPocketArea: 18, maxDimension: 512 });
   const holoKey = buildOptionsKey({ removeDarkBackground: true, unmixDarkHoloGlass: true });
   const darkKey = buildOptionsKey({ removeDarkBackground: true, unmixDarkHoloGlass: false });
+  assert.equal(BRUTE_SHEET_OPTIONS.unmixLightGlow, true);
+  assert.notEqual(fullKey, bruteKey);
   assert.notEqual(fullKey, scaledKey);
   assert.notEqual(holoKey, darkKey);
   assert.ok(scaledKey.endsWith('|512'));

@@ -92,6 +92,64 @@ test('sampleBruteFrame covers idle ping-pong, Mutagen Brace, Seismic Heavy Smash
   );
   assert.equal(clawMawSample.mode, 'clawMaw');
   assert.equal(clawMawSample.frameIndex, 11);
+  assert.ok(clawMawSample.clawSlashProgress > 0.2, 'Maw/Claw lunge should emit clawSlashProgress');
+
+  // Frame 10 must strip baked-in side & floor splinters via excludeRects
+  const smashImpactFrame = BRUTE_SHEET_FRAMES[10];
+  assert.equal(smashImpactFrame.id, 'brute_smash_impact_10');
+  assert.ok(
+    smashImpactFrame.excludeRects && smashImpactFrame.excludeRects.length >= 3,
+    'Frame 10 must exclude baked floor/side impact splinters',
+  );
+
+  // Distinct 3-turn intent postures (armorPrimed, heavyPrimed, pauseRecover) and guardHover
+  const armorPrimedSample = sampleBruteFrame(
+    {
+      dead: false,
+      koProgress: 0,
+      staggerTimer: 0,
+      staggerDuration: 0.44,
+      attackAnimTimer: 0,
+      attackAnimDuration: 0.52,
+      armorPrimed: true,
+    },
+    0.4,
+    0,
+  );
+  assert.equal(armorPrimedSample.mode, 'armorPrimed');
+  assert.ok([4, 7].includes(armorPrimedSample.frameIndex));
+
+  const heavyPrimedSample = sampleBruteFrame(
+    {
+      dead: false,
+      koProgress: 0,
+      staggerTimer: 0,
+      staggerDuration: 0.44,
+      attackAnimTimer: 0,
+      attackAnimDuration: 0.52,
+      heavyPrimed: true,
+    },
+    0.2,
+    0,
+  );
+  assert.equal(heavyPrimedSample.mode, 'heavyPrimed');
+  assert.ok([6, 8].includes(heavyPrimedSample.frameIndex));
+
+  const pauseRecoverSample = sampleBruteFrame(
+    {
+      dead: false,
+      koProgress: 0,
+      staggerTimer: 0,
+      staggerDuration: 0.44,
+      attackAnimTimer: 0,
+      attackAnimDuration: 0.52,
+      pauseRecover: true,
+    },
+    0.5,
+    0,
+  );
+  assert.equal(pauseRecoverSample.mode, 'pauseRecover');
+  assert.ok([0, 1].includes(pauseRecoverSample.frameIndex));
 
   const staggeredSample = sampleBruteFrame(
     {

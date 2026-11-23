@@ -227,8 +227,16 @@ The `22 HP` backline disrupter Mutant cycling `Pause → Acid 5 (+2 Corrode) →
 _Avoid_: Spitter
 
 **Carapace Brute**:
-The `2`-slot `38 HP` heavyweight tank Mutant combining `8` starting Armor, `1` Aegis Pip, `Armor +6`, a staggerable `Overwhelm 6 (×2)` Heavy smash, and `Pause`.
+The `2`-slot `38 HP` heavyweight tank Mutant combining `8` starting Armor, `1` Aegis Pip, **Mutagen Vial Brace** (`Armor +6`), a staggerable **Seismic Carapace Crush** (`Overwhelm 6 (×2)` Heavy), and `Pause`.
 _Avoid_: Brute
+
+**Mutagen Vial Brace**:
+Carapace Brute's Turn-1 self-fortification maneuver (`Armor +6`) where it crushes pocket mutagen vials to supercharge its dorsal shell and harden its bio-veined guard.
+_Avoid_: Vial Brace, Mutagen Guard, Armor Brace
+
+**Seismic Carapace Crush**:
+Carapace Brute's staggerable `Overwhelm 6 (×2)` Heavy attack where it coils overhead, leaps airborne, and slams both fists into the sky-bridge deck.
+_Avoid_: Brute Smash, Seismic Slam, Heavy Crush
 
 **Xenomorph Matriarch**:
 The `110 HP` Stage 12 Apex Boss—**Dr. Lindqvist**'s prized bio-monstrosity—enforcing a **50% Phase Gate**, `Attack 13`, `Acid 8`, `Heavy 18`, Tile Hexes, and Bio-Husk corpse resurrection.

@@ -1,3 +1,4 @@
+import type { BruteAnimMode } from './bruteSpriteSheet';
 import {
   applySpringSquashImpulse,
   type HorizontalFlipState,
@@ -70,6 +71,7 @@ export interface BruteJuiceState
 }
 
 export interface BruteJuiceSample {
+  mode: BruteAnimMode;
   activeTrigger: BruteJuiceTrigger;
   frameIndex: number;
   prevFrameIndex: number;
@@ -93,6 +95,7 @@ export interface BruteJuiceSample {
   vialGlowIntensity: number;
   shellGlowIntensity: number;
   shockwaveIntensity: number;
+  clawSlashProgress: number;
   mutagenMistProgress: number;
   seismicImpactProgress: number;
   seismicImpactTriggered: boolean;
@@ -111,8 +114,11 @@ export interface BruteCombatSyncInput {
   staggerDuration?: number;
   bristleTimer?: number;
   bristleDuration?: number;
+  armorPrimed?: boolean;
   heavyPrimed?: boolean;
+  pauseRecover?: boolean;
   armoredGuard?: boolean;
+  guardHover?: boolean;
   staggerHover?: boolean;
   staggeredStatus?: boolean;
   weaponBroken?: boolean;
@@ -120,6 +126,7 @@ export interface BruteCombatSyncInput {
 }
 
 export interface BruteEvalCtx {
+  mode: BruteAnimMode;
   frameIndex: number;
   targetPosX: number;
   hopYPx: number;
@@ -127,6 +134,7 @@ export interface BruteEvalCtx {
   vialGlowIntensity: number;
   shellGlowIntensity: number;
   shockwaveIntensity: number;
+  clawSlashProgress: number;
   mutagenMistProgress: number;
   seismicImpactProgress: number;
   seismicImpactTriggered: boolean;

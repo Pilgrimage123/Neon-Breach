@@ -93,10 +93,67 @@ test('Layer 2 & VFX: Seismic Smash executes frames 8->9->10->11, leap arc, slam 
   }
 
   assert.ok(seenFrames.has(8) && seenFrames.has(9) && seenFrames.has(10) && seenFrames.has(11));
-  assert.ok(minHopY < -20, 'Airborne peak should lift Brute upward');
+  assert.ok(minHopY < -28, 'Airborne quartic hang-time peak should lift Brute upward');
   assert.equal(impactEdges, 1, 'Seismic impact rising edge must fire exactly once');
-  assert.ok(slamSquashX > 1.2 && slamSquashY < 0.8, 'Slam impact should compress spring vertically');
+  assert.ok(slamSquashX > 1.22 && slamSquashY < 0.78, 'Slam impact should compress spring vertically');
   assert.ok(maxShockwave > 0.85, 'Slam phase should drive strong shockwave intensity');
+});
+
+test('5-Posture Intent & Hover Cadence: Idle, armorPrimed, heavyPrimed, pauseRecover, and guardHover animate distinct postures without locking to Frame 7', () => {
+  const idleState = createBruteJuiceState();
+  const idleSeen = new Set<number>();
+  for (let i = 0; i < 90; i++) {
+    const s = stepBruteJuice(idleState, 0.04, i * 0.04, DEFAULT_BRUTE_JUICE_CONFIG);
+    assert.equal(s.mode, 'idle');
+    idleSeen.add(s.frameIndex);
+  }
+  assert.ok(idleSeen.has(0) && idleSeen.has(1), 'Default idle must cycle respiratory frames 0 and 1');
+  assert.ok(idleSeen.has(2) || idleSeen.has(3), 'Default idle must periodically trigger snarl frames 2/3');
+  assert.ok(!idleSeen.has(7), 'Default idle must never lock to Frame 7');
+
+  const armorState = createBruteJuiceState();
+  const armorSeen = new Set<number>();
+  for (let i = 0; i < 40; i++) {
+    const s = stepBruteJuice(armorState, 0.05, i * 0.05, DEFAULT_BRUTE_JUICE_CONFIG, {
+      armorPrimed: true,
+    });
+    assert.equal(s.mode, 'armorPrimed');
+    armorSeen.add(s.frameIndex);
+  }
+  assert.ok(armorSeen.has(4) && armorSeen.has(7), 'armorPrimed must cycle vial-grab (4) and guard (7)');
+
+  const heavyState = createBruteJuiceState();
+  const heavySeen = new Set<number>();
+  for (let i = 0; i < 40; i++) {
+    const s = stepBruteJuice(heavyState, 0.05, i * 0.05, DEFAULT_BRUTE_JUICE_CONFIG, {
+      heavyPrimed: true,
+    });
+    assert.equal(s.mode, 'heavyPrimed');
+    heavySeen.add(s.frameIndex);
+  }
+  assert.ok(heavySeen.has(8) && heavySeen.has(6), 'heavyPrimed must cycle coiled overhead (8) and dorsal flare (6)');
+
+  const pauseState = createBruteJuiceState();
+  const pauseSeen = new Set<number>();
+  for (let i = 0; i < 40; i++) {
+    const s = stepBruteJuice(pauseState, 0.05, i * 0.05, DEFAULT_BRUTE_JUICE_CONFIG, {
+      pauseRecover: true,
+    });
+    assert.equal(s.mode, 'pauseRecover');
+    pauseSeen.add(s.frameIndex);
+    assert.ok(s.deform.head.dy > 1.0, 'pauseRecover breather should droop head forward');
+  }
+  assert.ok(pauseSeen.has(0) && pauseSeen.has(1), 'pauseRecover must cycle heavy panting frames 0 and 1');
+
+  const clawState = createBruteJuiceState();
+  const clawSample = stepBruteJuice(clawState, 0.02, 0.5, DEFAULT_BRUTE_JUICE_CONFIG, {
+    attackAnimTimer: 0.3,
+    attackAnimDuration: 0.58,
+    bruteAttackKind: 'attack',
+  });
+  assert.equal(clawSample.mode, 'clawMaw');
+  assert.equal(clawSample.frameIndex, 11);
+  assert.ok(clawSample.clawSlashProgress > 0.2, 'Maw/Claw attack branch should emit clawSlashProgress');
 });
 
 test('Layer 3 & VFX: Mutagen Brace drives frames 4->5->6->7, vialShatterTriggered edge, mist progress & controlled dorsal flare', () => {

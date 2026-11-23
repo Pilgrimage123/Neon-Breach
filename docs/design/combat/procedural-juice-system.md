@@ -15,7 +15,7 @@
 4. **Layer 4 — Selective Shader Uniforms & Ballistic VFX:**
    * Selective `u_uvDistort` during `cast_charge` / `death_knockback` (disabled during neutral idle, walking, and standard strikes to avoid jelly artifacts).
    * **Bile Spitter Tuned Parameters (`spitterJuiceController.ts`):** `16`-frame (`0..15`) sheet; idle jaw-snap blink every `2.4–3.5s`; charge tremor `16 rad/s` (`0.45px` amp) with `uvDistortAmp` `0.0035–0.0080` (`uvDistortFreq` `14–20`); `mouthOriginRel`-anchored `renderSpitterBileTorrent` Quadratic Bezier stream with particles emitted inside `stepCombatSimulation`.
-   * **Carapace Brute Tuned Parameters (`bruteJuiceController.ts`):** `16`-frame (`0..15`) sheet; seismic slam fissures (`renderBruteGroundFissure`), kinetic armor shards, mutagen breath mist, and heavy step thud scale impulse.
+   * **Carapace Brute Tuned Parameters (`bruteJuiceController.ts`):** `16`-frame (`0..15`) sheet with `unmixLightGlow` and Frame `10` floor-splinter `excludeRects`; 5-posture intent/hover cadence (`idle` Row-0 respiratory + snarl cycle, `armorPrimed` `4 ↔ 7` readiness, `heavyPrimed` `8 ↔ 6` coiled dorsal flare, `pauseRecover` `0 ↔ 1` heavy panting breather, and `staggerHover` / `guardHover` reactive telegraphs); 4-beat **Seismic Carapace Crush** with quartic apex hang-time and ground-locked impact crunch hold; shared `renderBruteBioVfxOverlay` pass (dual chest vial capsules + bio-veins + curling mutagen vapor, 5 contoured dorsal thermal plumes + embers, and multi-ring seismic shockwave + triple-claw slash arc).
 
 ---
 

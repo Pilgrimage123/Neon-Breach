@@ -20,6 +20,7 @@ import {
   stepSpitterJuice,
 } from '../../utils/spitterJuiceController';
 import { renderSpitterGroundPuddle } from './combatDecalRenderer';
+import { renderBruteBioVfxOverlay } from './combatEnemyBioSpritePass';
 import { renderSpitterBileTorrent } from './combatForegroundFxRenderer';
 import type { CombatStageSim } from './combatStageTypes';
 import {
@@ -266,53 +267,31 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
       baseCtx.stroke();
       baseCtx.restore();
 
-      if (labJuice.vialGlowIntensity > 0.34 && !tacticalViewActive) {
-        const vialAlpha = Math.min(0.68, (labJuice.vialGlowIntensity - 0.25) * 0.85);
-        fgCtx.save();
-        fgCtx.globalCompositeOperation = 'lighter';
-        const gx = labWorldX + bf.vialOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const gy = labGroundY + labHopY + bf.vialOriginRel.dy * drawScale;
-        const vRad = size * (labJuice.activeTrigger === 'mutagen_brace' ? 0.38 : 0.24);
-        const vGrad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, vRad);
-        vGrad.addColorStop(0, `rgba(74, 222, 128, ${vialAlpha})`);
-        vGrad.addColorStop(0.5, `rgba(34, 197, 94, ${vialAlpha * 0.48})`);
-        vGrad.addColorStop(1, 'rgba(34, 197, 94, 0)');
-        fgCtx.fillStyle = vGrad;
-        fgCtx.beginPath();
-        fgCtx.arc(gx, gy, vRad, 0, Math.PI * 2);
-        fgCtx.fill();
-        fgCtx.restore();
-      }
-
-      if (labJuice.shellGlowIntensity > 0.34 && !tacticalViewActive) {
-        const shellAlpha = Math.min(0.72, (labJuice.shellGlowIntensity - 0.25) * 0.88);
-        fgCtx.save();
-        fgCtx.globalCompositeOperation = 'lighter';
-        const sx = labWorldX + bf.shellOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const sy = labGroundY + labHopY + bf.shellOriginRel.dy * drawScale;
-        const sRad = size * (labJuice.activeTrigger === 'seismic_smash' ? 0.46 : 0.34);
-        const sGrad = fgCtx.createRadialGradient(sx, sy, 2, sx, sy, sRad);
-        sGrad.addColorStop(0, `rgba(250, 204, 21, ${shellAlpha * 0.9})`);
-        sGrad.addColorStop(0.45, `rgba(251, 146, 60, ${shellAlpha * 0.52})`);
-        sGrad.addColorStop(1, 'rgba(251, 146, 60, 0)');
-        fgCtx.fillStyle = sGrad;
-        fgCtx.beginPath();
-        fgCtx.arc(sx, sy, sRad, 0, Math.PI * 2);
-        fgCtx.fill();
-        fgCtx.restore();
-      }
-
-      if (labJuice.shockwaveIntensity > 0.08 && !tacticalViewActive) {
-        const sw = Math.min(1.2, labJuice.shockwaveIntensity);
-        const ix = labWorldX + bf.impactOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const iy = labGroundY + 2;
-        fgCtx.save();
-        fgCtx.strokeStyle = `rgba(251, 146, 60, ${0.8 * Math.min(1, sw)})`;
-        fgCtx.lineWidth = 3 * sw;
-        fgCtx.beginPath();
-        fgCtx.ellipse(ix, iy, size * (0.28 + (1 - Math.min(1, sw)) * 0.34), 10 + (1 - Math.min(1, sw)) * 8, 0, 0, Math.PI * 2);
-        fgCtx.stroke();
-        fgCtx.restore();
+      if (!tacticalViewActive) {
+        renderBruteBioVfxOverlay({
+          fgCtx,
+          frame: bf,
+          frameIndex: labJuice.frameIndex,
+          mode: labJuice.mode,
+          spriteX: labWorldX,
+          enemyGroundY: labGroundY,
+          hopY: labHopY,
+          size,
+          drawScale,
+          facingSign: labJuice.facingScale,
+          vialGlowIntensity: labJuice.vialGlowIntensity,
+          shellGlowIntensity: labJuice.shellGlowIntensity,
+          shockwaveIntensity: labJuice.shockwaveIntensity,
+          clawSlashProgress: labJuice.clawSlashProgress,
+          mutagenMistProgress: labJuice.mutagenMistProgress,
+          seismicImpactProgress: labJuice.seismicImpactProgress,
+          waistDeformDx: labJuice.deform.waist.dx * drawScale * labJuice.facingScale,
+          waistDeformDy: labJuice.deform.waist.dy * drawScale,
+          headDeformDx: labJuice.deform.head.dx * drawScale * labJuice.facingScale,
+          headDeformDy: labJuice.deform.head.dy * drawScale,
+          elapsed,
+          seed: 3,
+        });
       }
 
       const prevCanvas =

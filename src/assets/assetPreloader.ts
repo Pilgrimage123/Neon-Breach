@@ -15,7 +15,10 @@ import {
   NURSE_FRAMES,
   NURSE_SHEET_OPTIONS,
 } from '../utils/nurseSpriteSheet';
-import { BRUTE_SHEET_FRAMES } from '../utils/bruteSpriteSheet';
+import {
+  BRUTE_SHEET_FRAMES,
+  BRUTE_SHEET_OPTIONS,
+} from '../utils/bruteSpriteSheet';
 import { SPITTER_SHEET_FRAMES } from '../utils/spitterSpriteSheet';
 import { STALKER_SHEET_FRAMES } from '../utils/stalkerSpriteSheet';
 import {
@@ -112,12 +115,6 @@ const SPITTER_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
   minPocketArea: 18,
   defringeStrength: 0.76,
   maxDimension: 512,
-};
-
-const BRUTE_SHEET_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.76,
 };
 
 const BRUTE_PORTRAIT_OPTIONS: SpriteCutoutOptions = {

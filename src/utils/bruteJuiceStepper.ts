@@ -58,6 +58,7 @@ export function stepBruteJuice(
   if (flipStep.completedFlip) applyBruteSquash(state, 1.14, 0.88);
 
   const ctx: BruteEvalCtx = {
+    mode: 'idle',
     frameIndex: 1,
     targetPosX: 0,
     hopYPx: flipStep.hopYPx,
@@ -65,6 +66,7 @@ export function stepBruteJuice(
     vialGlowIntensity: 0.24 + 0.1 * Math.sin(elapsed * 2.6 + idx),
     shellGlowIntensity: 0.16 + 0.08 * Math.sin(elapsed * 2.1 + idx * 0.9),
     shockwaveIntensity: 0,
+    clawSlashProgress: 0,
     mutagenMistProgress: 0,
     seismicImpactProgress: 0,
     seismicImpactTriggered: false,
@@ -89,19 +91,21 @@ export function stepBruteJuice(
     (combatSync?.bristleTimer ?? 0) > 0 && (combatSync?.bristleDuration ?? 0) > 0;
 
   if (isDead) {
+    ctx.mode = 'death';
     const death = sampleDeathCollapseFrame(combatSync?.koProgress ?? 0, 12, 4, 0.8);
     ctx.frameIndex = death.frameIndex;
     ctx.vialGlowIntensity = Math.max(0, 0.35 * (1 - death.progress * 1.3));
     ctx.shellGlowIntensity = Math.max(0, 0.25 * (1 - death.progress * 1.3));
   } else if (state.activeTrigger === 'stomp_walk') {
+    ctx.mode = 'idle';
     const u = state.triggerElapsed / Math.max(0.01, state.triggerDuration);
     ctx.targetPosX = -Math.sin(u * Math.PI) * 72;
     const isAdvancing = u < 0.55;
-    ctx.frameIndex = isAdvancing ? 0 : 1;
 
     state.stompTime += safeDt * config.stompSpeed;
     const stompSin = Math.sin(state.stompTime);
     const liftAbs = Math.abs(stompSin);
+    ctx.frameIndex = liftAbs > 0.42 ? 0 : 1;
     const isAirborne = liftAbs > 0.25;
     if (state.wasAirborne && !isAirborne && safeDt > 0) {
       applyBruteSquash(state, 1.13, 0.88, 0.8, -0.9);
@@ -134,6 +138,7 @@ export function stepBruteJuice(
       prevTriggerElapsed,
     );
   } else if (state.activeTrigger === 'take_hit' || hasCombatHurt) {
+    ctx.mode = 'pain';
     const dur = hasCombatHurt
       ? Math.max(0.01, combatSync!.staggerDuration!)
       : Math.max(0.01, state.triggerDuration);
@@ -155,58 +160,104 @@ export function stepBruteJuice(
     ctx.vialGlowIntensity = 0.35;
     ctx.shellGlowIntensity = 0.3 * (1 - u * 0.5);
   } else if (combatSync?.staggerHover) {
+    ctx.mode = 'staggerHover';
     ctx.frameIndex = 6;
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 8.5 + idx);
     ctx.shellGlowIntensity = 0.84 + 0.16 * pulse;
     ctx.vialGlowIntensity = 0.52 + 0.22 * pulse;
     ctx.deform.waist.scaleX = 1 + pulse * 0.035;
     ctx.deform.head.dy = -pulse * 2.5;
+  } else if (combatSync?.guardHover || combatSync?.armoredGuard) {
+    ctx.mode = 'armoredGuard';
+    ctx.frameIndex = 7;
+    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 4.0 + idx);
+    ctx.vialGlowIntensity = 0.66 + 0.24 * pulse;
+    ctx.shellGlowIntensity = 0.48 + 0.2 * pulse;
+    ctx.deform.waist.scaleX = 1 + pulse * 0.026;
+    ctx.deform.waist.dy = -pulse * 1.4;
+    ctx.deform.head.dy = -pulse * 1.8;
   } else if (combatSync?.heavyPrimed) {
-    ctx.frameIndex = 8;
-    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 5.6 + idx);
-    ctx.shellGlowIntensity = 0.68 + 0.28 * pulse;
-    ctx.vialGlowIntensity = 0.48 + 0.16 * pulse;
-    ctx.deform.pelvis.scaleX = 1 + pulse * 0.02;
-    ctx.deform.waist.dy = -pulse * 2.2;
-    ctx.deform.head.dy = -pulse * 3.0;
-    ctx.deform.head.rotRad = -0.02 + pulse * 0.02;
+    ctx.mode = 'heavyPrimed';
+    const heavyCycle = [8, 6, 8, 6] as const;
+    const slot = Math.floor(Math.max(0, elapsed * 2.4 + idx * 1.1)) % heavyCycle.length;
+    ctx.frameIndex = heavyCycle[slot];
+    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 5.8 + idx);
+    const tremor = Math.sin(elapsed * 15.0 + idx) * 0.45;
+    ctx.shellGlowIntensity = 0.72 + 0.26 * pulse;
+    ctx.vialGlowIntensity = 0.52 + 0.18 * pulse;
+    ctx.deform.pelvis.dx = tremor * 0.5;
+    ctx.deform.pelvis.scaleX = 1 + pulse * 0.022;
+    ctx.deform.waist.dx = tremor * 1.1;
+    ctx.deform.waist.dy = -pulse * 2.4;
+    ctx.deform.head.dx = tremor * 1.6;
+    ctx.deform.head.dy = -pulse * 3.2;
+    ctx.deform.head.rotRad = -0.022 + pulse * 0.024;
     const amp = 0.0018 * config.uvDistortStrength;
     ctx.uvDistortAmp = [amp, amp];
     ctx.uvDistortFreq = 9.5;
     ctx.uvDistortPhase = elapsed * 4.2 + idx;
-  } else if (combatSync?.armoredGuard) {
-    ctx.frameIndex = 7;
-    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 3.8 + idx);
-    ctx.vialGlowIntensity = 0.64 + 0.24 * pulse;
-    ctx.shellGlowIntensity = 0.46 + 0.2 * pulse;
+  } else if (combatSync?.armorPrimed) {
+    ctx.mode = 'armorPrimed';
+    const armorCycle = [4, 7, 4, 7] as const;
+    const slot = Math.floor(Math.max(0, elapsed * 1.85 + idx * 0.95)) % armorCycle.length;
+    ctx.frameIndex = armorCycle[slot];
+    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 4.4 + idx);
+    ctx.vialGlowIntensity = 0.68 + 0.24 * pulse;
+    ctx.shellGlowIntensity = 0.36 + 0.16 * pulse;
     ctx.deform.waist.scaleX = 1 + pulse * 0.025;
-    ctx.deform.waist.dy = -pulse * 1.4;
-    ctx.deform.head.dy = -pulse * 1.8;
+    ctx.deform.waist.dy = -pulse * 1.5;
+    ctx.deform.head.dy = -pulse * 2.0;
+  } else if (combatSync?.pauseRecover) {
+    ctx.mode = 'pauseRecover';
+    const pauseCycle = [0, 1] as const;
+    const slot = Math.floor(Math.max(0, elapsed * 1.35 + idx * 0.75)) % pauseCycle.length;
+    ctx.frameIndex = pauseCycle[slot];
+    const heave = Math.sin(elapsed * 2.1 + idx);
+    ctx.deform.pelvis.dx = 1.2 + heave * 0.5;
+    ctx.deform.waist.dx = 3.2 + heave * 1.1;
+    ctx.deform.waist.dy = 2.8 - heave * 2.2;
+    ctx.deform.waist.scaleX = 1 + heave * 0.036;
+    ctx.deform.head.dx = 5.4 + heave * 1.6;
+    ctx.deform.head.dy = 4.2 - heave * 2.8;
+    ctx.deform.head.rotRad = 0.034 - heave * 0.018;
+    ctx.vialGlowIntensity = 0.22 + 0.08 * heave;
+    ctx.shellGlowIntensity = 0.24 + 0.1 * heave;
   } else {
+    ctx.mode = 'idle';
     state.snarlTimer -= safeDt;
     if (state.snarlTimer <= 0) {
-      state.snarlHoldTimer = 0.24;
+      state.snarlHoldTimer = 0.48;
       state.snarlVariant = state.snarlVariant === 2 ? 3 : 2;
-      state.snarlTimer = 2.1 + ((idx * 0.79) % 1.1);
+      state.snarlTimer = 2.2 + ((idx * 0.79) % 1.1);
     }
     if (state.snarlHoldTimer > 0) {
       state.snarlHoldTimer = Math.max(0, state.snarlHoldTimer - safeDt);
-      ctx.frameIndex = state.snarlVariant;
+      const snarlProgress = 1 - state.snarlHoldTimer / 0.48;
+      ctx.frameIndex =
+        snarlProgress < 0.28
+          ? 2
+          : snarlProgress < 0.72
+            ? state.snarlVariant
+            : 2;
+      ctx.vialGlowIntensity = 0.36;
+      ctx.shellGlowIntensity = 0.28;
     } else {
-      ctx.frameIndex = state.flipActive ? 0 : 1;
+      const respSlot = Math.floor(Math.max(0, elapsed * 1.85 + idx * 0.9)) % 2;
+      ctx.frameIndex = state.flipActive ? 0 : respSlot;
     }
     const breath = Math.sin(ctx.swayPhase);
-    ctx.deform.pelvis.dx = breath * 0.4;
-    ctx.deform.waist.dx = breath * 0.95;
-    ctx.deform.waist.dy = -breath * 1.25;
-    ctx.deform.waist.scaleX = 1 + breath * 0.02;
-    ctx.deform.head.dx = breath * 1.45;
-    ctx.deform.head.dy = -breath * 1.85;
-    ctx.deform.head.rotRad = breath * 0.011;
-    ctx.swayAmpPx = 0.4;
+    ctx.deform.pelvis.dx = breath * 0.45;
+    ctx.deform.waist.dx = breath * 1.05;
+    ctx.deform.waist.dy = -breath * 1.35;
+    ctx.deform.waist.scaleX = 1 + breath * 0.022;
+    ctx.deform.head.dx = breath * 1.55;
+    ctx.deform.head.dy = -breath * 1.95;
+    ctx.deform.head.rotRad = breath * 0.013;
+    ctx.swayAmpPx = 0.45;
   }
 
   if (combatSync?.staggeredStatus && !isDead) {
+    ctx.mode = 'staggered';
     const dizzy = Math.sin(elapsed * 4.8 + idx);
     ctx.frameIndex = 13;
     ctx.deform.waist.dx += dizzy * 3.2;
@@ -246,6 +297,7 @@ export function stepBruteJuice(
   }
 
   return {
+    mode: ctx.mode,
     activeTrigger: state.activeTrigger,
     frameIndex: ctx.frameIndex,
     prevFrameIndex: state.transition.prevFrameIndex,
@@ -269,6 +321,7 @@ export function stepBruteJuice(
     vialGlowIntensity: ctx.vialGlowIntensity,
     shellGlowIntensity: ctx.shellGlowIntensity,
     shockwaveIntensity: ctx.shockwaveIntensity,
+    clawSlashProgress: ctx.clawSlashProgress,
     mutagenMistProgress: ctx.mutagenMistProgress,
     seismicImpactProgress: ctx.seismicImpactProgress,
     seismicImpactTriggered: ctx.seismicImpactTriggered,
