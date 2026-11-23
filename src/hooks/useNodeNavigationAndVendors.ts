@@ -216,10 +216,13 @@ export function useNodeNavigationAndVendors({
     [setRun],
   );
 
-  const handleCharterEstate = useCallback(() => {
-    soundEngine.playUpgrade(true);
-    setRun((prev) => charterSuburbanEstate(prev));
-  }, [setRun]);
+  const handleCharterEstate = useCallback(
+    (layer?: number) => {
+      soundEngine.playUpgrade(true);
+      setRun((prev) => charterSuburbanEstate(prev, layer));
+    },
+    [setRun],
+  );
 
   const handleRideMagLev = useCallback(
     (targetNodeId?: string) => {

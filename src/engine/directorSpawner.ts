@@ -1,5 +1,9 @@
 import { ENEMY_TEMPLATES } from './data';
-import { computeSmartScaledEnemyHp, getDifficultyProfile } from './difficulty';
+import {
+  computeSmartScaledEnemyHp,
+  getDifficultyProfile,
+  scaleEnemyIntentCycleForTier,
+} from './difficulty';
 import {
   ARCHETYPE_THREAT_COST,
   MAX_ACTIVE_BRIDGE_ENEMIES,
@@ -30,40 +34,40 @@ export function createCombatDirector(
   const playerMetaPower = computePlayerMetaPower(hero);
 
   let parTurns: [number, number, number] = [4, 6, 8];
-  let cacheCredits: [number, number, number] = [8, 6, 4];
+  let cacheCredits: [number, number, number] = [6, 5, 3];
   let mediumTurnThreshold = 4;
-  let overtimeTurnThreshold = 8;
+  let overtimeTurnThreshold = 9;
   let maxReinforcementsSpawned = 2;
 
   if (nodeType === 'BOSS') {
     parTurns = [6, 9, 12];
-    cacheCredits = [15, 10, 8];
+    cacheCredits = [12, 8, 5];
     mediumTurnThreshold = 4;
-    overtimeTurnThreshold = 11;
-    maxReinforcementsSpawned = 3;
+    overtimeTurnThreshold = 12;
+    maxReinforcementsSpawned = 2;
   } else if (nodeType === 'ELITE') {
     parTurns = [5, 7, 9];
-    cacheCredits = [12, 8, 6];
-    mediumTurnThreshold = 3;
-    overtimeTurnThreshold = 9;
-    maxReinforcementsSpawned = 3;
+    cacheCredits = [9, 6, 4];
+    mediumTurnThreshold = 4;
+    overtimeTurnThreshold = 10;
+    maxReinforcementsSpawned = 2;
   } else if (layer === 0) {
     parTurns = [3, 5, 7];
-    cacheCredits = [8, 5, 3];
+    cacheCredits = [6, 4, 3];
     mediumTurnThreshold = 4;
-    overtimeTurnThreshold = 8;
+    overtimeTurnThreshold = 9;
     maxReinforcementsSpawned = 1;
   } else if (layer >= 2) {
     parTurns = [4, 6, 8];
-    cacheCredits = [10, 7, 5];
-    mediumTurnThreshold = 3;
-    overtimeTurnThreshold = 8;
-    maxReinforcementsSpawned = 2 + (playerMetaPower >= 7 ? 1 : 0);
+    cacheCredits = [7, 5, 3];
+    mediumTurnThreshold = 4;
+    overtimeTurnThreshold = 9;
+    maxReinforcementsSpawned = 2;
   } else {
     parTurns = [4, 6, 8];
-    cacheCredits = [9, 6, 4];
-    mediumTurnThreshold = 3;
-    overtimeTurnThreshold = 8;
+    cacheCredits = [6, 5, 3];
+    mediumTurnThreshold = 4;
+    overtimeTurnThreshold = 9;
     maxReinforcementsSpawned = 2;
   }
 
@@ -87,21 +91,22 @@ export function createCombatDirector(
     { tier: 3, maxTurn: adjustedParTurns[2], creditReward: cacheCredits[2], intact: true },
   ];
 
+  const metaThreatBonus = Math.min(1, Math.floor(playerMetaPower / 5));
   const threatRatePerTurn = Math.max(
     1,
     Math.min(
-      7,
-      (layer === 0 ? 1 : 2 + Math.floor(layer * 0.7)) +
-        Math.floor(playerMetaPower / 4) +
+      6,
+      (layer === 0 ? 1 : 2 + Math.floor(layer * 0.5)) +
+        metaThreatBonus +
         diff.threatRateDelta,
     ),
   );
   const startingThreat =
     nodeType === 'ELITE' || nodeType === 'BOSS'
-      ? Math.min(6, 2 + Math.floor(playerMetaPower / 3))
+      ? Math.min(4, 2 + metaThreatBonus)
       : layer === 0
         ? 0
-        : Math.min(4, Math.floor(playerMetaPower / 3));
+        : Math.min(2, metaThreatBonus);
 
   return {
     playerMetaPower,
@@ -145,7 +150,7 @@ export function createReinforcementUnit(
     archetype === 'boss' ? 'skitter' : archetype;
   const tpl = ENEMY_TEMPLATES[safeArchetype];
   const scaledHp = computeSmartScaledEnemyHp(safeArchetype, tpl.maxHp, hpBonus, difficultyTier);
-  const intentCycle = tpl.intentCycle.map((intent) => ({ ...intent }));
+  const intentCycle = scaleEnemyIntentCycleForTier(tpl.intentCycle, difficultyTier);
   const graceStartIdx =
     intentCycle[0]?.kind === 'heavy'
       ? Math.max(0, intentCycle.findIndex((i) => i.kind !== 'heavy'))

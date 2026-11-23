@@ -310,14 +310,21 @@ export function enrollCharterProdigyTile(run: RunState, tileId: string): RunStat
   };
 }
 
+export const FABLAB_SPLICE_COST = 15;
+
 export function spliceFabLabTiles(
   run: RunState,
   targetTileId: string,
   consumedTileId: string,
 ): RunState {
   if (run.screen !== 'clinic') return run;
+  if (run.clinicSpliceUsed) return run;
   if (targetTileId === consumedTileId) return run;
   if (run.masterPool.length <= 4) return run;
+
+  const currentNode = run.mapNodes.find((n) => n.id === run.currentNodeId);
+  const cost = currentNode?.modifier === 'funded_clinic' ? 0 : FABLAB_SPLICE_COST;
+  if (run.hero.credits < cost) return run;
 
   const targetTile = run.masterPool.find((t) => t.id === targetTileId);
   const consumedTile = run.masterPool.find((t) => t.id === consumedTileId);
@@ -350,6 +357,7 @@ export function spliceFabLabTiles(
 
   const nextHero: HeroState = {
     ...run.hero,
+    credits: run.hero.credits - cost,
     splicedTilePairs: [
       ...prevSplices,
       {
@@ -367,6 +375,7 @@ export function spliceFabLabTiles(
     ...run,
     hero: nextHero,
     masterPool: rebuildMasterPool(nextHero),
+    clinicSpliceUsed: true,
     score: run.score + 30,
   };
 }
@@ -620,6 +629,10 @@ export type MedBayActionKind =
   | 'hearth_spouse'
   | 'hearth_kids';
 
+export function computeMedBayHealAmount(maxHp: number): number {
+  return Math.max(20, Math.round(maxHp * 0.35));
+}
+
 export function applyMedBayAction(
   run: RunState,
   action: MedBayActionKind,
@@ -639,9 +652,10 @@ export function applyMedBayAction(
   let scoreBonus = 30;
 
   if (action === 'heal') {
+    const healAmount = computeMedBayHealAmount(nextHero.maxHp);
     nextHero = {
       ...nextHero,
-      hp: Math.min(nextHero.maxHp, nextHero.hp + 22),
+      hp: Math.min(nextHero.maxHp, nextHero.hp + healAmount),
     };
   } else if (action === 'calibrate_max_hp') {
     const nextMax = nextHero.maxHp + 10;
@@ -669,12 +683,11 @@ export function applyMedBayAction(
     );
     nextHero = {
       ...nextHero,
-      hp: Math.min(nextHero.maxHp, nextHero.hp + 12),
+      hp: Math.min(nextHero.maxHp, nextHero.hp + 10),
       corrode: 0,
       prodigyTileIds: candidateInnate
         ? [...(nextHero.prodigyTileIds ?? []), candidateInnate.id]
         : nextHero.prodigyTileIds,
-      overclockCount: Math.min(MAX_OVERCLOCK_STACKS, (nextHero.overclockCount ?? 0) + 1),
     };
     scoreBonus = 40;
   } else if (action === 'hearth_spouse') {
@@ -691,8 +704,8 @@ export function applyMedBayAction(
   } else if (action === 'hearth_kids') {
     nextHero = {
       ...nextHero,
-      hp: Math.min(nextHero.maxHp, nextHero.hp + 22),
-      overdrive: Math.min(100, nextHero.overdrive + 25),
+      hp: Math.min(nextHero.maxHp, nextHero.hp + 12),
+      overdrive: Math.min(100, nextHero.overdrive + 15),
     };
     scoreBonus = 35;
   }

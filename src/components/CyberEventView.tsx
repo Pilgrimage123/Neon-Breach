@@ -6,6 +6,7 @@ import { TRANSLATIONS, type Language } from '../i18n/translations';
 interface CyberEventViewProps {
   run: RunState;
   lang: Language;
+  modalOpen?: boolean;
   isCompactLandscape?: boolean;
   onChoice: (choiceIndex: number) => void;
   onSwitchEvent?: (eventId: string) => void;
@@ -14,6 +15,7 @@ interface CyberEventViewProps {
 export function CyberEventView({
   run,
   lang,
+  modalOpen = false,
   isCompactLandscape = false,
   onChoice,
   onSwitchEvent,
@@ -24,8 +26,9 @@ export function CyberEventView({
   const hero = run.hero;
 
   useEffect(() => {
-    if (!event) return;
+    if (!event || modalOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       const idx = e.key === '1' ? 0 : e.key === '2' ? 1 : e.key === '3' ? 2 : -1;
       if (idx >= 0 && idx < event.choices.length) {
@@ -40,7 +43,7 @@ export function CyberEventView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [event, hero.credits, hero.hp, onChoice]);
+  }, [event, hero.credits, hero.hp, modalOpen, onChoice]);
 
   if (!event) return null;
 

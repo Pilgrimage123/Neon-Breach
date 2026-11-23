@@ -70,6 +70,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
       chipDealerChoices: [],
       chipDealerHeirloomUsed: false,
       clinicPurgeUsed: false,
+      clinicSpliceUsed: false,
       combat: null,
       activeEvent: null,
     };
@@ -85,6 +86,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
       chipDealerChoices: pickSkillChipChoices(run.seed + node.layer * 31 + 5, 3, ownedDefIds),
       chipDealerHeirloomUsed: false,
       clinicPurgeUsed: false,
+      clinicSpliceUsed: false,
       combat: null,
       activeEvent: null,
     };
@@ -130,7 +132,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   const diff = getDifficultyProfile(difficultyTier);
 
   let rewardCredits =
-    node.type === 'ELITE' ? 60 : node.type === 'BOSS' ? 100 : 35;
+    node.type === 'ELITE' ? 64 : node.type === 'BOSS' ? 110 : 38;
   if (node.modifier === 'golden_bounty') {
     rewardCredits = Math.round(rewardCredits * 1.5);
   } else if (node.modifier === 'double_credits') {
@@ -180,8 +182,8 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
       ? {
           cradleObjective: {
             name: 'Neonatal Bio-Cradle',
-            hp: 18,
-            maxHp: 18,
+            hp: 22,
+            maxHp: 22,
             turnsSurvived: 0,
             targetTurns: 4,
             liberated: false,
@@ -193,9 +195,10 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
   const heroSpec = getHeroSpec(workingHero.characterId);
   const startShieldBonus =
     (workingHero.nannyBotInstalled === 'guardian_nanny' ? 5 : 0) +
-    (workingHero.activeTempoRule?.id === 'kids_vitality_boost' ? 4 : 0);
+    (workingHero.activeTempoRule?.id === 'kids_vitality_boost' ? 3 : 0);
   const startOdBonus =
-    workingHero.activeTempoRule?.id === 'kids_vitality_boost' ? 25 : 0;
+    (workingHero.activeTempoRule?.id === 'kids_vitality_boost' ? 15 : 0) +
+    (workingHero.nannyBotInstalled === 'tutor_nanny' ? 10 : 0);
 
   return {
     ...run,
@@ -203,6 +206,7 @@ export function startNodeEncounter(run: RunState, nodeId: string): RunState {
     screen: 'combat',
     activeEvent: null,
     clinicPurgeUsed: false,
+    clinicSpliceUsed: false,
     chipDealerHeirloomUsed: false,
     hero: {
       ...workingHero,
@@ -304,7 +308,7 @@ export function claimCombatChipReward(run: RunState, chosenDefId: string | null)
   if (!run.combat || run.combat.phase !== 'VICTORY') return run;
   const combat = run.combat;
   const salvageBonus =
-    chosenDefId === null && !combat.mandateBreachLootConfiscated ? 15 : 0;
+    chosenDefId === null && combat.rewardChipChoices.length > 0 ? 15 : 0;
   const naniteReward = computeCombatNaniteReward(combat, run.mapNodes);
   const diff = getDifficultyProfile(run.difficultyTier ?? 3);
 
@@ -318,6 +322,7 @@ export function claimCombatChipReward(run: RunState, chosenDefId: string | null)
 
   let nextHero: HeroState = {
     ...run.hero,
+    overdrive: Math.min(50, run.hero.overdrive),
     credits:
       run.hero.credits +
       combat.rewardCredits +
@@ -386,6 +391,7 @@ export function claimCombatChipReward(run: RunState, chosenDefId: string | null)
       chipDealerChoices: [],
       chipDealerHeirloomUsed: false,
       clinicPurgeUsed: false,
+      clinicSpliceUsed: false,
       combat: null,
     };
   }
@@ -412,6 +418,7 @@ export function skipCombatEncounter(run: RunState): RunState {
   let nextHero: HeroState = {
     ...run.hero,
     hp: nextHp,
+    overdrive: Math.min(50, run.hero.overdrive),
     shield: 0,
     corrode: 0,
     damageBoostPct: 0,
@@ -506,6 +513,7 @@ export function createInitialRun(
     chipDealerChoices: [],
     chipDealerHeirloomUsed: false,
     clinicPurgeUsed: false,
+    clinicSpliceUsed: false,
     activeEvent: null,
     enemiesDefeated: 0,
     turnsCompleted: 0,

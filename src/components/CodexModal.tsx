@@ -46,8 +46,15 @@ export function CodexModal({
       setCategory('all');
       setSearchQuery('');
       setFocusedTermId(initialTermId);
+    } else {
+      setActiveTab(initialTab);
+      setFocusedTermId(null);
     }
-  }, [initialTermId]);
+  }, [initialTab, initialTermId]);
+
+  useEffect(() => {
+    setSelectedHero(initialHero);
+  }, [initialHero]);
 
   const handleJumpToTerm = (termId: GlossaryTermId) => {
     setActiveTab('glossary');

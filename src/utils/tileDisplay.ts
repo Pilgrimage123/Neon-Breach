@@ -10,7 +10,7 @@ export function formatTileShortLabel(
     return lang === 'cs' ? 'STRUSKA 0' : 'SLAG 0';
   }
   const ucSuffix = (tile.upcharge ?? 0) > 0 ? ` · +${tile.upcharge} UC` : '';
-  if (tile.isDud) {
+  if (tile.isDud && tile.value === 0 && !tile.techEffect) {
     return `${lang === 'cs' ? 'SLEPÝ 0' : 'DUD 0'}${ucSuffix}`;
   }
   if (tile.type === 'attack') {
@@ -56,7 +56,7 @@ export function formatTileDetailText(
         ? ` · +${uc} Nabití (+${uc} ${ucTilesWordCs} příští tah)`
         : ` · +${uc} UpCharge (+${uc} drawn next turn)`
       : '';
-  if (tile.isDud) {
+  if (tile.isDud && tile.value === 0 && !tile.techEffect) {
     return (
       (lang === 'cs'
         ? 'Slepý dílek: Bez základního efektu, ale počítá se do barvy a Přetížení'

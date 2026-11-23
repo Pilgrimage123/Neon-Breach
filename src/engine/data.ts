@@ -61,7 +61,7 @@ export interface HeroSpec {
 export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
   kira: {
     id: 'kira',
-    maxHp: 58,
+    maxHp: 62,
     startingArmor: 0,
     dudUpchargePerTile: 0,
     dudArmorPerTile: 0,
@@ -72,10 +72,10 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
     attackOverdrivePerTile: 10,
     defenseOverdrivePerTile: 4,
     techOverdrivePerTile: 12,
-    blitzReflexCooldownTurns: 2,
+    blitzReflexCooldownTurns: 3,
     overdrive: {
       damage: 10,
-      frontKickDamage: 14,
+      frontKickDamage: 12,
       knockbackFront: true,
       shield: 8,
       damageBoostPct: 0,
@@ -84,10 +84,10 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
   },
   auraline: {
     id: 'auraline',
-    maxHp: 78,
-    startingArmor: 18,
+    maxHp: 68,
+    startingArmor: 2,
     dudUpchargePerTile: 1,
-    dudArmorPerTile: 3,
+    dudArmorPerTile: 1,
     dudOverdrivePerTile: 15,
     startingCredits: 35,
     memoryCapacity: AURALINE_MEMORY_CAPACITY,
@@ -97,7 +97,7 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
     techOverdrivePerTile: 15,
     overdrive: {
       damage: 20,
-      armor: 10,
+      armor: 4,
       upcharge: 2,
       shield: 0,
       damageBoostPct: 0,
@@ -106,7 +106,7 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
   },
   zuri: {
     id: 'zuri',
-    maxHp: 62,
+    maxHp: 64,
     startingArmor: 0,
     dudUpchargePerTile: 0,
     dudArmorPerTile: 0,
@@ -116,11 +116,11 @@ export const HERO_SPECS: Record<CharacterId, HeroSpec> = {
     heldTileBonus: 0,
     attackOverdrivePerTile: 4,
     defenseOverdrivePerTile: 4,
-    techOverdrivePerTile: 25,
+    techOverdrivePerTile: 20,
     triDroneSync: {
       attackPierceDamage: 4,
-      defenseShield: 4,
-      techHeal: 3,
+      defenseShield: 7,
+      techHeal: 4,
     },
     overdrive: {
       damage: 16,
@@ -139,8 +139,8 @@ export function getHeroSpec(characterId: CharacterId = 'kira'): HeroSpec {
 const KIRA_INNATE_TILES: readonly TileSpec[] = [
   { type: 'attack', value: 4 },
   { type: 'attack', value: 3 },
-  { type: 'defense', value: 8 },
   { type: 'defense', value: 6 },
+  { type: 'defense', value: 5 },
   {
     type: 'tech',
     value: 0,
@@ -150,24 +150,30 @@ const KIRA_INNATE_TILES: readonly TileSpec[] = [
 
 const AURALINE_INNATE_TILES: readonly TileSpec[] = [
   { type: 'attack', value: 5 },
-  { type: 'attack', value: 0, isDud: true, isReactorCore: true },
+  { type: 'attack', value: 2, isDud: true, isReactorCore: true },
   { type: 'defense', value: 8 },
-  { type: 'defense', value: 0, isDud: true, isReactorCore: true },
+  { type: 'defense', value: 3, isDud: true, isReactorCore: true },
   {
     type: 'tech',
     value: 0,
     techEffect: { kind: 'damage_boost', percent: 42, decayPerTurn: 10 },
   },
-  { type: 'tech', value: 0, isDud: true, isReactorCore: true },
+  {
+    type: 'tech',
+    value: 0,
+    techEffect: { kind: 'damage_boost', percent: 15, decayPerTurn: 10 },
+    isDud: true,
+    isReactorCore: true,
+  },
 ];
 
 const ZURI_INNATE_TILES: readonly TileSpec[] = [
   { type: 'attack', value: 4 },
-  { type: 'defense', value: 7 },
+  { type: 'defense', value: 8 },
   {
     type: 'tech',
     value: 0,
-    techEffect: { kind: 'tactical_shield', shieldAmount: 4, damageBoostPct: 24 },
+    techEffect: { kind: 'tactical_shield', shieldAmount: 7, damageBoostPct: 24 },
   },
   {
     type: 'tech',
@@ -322,7 +328,7 @@ export const SKILL_CHIP_CATALOG: SkillChipDefinition[] = [
     id: 'apex_overwhelm',
     category: 'weapon',
     memoryCost: 5,
-    price: 55,
+    price: 48,
     rarity: 'prototype',
     droppable: true,
     tiles: [
@@ -433,7 +439,7 @@ export const SKILL_CHIP_CATALOG: SkillChipDefinition[] = [
     id: 'hyper_thread',
     category: 'tech',
     memoryCost: 3,
-    price: 48,
+    price: 42,
     rarity: 'prototype',
     droppable: true,
     tiles: [
@@ -521,9 +527,9 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
     passive: 'none',
     roleColor: 'orange',
     intentCycle: [
-      { kind: 'charge', value: 6, secondaryValue: 2, overwhelmMultiplier: 3 },
-      { kind: 'charge', value: 6, secondaryValue: 1, overwhelmMultiplier: 3 },
-      { kind: 'heavy', value: 6, overwhelmMultiplier: 3 },
+      { kind: 'charge', value: 7, secondaryValue: 2, overwhelmMultiplier: 2 },
+      { kind: 'charge', value: 7, secondaryValue: 1, overwhelmMultiplier: 2 },
+      { kind: 'heavy', value: 7, overwhelmMultiplier: 2 },
     ],
   },
   stalker: {
@@ -555,7 +561,7 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
   brute: {
     archetype: 'brute',
     maxHp: 38,
-    startingArmor: 8,
+    startingArmor: 6,
     startingShieldPips: 1,
     passive: 'none',
     roleColor: 'gold',
@@ -567,17 +573,17 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
   },
   boss: {
     archetype: 'boss',
-    maxHp: 110,
-    startingArmor: 10,
+    maxHp: 104,
+    startingArmor: 8,
     startingShieldPips: 1,
     passive: 'phase_gate',
     roleColor: 'apex',
     phaseGatePct: 50,
     intentCycle: [
-      { kind: 'armor', value: 10 },
-      { kind: 'attack', value: 13 },
+      { kind: 'armor', value: 8 },
+      { kind: 'attack', value: 12 },
       { kind: 'acid', value: 8, secondaryValue: 2, topDeckBlight: true },
-      { kind: 'heavy', value: 18 },
+      { kind: 'heavy', value: 16 },
     ],
   },
 };

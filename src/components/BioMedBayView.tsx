@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { MAX_OVERCLOCK_STACKS } from '../engine/data';
+import { computeMedBayHealAmount } from '../engine/dynastyClinicEngine';
 import type { RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { MedBayOptionId } from '../utils/nurseSpriteSheet';
@@ -17,6 +18,7 @@ export type MedBayActionType =
 interface BioMedBayViewProps {
   run: RunState;
   lang: Language;
+  modalOpen?: boolean;
   isCompactLandscape?: boolean;
   onAction: (action: MedBayActionType) => void;
 }
@@ -24,6 +26,7 @@ interface BioMedBayViewProps {
 export function BioMedBayView({
   run,
   lang,
+  modalOpen = false,
   isCompactLandscape = false,
   onAction,
 }: BioMedBayViewProps) {
@@ -34,7 +37,9 @@ export function BioMedBayView({
   const hpRatio = Math.max(0, Math.min(1, run.hero.hp / Math.max(1, run.hero.maxHp)));
   const isHighHp = run.hero.hp >= Math.round(run.hero.maxHp * 0.75);
   const isCriticalHp = run.hero.hp <= Math.round(run.hero.maxHp * 0.5);
-  const healedHp = Math.min(run.hero.maxHp, run.hero.hp + 22 + (isFundedClinic ? 12 : 0));
+  const baseHealAmount = computeMedBayHealAmount(run.hero.maxHp);
+  const totalHealAmount = baseHealAmount + (isFundedClinic ? 12 : 0);
+  const healedHp = Math.min(run.hero.maxHp, run.hero.hp + totalHealAmount);
   const calibratedMaxHp = run.hero.maxHp + 10;
   const nanites = run.hero.nanites ?? 0;
   const overclockStacks = Math.min(MAX_OVERCLOCK_STACKS, Math.max(0, run.hero.overclockCount ?? 0));
@@ -65,7 +70,9 @@ export function BioMedBayView({
   );
 
   useEffect(() => {
+    if (modalOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === '1') {
         e.preventDefault();
@@ -83,7 +90,7 @@ export function BioMedBayView({
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [overclockMaxed, triggerAction]);
+  }, [modalOpen, overclockMaxed, triggerAction]);
 
   return (
     <main
@@ -172,15 +179,18 @@ export function BioMedBayView({
             }`}
           >
             {/* Option 1: Bio-Repair */}
-            <div
+            <button
+              type="button"
               onMouseEnter={() => setFocusedOption('heal')}
               onMouseLeave={() => setFocusedOption(null)}
+              onFocus={() => setFocusedOption('heal')}
+              onBlur={() => setFocusedOption(null)}
               onClick={() => triggerAction('heal')}
-              className={`chrome-pill flex flex-col justify-between rounded-xl border-[#10F5A0]/50 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
+              className={`chrome-pill group flex flex-col justify-between rounded-xl border-[#10F5A0]/50 text-left transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
                 isCompactLandscape ? 'p-2' : 'p-3'
               }`}
             >
-              <div>
+              <div className="w-full">
                 <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#10F5A0] ${
@@ -195,35 +205,33 @@ export function BioMedBayView({
                   ♥ {run.hero.hp} → {healedHp} / {run.hero.maxHp}
                 </div>
                 <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
-                  {t.medbayHealDesc.replace('{name}', charMeta.name)}
+                  {lang === 'cs'
+                    ? `Okamžitě obnoví +${totalHealAmount} HP (35 % Max HP).`
+                    : `Restore +${totalHealAmount} HP (35% Max HP) immediately.`}
                 </p>
               </div>
-              <button
-                type="button"
-                onFocus={() => setFocusedOption('heal')}
-                onBlur={() => setFocusedOption(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerAction('heal');
-                }}
-                className={`mt-2 w-full rounded-lg bg-gradient-to-r from-[#10F5A0] to-[#6EE7B7] font-bold text-slate-950 shadow-[0_0_20px_rgba(16,245,160,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
+              <span
+                className={`mt-2 block w-full rounded-lg bg-gradient-to-r from-[#10F5A0] to-[#6EE7B7] text-center font-bold text-slate-950 shadow-[0_0_20px_rgba(16,245,160,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all group-hover:brightness-110 ${
                   isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
-                {t.applyRepair}
-              </button>
-            </div>
+                {lang === 'cs' ? `Obnovit +${totalHealAmount} HP` : `Restore +${totalHealAmount} HP`}
+              </span>
+            </button>
 
             {/* Option 2: Chassis Reinforcement */}
-            <div
+            <button
+              type="button"
               onMouseEnter={() => setFocusedOption('calibrate_max_hp')}
               onMouseLeave={() => setFocusedOption(null)}
+              onFocus={() => setFocusedOption('calibrate_max_hp')}
+              onBlur={() => setFocusedOption(null)}
               onClick={() => triggerAction('calibrate_max_hp')}
-              className={`chrome-pill flex flex-col justify-between rounded-xl border-[#00F0FF]/50 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
+              className={`chrome-pill group flex flex-col justify-between rounded-xl border-[#00F0FF]/50 text-left transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
                 isCompactLandscape ? 'p-2' : 'p-3'
               }`}
             >
-              <div>
+              <div className="w-full">
                 <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#00F0FF] ${
@@ -244,32 +252,28 @@ export function BioMedBayView({
                   {t.medbayCalibrateDesc}
                 </p>
               </div>
-              <button
-                type="button"
-                onFocus={() => setFocusedOption('calibrate_max_hp')}
-                onBlur={() => setFocusedOption(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerAction('calibrate_max_hp');
-                }}
-                className={`chrome-btn-primary mt-2 w-full rounded-lg font-bold transition-all cursor-pointer ${
+              <span
+                className={`chrome-btn-primary mt-2 block w-full rounded-lg text-center font-bold transition-all ${
                   isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
                 {t.applyCalibrate}
-              </button>
-            </div>
+              </span>
+            </button>
 
             {/* Option 3: Resource Salvage */}
-            <div
+            <button
+              type="button"
               onMouseEnter={() => setFocusedOption('salvage_credits')}
               onMouseLeave={() => setFocusedOption(null)}
+              onFocus={() => setFocusedOption('salvage_credits')}
+              onBlur={() => setFocusedOption(null)}
               onClick={() => triggerAction('salvage_credits')}
-              className={`chrome-pill flex flex-col justify-between rounded-xl border-[#FFC700]/50 transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
+              className={`chrome-pill group flex flex-col justify-between rounded-xl border-[#FFC700]/50 text-left transition-transform duration-150 hover:-translate-y-0.5 cursor-pointer ${
                 isCompactLandscape ? 'p-2' : 'p-3'
               }`}
             >
-              <div>
+              <div className="w-full">
                 <div className="flex items-center justify-between gap-1">
                   <h2
                     className={`font-display font-bold text-[#FFC700] ${
@@ -290,34 +294,29 @@ export function BioMedBayView({
                   {t.medbaySalvageDesc}
                 </p>
               </div>
-              <button
-                type="button"
-                onFocus={() => setFocusedOption('salvage_credits')}
-                onBlur={() => setFocusedOption(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerAction('salvage_credits');
-                }}
-                className={`mt-2 w-full rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] font-bold text-slate-950 shadow-[0_0_20px_rgba(255,199,0,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all hover:brightness-110 cursor-pointer ${
+              <span
+                className={`mt-2 block w-full rounded-lg bg-gradient-to-r from-[#FF9900] via-[#FFC700] to-[#FEF08A] text-center font-bold text-slate-950 shadow-[0_0_20px_rgba(255,199,0,0.35),inset_0_1px_0_rgba(255,255,255,0.85)] transition-all group-hover:brightness-110 ${
                   isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
                 }`}
               >
                 {t.applySalvage}
-              </button>
-            </div>
+              </span>
+            </button>
 
             {/* Option 4: Neural Overclock & Tile Tuning */}
-            <div
+            <button
+              type="button"
+              disabled={overclockMaxed}
               onMouseEnter={() => setFocusedOption('tile_overclock')}
               onMouseLeave={() => setFocusedOption(null)}
-              onClick={() => {
-                if (!overclockMaxed) triggerAction('tile_overclock');
-              }}
-              className={`chrome-pill flex flex-col justify-between rounded-xl border-fuchsia-500/50 bg-fuchsia-950/20 transition-transform duration-150 hover:-translate-y-0.5 ${
+              onFocus={() => setFocusedOption('tile_overclock')}
+              onBlur={() => setFocusedOption(null)}
+              onClick={() => triggerAction('tile_overclock')}
+              className={`chrome-pill group flex flex-col justify-between rounded-xl border-fuchsia-500/50 bg-fuchsia-950/20 text-left transition-transform duration-150 hover:-translate-y-0.5 disabled:hover:translate-y-0 ${
                 overclockMaxed ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'
               } ${isCompactLandscape ? 'p-2' : 'p-3'}`}
             >
-              <div>
+              <div className="w-full">
                 <div className="flex items-center justify-between gap-1.5">
                   <h2
                     className={`font-display font-bold text-fuchsia-300 ${
@@ -340,22 +339,14 @@ export function BioMedBayView({
                   {t.medbayOverclockDesc}
                 </p>
               </div>
-              <button
-                type="button"
-                disabled={overclockMaxed}
-                onFocus={() => setFocusedOption('tile_overclock')}
-                onBlur={() => setFocusedOption(null)}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  triggerAction('tile_overclock');
-                }}
-                className={`mt-2 w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all hover:brightness-110 cursor-pointer disabled:opacity-45 disabled:cursor-not-allowed ${
-                  isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'
-                }`}
+              <span
+                className={`mt-2 block w-full rounded-lg bg-gradient-to-r from-fuchsia-500 to-pink-500 text-center font-bold text-white shadow-[0_0_20px_rgba(217,70,239,0.35),inset_0_1px_0_rgba(255,255,255,0.4)] transition-all group-hover:brightness-110 ${
+                  overclockMaxed ? 'opacity-45' : ''
+                } ${isCompactLandscape ? 'px-2 py-1 text-xs' : 'px-2.5 py-1.5 text-[13px]'}`}
               >
                 {overclockMaxed ? (lang === 'cs' ? 'Max (2/2)' : 'Maxed (2/2)') : t.applyOverclock}
-              </button>
-            </div>
+              </span>
+            </button>
           </div>
 
           {/* Streamlined Single-Row Smart-Hearth Quick Bar */}
@@ -390,7 +381,7 @@ export function BioMedBayView({
                 💍 {lang === 'cs' ? 'Partner' : 'Spouse'}
               </span>
               <span className="font-mono-tabular text-[12px] font-bold text-[#F4F4F6] truncate">
-                {lang === 'cs' ? 'ATK×DEF +3 · 💚+14 HP' : 'ATK×DEF +3 · 💚+14 HP'}
+                {lang === 'cs' ? 'ATK×DEF +2 · 💚+14 HP' : 'ATK×DEF +2 · 💚+14 HP'}
               </span>
             </button>
 
@@ -404,7 +395,7 @@ export function BioMedBayView({
                 🧒 {lang === 'cs' ? 'Děti' : 'The Kids'}
               </span>
               <span className="font-mono-tabular text-[12px] font-bold text-[#F4F4F6] truncate">
-                💚+26 HP · ⚡+30% OD
+                💚+12 HP · ⚡+15% OD
               </span>
             </button>
           </div>

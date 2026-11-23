@@ -64,7 +64,7 @@ export function CombatEnemyHudCards({
   setHoveredEnemyId,
 }: CombatEnemyHudCardsProps) {
   return (
-    <div className="flex flex-wrap sm:flex-nowrap justify-end gap-1 sm:gap-1.5 min-w-0">
+    <div className="flex flex-wrap justify-end gap-1 sm:gap-1.5 min-w-0">
       {combat.enemies.map((enemy, idx) => {
         const isDead = enemy.hp <= 0;
         const hudState = sequentialHudStates[idx];
@@ -154,12 +154,12 @@ export function CombatEnemyHudCards({
                     ? 'w-[114px] sm:w-[144px] lg:w-48 px-1.5 py-1'
                     : 'w-[130px] sm:w-[162px] lg:w-52 px-2 py-1'
                 : hasUltraDenseEnemyRow
-                  ? 'w-[96px] sm:w-[118px] lg:w-[136px] xl:w-[152px] px-1.5 py-1'
+                  ? 'w-[96px] sm:w-[118px] lg:w-[136px] xl:w-[148px] px-1.5 py-1'
                   : hasDenseEnemyRow
-                    ? 'w-[112px] sm:w-44 lg:w-52 px-1.5 py-1 sm:px-2 sm:py-1.5'
+                    ? 'w-[112px] sm:w-40 lg:w-44 xl:w-48 px-1.5 py-1 sm:px-2 sm:py-1.5'
                     : getEnemySlotSpan(enemy.archetype) > 1
-                      ? 'w-[168px] sm:w-52 lg:w-60 px-2 py-1 sm:px-2.5 sm:py-1.5'
-                      : 'w-[126px] sm:w-48 lg:w-56 px-2 py-1 sm:px-2.5 sm:py-1.5'
+                      ? 'w-[168px] sm:w-48 lg:w-56 px-2 py-1 sm:px-2.5 sm:py-1.5'
+                      : 'w-[126px] sm:w-44 lg:w-52 px-2 py-1 sm:px-2.5 sm:py-1.5'
             } ${
               isDead
                 ? 'border border-white/10 bg-slate-950/55 opacity-35'
@@ -513,7 +513,9 @@ export function CombatEnemyHudCards({
             className={`pointer-events-auto text-left rounded-lg border border-dashed transition-all duration-200 cursor-pointer bg-[#071127]/90 ${
               isCompactLandscape
                 ? 'w-[116px] sm:w-[144px] px-1.5 py-1'
-                : 'w-[114px] sm:w-44 lg:w-48 px-1.5 py-1 sm:px-2 sm:py-1.5'
+                : hasDenseEnemyRow
+                  ? 'w-[112px] sm:w-36 lg:w-40 xl:w-44 px-1.5 py-1 sm:px-2 sm:py-1.5'
+                  : 'w-[114px] sm:w-40 lg:w-44 px-1.5 py-1 sm:px-2 sm:py-1.5'
             } ${
               isUrgent
                 ? 'border-[#FFC700]/85 shadow-[0_0_12px_rgba(255,199,0,0.3)]'

@@ -1,6 +1,7 @@
 import type { Language } from '../i18n/translations';
 import { getCyberEventForNode } from './cyberEvents';
 import { ENEMY_TEMPLATES, MAX_IMPLANTS } from './data';
+import { computeMedBayHealAmount } from './dynastyClinicEngine';
 import { buildEnemiesForNode } from './encounterBuilder';
 import type {
   NodeEncounterIntel,
@@ -54,8 +55,8 @@ export function getNodeEncounterIntel(
   } else if (node.modifier === 'overcharged_hazard') {
     threatTraits.push(
       isCs
-        ? 'Přetížená hrozba (+25 % síla nepřátel, +1 Nanit)'
-        : 'Overcharged Hazard (+25% Enemy Stats, Drops +1 Meta Nanite)',
+        ? 'Přetížená hrozba (+15 % síla nepřátel, +1 Nanit)'
+        : 'Overcharged Hazard (+15% Enemy Stats, Drops +1 Meta Nanite)',
     );
   } else if (node.modifier === 'flash_sale') {
     threatTraits.push(
@@ -105,12 +106,20 @@ export function getNodeEncounterIntel(
       threatTraits.push(isCs ? '50% Fázová brána' : '50% Phase Gate');
       threatTraits.push(isCs ? 'Posily roje a Bio-schránky' : 'Brood Swarm & Bio-Husks');
     } else if (unit.archetype === 'spitter') {
-      threatTraits.push(isCs ? 'Žíravá kyselina a Kletba dílku' : 'Corrosive Acid & Tile Hex');
+      threatTraits.push(
+        isCs ? 'Žíravá kyselina a Žíravá struska' : 'Corrosive Acid & Caustic Slag',
+      );
     } else if (unit.archetype === 'stalker') {
-      threatTraits.push(isCs ? 'Trnitá odplata (+4 bez Štítu)' : 'Spike Retaliation (+4 unshielded)');
+      threatTraits.push(
+        isCs ? 'Průrazný úder (ignoruje Štít)' : 'Shield-Piercing Strike',
+      );
+    } else if (unit.archetype === 'stinger') {
+      threatTraits.push(
+        isCs ? 'Nabíjený Přetlak (×2) · 16+ Omráčí' : 'Charged Overwhelm (×2) · 16+ Staggers',
+      );
     } else if (unit.archetype === 'brute') {
       threatTraits.push(
-        isCs ? '14 Drtivý úder · 8 Brnění a 1 Aegis Pip' : '14 Heavy Smash · 8 Armor & 1 Aegis Pip',
+        isCs ? 'Přetlakový drtivý úder · 6 Brnění a 1 Aegis Pip' : 'Overwhelm Heavy Smash · 6 Armor & 1 Aegis Pip',
       );
     }
     return {
@@ -186,7 +195,7 @@ export function getReconPreviewForNode(
     const isFunded = node.modifier === 'funded_clinic';
     return {
       kind: 'medbay',
-      healTotal: 22 + (isFunded ? 12 : 0),
+      healTotal: computeMedBayHealAmount(run.hero.maxHp) + (isFunded ? 12 : 0),
       isFunded,
     };
   }

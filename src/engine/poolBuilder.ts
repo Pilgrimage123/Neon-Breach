@@ -172,7 +172,7 @@ export function rebuildMasterPool(
       isDud = false;
       value = spec.type === 'tech' ? 0 : Math.max(6, spec.value + 3);
       upcharge = (upcharge ?? 0) + 1;
-      if (spec.type === 'tech' && !techEffect) {
+      if (spec.type === 'tech' && (!techEffect || spec.isDud)) {
         techEffect = { kind: 'tactical_shield', shieldAmount: 5, damageBoostPct: 20 };
       }
     }

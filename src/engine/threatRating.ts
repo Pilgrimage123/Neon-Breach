@@ -1,5 +1,6 @@
 import { ENEMY_TEMPLATES, type EnemyTemplate } from './data';
-import type { DifficultyTier, EnemyArchetype, EnemyIntent, MapNodeType } from './types';
+import { computeSmartScaledEnemyHp, scaleEnemyIntentCycleForTier } from './difficulty';
+import type { DifficultyTier, EnemyArchetype, EnemyIntent, EnemyUnit, MapNodeType } from './types';
 
 export const PLAYER_BASELINE_DPR = 12;
 export const MULTI_ENEMY_TAX = 2;
@@ -106,6 +107,20 @@ export function computeMutantThreatRating(template: EnemyTemplate): ThreatRating
   };
 }
 
+export function computeScaledMutantThreatRating(
+  archetype: EnemyArchetype,
+  difficultyTier: DifficultyTier = 3,
+  hpBonus = 0,
+): ThreatRatingBreakdown {
+  const baseTpl = ENEMY_TEMPLATES[archetype];
+  const scaledTemplate: EnemyTemplate = {
+    ...baseTpl,
+    maxHp: computeSmartScaledEnemyHp(archetype, baseTpl.maxHp, hpBonus, difficultyTier),
+    intentCycle: scaleEnemyIntentCycleForTier(baseTpl.intentCycle, difficultyTier),
+  };
+  return computeMutantThreatRating(scaledTemplate);
+}
+
 export const ARCHETYPE_THREAT_RATING: Record<EnemyArchetype, number> = {
   larva: computeMutantThreatRating(ENEMY_TEMPLATES.larva).total,
   skitter: computeMutantThreatRating(ENEMY_TEMPLATES.skitter).total,
@@ -125,6 +140,25 @@ export function computeEncounterThreatRating(archetypes: readonly EnemyArchetype
   return sum + MULTI_ENEMY_TAX * Math.max(0, archetypes.length - 1);
 }
 
+export function computeScaledEncounterThreatRating(
+  units: readonly Pick<EnemyUnit, 'archetype' | 'maxHp' | 'armor' | 'shieldPips' | 'passive' | 'intentCycle'>[],
+): number {
+  if (units.length === 0) return 0;
+  let sum = 0;
+  for (const u of units) {
+    const baseTpl = ENEMY_TEMPLATES[u.archetype];
+    sum += computeMutantThreatRating({
+      ...baseTpl,
+      maxHp: u.maxHp,
+      startingArmor: u.armor,
+      startingShieldPips: u.shieldPips,
+      passive: u.passive,
+      intentCycle: u.intentCycle,
+    }).total;
+  }
+  return sum + MULTI_ENEMY_TAX * Math.max(0, units.length - 1);
+}
+
 export interface EncounterBudgetSpec {
   minBudget: number;
   maxBudget: number;
@@ -140,14 +174,15 @@ export function getEncounterBudgetForNode(
   isBreather = false,
 ): EncounterBudgetSpec {
   if (nodeType === 'ELITE') {
-    const tierDelta = difficultyTier === 1 ? -4 : difficultyTier === 2 ? -2 : difficultyTier >= 4 ? 4 : 0;
-    const baseMax = layer >= 3 ? 44 : 40;
-    const minBudget = Math.max(24, baseMax - 12 + tierDelta);
+    const tierDelta = difficultyTier === 1 ? -4 : difficultyTier === 2 ? -2 : difficultyTier >= 4 ? 3 : 0;
+    const baseMax = layer >= 6 ? 44 : 36;
+    const budgetFloorGap = layer >= 6 ? 7 : 12;
+    const minBudget = Math.max(22, baseMax - budgetFloorGap + tierDelta);
     const maxBudget = Math.max(minBudget + 4, baseMax + tierDelta);
     return {
       minBudget,
       maxBudget,
-      maxUnits: difficultyTier === 1 ? 2 : 3,
+      maxUnits: difficultyTier === 1 || layer < 6 ? 2 : 3,
       maxCopiesPerArchetype: 1,
       allowedArchetypes: ['brute', 'spitter', 'stinger', 'skitter', 'larva'],
     };
@@ -177,26 +212,24 @@ export function getEncounterBudgetForNode(
     const isEasy = difficultyTier <= 2;
     const isHard = difficultyTier >= 4;
     return {
-      minBudget: isEasy ? 12 : 18,
-      maxBudget: isEasy ? 20 : isHard ? 28 : 25,
+      minBudget: isEasy ? 12 : 16,
+      maxBudget: isEasy ? 20 : isHard ? 26 : 23,
       maxUnits: isEasy ? 2 : 3,
       maxCopiesPerArchetype: 1,
       allowedArchetypes: ['larva', 'skitter', 'stinger', 'spitter'],
     };
   }
 
-  const tierBonus = difficultyTier === 1 ? -4 : difficultyTier === 2 ? -2 : difficultyTier === 4 ? 3 : difficultyTier === 5 ? 5 : 0;
-  const layerGrowth = Math.min(14, (layer - 1) * 2);
-  const maxBudget = Math.max(20, 26 + layerGrowth + tierBonus);
+  const tierBonus =
+    difficultyTier === 1 ? -4 : difficultyTier === 2 ? -2 : difficultyTier === 4 ? 2 : difficultyTier === 5 ? 3 : 0;
+  const layerGrowth = Math.min(12, Math.round((layer - 1) * 1.5));
+  const maxBudget = Math.max(20, 25 + layerGrowth + tierBonus);
   const minBudget = Math.max(14, maxBudget - 8);
   return {
     minBudget,
     maxBudget,
     maxUnits: difficultyTier === 1 ? 2 : 3,
     maxCopiesPerArchetype: 2,
-    allowedArchetypes:
-      layer >= 4
-        ? ['larva', 'skitter', 'stinger', 'stalker', 'spitter']
-        : ['larva', 'skitter', 'stinger', 'stalker', 'spitter'],
+    allowedArchetypes: ['larva', 'skitter', 'stinger', 'stalker', 'spitter'],
   };
 }

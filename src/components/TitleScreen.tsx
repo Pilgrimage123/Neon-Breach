@@ -431,7 +431,7 @@ export function TitleScreen({
                 className={
                   isNarrowPortrait
                     ? 'w-[104%] max-w-[392px] max-h-[32dvh]'
-                    : 'h-[clamp(250px,47dvh,455px)] w-auto max-w-[92vw]'
+                    : 'h-[clamp(230px,43dvh,420px)] w-auto max-w-[92vw]'
                 }
               />
             </div>
@@ -440,7 +440,7 @@ export function TitleScreen({
               className={`chrome-glass relative z-10 w-full rounded-2xl ${
                 isNarrowPortrait
                   ? '-mt-7 max-h-[calc(100dvh-230px)] overflow-y-auto px-3 pb-3 pt-8'
-                  : '-mt-11 sm:-mt-13 md:-mt-14 max-h-[calc(100dvh-310px)] overflow-y-auto px-5 pb-4 pt-4 sm:px-6 sm:pb-5 sm:pt-5'
+                  : '-mt-7 sm:-mt-8 md:-mt-9 max-h-[calc(100dvh-290px)] overflow-y-auto px-5 pb-4 pt-7 sm:px-6 sm:pb-5 sm:pt-8'
               }`}
             >
               <div

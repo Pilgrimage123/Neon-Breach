@@ -70,7 +70,7 @@ export const STAGE_BOSS_TELEGRAPH: BossTelegraphIntel = {
     {
       id: 'phase_lock',
       title: '50% Phase Gate',
-      description: 'Locks HP once at 50% to deploy +10 Armor & +1 Aegis Pip',
+      description: 'Locks HP once at 50% to deploy +8 Armor & +1 Aegis Pip',
       badge: 'PHASE GATE',
     },
     {
@@ -114,7 +114,7 @@ export function getBossTelegraphIntel(
       {
         id: 'phase_lock',
         title: '50% Fázová brána',
-        description: 'Při poklesu pod 50 % uzamkne HP a přidá +10 Brnění a +1 Aegis Pip',
+        description: 'Při poklesu pod 50 % uzamkne HP a přidá +8 Brnění a +1 Aegis Pip',
         badge: 'FÁZOVÁ BRÁNA',
       },
       {
@@ -140,7 +140,7 @@ export function getNodeEconomyMetrics(
   lang: Language = 'en',
   difficultyTier: DifficultyTier = 3,
 ): NodeEconomyMetrics {
-  const maxHp = hero?.maxHp ?? 58;
+  const maxHp = hero?.maxHp ?? 62;
   const diff = getDifficultyProfile(difficultyTier);
   let tensionHpPct = 0;
   let runYieldCredits = 0;
@@ -160,7 +160,7 @@ export function getNodeEconomyMetrics(
     case 'COMBAT': {
       const isOvercharged = node.modifier === 'overcharged_hazard';
       tensionHpPct = isOvercharged ? 18 : 12;
-      runYieldCredits = applyCreditModifiers(35);
+      runYieldCredits = applyCreditModifiers(38);
       runYieldPowerRating = isOvercharged ? 'HIGH' : 'MODERATE';
       metaYieldNanites =
         (isOvercharged ? 1 : 0) + (node.modifier === 'nanite_cache' ? 2 : 0);
@@ -176,7 +176,7 @@ export function getNodeEconomyMetrics(
     case 'ELITE': {
       const isOvercharged = node.modifier === 'overcharged_hazard';
       tensionHpPct = isOvercharged ? 46 : 38;
-      runYieldCredits = applyCreditModifiers(60);
+      runYieldCredits = applyCreditModifiers(64);
       runYieldPowerRating = isOvercharged ? 'CRITICAL' : 'HIGH';
       metaYieldNanites =
         2 + (isOvercharged ? 1 : 0) + (node.modifier === 'nanite_cache' ? 2 : 0);
@@ -233,7 +233,7 @@ export function getNodeEconomyMetrics(
       break;
     case 'BOSS':
       tensionHpPct = 65;
-      runYieldCredits = applyCreditModifiers(100);
+      runYieldCredits = applyCreditModifiers(110);
       runYieldPowerRating = 'CRITICAL';
       metaYieldNanites = 5;
       opportunityCost = isCs

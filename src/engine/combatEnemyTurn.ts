@@ -8,6 +8,7 @@ import {
   applyDamageToEnemy,
   applyMercyVictoryBonus,
   clearDeadCasterHexes,
+  collectLootRunnerBounties,
   countRewardedKills,
   countTotalBlightTiles,
   evaluateReactiveEnemyShifts,
@@ -288,6 +289,9 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
     nextEnemies = burstRes.enemies;
     defeatedNow += burstRes.extraDefeated;
     totalDamageDealt += burstRes.extraDamageDealt;
+    if (burstRes.barrelPoppedCount > 0) {
+      nextHero.overdrive = Math.min(100, nextHero.overdrive + burstRes.barrelPoppedCount * 20);
+    }
   }
 
   if (reflectedDamage > 0 || newlyDefeatedIds.length > 0) {
@@ -296,6 +300,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
   }
 
   applyBioSiphonHeal(nextHero, defeatedNow);
+  const lootBountyEarnedNow = collectLootRunnerBounties(combat.enemies, nextEnemies);
   const rewardedKills = countRewardedKills(combat.enemies, nextEnemies);
 
   if (nextHero.hp <= 0) {
@@ -338,8 +343,9 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       enemies: nextEnemies,
       lastCues: cues,
       totalDamageDealt,
-      rewardCredits: combat.rewardCredits + mercy.mercyCrBonus,
+      rewardCredits: combat.rewardCredits + lootBountyEarnedNow + mercy.mercyCrBonus,
       mercyBonusAwarded: mercy.mercyBonusAwarded,
+      lootBountyAwarded: (combat.lootBountyAwarded ?? 0) + lootBountyEarnedNow,
       director: directorReflectUpdate.director,
       tugOfWarMeter: nextTugOfWarMeter,
       cradleObjective: nextCradleObjective,
@@ -370,6 +376,8 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       enemies: nextEnemies,
       lastCues: cues,
       totalDamageDealt,
+      rewardCredits: combat.rewardCredits + lootBountyEarnedNow,
+      lootBountyAwarded: (combat.lootBountyAwarded ?? 0) + lootBountyEarnedNow,
       director: directorReflectUpdate.director,
       tugOfWarMeter: nextTugOfWarMeter,
       cradleObjective: nextCradleObjective,

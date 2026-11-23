@@ -107,15 +107,14 @@ export function useGlobalHotkeys({
 
       if (e.key.toLowerCase() === 'f' && !isEditable) {
         e.preventDefault();
-        soundEngine.playClick();
         onToggleFullscreen();
         return;
       }
 
       if (e.key.toLowerCase() === 'g' && !isEditable) {
         e.preventDefault();
-        soundEngine.playClick();
         if (codexTarget) {
+          soundEngine.playClick();
           onCloseCodex();
         } else {
           onOpenCodex(
@@ -131,6 +130,10 @@ export function useGlobalHotkeys({
         if (e.key === 'Escape' && codexTarget) {
           e.preventDefault();
           onCloseCodex();
+          return;
+        }
+        if (e.key.toLowerCase() === 'm' && !isEditable) {
+          onToggleMute();
           return;
         }
         if (codexTarget) {
@@ -206,23 +209,26 @@ export function useGlobalHotkeys({
       if (paused || poolModalOpen || Boolean(codexTarget)) return;
 
       if (run.screen === 'combat') {
-        if (run.combat?.phase === 'VICTORY' && postCombatOverlayReady) {
-          const choices = run.combat.rewardChipChoices;
-          if (e.key === '1' && choices[0]) {
-            e.preventDefault();
-            onClaimCombatReward(choices[0]);
-            return;
+        if (run.combat?.phase === 'VICTORY') {
+          if (postCombatOverlayReady) {
+            const choices = run.combat.rewardChipChoices;
+            if (e.key === '1' && choices[0]) {
+              e.preventDefault();
+              onClaimCombatReward(choices[0]);
+              return;
+            }
+            if (e.key === '2' && choices[1]) {
+              e.preventDefault();
+              onClaimCombatReward(choices[1]);
+              return;
+            }
+            if (e.key === '0' || (e.key === 'Enter' && !isInteractiveFocused(e.target))) {
+              e.preventDefault();
+              onClaimCombatReward(null);
+              return;
+            }
           }
-          if (e.key === '2' && choices[1]) {
-            e.preventDefault();
-            onClaimCombatReward(choices[1]);
-            return;
-          }
-          if (e.key === '0' || (e.key === 'Enter' && !isInteractiveFocused(e.target))) {
-            e.preventDefault();
-            onClaimCombatReward(null);
-            return;
-          }
+          return;
         }
         if (e.key === '1') {
           onCommitColor('attack');

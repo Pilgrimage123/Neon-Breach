@@ -113,6 +113,14 @@ export function useCombatSandbox({
   }, [run.screen]);
 
   const canUndoTurn = useMemo(() => {
+    if (
+      run.screen !== 'combat' ||
+      !combat ||
+      combat.phase === 'VICTORY' ||
+      combat.phase === 'DEFEAT'
+    ) {
+      return false;
+    }
     if (turnHistory.length === 0) return false;
     const lastEntry = turnHistory[turnHistory.length - 1];
     if (lastEntry.isSwapOnly) {
@@ -122,7 +130,7 @@ export function useCombatSandbox({
       diffProfile.maxCommittedUndosPerBattle === null ||
       committedUndosUsedInNode < diffProfile.maxCommittedUndosPerBattle
     );
-  }, [committedUndosUsedInNode, diffProfile, turnHistory]);
+  }, [combat, committedUndosUsedInNode, diffProfile, run.screen, turnHistory]);
 
   const runResetsUsed = run.runResetsUsed ?? 0;
   const hasResetBudget =
@@ -416,6 +424,15 @@ export function useCombatSandbox({
 
   const handleUndoTurn = useCallback(() => {
     if (showTitle || paused || poolModalOpen || codexOpen) return;
+    const currentRun = runRef.current;
+    if (
+      currentRun.screen !== 'combat' ||
+      !currentRun.combat ||
+      currentRun.combat.phase === 'VICTORY' ||
+      currentRun.combat.phase === 'DEFEAT'
+    ) {
+      return;
+    }
     if (turnHistory.length === 0 || !canUndoTurn) {
       soundEngine.playInvalidBuzz();
       return;

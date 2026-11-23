@@ -51,8 +51,8 @@ export function CombatLootOverlay({
               className="mt-2 rounded-lg border border-rose-400/70 bg-rose-950/65 px-3 py-1.5 font-mono-tabular text-[11px] font-bold text-rose-100"
             >
               {lang === 'cs'
-                ? `⚠ PORUŠENÍ MANDÁTU (Velmistr): -${combat.mandateBreachPenaltyHp ?? 12} HP průlom · Kořist zabavena`
-                : `⚠ GRANDMASTER MANDATE BREACH: -${combat.mandateBreachPenaltyHp ?? 12} HP Hull Breach · Loot Confiscated`}
+                ? `⚠ PORUŠENÍ MANDÁTU (Velmistr): -${combat.mandateBreachPenaltyHp ?? 6} HP průlom · -50 % CR`
+                : `⚠ GRANDMASTER MANDATE BREACH: -${combat.mandateBreachPenaltyHp ?? 6} HP Hull Breach · -50% CR`}
             </div>
           )}
           {combat.rewardBreakdown && !combat.mandateBreachLootConfiscated && (

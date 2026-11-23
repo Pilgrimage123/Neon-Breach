@@ -1,4 +1,5 @@
 import { BOARD_CAPACITY, ENEMY_TEMPLATES } from './data';
+import { scaleEnemyIntentCycleForTier } from './difficulty';
 import { createPropUnit } from './encounterBuilder';
 import { rebuildMasterPool } from './poolBuilder';
 import {
@@ -100,6 +101,8 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
   } else if (nextHero.nannyBotInstalled === 'caretaker_nanny') {
     nextHero.corrode = Math.max(0, nextHero.corrode - 1);
     nextHero.hp = Math.min(nextHero.maxHp, nextHero.hp + 2);
+  } else if (nextHero.nannyBotInstalled === 'tutor_nanny') {
+    nextHero.overdrive = Math.min(100, nextHero.overdrive + 10);
   }
 
   const nextCradleObjective = combat.cradleObjective ? { ...combat.cradleObjective } : undefined;
@@ -188,7 +191,7 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
           maxShieldPips: tpl.startingShieldPips,
           passive: tpl.passive,
           roleColor: tpl.roleColor,
-          intentCycle: tpl.intentCycle.map((intent) => ({ ...intent })),
+          intentCycle: scaleEnemyIntentCycleForTier(tpl.intentCycle, run.difficultyTier ?? 3),
           currentIntentIndex: 0,
           huskSpawned: true,
           isZeroReward: true,
@@ -278,6 +281,8 @@ export function advanceRoundAfterEnemies(run: RunState): RunState {
   for (const enemy of nextEnemies) {
     if (enemy.hp <= 0 || enemy.escaped || enemy.propKind) continue;
     if (enemy.archetype !== 'boss') continue;
+    // Give players a 1-turn cadence breather between Boss Tile Hex casts
+    if (nextTurn % 2 !== 0) continue;
     const alreadyHasHex = nextBoard.some((t) => t.hexedByEnemyId === enemy.id);
     if (alreadyHasHex) continue;
 

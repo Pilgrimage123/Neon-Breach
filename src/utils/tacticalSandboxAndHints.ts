@@ -442,8 +442,8 @@ export function computeEncounterObjectives(params: {
           : `Blitz Clear (≤${turnTarget2Star} Turns) OR Zero HP Lost (Now: T${combat.turn}, -${hpLost} HP)`,
       description: diff.mandatoryBonusObjective
         ? lang === 'cs'
-          ? `Povinné na Velmistra: do ${turnTarget2Star} tahů nebo bez ztráty HP (jinak průlom -12 HP a zabavení kořisti).`
-          : `Mandatory on Grandmaster: ≤${turnTarget2Star} turns or 0 HP lost (failure incurs -12 HP breach & forfeits loot).`
+          ? `Povinné na Velmistra: do ${turnTarget2Star} tahů nebo bez ztráty HP (selhání: -6 HP min. 1 a -50 % CR; čip zůstává).`
+          : `Mandatory on Grandmaster: ≤${turnTarget2Star} turns or 0 HP lost (failure: -6 HP min 1 & -50% CR; keeps chip loot).`
         : lang === 'cs'
           ? `Vyčisti uzel do ${turnTarget2Star} tahů nebo bez ztráty zdraví (bez Nouzového restartu).`
           : `Beat the node in ≤${turnTarget2Star} turns or take zero hull damage (without Fail-Forward).`,

@@ -206,8 +206,8 @@ export function TopHud({
                     data-testid="tophud-mandate-badge"
                     title={
                       lang === 'cs'
-                        ? `Povinný mandát Velmistra: vyčisti do T${turnCap} nebo bez ztráty HP (-12 HP průlom & ztráta kořisti při nesplnění)`
-                        : `Grandmaster Mandatory Mandate: clear by T${turnCap} or 0 HP lost (-12 HP breach & loot confiscated on fail)`
+                        ? `Povinný mandát Velmistra: vyčisti do T${turnCap} nebo bez ztráty HP (při selhání -6 HP min. 1 a -50 % CR, čip zůstává)`
+                        : `Grandmaster Mandatory Mandate: clear by T${turnCap} or 0 HP lost (on fail: -6 HP min 1, -50% CR; keeps chip loot)`
                     }
                     className={`hidden lg:inline-flex items-center rounded-md border px-2 py-1 font-mono-tabular text-[12px] font-extrabold whitespace-nowrap ${
                       mandateOnTrack

@@ -308,15 +308,15 @@ test('overlapping floor blood puddles coalesce into a single continuous pool on 
   assert.equal(activeCountAfterOverlap, 1, 'nearby overlapping splatters should coalesce into one pool');
   assert.ok(firstPool.targetRx > initialRx, 'coalesced pool should grow in radius');
 
-  // Two separate pools placed just outside initial merge threshold coalesce as they spread
-  const sepX = Math.round(firstPool.x + firstPool.targetRx + 8);
+  // Two separate pools placed outside initial merge threshold coalesce as they spread
+  const sepX = Math.round(firstPool.x + firstPool.targetRx + 18);
   addOrGrowFloorBlood(sim, sepX, firstPool.y, 4.5, 2, { owner: 'skitter', shapeKind: 'puddle' });
   const poolsBeforeSpread = sim.floorBlood.filter((p) => p.active);
   assert.equal(poolsBeforeSpread.length, 2, 'distant pool starts separate before spreading');
   for (const p of poolsBeforeSpread) {
     p.flowVx = 0;
     p.flowVy = 0;
-    p.spreadRateX = 5;
+    p.spreadRateX = 8;
   }
   for (let i = 0; i < 30; i++) stepCombatSimulation(sim, 0.1);
   assert.equal(

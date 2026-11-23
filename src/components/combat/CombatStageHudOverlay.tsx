@@ -84,7 +84,7 @@ export function CombatStageHudOverlay({
   return (
     <>
       <div
-        className={`pointer-events-none absolute inset-x-0 z-10 mx-auto flex max-w-[1680px] flex-wrap md:flex-nowrap items-start justify-between gap-1.5 px-2 sm:px-4 ${
+        className={`pointer-events-none absolute inset-x-0 z-10 mx-auto flex max-w-[1680px] flex-wrap lg:flex-nowrap items-start justify-between gap-1.5 px-2 sm:px-4 ${
           isCompactLandscape ? 'top-1' : 'top-1.5 sm:top-2'
         }`}
       >

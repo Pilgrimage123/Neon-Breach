@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ENEMY_TEMPLATES } from './data';
+import { computeSmartScaledEnemyHp } from './difficulty';
 import { buildEnemiesForNode, buildEncounterSpec } from './encounterBuilder';
 import {
   ARCHETYPE_THREAT_RATING,
@@ -122,10 +123,10 @@ test('Encounter builder respects Threat Rating budgets, bridge slots, and ADR-00
     }
   }
 
-  // ADR-0004: Spore Mite stays 9 HP on Layer 0 across Tiers 2-5
+  // Full-roster tier scaling: Spore Mite scales smoothly across Tiers 2-5
   for (const tier of [2, 3, 4, 5] as const) {
     const units = buildEnemiesForNode('COMBAT', 0, 42, 0, undefined, tier, false);
     const larva = units.find((u) => u.archetype === 'larva');
-    assert.equal(larva?.maxHp, 9);
+    assert.equal(larva?.maxHp, computeSmartScaledEnemyHp('larva', 9, 0, tier));
   }
 });

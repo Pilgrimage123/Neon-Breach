@@ -3,7 +3,12 @@ import {
   DROPPABLE_SKILL_CHIP_IDS,
   ENEMY_TEMPLATES,
 } from './data';
-import { computeSmartScaledEnemyHp, getDifficultyProfile } from './difficulty';
+import {
+  computeSmartScaledEnemyHp,
+  getDifficultyProfile,
+  isScalableDamageIntentKind,
+  scaleEnemyIntentCycleForTier,
+} from './difficulty';
 import { MAX_ACTIVE_BRIDGE_ENEMIES, getEnemySlotSpan } from './directorBridgeIntents';
 import {
   ARCHETYPE_THREAT_RATING,
@@ -202,7 +207,7 @@ export function buildEncounterSpec(
     if (mode === 'grandmaster') {
       return [
         { archetype: 'boss', idSuffix: 'boss_1', hpBonus: 0 },
-        { archetype: 'skitter', idSuffix: 'boss_escort_1', hpBonus: 0, initialIntentIndex: 0 },
+        { archetype: 'larva', idSuffix: 'boss_escort_1', hpBonus: 0, initialIntentIndex: 0 },
       ];
     }
     return [{ archetype: 'boss', idSuffix: 'boss_1', hpBonus: 0 }];
@@ -215,7 +220,7 @@ export function buildEncounterSpec(
   ) {
     return [];
   }
-  // Stage 01 (Layer 0): Turn-1 Breathing Room (3 DMG from front Spore Mite; Stalker opens on Pause)
+  // Stage 01 (Layer 0): Turn-1 Breathing Room (front Spore Mite attacks; Stalker opens on Pause)
   if (layer === 0) {
     return [
       { archetype: 'larva', idSuffix: 'l0_1', hpBonus: 0, initialIntentIndex: 0 },
@@ -242,7 +247,11 @@ export function buildEncounterSpec(
     }
 
     const candidates = budget.allowedArchetypes.filter((arch) => {
-      if ((counts[arch] ?? 0) >= budget.maxCopiesPerArchetype) return false;
+      const archMaxCopies =
+        layer < 8 && (arch === 'stalker' || arch === 'spitter')
+          ? 1
+          : budget.maxCopiesPerArchetype;
+      if ((counts[arch] ?? 0) >= archMaxCopies) return false;
       const span = getEnemySlotSpan(arch);
       if (usedSlots + span > MAX_ACTIVE_BRIDGE_ENEMIES) return false;
       const nextRating =
@@ -261,7 +270,10 @@ export function buildEncounterSpec(
     selected.push('larva', 'stinger');
   }
 
-  const lateBonus = nodeType === 'ELITE' ? layer * 2 : Math.max(0, (layer - 1) * 2);
+  const lateBonus =
+    nodeType === 'ELITE'
+      ? Math.min(10, Math.floor(layer * 1.1))
+      : Math.min(8, Math.floor(layer * 0.9));
   return selected.map((archetype, idx) => ({
     archetype,
     idSuffix: `${nodeType === 'ELITE' ? 'elite' : isBreather ? `l${layer}_${lane}_b` : `l${layer}_${lane}`}_${idx + 1}`,
@@ -269,13 +281,13 @@ export function buildEncounterSpec(
       archetype === 'larva'
         ? nodeType === 'ELITE'
           ? 0
-          : Math.min(3, lateBonus)
+          : Math.min(2, Math.floor(lateBonus * 0.4))
         : isBreather
           ? 0
           : archetype === 'brute'
             ? lateBonus
             : nodeType === 'ELITE'
-              ? layer
+              ? Math.min(6, Math.floor(layer * 0.7))
               : lateBonus,
     initialIntentIndex: 0,
   }));
@@ -299,20 +311,21 @@ export function buildEnemiesForNode(
       spec.hpBonus,
       difficultyTier,
     );
-    const overchargeBonus = isOvercharged ? Math.max(3, Math.round(tpl.maxHp * 0.25)) : 0;
+    const overchargeBonus = isOvercharged ? Math.max(2, Math.round(scaledHp * 0.15)) : 0;
     const baseUnit = createEnemyFromArchetype(
       spec.archetype,
       spec.idSuffix,
       scaledHp - tpl.maxHp + overchargeBonus,
       spec.initialIntentIndex ?? 0,
     );
+    baseUnit.intentCycle = scaleEnemyIntentCycleForTier(baseUnit.intentCycle, difficultyTier);
     if (isOvercharged) {
       baseUnit.armor += 1;
       baseUnit.intentCycle = baseUnit.intentCycle.map((intent) => ({
         ...intent,
         value:
-          intent.kind === 'attack' || intent.kind === 'heavy' || intent.kind === 'acid'
-            ? Math.round(intent.value * 1.25)
+          isScalableDamageIntentKind(intent.kind) && intent.value > 0
+            ? Math.max(1, Math.round(intent.value * 1.15))
             : intent.value,
       }));
     }

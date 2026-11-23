@@ -73,7 +73,7 @@ test('createCombatDirector tunes par caches, thresholds, and threat rates by nod
   );
   assert.ok(eliteDir.threatRatePerTurn >= layer0Dir.threatRatePerTurn);
   assert.equal(bossDir.parCaches[0].maxTurn, 6);
-  assert.equal(bossDir.maxReinforcementsSpawned, 3);
+  assert.equal(bossDir.maxReinforcementsSpawned, 2);
 });
 
 test('telegraphed reinforcements count down, arrive at round end, cap at bridge slots, and never attack on arrival turn', () => {
@@ -281,7 +281,7 @@ test('par caches crumble past thresholds and Fast Clear Bonus triggers cleanly',
   };
 
   const fastWin = computeVictoryDirectorRewards(35, 3, director);
-  assert.equal(fastWin.totalCredits, 35 + 19 + 4 + 9);
+  assert.equal(fastWin.totalCredits, 35 + 14 + 4 + 9);
 
   const slowDir = { ...director, pendingReinforcements: [] };
   const slowWin = computeVictoryDirectorRewards(35, 9, slowDir);

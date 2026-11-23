@@ -27,10 +27,10 @@ export const MERCY_REWARD_CREDITS = 15;
 export const TUG_OF_WAR_PURGE_OD_BONUS = 25;
 export const TUG_OF_WAR_PURGE_CR_BONUS = 10;
 export const BLIGHT_HOLD_CHIP_DAMAGE = 2;
-export const HEX_HEAL_AMOUNT = 4;
-export const HEX_ARMOR_AMOUNT = 3;
+export const HEX_HEAL_AMOUNT = 3;
+export const HEX_ARMOR_AMOUNT = 2;
 export const MAX_ACTIVE_BLIGHT_TILES = 2;
-export const PHASE_GATE_ARMOR_BONUS = 10;
+export const PHASE_GATE_ARMOR_BONUS = 8;
 
 export function hasImplant(implants: readonly CyberImplantId[], id: CyberImplantId): boolean {
   return implants.includes(id);
@@ -246,28 +246,18 @@ export function resolveCombatVictoryTransition(
     const hpLost = Math.max(0, startingHp - hero.hp);
     const mandateMet = combat.turn <= turnTarget || hpLost === 0;
     if (!mandateMet) {
-      const penaltyHp = 12;
-      const breachedHp = Math.max(0, hero.hp - penaltyHp);
+      const penaltyHp = 6;
+      const breachedHp = Math.max(1, hero.hp - penaltyHp);
       nextCombat = {
         ...combat,
-        rewardCredits: 0,
-        rewardChipChoices: [],
+        rewardCredits: Math.max(5, Math.floor(combat.rewardCredits * 0.5)),
         mandateBreachPenaltyHp: penaltyHp,
         mandateBreachLootConfiscated: true,
-        phase: breachedHp <= 0 ? 'DEFEAT' : combat.phase,
       };
       nextHero = {
         ...hero,
         hp: breachedHp,
       };
-      if (breachedHp <= 0) {
-        return {
-          screen: 'gameover',
-          mapNodes: run.mapNodes,
-          hero: nextHero,
-          combat: nextCombat,
-        };
-      }
     }
   }
 

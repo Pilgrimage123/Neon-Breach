@@ -22,6 +22,7 @@ import {
 import {
   adoptNannyBot,
   advanceNodeDynastyProgress,
+  advanceRoundAfterEnemies,
   applyMedBayAction,
   buyChipDealerChip,
   canModifyEquipment,
@@ -31,6 +32,7 @@ import {
   engraveHeirloom,
   enrollCharterProdigyTile,
   equipSkillChipInstance,
+  executeSingleEnemyAction,
   incubateStorkTile,
   installCyberImplant,
   marryBloodlineCrest,
@@ -179,7 +181,7 @@ test('13 droppable AI Skill Chips, Chip Vault scrapping, Chip Dealer restock, Cy
   const afterHeal = applyMedBayAction(medRun, 'heal');
   assert.equal(afterHeal.hero.hp, Math.min(medRun.hero.maxHp, 20 + 22 + fundedBonus));
   const afterCal = applyMedBayAction({ ...afterHeal, screen: 'medbay', currentNodeId: medbayNode.id }, 'calibrate_max_hp');
-  assert.equal(afterCal.hero.maxHp, 68);
+  assert.equal(afterCal.hero.maxHp, 72);
 });
 
 test('Heirloom Forge enforces 25 CR cost, once-per-visit, ownership check, cap 6, and no combat victory halving', () => {
@@ -442,3 +444,111 @@ test('Dynasty facilities: Pedigree Crest, Charter Academy, FabLab, Nanny-Bot, Me
   const aiCs = localizeCyberEvent(aiEvent, 'cs').choices.find((c) => c.id === 'ai_siphon')!;
   assert.ok(aiCs.description.includes('+8 HP'));
 });
+
+test('Tutor Nanny-Bot grants +10% Overdrive on combat entry and at each round transition', () => {
+  const baseRun = createInitialRun(20261, 'kira', 3);
+  const combatNode = baseRun.mapNodes.find((n) => n.layer === 1 && n.type === 'COMBAT') ?? baseRun.mapNodes[0];
+  const withTutor: RunState = {
+    ...baseRun,
+    hero: {
+      ...baseRun.hero,
+      overdrive: 0,
+      nannyBotInstalled: 'tutor_nanny',
+    },
+  };
+  const entered = startNodeEncounter(withTutor, combatNode.id);
+  assert.equal(entered.hero.overdrive, 10, 'Tutor Bot grants +10% OD on combat start');
+  assert.equal(entered.combat?.board.length, 7, 'Tutor Bot also grants +1 Turn 1 draw');
+
+  const afterRound = advanceRoundAfterEnemies({
+    ...entered,
+    combat: { ...entered.combat!, phase: 'ENEMY_ACTING' },
+  });
+  assert.equal(afterRound.hero.overdrive, 20, 'Tutor Bot grants +10% OD each round');
+});
+
+test('Enemy-turn Kinetic Reflector kill awards Loot Runner bounty and Plasma Barrel Overdrive', () => {
+  const baseRun = createInitialRun(20262, 'kira', 3);
+  assert.ok(baseRun.combat);
+  const setup: RunState = {
+    ...baseRun,
+    hero: {
+      ...baseRun.hero,
+      shield: 20,
+      overdrive: 0,
+      implants: ['kinetic_reflector'],
+    },
+    combat: {
+      ...baseRun.combat,
+      phase: 'PLAYER_RESOLVED',
+      rewardCredits: 35,
+      enemies: [
+        {
+          id: 'e_volatile_attacker',
+          archetype: 'skitter',
+          hp: 3,
+          maxHp: 12,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'volatile_burst',
+          roleColor: 'lime',
+          intentCycle: [{ kind: 'attack', value: 6 }],
+          currentIntentIndex: 0,
+        },
+        {
+          id: 'e_loot_runner',
+          archetype: 'larva',
+          hp: 4,
+          maxHp: 12,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'none',
+          roleColor: 'gold',
+          intentCycle: [{ kind: 'pause', value: 0 }],
+          currentIntentIndex: 0,
+          isLootRunner: true,
+          bountyCredits: 25,
+          escapeTurnsLeft: 2,
+        },
+        {
+          id: 'e_barrel',
+          archetype: 'larva',
+          hp: 4,
+          maxHp: 4,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'volatile_burst',
+          roleColor: 'orange',
+          intentCycle: [{ kind: 'pause', value: 0 }],
+          currentIntentIndex: 0,
+          propKind: 'plasma_barrel',
+        },
+        {
+          id: 'e_survivor',
+          archetype: 'brute',
+          hp: 40,
+          maxHp: 40,
+          armor: 0,
+          shieldPips: 0,
+          maxShieldPips: 0,
+          passive: 'none',
+          roleColor: 'blue',
+          intentCycle: [{ kind: 'armor', value: 4 }],
+          currentIntentIndex: 0,
+        },
+      ],
+    },
+  };
+
+  const afterReflect = executeSingleEnemyAction(setup, 0);
+  assert.equal(afterReflect.combat?.enemies[0].hp, 0, 'Volatile attacker defeated by reflect');
+  assert.equal(afterReflect.combat?.enemies[1].hp, 0, 'Loot Runner defeated by volatile burst chain');
+  assert.equal(afterReflect.combat?.enemies[2].hp, 0, 'Adjacent Plasma Barrel popped by burst');
+  assert.equal(afterReflect.combat?.rewardCredits, 60, 'Loot Runner +25 CR bounty awarded');
+  assert.equal(afterReflect.combat?.lootBountyAwarded, 25, 'Loot Runner bounty tracked');
+  assert.equal(afterReflect.hero.overdrive, 20, 'Popped Plasma Barrel awards +20% Overdrive');
+});
+

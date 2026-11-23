@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   CLINIC_PURGE_COST,
   CYBER_IMPLANTS,
   MAX_IMPLANTS,
 } from '../engine/data';
+import { FABLAB_SPLICE_COST } from '../engine/dynastyClinicEngine';
 import {
   getEquippedChipMemory,
   isTileEligibleForStork,
@@ -16,6 +17,7 @@ import { ImplantIcon } from './ImplantIcon';
 interface CyberClinicViewProps {
   run: RunState;
   lang: Language;
+  modalOpen?: boolean;
   isCompactLandscape?: boolean;
   defibTriggeredNotice?: boolean;
   onPurgeInnateTile: (tileId: string) => void;
@@ -33,6 +35,7 @@ interface CyberClinicViewProps {
 export function CyberClinicView({
   run,
   lang,
+  modalOpen = false,
   isCompactLandscape = false,
   defibTriggeredNotice = false,
   onPurgeInnateTile,
@@ -119,24 +122,37 @@ export function CyberClinicView({
   const storkCost = isFundedClinic ? 0 : 15;
   const pedigreeCost = isFundedClinic ? 0 : 20;
   const charterCost = isFundedClinic ? 0 : 15;
+  const fabLabCost = isFundedClinic ? 0 : FABLAB_SPLICE_COST;
   const canIncubate =
     !run.hero.incubatingTile &&
     run.hero.credits >= storkCost &&
     run.masterPool.length > 4 &&
     eligibleStorkTiles.length > 0;
   const canMarry = run.hero.credits >= pedigreeCost;
+  const canFabLabSplice =
+    !run.clinicSpliceUsed &&
+    run.hero.credits >= fabLabCost &&
+    run.masterPool.length > 4 &&
+    Boolean(primaryTileId) &&
+    Boolean(secondaryTileId) &&
+    primaryTileId !== secondaryTileId;
   const prodigySet = new Set(run.hero.prodigyTileIds ?? []);
 
-  const handleChooseModule = (id: CyberImplantId) => {
-    if (needsReplace) {
-      setPendingImplant(id);
-    } else {
-      onInstall(id);
-    }
-  };
+  const handleChooseModule = useCallback(
+    (id: CyberImplantId) => {
+      if (needsReplace) {
+        setPendingImplant(id);
+      } else {
+        onInstall(id);
+      }
+    },
+    [needsReplace, onInstall],
+  );
 
   useEffect(() => {
+    if (modalOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
@@ -159,7 +175,7 @@ export function CyberClinicView({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  });
+  }, [handleChooseModule, modalOpen, pendingImplant, run.clinicChoices]);
 
   return (
     <main
@@ -460,16 +476,15 @@ export function CyberClinicView({
                     <button
                       type="button"
                       data-testid="clinic-fablab-splice-btn"
-                      disabled={
-                        run.masterPool.length <= 4 ||
-                        !primaryTileId ||
-                        !secondaryTileId ||
-                        primaryTileId === secondaryTileId
-                      }
+                      disabled={!canFabLabSplice}
                       onClick={() => fabLabHandler(primaryTileId, secondaryTileId)}
                       className="chrome-pill rounded-lg border border-indigo-400/60 bg-indigo-950/45 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-indigo-200 hover:border-indigo-300 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed"
                     >
-                      ⚒ {isCs ? 'FabLab 2→1 (0 CR)' : 'FabLab 2→1 (0 CR)'}
+                      {run.clinicSpliceUsed
+                        ? isCs
+                          ? '✓ FabLab hotovo'
+                          : '✓ FabLab Done'
+                        : `⚒ FabLab 2→1 (${fabLabCost} CR)`}
                     </button>
                   </div>
                 )}

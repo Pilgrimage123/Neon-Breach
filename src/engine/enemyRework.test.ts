@@ -310,16 +310,16 @@ test('Targeted Tile Hex marks a board tile on Turn 2+ for Boss, heals living cas
 
   // Preview reports hex heal/armor bonus if playing that color
   const atkPreview = previewColorResolution(turn2, 'attack');
-  assert.equal(atkPreview.hexedHealBonus, 4);
-  assert.equal(atkPreview.hexedArmorBonus, 3);
+  assert.equal(atkPreview.hexedHealBonus, 3);
+  assert.equal(atkPreview.hexedArmorBonus, 2);
 
-  // Resolving the hexed color while caster lives heals caster +4 HP & +3 ARM (and removes hexed tile from board)
+  // Resolving the hexed color while caster lives heals caster +3 HP & +2 ARM (and removes hexed tile from board)
   const afterHexTrigger = resolvePlayerColor(turn2, 'attack');
   assert.ok(afterHexTrigger.combat);
   const healedSpitter = afterHexTrigger.combat.enemies[0];
-  // 90 - 7 dmg (Kira held +1 on h1 = 7) = 83 HP, then +4 HP hex heal = 87 HP & +3 ARM
-  assert.equal(healedSpitter.hp, 87);
-  assert.equal(healedSpitter.armor, 3);
+  // 90 - 7 dmg (Kira held +1 on h1 = 7) = 83 HP, then +3 HP hex heal = 86 HP & +2 ARM
+  assert.equal(healedSpitter.hp, 86);
+  assert.equal(healedSpitter.armor, 2);
 
   // Overdrive clears all board Hexes cleanly without triggering enemy heal
   const odReadyRun = {

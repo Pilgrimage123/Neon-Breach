@@ -46,9 +46,9 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
       passivePowers: [
         {
           name: 'Bleskový reflex (Tah zdarma)',
-          badge: 'Útok → +1 Tah zdarma (2T CD)',
+          badge: 'Útok → +1 Tah zdarma (3T CD)',
           description:
-            'Aktivace dílků Útoku, když je Bleskový reflex připraven, okamžitě doplní desku a poskytne tah zdarma ještě před akcí mutantů (přebíjení 2 tahy).',
+            'Aktivace dílků Útoku, když je Bleskový reflex připraven, okamžitě doplní desku a poskytne tah zdarma ještě před akcí mutantů (přebíjení 3 tahy).',
         },
         {
           name: 'Úhybný skok',
@@ -66,8 +66,8 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
       overdriveRule:
         'Dostupné při 100 % Overdrive [Mezerník]. Energetický dropkick vynuluje Overdrive na 0 %, zasáhne předního mutanta a odkopne ho dozadu, pošle tlakovou vlnu přes VŠECHNY mutanty a nechá tě v tahu.',
       overdriveBreakdown: [
-        'Udělí 14 DMG přednímu mutantovi a přeživší cíl odkopne o 1 pozici dozadu.',
-        'Odpálí tlakovou vlnu za 10 DMG do VŠECH živých mutantů (včetně předního cíle — celkem 24 DMG do čela!).',
+        'Udělí 12 DMG přednímu mutantovi a přeživší cíl odkopne o 1 pozici dozadu.',
+        'Odpálí tlakovou vlnu za 10 DMG do VŠECH živých mutantů (včetně předního cíle — celkem 22 DMG do čela!).',
         'Přidá +8 Štítu na vykrytí příchozích úderů.',
       ],
       synergies:
@@ -78,61 +78,61 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
     auraline: {
       roleTag: 'Obrněný kolos · Jádro reaktoru',
       playstyleLead:
-        'Těžká frontová hrdinka se 78 Max HP, 18 body stálého Brnění na startu každého boje a 14 RAM. Začíná s 1 Slepým dílkem Jádra reaktoru v každé barvě a každý aktivovaný jí dodá +1 Nabití, +3 Brnění a +15 % Overdrive.',
+        'Těžká frontová hrdinka se 68 Max HP, 2 body stálého Brnění na startu každého boje a 14 RAM. Začíná s 1 dílkem Jádra reaktoru v každé barvě (2 ATK, 3 DEF, +15 % DMG TECH) a každý aktivovaný jí dodá +1 Nabití, +1 Brnění a +15 % Overdrive.',
       passivePowers: [
         {
           name: 'Brnění kolosu',
-          badge: '+18 Brnění / boj',
+          badge: '+2 Brnění / boj',
           description:
-            'Každý boj začíná s 18 body stálého Brnění pod Štítem (DMG → Štít → Brnění → HP), které neubývá na konci tahu a nepodléhá Korozi.',
+            'Každý boj začíná se 2 body stálého Brnění pod Štítem (DMG → Štít → Brnění → HP), které neubývá na konci tahu a nepodléhá Korozi.',
         },
         {
           name: 'Jádro reaktoru (Nabití a Brnění)',
-          badge: '+1 UC · +3 BRN · +15 % OD',
+          badge: '+1 UC · +1 BRN · +15 % OD',
           description:
-            'Začíná se 3 Slepými dílky Jádra reaktoru (1 Útok, 1 Obrana, 1 TECH). Aktivace jakéhokoli dílku Jádra reaktoru — i po jeho vylepšení v Akademii, Čapích jeslích nebo FabLabu — přidá +1 Nabití, +3 stálého Brnění a +15 % Overdrive.',
+            'Začíná se 3 aktivními dílky Jádra reaktoru (2 ATK, 3 DEF, +15 % DMG TECH). Aktivace jakéhokoli dílku Jádra reaktoru — i po jeho vylepšení v Akademii, Čapích jeslích nebo FabLabu — přidá +1 Nabití, +1 stálého Brnění a +15 % Overdrive.',
         },
         {
           name: 'Vysoká paměť čipů',
-          badge: '78 HP · 14 RAM',
+          badge: '68 HP · 14 RAM',
           description:
-            'Začíná se 78 Max HP a 14 RAM — bez potíží unese i náročné AI čipy dovedností jako Totální průlom.AI (5 RAM) a Adaptivní krytí.AI (4 RAM) současně.',
+            'Začíná se 68 Max HP a 14 RAM — bez potíží unese i náročné AI čipy dovedností jako Totální průlom.AI (5 RAM) a Adaptivní krytí.AI (4 RAM) současně.',
         },
       ],
       overdriveRule:
         'Dostupné při 100 % Overdrive [Mezerník]. Královská salva je volná akce, která doplní Brnění a nabije +2 Nabití pro další tah.',
       overdriveBreakdown: [
         'Udělí 20 průrazného DMG VŠEM živým mutantům (ignoruje Brnění).',
-        'Přidá +10 stálého Brnění pro dlouhou výdrž v přední linii.',
+        'Přidá +4 stálého Brnění pro dlouhou výdrž v přední linii.',
         'Přidá +2 Nabití (+2 dílky na desku v příštím tahu).',
       ],
       synergies:
-        'Akademie a Čapí jesle (promění nulové Slepé dílky v silné aktivní dílky se zachováním bonusu Jádra reaktoru +1 UC / +3 Brnění), Plazmový zesilovač, Nanovláknová zbroj a Rezonátor přetížení.',
+        'Akademie a Čapí jesle (vylepší dílky Jádra reaktoru se zachováním bonusu +1 UC / +1 Brnění), Plazmový zesilovač, Nanovláknová zbroj a Rezonátor přetížení.',
       tacticalLoop:
-        'Nech 18 Brnění pohltit úvodní údery, toč dílky Jádra reaktoru pro +1 Nabití a +3 Brnění, vylepši je v dynastických zařízeních a odpaluj Královskou salvu (+10 Brnění, +2 Nabití).',
+        'Nech 2 Brnění pohltit úvodní údery, toč dílky Jádra reaktoru pro +1 Nabití a +1 Brnění, vylepši je v dynastických zařízeních a odpaluj Královskou salvu (+4 Brnění, +2 Nabití).',
     },
     zuri: {
       roleTag: 'Tri-Dron taktička · TECH specialistka',
       playstyleLead:
-        'Létající velitelka solárního roje, která střídáním barev dílků odpaluje synchronizované pulzy tří dronů (+4 Průraz DMG, +4 Štít nebo +3 HP) a nejrychleji nabíjí TECH Overdrive (+25 %/dílek).',
+        'Létající velitelka solárního roje se 64 Max HP, která střídáním barev dílků odpaluje synchronizované pulzy tří dronů (+4 Průraz DMG, +7 Štít nebo +4 HP) a nejrychleji nabíjí TECH Overdrive (+20 %/dílek).',
       passivePowers: [
         {
           name: 'Synchronizace tří dronů',
-          badge: 'Jestřáb +4⚔ · Aegis +4🛡 · Med-Rotor +3💚',
+          badge: 'Jestřáb +4⚔ · Aegis +7🛡 · Med-Rotor +4💚',
           description:
-            'Aktivace barvy nabije odpovídající dron (Útok = Solární jestřáb +4 Průraz DMG; Obrana = Chodec Aegis +4 Štít; TECH = Med-Rotor +3 HP). Přepnutí na jinou barvu v dalším tahu odpálí nabitý dron společně s novou akcí!',
+            'Aktivace barvy nabije odpovídající dron (Útok = Solární jestřáb +4 Průraz DMG; Obrana = Chodec Aegis +7 Štít; TECH = Med-Rotor +4 HP). Přepnutí na jinou barvu v dalším tahu odpálí nabitý dron společně s novou akcí!',
         },
         {
           name: 'Solární uplink kondenzátoru',
-          badge: '+25 % OD za TECH',
+          badge: '+20 % OD za TECH',
           description:
-            'Začíná se 4 TECH dílky v 9dílném zásobníku a získává +25 % Overdrive za každý aktivovaný TECH dílek — nejrychlejší nabíjení ze všech hrdinek.',
+            'Začíná se 4 TECH dílky v 9dílném zásobníku a získává +20 % Overdrive za každý aktivovaný TECH dílek — nejrychlejší nabíjení ze všech hrdinek.',
         },
         {
           name: 'Vrozené drcení brnění a taktický štít',
-          badge: '-8 BRN všem · +4 Štít / +24 % DMG',
+          badge: '-8 BRN všem · +7 Štít / +24 % DMG',
           description:
-            'Nese vrozené TECH dílky pro plošné stržení -8 Brnění VŠEM mutantům (+3 Průraz DMG) a +4 Štítu s +24 % posílením útoku.',
+            'Nese vrozené TECH dílky pro plošné stržení -8 Brnění VŠEM mutantům (+3 Průraz DMG) a +7 Štítu s +24 % posílením útoku.',
         },
       ],
       overdriveRule:
@@ -143,9 +143,9 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Očistí -2 Koroze z tvé hrdinky.',
       ],
       synergies:
-        'Rodový erb (spárování dvou barev zdvojnásobí odměnu za střídání barev s Tri-Dron Sync!), Synaptické přetaktování (+3 Štít za TECH), Fluxový injektor (+35 % OD za TECH!) a Lamač pancíře.AI.',
+        'Rodový erb (spárování dvou barev zdvojnásobí odměnu za střídání barev s Tri-Dron Sync!), Synaptické přetaktování (+3 Štít za TECH), Fluxový injektor (+30 % OD za TECH!) a Lamač pancíře.AI.',
       tacticalLoop:
-        'Střídej barvy dílků v každém tahu (např. TECH → Útok → Obrana), aby tvůj nabitý dron pálil v každé akci (+3 HP, +4 Průraz DMG, +4 Štít) a rychle nabíjej Protokol Solární roj.',
+        'Střídej barvy dílků v každém tahu (např. TECH → Útok → Obrana), aby tvůj nabitý dron pálil v každé akci (+4 HP, +4 Průraz DMG, +6 Štít) a rychle nabíjej Protokol Solární roj.',
     },
   },
   glossary: {
@@ -182,11 +182,11 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
     phase_lock: {
       term: '50% Fázová brána',
       shortTag: 'Práh bosse',
-      summary: 'Prahová pasivní schopnost Xenomorfní Matriarchy, která při prvním poklesu na 50 % HP zastaví poškození a přidá +10 Brnění a +1 Aegis Pip.',
+      summary: 'Prahová pasivní schopnost Xenomorfní Matriarchy, která při prvním poklesu na 50 % HP zastaví poškození a přidá +8 Brnění a +1 Aegis Pip.',
       mechanics:
-        'Jednou za boj se poškození zastaví přesně na 50 % max. Zdraví (55 HP na výchozí obtížnosti). Matriarcha okamžitě získá +10 Brnění a obnoví si 1 Aegis Pip (◆).',
+        'Jednou za boj se poškození zastaví přesně na 50 % max. Zdraví (52 HP na výchozí obtížnosti). Matriarcha okamžitě získá +8 Brnění a obnoví si 1 Aegis Pip (◆).',
       tacticalTip:
-        'Nepřepal všechna posílení do rány, která spustí 50% Fázovou bránu — nech si nástroj na prasknutí nového Pipu a stržení +10 Brnění.',
+        'Nepřepal všechna posílení do rány, která spustí 50% Fázovou bránu — nech si nástroj na prasknutí nového Pipu a stržení +8 Brnění.',
       keywords: ['fázový', 'zámek', 'brána', 'boss', 'matriarcha', '50%'],
     },
     dmg_boost: {
@@ -274,7 +274,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: '0 AP manévr',
       summary: '100% nabitý speciální manévr hrdinky (0 AP, neukončí tah), který udělí plošné průrazné poškození a unikátní efekt.',
       mechanics:
-        'Kira nabíjí +10 % OD za Útok (+4 % DEF / +12 % TECH). Auraline nabíjí +15 % OD za Slepý dílek Jádra reaktoru či TECH (+5 % ATK/DEF). Zuri nabíjí +25 % OD za TECH (+4 % ATK/DEF). Spuštění Overdrive vynuluje OD, zasáhne VŠECHNY mutanty průrazně, očistí desku od Bloku/Kletby/Strusky a NEUKONČÍ tah.',
+        'Kira nabíjí +10 % OD za Útok (+4 % DEF / +12 % TECH). Auraline nabíjí +15 % OD za Jádro reaktoru či TECH (+5 % ATK/DEF). Zuri nabíjí +20 % OD za TECH (+4 % ATK/DEF). Spuštění Overdrive vynuluje OD, zasáhne VŠECHNY mutanty průrazně, očistí desku od Bloku/Kletby/Strusky a NEUKONČÍ tah.',
       tacticalTip:
         'Spusť Energetický dropkick Kiry (+30 % DMG) nebo Protokol Solární roj Zuri (-12 BRN všem) PŘED aktivací Útoku ve stejném tahu!',
       keywords: ['overdrive', 'od', 'mezerník', 'dropkick', 'salva', 'roj'],
@@ -322,12 +322,12 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
     thermal_charge: {
       term: 'Žárové nabíjení',
       shortTag: 'Odpočet 3 tahy',
-      summary: 'Žárový žahavec se 2 tahy neškodně nabíjí a ve 3. tahu vypálí Těžký výboj za 16 DMG.',
+      summary: 'Žárový žahavec se 2 tahy neškodně nabíjí a ve 3. tahu vypálí Těžký výboj za 7 Přetlak (14 DMG bez krytí).',
       mechanics:
-        'První 2 tahy cyklu neudělují žádné poškození a odpočítávají čas do výboje (2T → 1T). Ve 3. tahu udeří za 16 DMG. Zásah za 16+ DMG v jednom tahu mu Prolomí postoj (Omráčení) a vrátí odpočet na začátek.',
+        'První 2 tahy cyklu neudělují žádné poškození a odpočítávají čas do výboje (2T → 1T). Ve 3. tahu udeří za 7 Přetlak (až 14 DMG bez krytí v základní Úrovni 3). Zásah za 16+ DMG v jednom tahu mu Prolomí postoj (Omráčení) a vrátí odpočet na začátek.',
       tacticalTip:
         'Zasaď Žárovému žahavci 16+ DMG za 1 tah pro Omráčení a reset odpočtu, nebo jej prohoď dopředu klávesou [R].',
-      keywords: ['nabíjení', 'žahavec', 'žárové', '16 dmg', 'odpočet', 'omráčení'],
+      keywords: ['nabíjení', 'žahavec', 'žárové', '14 dmg', 'přetlak', 'odpočet', 'omráčení'],
     },
     stagger: {
       term: 'Prolomený postoj (Omráčení)',
@@ -344,7 +344,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: 'Cílená kletba',
       summary: 'Cílená kletba umístěná na silný dílek Útoku či Obrany Žlučovým plivačem nebo Xenomorfní Matriarchou, která při aktivaci léčí a obrňuje sesilatele.',
       mechanics:
-        'Od 2. tahu Žlučový plivač a Xenomorfní Matriarcha označí silný dílek Útoku či Obrany značkou ⬡ KLETBA. Pokud tuto barvu aktivuješ, zatímco sesilatel žije, okamžitě se vyléčí +4 HP a získá +3 Brnění. Zabití sesilatele nebo Overdrive Kletbu zruší.',
+        'V sudých tazích (2., 4., 6. tah...) Xenomorfní Matriarcha označí silný dílek Útoku či Obrany značkou ⬡ KLETBA. Pokud tuto barvu aktivuješ, zatímco žije, okamžitě se vyléčí +3 HP a získá +2 Brnění. Zabití sesilatele nebo Overdrive Kletbu zruší.',
       tacticalTip:
         'Aktivuj jinou barvu, zabij sesilatele přes Overdrive/Rozmach/Prohoz, nebo jeho léčení přeraz.',
       keywords: ['kletba', 'hex', 'plivač', 'boss', 'léčení', 'overdrive', 'dlaždice', 'dílek'],

@@ -353,6 +353,7 @@ export default function App() {
         <CyberClinicView
           run={run}
           lang={lang}
+          modalOpen={paused || poolModalOpen || Boolean(codexTarget)}
           isCompactLandscape={viewport.isCompactLandscape}
           defibTriggeredNotice={controller.defibNoticeVisible}
           onPurgeInnateTile={controller.handlePurgeInnateTile}
@@ -370,6 +371,7 @@ export default function App() {
         <ChipDealerView
           run={run}
           lang={lang}
+          modalOpen={paused || poolModalOpen || Boolean(codexTarget)}
           isCompactLandscape={viewport.isCompactLandscape}
           onBuyChip={controller.handleBuyEquipment}
           onRestockShop={controller.handleRestockShop}
@@ -385,6 +387,7 @@ export default function App() {
         <BioMedBayView
           run={run}
           lang={lang}
+          modalOpen={paused || poolModalOpen || Boolean(codexTarget)}
           isCompactLandscape={viewport.isCompactLandscape}
           onAction={controller.handleMedBayAction}
         />
@@ -394,6 +397,7 @@ export default function App() {
         <CyberEventView
           run={run}
           lang={lang}
+          modalOpen={paused || poolModalOpen || Boolean(codexTarget)}
           isCompactLandscape={viewport.isCompactLandscape}
           onChoice={controller.handleResolveEventChoice}
           onSwitchEvent={controller.handleSwitchEvent}
@@ -445,7 +449,18 @@ export default function App() {
                   )}
                   {run.hero.nannyBotInstalled && (
                     <span className="rounded-md border border-cyan-300/55 bg-cyan-950/75 px-2 py-0.5 font-mono-tabular text-[10px] font-bold text-cyan-100 shadow-md backdrop-blur-sm">
-                      🤖 {run.hero.nannyBotInstalled}
+                      🤖{' '}
+                      {run.hero.nannyBotInstalled === 'guardian_nanny'
+                        ? lang === 'cs'
+                          ? 'Strážný bot'
+                          : 'Guardian Bot'
+                        : run.hero.nannyBotInstalled === 'caretaker_nanny'
+                          ? lang === 'cs'
+                            ? 'Pečovatelský bot'
+                            : 'Caretaker Bot'
+                          : lang === 'cs'
+                            ? 'Mentorský bot'
+                            : 'Tutor Bot'}
                     </span>
                   )}
                   {run.hero.activeTempoRule && (

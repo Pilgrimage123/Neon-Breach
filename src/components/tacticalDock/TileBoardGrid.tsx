@@ -1,5 +1,6 @@
 import type { MutableRefObject } from 'react';
 import { soundEngine } from '../../audio/soundEngine';
+import { HERO_SPECS } from '../../engine/data';
 import { getEffectiveTileValue } from '../../engine/gameEngine';
 import type { CharacterId, RunState, Tile, TileType } from '../../engine/types';
 import { CODEX_TRANSLATIONS, type GlossaryTermId } from '../../i18n/codexTranslations';
@@ -124,7 +125,7 @@ export function TileBoardGrid({
           );
           const shortValue = isBlight
             ? '0'
-            : isDud && effective.value === 0
+            : isDud && effective.value === 0 && !tile.techEffect
               ? lang === 'cs'
                 ? 'SLEPÝ'
                 : 'DUD'
@@ -358,7 +359,7 @@ export function TileBoardGrid({
               ) : isReactorCore || hasUpcharge ? (
                 <span className="w-full truncate text-center font-mono-tabular text-[10px] font-extrabold leading-none text-emerald-300">
                   {isReactorCore && run.hero.characterId === 'auraline'
-                    ? `+1 ${t.upchargeShort} · +3 ${t.armorShort}`
+                    ? `+1 ${t.upchargeShort} · +${HERO_SPECS.auraline.dudArmorPerTile ?? 2} ${t.armorShort}`
                     : hasUpcharge
                       ? `⚡+${tile.upcharge} ${t.upchargeShort}`
                       : t.dudTag}

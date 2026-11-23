@@ -47,9 +47,9 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
       passivePowers: [
         {
           name: 'Blitz Reflex (Free Turn)',
-          badge: 'ATK → +1 Free Turn (2T CD)',
+          badge: 'ATK → +1 Free Turn (3T CD)',
           description:
-            'Resolving Attack Tiles while Blitz Reflex is Ready immediately refills the Board and grants a free bonus turn before Mutants act (2-Turn cooldown).',
+            'Resolving Attack Tiles while Blitz Reflex is Ready immediately refills the Board and grants a free bonus turn before Mutants act (3-Turn cooldown).',
         },
         {
           name: 'Evasive Dodge',
@@ -67,8 +67,8 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
       overdriveRule:
         'Available at 100% Overdrive [Space]. Firing Energy Dropkick resets Overdrive to 0%, slams the frontline Mutant and knocks it backward, blasts ALL living Mutants with an energy shockwave, and keeps you in your active command phase!',
       overdriveBreakdown: [
-        'Deals 14 DMG to the frontline Mutant and knocks a surviving target backward 1 slot.',
-        'Detonates a 10 DMG energy shockwave across ALL living Mutants (including the frontline target, for 24 total frontline DMG!).',
+        'Deals 12 DMG to the frontline Mutant and knocks a surviving target backward 1 slot.',
+        'Detonates a 10 DMG energy shockwave across ALL living Mutants (including the frontline target, for 22 total frontline DMG!).',
         'Grants +8 Shield to absorb upcoming counter-attacks.',
       ],
       synergies:
@@ -79,61 +79,61 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
     auraline: {
       roleTag: 'Armored Juggernaut · Reactor Core Anchor',
       playstyleLead:
-        'Frontline heavy juggernaut Hero with 78 Max HP, 18 persistent starting Armor every combat, and 14 Memory. Starts with 1 Reactor Core Dud in each color—converting every Dud (or upgraded Reactor Core tile) into +1 UpCharge, +3 Armor, and +15% Overdrive.',
+        'Frontline heavy juggernaut Hero with 68 Max HP, 2 persistent starting Armor every combat, and 14 Memory. Starts with 1 Reactor Core Tile in each color (2 ATK, 3 DEF, +15% DMG TECH)—converting every Reactor Core into +1 UpCharge, +1 Armor, and +15% Overdrive.',
       passivePowers: [
         {
           name: 'Juggernaut Armor',
-          badge: '+18 Armor / Combat',
+          badge: '+2 Armor / Combat',
           description:
-            'Starts every encounter with 18 persistent Armor underneath Shield (DMG -> Shield -> Armor -> HP), absorbing hits across Turns without decaying or suffering Corrode.',
+            'Starts every encounter with 2 persistent Armor underneath Shield (DMG -> Shield -> Armor -> HP), absorbing hits across Turns without decaying or suffering Corrode.',
         },
         {
           name: 'Reactor Core (UpCharge & Plating)',
-          badge: '+1 UC · +3 ARM · +15% OD',
+          badge: '+1 UC · +1 ARM · +15% OD',
           description:
-            'Starts with 3 Reactor Core Dud Tiles (1 Attack, 1 Defense, 1 TECH). Resolving any Dud—even after upgrading it into an active tile at the Charter Academy, Stork Nursery, or FabLab—grants +1 UpCharge, +3 persistent Armor, and +15% Overdrive.',
+            'Starts with 3 active Reactor Core Tiles (2 ATK, 3 DEF, +15% DMG TECH). Resolving any Reactor Core—even after upgrading it at the Charter Academy, Stork Nursery, or FabLab—grants +1 UpCharge, +1 persistent Armor, and +15% Overdrive.',
         },
         {
           name: 'High-Memory Neural Rig',
-          badge: '78 HP · 14 MEM',
+          badge: '68 HP · 14 MEM',
           description:
-            'Starts with 78 Max HP and 14 Memory—enough to run heavyweight AI Skill Chips like Apex Overwhelm.AI (Mem 5) + Adaptive Guard.AI (Mem 4) simultaneously.',
+            'Starts with 68 Max HP and 14 Memory—enough to run heavyweight AI Skill Chips like Apex Overwhelm.AI (Mem 5) + Adaptive Guard.AI (Mem 4) simultaneously.',
         },
       ],
       overdriveRule:
         'Available at 100% Overdrive [Space]. Sovereign Broadside is a Free Action that reinforces Armor and floods the next draw with +2 UpCharge.',
       overdriveBreakdown: [
         'Deals 20 Pierce DMG to ALL living Mutants (ignores Armor).',
-        'Grants +10 persistent Armor to sustain deep frontline trades.',
+        'Grants +4 persistent Armor to sustain deep frontline trades.',
         'Grants +2 UpCharge so your next Turn draws +2 extra Tiles onto the Board.',
       ],
       synergies:
-        'Charter Academy & Stork Nursery (upgrades 0-value Duds into active tiles while preserving their Reactor Core +1 UC / +3 ARM bonus), Plasma Amplifier, Nano-Weave Plating, and Surge Resonator.',
+        'Charter Academy & Stork Nursery (upgrades Reactor Core tiles into high-stat Prodigies while preserving their +1 UC / +1 ARM bonus), Plasma Amplifier, Nano-Weave Plating, and Surge Resonator.',
       tacticalLoop:
-        'Let your 18 starting Armor absorb early hits while resolving Reactor Core Duds for +1 UpCharge and +3 Armor, upgrade your Duds at Dynasty facilities, and drop Sovereign Broadside (+10 Armor, +2 UpCharge) to overpower Boss phases.',
+        'Let your 2 starting Armor absorb early hits while cycling Reactor Core Tiles for +1 UpCharge and +1 Armor, upgrade them at Dynasty facilities, and drop Sovereign Broadside (+4 Armor, +2 UpCharge) to overpower Boss phases.',
     },
     zuri: {
       roleTag: 'Tri-Drone Tactician · TECH Specialist',
       playstyleLead:
-        'Airborne swarm commander Hero who weaves between Tile colors to fire synchronized Tri-Drone support pulses (+4 Pierce DMG, +4 Shield, or +3 HP) while charging the fastest TECH Overdrive (+25%/Tile) in the roster.',
+        'Airborne swarm commander Hero with 64 Max HP who weaves between Tile colors to fire synchronized Tri-Drone support pulses (+4 Pierce DMG, +7 Shield, or +4 HP) while charging the fastest TECH Overdrive (+20%/Tile) in the roster.',
       passivePowers: [
         {
           name: 'Tri-Drone Sync',
-          badge: 'Hawk +4⚔ · Aegis +4🛡 · Med-Rotor +3💚',
+          badge: 'Hawk +4⚔ · Aegis +7🛡 · Med-Rotor +4💚',
           description:
-            'Resolving a Tile color primes the matching autonomous drone (Attack = Solar Hawk +4 Pierce DMG; Defense = Aegis Walker +4 Shield; TECH = Med-Rotor +3 HP). Switching to a different color on the next Turn fires the primed drone alongside your new action!',
+            'Resolving a Tile color primes the matching autonomous drone (Attack = Solar Hawk +4 Pierce DMG; Defense = Aegis Walker +7 Shield; TECH = Med-Rotor +4 HP). Switching to a different color on the next Turn fires the primed drone alongside your new action!',
         },
         {
           name: 'Solar Capacitor Uplink',
-          badge: '+25% OD per TECH',
+          badge: '+20% OD per TECH',
           description:
-            'Starts with 4 TECH Tiles in her 9-Tile pool and generates +25% Overdrive per TECH Tile resolved—the highest in the roster—unlocking Turn-1 TECH Surges and frequent Solar Swarm Protocol activations.',
+            'Starts with 4 TECH Tiles in her 9-Tile pool and generates +20% Overdrive per TECH Tile resolved—the highest in the roster—unlocking Turn-1 TECH Surges and frequent Solar Swarm Protocol activations.',
         },
         {
           name: 'Innate Armor Shred & Tactical Shield',
-          badge: '-8 ARM All · +4 SHD / +24% DMG',
+          badge: '-8 ARM All · +7 SHD / +24% DMG',
           description:
-            'Carries innate TECH tiles that strip -8 Armor from ALL Mutants (+3 Pierce DMG) and project +4 Shield with +24% DMG Boost.',
+            'Carries innate TECH tiles that strip -8 Armor from ALL Mutants (+3 Pierce DMG) and project +7 Shield with +24% DMG Boost.',
         },
       ],
       overdriveRule:
@@ -144,9 +144,9 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Cleanses -2 Corrode stacks from your Hero.',
       ],
       synergies:
-        'Bloodline Crest (pairs two colors to double-dip with Tri-Drone Sync color alternation!), Synapse Overclock (+3 Shield per TECH Tile), Flux Injector (+35% OD per TECH Tile!), and Armor Crack.AI.',
+        'Bloodline Crest (pairs two colors to double-dip with Tri-Drone Sync color alternation!), Synapse Overclock (+3 Shield per TECH Tile), Flux Injector (+30% OD per TECH Tile!), and Armor Crack.AI.',
       tacticalLoop:
-        'Alternate Tile colors each Turn (e.g. TECH → Attack → Defense) so your primed Tri-Drone fires on every single action (+3 HP, +4 Pierce DMG, +4 Shield) while cycling +25% OD TECH Tiles into Solar Swarm Protocol.',
+        'Alternate Tile colors each Turn (e.g. TECH → Attack → Defense) so your primed Tri-Drone fires on every single action (+4 HP, +4 Pierce DMG, +6 Shield) while cycling +20% OD TECH Tiles into Solar Swarm Protocol.',
     },
   },
   glossary: {
@@ -183,11 +183,11 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
     phase_lock: {
       term: '50% Phase Gate',
       shortTag: 'Boss Threshold',
-      summary: 'Xenomorph Matriarch’s threshold passive locking her HP at 50% on first crossing to deploy +10 Armor and +1 Aegis Pip.',
+      summary: 'Xenomorph Matriarch’s threshold passive locking her HP at 50% on first crossing to deploy +8 Armor and +1 Aegis Pip.',
       mechanics:
-        'Once per fight, if a hit would push the Xenomorph Matriarch below 50% Max HP (55 HP on baseline), damage stops at 50% HP. She immediately gains +10 Armor and restores 1 Aegis Pip (◆).',
+        'Once per fight, if a hit would push the Xenomorph Matriarch below 50% Max HP (52 HP on baseline), damage stops at 50% HP. She immediately gains +8 Armor and restores 1 Aegis Pip (◆).',
       tacticalTip:
-        'Do not over-commit all your boosts into the 50% Phase Gate hit—save a way to crack her newly restored Aegis Pip and strip her +10 Armor afterward.',
+        'Do not over-commit all your boosts into the 50% Phase Gate hit—save a way to crack her newly restored Aegis Pip and strip her +8 Armor afterward.',
       keywords: ['phase', 'gate', 'lock', 'boss', 'matriarch', '50%'],
     },
     dmg_boost: {
@@ -275,7 +275,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: '0 AP Ultimate',
       summary: '100%-charged Hero ultimate maneuver (0 AP, does not end Turn) dealing Armor-piercing AoE damage plus signature utility.',
       mechanics:
-        'Kira charges +10% OD per Attack Tile (+4% DEF / +12% TECH). Auraline charges +15% OD per Reactor Core Dud or TECH Tile (+5% ATK/DEF). Zuri charges +25% OD per TECH Tile (+4% ATK/DEF). Firing Overdrive resets OD to 0%, hits ALL Mutants with 100% Pierce damage, cleanses Jammed/Hex/Slag on Board, and does NOT end your Turn.',
+        'Kira charges +10% OD per Attack Tile (+4% DEF / +12% TECH). Auraline charges +15% OD per Reactor Core or TECH Tile (+5% ATK/DEF). Zuri charges +20% OD per TECH Tile (+4% ATK/DEF). Firing Overdrive resets OD to 0%, hits ALL Mutants with 100% Pierce damage, cleanses Jammed/Hex/Slag on Board, and does NOT end your Turn.',
       tacticalTip:
         'Fire Kira’s Energy Dropkick (+30% DMG Boost) or Zuri’s Solar Swarm Protocol (-12 Armor All) BEFORE resolving your Attack stack on the same Turn!',
       keywords: ['overdrive', 'od', 'space', 'energy dropkick', 'broadside', 'swarm'],
@@ -323,19 +323,19 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
     thermal_charge: {
       term: 'Thermal Charge',
       shortTag: '3-Turn Bomb',
-      summary: 'Pyre Stinger charges for 2 harmless Turns before firing a 16 DMG Heavy blast on Turn 3.',
+      summary: 'Pyre Stinger charges for 2 harmless Turns before firing a 7 Overwhelm Heavy blast (14 DMG unblocked) on Turn 3.',
       mechanics:
-        'Turns 1 and 2 of its cycle deal 0 DMG while telegraphing the countdown (2T → 1T). On Turn 3 it unleashes a 16 DMG Heavy blast. Dealing 16+ single-Turn damage triggers Broken Stance (Stagger) and resets the countdown.',
+        'Turns 1 and 2 of its cycle deal 0 DMG while telegraphing the countdown (2T → 1T). On Turn 3 it unleashes a 7 Overwhelm Heavy blast (up to 14 DMG unblocked at baseline Tier 3). Dealing 16+ single-Turn damage triggers Broken Stance (Stagger) and resets the countdown.',
       tacticalTip:
         'Burst Pyre Stinger for 16+ DMG in 1 Turn to Stagger & reset its bomb, or Push it with [R] to line up a kill.',
-      keywords: ['charge', 'thermal', 'stinger', 'countdown', '16 dmg', 'time-bomb', 'stagger'],
+      keywords: ['charge', 'thermal', 'stinger', 'countdown', '14 dmg', 'overwhelm', 'time-bomb', 'stagger'],
     },
     stagger: {
       term: 'Broken Stance (Stagger)',
       shortTag: '16+ Burst Interrupt',
       summary: 'The Staggered state triggered when a Mutant priming Charge or Heavy suffers 16+ single-Turn damage, reducing that action to 0 DMG.',
       mechanics:
-        'When a Pyre Stinger (charging), Carapace Brute (2-slot juggernaut winding up a 14 DMG Heavy smash), or Xenomorph Matriarch (Heavy strike) takes 16+ combined HP and Armor damage in 1 Turn without dying, it enters Broken Stance (STAGGERED): its upcoming action drops to 0 DMG and Thermal Charge resets to 2T.',
+        'When a Pyre Stinger (charging), Carapace Brute (2-slot juggernaut winding up a 6 ×2 Overwhelm Heavy smash), or Xenomorph Matriarch (Heavy strike) takes 16+ combined HP and Armor damage in 1 Turn without dying, it enters Broken Stance (STAGGERED): its upcoming action drops to 0 DMG and Thermal Charge resets to 2T.',
       tacticalTip:
         'Watch for the ⚡ STAGGER! preview badge on Mutant pods when hovering high-burst Attacks or Overdrive.',
       keywords: ['stagger', 'broken stance', '16', 'burst', 'charge', 'heavy', 'brute', 'stinger', 'boss'],
@@ -345,9 +345,9 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: 'Targeted Tile Curse',
       summary: 'Targeted curse placed on a high-value Attack or Defense Tile by Bile Spitter or Xenomorph Matriarch that heals and armors the caster.',
       mechanics:
-        'From Turn 2 onward, Bile Spitter and Xenomorph Matriarch mark 1 high-value Attack or Defense Tile with ⬡ HEX. If you resolve that Tile color while the caster still lives, the caster immediately heals +4 HP and gains +3 Armor. Killing the caster or triggering Overdrive shatters all Tile Hexes.',
+        'On even Turns (Turn 2, 4, 6...), Xenomorph Matriarch marks 1 high-value Attack or Defense Tile with ⬡ HEX. If you resolve that Tile color while she still lives, she immediately heals +3 HP and gains +2 Armor. Killing the caster or triggering Overdrive shatters all Tile Hexes.',
       tacticalTip:
-        'Resolve another color, eliminate the caster via Overdrive/Cleave/Push, or out-burst the +4 HP heal.',
+        'Resolve another color, eliminate the caster via Overdrive/Cleave/Push, or out-burst the +3 HP heal.',
       keywords: ['hex', 'tile hex', 'spitter', 'boss', 'heal', 'overdrive'],
     },
     caustic_slag: {

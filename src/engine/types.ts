@@ -557,6 +557,7 @@ export interface RunState {
   chipDealerChoices: string[];
   chipDealerHeirloomUsed?: boolean;
   clinicPurgeUsed?: boolean;
+  clinicSpliceUsed?: boolean;
   enemiesDefeated: number;
   turnsCompleted: number;
   score: number;

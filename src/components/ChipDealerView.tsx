@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import {
   CHIP_DEALER_RESTOCK_COST,
+  HEIRLOOM_ENGRAVE_COST,
+  MAX_HEIRLOOM_STACKS,
   SKILL_CHIPS_BY_ID,
 } from '../engine/data';
 import { getEquippedChipMemory } from '../engine/poolBuilder';
@@ -11,6 +13,7 @@ import { formatTileShortLabel } from '../utils/tileDisplay';
 interface ChipDealerViewProps {
   run: RunState;
   lang: Language;
+  modalOpen?: boolean;
   isCompactLandscape?: boolean;
   onBuyChip: (defId: string) => void;
   onRestockShop: () => void;
@@ -50,6 +53,7 @@ const NANNY_BOT_SPECS: Array<{
 export function ChipDealerView({
   run,
   lang,
+  modalOpen = false,
   isCompactLandscape = false,
   onBuyChip,
   onRestockShop,
@@ -83,7 +87,9 @@ export function ChipDealerView({
   }, [run.hero.heirloomEngravedId, run.hero.ownedChips, selectedHeirloomDefId]);
 
   useEffect(() => {
+    if (modalOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLSelectElement) return;
       const idx = e.key === '1' ? 0 : e.key === '2' ? 1 : e.key === '3' ? 2 : -1;
       if (idx >= 0 && run.chipDealerChoices[idx]) {
@@ -99,7 +105,7 @@ export function ChipDealerView({
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isFlashSale, onBuyChip, run.chipDealerChoices, run.hero.credits]);
+  }, [isFlashSale, modalOpen, onBuyChip, run.chipDealerChoices, run.hero.credits]);
 
   const uniqueOwnedChipDefIds = Array.from(
     new Set(run.hero.ownedChips.map((chip) => chip.defId)),
@@ -371,7 +377,24 @@ export function ChipDealerView({
                 )}
 
                 {/* 3. Heirloom Forge */}
-                {onEngraveHeirloom && (
+                {onEngraveHeirloom && (() => {
+                  const targetHeirloomDefId =
+                    selectedHeirloomDefId ||
+                    run.hero.heirloomEngravedId ||
+                    run.hero.ownedChips[0]?.defId ||
+                    '';
+                  const currentHeirloomStacks = Math.min(
+                    MAX_HEIRLOOM_STACKS,
+                    Math.max(0, run.hero.heirloomStacks ?? 0),
+                  );
+                  const nextHeirloomStacks = Math.min(
+                    MAX_HEIRLOOM_STACKS,
+                    Math.max(1, currentHeirloomStacks + 1),
+                  );
+                  const heirloomAtMaxForSelection =
+                    currentHeirloomStacks >= MAX_HEIRLOOM_STACKS &&
+                    run.hero.heirloomEngravedId === targetHeirloomDefId;
+                  return (
                   <div
                     data-testid="dealer-heirloom-forge"
                     className="chrome-pill rounded-xl border border-amber-400/40 bg-amber-950/20 p-2.5 flex flex-col justify-between gap-1.5"
@@ -381,7 +404,7 @@ export function ChipDealerView({
                         🗡 {isCs ? 'Rodová kovárna' : 'Heirloom Forge'}
                       </span>
                       <span className="font-mono-tabular text-[11.5px] font-bold text-amber-300">
-                        +{run.hero.heirloomStacks ?? 0} (+1/WIN)
+                        +{currentHeirloomStacks}/{MAX_HEIRLOOM_STACKS} · {HEIRLOOM_ENGRAVE_COST} CR
                       </span>
                     </div>
                     {uniqueOwnedChipDefIds.length > 1 && (
@@ -410,27 +433,33 @@ export function ChipDealerView({
                       disabled={
                         run.hero.ownedChips.length === 0 ||
                         Boolean(run.chipDealerHeirloomUsed) ||
-                        run.hero.credits < 25
+                        heirloomAtMaxForSelection ||
+                        run.hero.credits < HEIRLOOM_ENGRAVE_COST
                       }
                       onClick={() => {
-                        const target =
-                          selectedHeirloomDefId ||
-                          run.hero.heirloomEngravedId ||
-                          run.hero.ownedChips[0]?.defId;
-                        if (target) onEngraveHeirloom(target);
+                        if (targetHeirloomDefId) onEngraveHeirloom(targetHeirloomDefId);
                       }}
                       className="w-full rounded-lg border border-amber-300/60 bg-amber-500/25 px-3 py-1.5 font-mono-tabular text-[12px] font-bold text-amber-100 hover:bg-amber-500/35 disabled:opacity-45 cursor-pointer"
                     >
-                      {run.hero.heirloomEngravedId
+                      {run.chipDealerHeirloomUsed
                         ? isCs
-                          ? `Posílit (+1 → +${(run.hero.heirloomStacks ?? 0) + 1})`
-                          : `Empower (+1 → +${(run.hero.heirloomStacks ?? 0) + 1})`
-                        : isCs
-                          ? 'Vyrýt dědictví (+1 k dílkům)'
-                          : 'Engrave Heirloom (+1 Tiles)'}
+                          ? 'Vyryto ✓'
+                          : 'Forged ✓'
+                        : heirloomAtMaxForSelection
+                          ? isCs
+                            ? `Maximum (+${MAX_HEIRLOOM_STACKS}/${MAX_HEIRLOOM_STACKS})`
+                            : `Maxed (+${MAX_HEIRLOOM_STACKS}/${MAX_HEIRLOOM_STACKS})`
+                          : run.hero.heirloomEngravedId
+                            ? isCs
+                              ? `Posílit (+${nextHeirloomStacks} · ${HEIRLOOM_ENGRAVE_COST} CR)`
+                              : `Empower (+${nextHeirloomStacks} · ${HEIRLOOM_ENGRAVE_COST} CR)`
+                            : isCs
+                              ? `Vyrýt dědictví (${HEIRLOOM_ENGRAVE_COST} CR)`
+                              : `Engrave Heirloom (${HEIRLOOM_ENGRAVE_COST} CR)`}
                     </button>
                   </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
           )}

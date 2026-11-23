@@ -178,7 +178,7 @@ test('EVENT nodes, Stage Boss Telegraph, Multi-hop pathing, and Recon freeMemory
 test('Node Economy Metrics handle overcharged ELITE, difficulty multipliers, flash sale, and lane archetypes', () => {
   const run = createInitialRun(300);
   const combatNode: MapNode = { id: 'c1', layer: 1, lane: 0, type: 'COMBAT', nextIds: [], cleared: false };
-  assert.equal(getNodeEconomyMetrics(combatNode, run.hero).runYieldCredits, 35);
+  assert.equal(getNodeEconomyMetrics(combatNode, run.hero).runYieldCredits, 38);
 
   const ocElite: MapNode = {
     id: 'e1',
@@ -192,19 +192,19 @@ test('Node Economy Metrics handle overcharged ELITE, difficulty multipliers, fla
   const ocEliteEcon = getNodeEconomyMetrics(ocElite, run.hero, 'en', 5);
   assert.equal(ocEliteEcon.tensionHpPct, 46);
   assert.equal(ocEliteEcon.metaYieldNanites, 3);
-  assert.equal(ocEliteEcon.runYieldCredits, Math.round(60 * 0.8));
+  assert.equal(ocEliteEcon.runYieldCredits, Math.round(64 * 0.8));
 
   const profiles = getLaneClusterProfiles(run.mapNodes, run.hero);
   assert.equal(profiles.length, 3);
 });
 
-test('5-Tier Difficulty Matrix, Sacred Chaff Math, Par Clocks, Tier 5 Mandate, and Tier 1 Skip work accurately', () => {
+test('5-Tier Difficulty Matrix, Full Enemy HP Scaling, Par Clocks, Tier 5 Mandate, and Tier 1 Skip work accurately', () => {
   const tiers: DifficultyTier[] = [1, 2, 3, 4, 5];
   const runsByTier = tiers.map((tier) => createInitialRun(777, 'kira', tier));
 
-  assert.equal(runsByTier[0].hero.maxHp, 68);
-  assert.equal(runsByTier[1].hero.maxHp, 63);
-  assert.equal(runsByTier[2].hero.maxHp, 58);
+  assert.equal(runsByTier[0].hero.maxHp, 74);
+  assert.equal(runsByTier[1].hero.maxHp, 68);
+  assert.equal(runsByTier[2].hero.maxHp, 62);
 
   for (const run of runsByTier) {
     assert.ok(run.combat);
@@ -217,7 +217,7 @@ test('5-Tier Difficulty Matrix, Sacred Chaff Math, Par Clocks, Tier 5 Mandate, a
       );
     }
   }
-  assert.equal(getBossTelegraphIntel('en', 5).hp, 138);
+  assert.equal(getBossTelegraphIntel('en', 5).hp, Math.round(104 * 1.54));
 
   const t5Base = runsByTier[4];
   const t5Breach = resolvePlayerColor(
@@ -227,7 +227,7 @@ test('5-Tier Difficulty Matrix, Sacred Chaff Math, Par Clocks, Tier 5 Mandate, a
       combat: {
         ...t5Base.combat!,
         turn: 7,
-        startingHeroHp: 58,
+        startingHeroHp: 62,
         enemies: [{ ...t5Base.combat!.enemies[0], hp: 1, armor: 0, shieldPips: 0 }],
         board: [makeTile('a1', 'attack', 5)],
       },
@@ -235,7 +235,7 @@ test('5-Tier Difficulty Matrix, Sacred Chaff Math, Par Clocks, Tier 5 Mandate, a
     'attack',
   );
   assert.equal(t5Breach.combat?.mandateBreachLootConfiscated, true);
-  assert.equal(t5Breach.hero.hp, 18);
+  assert.equal(t5Breach.hero.hp, 24);
 
   const skipped = skipCombatEncounter({
     ...runsByTier[0],
