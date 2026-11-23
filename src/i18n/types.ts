@@ -300,6 +300,11 @@ export interface TranslationPack {
   medbayNurseHoverSalvage: string;
   medbayNurseHoverOverclock: string;
   medbayNurseHoverExtract: string;
+  clinicNurseIdleNominal: string;
+  clinicNurseIdleCritical: string;
+  clinicNurseHoverImplant: string;
+  clinicNurseHoverPurge: string;
+  clinicNurseHoverDynasty: string;
   eventViewTitle: string;
   eventExecuteChoice: string;
   eventCriticalHp: string;

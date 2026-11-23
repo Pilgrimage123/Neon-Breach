@@ -161,7 +161,7 @@ export function CyberEventView({
                       )}
                       {choice.rewardFreeImplant && (
                         <span className="px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/50 text-cyan-200 font-bold">
-                          +1 {isCs ? 'Implantát' : 'Cyber Implant'}
+                          +1 {isCs ? 'Taktický modul' : 'Tactical Module'}
                         </span>
                       )}
                       {(choice.rewardHeirloomStacks ?? 0) > 0 && (

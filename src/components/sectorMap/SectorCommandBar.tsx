@@ -73,7 +73,7 @@ export function SectorCommandBar({
             data-testid="map-stork-pod-badge"
             className="px-2 py-0.5 rounded bg-pink-500/20 border border-pink-400/50 font-mono-tabular text-[12px] font-bold text-pink-200 whitespace-nowrap"
           >
-            🍼 {lang === 'cs' ? 'Čapí kapsle' : 'Stork Pod'}: {run.hero.incubatingTile.nodesRemaining}n
+            ⚒ {lang === 'cs' ? 'Cech' : 'Guild Craft'}: {run.hero.incubatingTile.nodesRemaining}n
           </span>
         )}
         {run.hero.bloodlineCrest && (
@@ -134,8 +134,8 @@ export function SectorCommandBar({
             onClick={() => onRideMagLev()}
             title={
               lang === 'cs'
-                ? 'Expresní Mag-Lev: přeskočí 2 úseky vpřed (+25 CR, -2 Koroze, +1 krok Čapí kapsle)'
-                : 'Mag-Lev Express Line: bridge 2 stages ahead (+25 CR, -2 Corrode, +1 Stork Pod step)'
+                ? 'Expresní Mag-Lev: přeskočí 2 úseky vpřed (+25 CR, -2 Koroze, +1 krok Cechovního učení)'
+                : 'Mag-Lev Express Line: bridge 2 stages ahead (+25 CR, -2 Corrode, +1 Guild Craft step)'
             }
             className="chrome-pill rounded-lg border-sky-400/55 px-2.5 py-1 font-mono-tabular text-[12px] font-bold text-sky-200 hover:border-sky-300 disabled:opacity-45 cursor-pointer whitespace-nowrap"
           >
@@ -232,6 +232,73 @@ export function MetropolisDistrictNavigator({
           </button>
         );
       })}
+    </div>
+  );
+}
+
+export interface SettlementGrowthStripProps {
+  lang: Language;
+  clearedStages: number;
+  isCompactLandscape: boolean;
+}
+
+export function SettlementGrowthStrip({
+  lang,
+  clearedStages,
+  isCompactLandscape,
+}: SettlementGrowthStripProps) {
+  const isCs = lang === 'cs';
+  const milestones = [
+    {
+      threshold: 1,
+      icon: '⚛️',
+      label: isCs ? 'Modulární reaktor' : 'Modular Nuclear Core',
+    },
+    {
+      threshold: 4,
+      icon: '🥖',
+      label: isCs ? 'Cechy a pekárny' : 'Guilds & Bakeries',
+    },
+    {
+      threshold: 7,
+      icon: '⛪',
+      label: isCs ? 'Farní náměstí' : 'Parish Square',
+    },
+    {
+      threshold: 10,
+      icon: '🛡️',
+      label: isCs ? 'Hraniční kaple' : 'Border Chapels',
+    },
+  ];
+
+  return (
+    <div
+      data-testid="settlement-growth-strip"
+      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-gradient-to-r from-amber-950/30 via-slate-950/55 to-emerald-950/25 ${
+        isCompactLandscape ? 'mb-1 px-2 py-0.5 text-[10.5px]' : 'mb-1.5 px-2.5 py-1 text-[11.5px]'
+      }`}
+    >
+      <span className="font-mono-tabular font-bold uppercase tracking-wider text-amber-300 shrink-0">
+        🌅 {isCs ? 'Rozvoj osady:' : 'Colony Dawn:'}
+      </span>
+      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+        {milestones.map((m) => {
+          const active = clearedStages >= m.threshold;
+          return (
+            <span
+              key={m.threshold}
+              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono-tabular font-semibold transition-colors ${
+                active
+                  ? 'border border-amber-300/55 bg-amber-500/20 text-amber-100 shadow-[0_0_8px_rgba(245,158,11,0.18)]'
+                  : 'border border-white/10 bg-slate-900/50 text-slate-400'
+              }`}
+            >
+              <span aria-hidden="true">{m.icon}</span>
+              <span>{m.label}</span>
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

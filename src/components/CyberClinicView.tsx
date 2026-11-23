@@ -11,8 +11,10 @@ import {
 } from '../engine/poolBuilder';
 import type { CyberImplantId, RunState, TileType } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
+import type { MedBayOptionId } from '../utils/nurseSpriteSheet';
 import { formatTileShortLabel } from '../utils/tileDisplay';
 import { ImplantIcon } from './ImplantIcon';
+import { NurseStageCanvas } from './medbay/NurseStageCanvas';
 
 interface CyberClinicViewProps {
   run: RunState;
@@ -56,6 +58,20 @@ export function CyberClinicView({
   const isFlashSale = currentNode?.modifier === 'flash_sale';
   const isFundedClinic = currentNode?.modifier === 'funded_clinic';
   const [pendingImplant, setPendingImplant] = useState<CyberImplantId | null>(null);
+  const [focusedOption, setFocusedOption] = useState<MedBayOptionId | null>(null);
+  const [pulseCount, setPulseCount] = useState(0);
+  const hpRatio = Math.max(0, Math.min(1, run.hero.hp / Math.max(1, run.hero.maxHp)));
+  const isCriticalHp = run.hero.hp <= Math.round(run.hero.maxHp * 0.5);
+  const nurseQuote =
+    focusedOption === 'tile_overclock'
+      ? t.clinicNurseHoverImplant
+      : focusedOption === 'salvage_credits'
+        ? t.clinicNurseHoverPurge
+        : focusedOption === 'calibrate_max_hp'
+          ? t.clinicNurseHoverDynasty
+          : isCriticalHp
+            ? t.clinicNurseIdleCritical
+            : t.clinicNurseIdleNominal;
   const needsReplace = run.hero.implants.length >= MAX_IMPLANTS;
   const equippedWeight = getEquippedChipMemory(run.hero);
   const innateTiles = run.masterPool.filter((tile) => tile.sourceId === 'innate');
@@ -180,14 +196,31 @@ export function CyberClinicView({
   return (
     <main
       className={`cyber-vista-bg flex flex-1 min-h-0 flex-col items-center justify-center overflow-hidden ${
-        isCompactLandscape ? 'px-2.5 py-1' : 'px-3 py-3 sm:px-6 sm:py-4'
+        isCompactLandscape ? 'px-2 py-1' : 'px-3 py-3 sm:px-6 sm:py-4'
       }`}
     >
       <div
-        className={`chrome-glass flex max-h-full w-full max-w-[1620px] flex-col overflow-hidden rounded-2xl ${
-          isCompactLandscape ? 'p-2.5' : 'p-4 sm:p-5 md:p-6'
+        className={`flex max-h-full w-full max-w-[1620px] flex-1 min-h-0 ${
+          isCompactLandscape
+            ? 'flex-row items-stretch gap-2'
+            : 'flex-col lg:flex-row items-center lg:items-end gap-3 lg:gap-5'
         }`}
       >
+        <NurseStageCanvas
+          focusedOption={focusedOption}
+          hpRatio={hpRatio}
+          pulseCount={pulseCount}
+          isCompactLandscape={isCompactLandscape}
+          nurseName={t.medbayNurseName}
+          nurseRole={t.medbayNurseRole}
+          onPulseClick={() => setPulseCount((c) => c + 1)}
+        />
+
+        <div
+          className={`chrome-glass flex max-h-full flex-1 min-w-0 flex-col overflow-hidden rounded-2xl ${
+            isCompactLandscape ? 'p-2.5' : 'p-4 sm:p-5 md:p-6'
+          }`}
+        >
         <div
           className={`flex items-center justify-between gap-2 shrink-0 ${
             isCompactLandscape ? 'flex-nowrap' : 'flex-wrap'
@@ -250,6 +283,20 @@ export function CyberClinicView({
           </div>
         </div>
 
+        <div
+          data-testid="clinic-nurse-dialogue"
+          className={`flex items-center gap-2 rounded-xl border border-pink-400/35 bg-gradient-to-r from-pink-950/45 via-slate-900/75 to-cyan-950/35 px-3 text-xs text-pink-100 shrink-0 ${
+            isCompactLandscape ? 'mt-1 py-1' : 'mt-2 py-1.5'
+          }`}
+        >
+          <span className="shrink-0 font-mono-tabular text-[11.5px] font-bold uppercase tracking-wider text-pink-300">
+            [{t.medbayNurseName}]:
+          </span>
+          <span className="truncate font-mono-tabular text-[12px] sm:text-[12.5px] text-slate-100">
+            “{nurseQuote}”
+          </span>
+        </div>
+
         {defibTriggeredNotice && (
           <div className="mt-2 shrink-0 rounded-xl border border-emerald-400/60 bg-emerald-950/55 px-3 py-1.5 text-xs font-mono-tabular font-bold text-emerald-200">
             ⚡ {t.emergencyDefibTriggered}
@@ -298,7 +345,12 @@ export function CyberClinicView({
                         type="button"
                         data-testid={`clinic-purge-tile-${tile.id}`}
                         disabled={!canPurge}
-                        onClick={() => onPurgeInnateTile(tile.id)}
+                        onMouseEnter={() => setFocusedOption('salvage_credits')}
+                        onMouseLeave={() => setFocusedOption(null)}
+                        onClick={() => {
+                          setPulseCount((c) => c + 1);
+                          onPurgeInnateTile(tile.id);
+                        }}
                         className={`chrome-pill flex items-center gap-1.5 rounded-lg border px-2 py-0.5 font-mono-tabular text-[12px] sm:text-[13px] font-bold transition hover:brightness-125 disabled:opacity-40 cursor-pointer disabled:cursor-not-allowed ${colorClass}`}
                       >
                         <span>
@@ -336,10 +388,12 @@ export function CyberClinicView({
             {(storkHandler || onMarryBloodline || fabLabHandler) && (
               <div
                 data-testid="clinic-dynasty-biotech-panel"
+                onMouseEnter={() => setFocusedOption('calibrate_max_hp')}
+                onMouseLeave={() => setFocusedOption(null)}
                 className="rounded-xl border border-cyan-400/35 bg-slate-950/55 px-2.5 py-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5"
               >
                 <span className="text-[12px] font-mono-tabular font-bold uppercase tracking-wider text-cyan-300 shrink-0">
-                  🧬 {isCs ? 'Biotech:' : 'Biotech:'}
+                  ⚒ {isCs ? 'Cech a dílna:' : 'Guild Bench:'}
                 </span>
 
                 {/* Stork Nursery Incubation Pod */}
@@ -361,7 +415,7 @@ export function CyberClinicView({
                         {eligibleStorkTiles.length > 0 && (
                           <select
                             data-testid="clinic-stork-tile-select"
-                            aria-label={isCs ? 'Vybrat dílek pro Čapí kapsli' : 'Select tile for Stork Incubation'}
+                            aria-label={isCs ? 'Vybrat dílek pro Cechovní učení' : 'Select tile for Guild Apprenticeship'}
                             value={selectedStorkTileId}
                             onChange={(e) => setSelectedStorkTileId(e.target.value)}
                             className="rounded-lg border border-cyan-400/50 bg-slate-950/90 px-2 py-0.5 font-mono-tabular text-[12px] font-bold text-cyan-200 focus:border-cyan-300 focus:outline-none cursor-pointer"
@@ -519,7 +573,14 @@ export function CyberClinicView({
                       <button
                         key={id}
                         type="button"
-                        onClick={() => handleChooseModule(id)}
+                        onMouseEnter={() => setFocusedOption('tile_overclock')}
+                        onMouseLeave={() => setFocusedOption(null)}
+                        onFocus={() => setFocusedOption('tile_overclock')}
+                        onBlur={() => setFocusedOption(null)}
+                        onClick={() => {
+                          setPulseCount((c) => c + 1);
+                          handleChooseModule(id);
+                        }}
                         className={`chrome-pill flex justify-between rounded-xl text-left transition-all duration-150 hover:-translate-y-0.5 cursor-pointer ${
                           isCompactLandscape
                             ? 'flex-row items-center gap-2 px-2.5 py-1.5'
@@ -621,6 +682,7 @@ export function CyberClinicView({
               </div>
             )}
           </div>
+        </div>
         </div>
       </div>
     </main>

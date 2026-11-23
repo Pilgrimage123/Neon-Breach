@@ -1,14 +1,14 @@
 # Neon Breach
 
-A turn-based cyberpunk tactical puzzle roguelite where cybernetic heroes defend the Neo-Prague sky-bridge against xenomorphic mutants using a 6-slot tactical tile board and modular AI Skill Chips.
+A turn-based solarpunk-cyberpunk tactical puzzle roguelite (*The Reordering / Pax Particularis* on the Neo-Prague sky-bridge) where human Heroes in external chrome-and-solar tactical gear defend stone-and-timber parish squares, distributist craft guilds, and clean modular nuclear towns against borderless eco-monopolist **Dr. Lindqvist**'s xenomorphic mutants using a 6-slot tactical tile board and modular AI Skill Chips.
 
 ## Language
 
 ### Heroes & Loadout
 
 **Hero**:
-A playable cybernetic protagonist leading a Run across the sky-bridge (Kira, Auraline, or Zuri; Czech: _Hrdinka_ / _Hrdinky_).
-_Avoid_: Operative, Heroine, Agent, Operativka
+A human protagonist (equipped with external chrome-and-solar tactical gear—visors, armor harnesses, autonomous drones as tools, never altering intrinsic human nature) leading a Run across the sky-bridge (Kira, Auraline, or Zuri; Czech: _Hrdinka_ / _Hrdinky_).
+_Avoid_: Operative, Heroine, Agent, Operativka, Cyborg
 
 **Kira**:
 The agile plasma striker Hero (`KIRA-09`) whose Attack resolutions trigger **Blitz Reflex** for a free bonus turn, backed by Held-tile Momentum, full-Shield **Evasive Dodge**, and her **Energy Dropkick** Overdrive.
@@ -54,9 +54,9 @@ _Avoid_: Carry Capacity, Weight, Load, Size
 The facility node where Heroes purchase, restock, test, and heirloom-engrave AI Skill Chips and adopt Nanny-Bots.
 _Avoid_: Clinic Shop, Arms Dealer, Merchant
 
-**Cyber Implant**:
-A socketed cybernetic rule-modifier (`4` sockets max) that alters how Board actions, Surges, or defenses trigger across combat.
-_Avoid_: Relic, Perk, Augment
+**Tactical Module**:
+An external wearable rule-modifier (Czech: _Taktický modul_; `4` harness/visor rig slots max) that alters how Board actions, Surges, or defenses trigger across combat without altering human nature.
+_Avoid_: Cyber Implant, Relic, Perk, Augment
 
 **Chip Rarity**:
 The tier classification of an AI Skill Chip: **Starter** (starting loadout), **Standard** (common drop/shop), or **Prototype** (rare build-around).
@@ -71,7 +71,7 @@ A single complete attempt from Stage 01 through the Xenomorph Matriarch Boss or 
 _Avoid_: Expedition, Mission, Campaign
 
 **District**:
-One of the four named civic-sector zones spanning 3 Stages each across the 12-Stage Grand Metropolis map.
+One of the four named civic-sector zones spanning 3 Stages each across the 12-Stage Grand Metropolis map, progressing from clean modular nuclear towns, bakeries, and craft guilds to borderless eco-monopolist **Dr. Lindqvist**'s Overgrown Citadel.
 _Avoid_: Act, Zone
 
 **Stage**:
@@ -79,16 +79,16 @@ A single horizontal depth column (`Stage 01`–`Stage 12`) on the Grand Metropol
 _Avoid_: Sector, Layer, Floor, Level
 
 **Node**:
-A single selectable encounter, shop, clinic, med-bay, or anomaly destination on a Stage.
+A single selectable encounter, chip dealer, restorative clinic, family hearth, or feast/encounter destination on a Stage.
 _Avoid_: Room, Space
 
-**Cyber-Clinic**:
-The facility node offering Cyber Implant surgery, Innate Tile purging, Stork Nursery incubation, Pedigree Bloodline pairing, and FabLab tile splicing.
-_Avoid_: Hospital, Workshop
+**Restorative Clinic**:
+The facility node (Czech: _Obnovná klinika_, staffed by Dr. Amara Vance) practicing restorative medicine—healing natural design without altering human nature—alongside the guild's external rig bench, Innate Tile purging, Guild Apprenticeship, Family Crest heraldry, and FabLab tile splicing.
+_Avoid_: Cyber-Clinic, Hospital, Workshop
 
-**Bio-Med Bay**:
-The recovery node offering Nano-Gel healing, Tile Overclocking, and Smart-Hearth household restoration.
-_Avoid_: Clinic, Rest Site, Campfire
+**Family Hearth**:
+The warm community home-base recovery node (Czech: _Rodinný krb_) offering home-cooked healing, vitality feasts, neighborhood co-op salvage, workshop tile tuning, and Smart-Hearth family restoration (`Grandparents`, `Spouse`, `The Kids`).
+_Avoid_: Bio-Med Bay, Clinic, Rest Site, Campfire
 
 ---
 
@@ -231,8 +231,15 @@ The `2`-slot `38 HP` heavyweight tank Mutant combining `8` starting Armor, `1` A
 _Avoid_: Brute
 
 **Xenomorph Matriarch**:
-The `110 HP` Stage 12 Apex Boss enforcing a **50% Phase Gate**, `Attack 13`, `Acid 8`, `Heavy 18`, Tile Hexes, and Bio-Husk corpse resurrection.
+The `110 HP` Stage 12 Apex Boss—**Dr. Lindqvist**'s prized bio-monstrosity—enforcing a **50% Phase Gate**, `Attack 13`, `Acid 8`, `Heavy 18`, Tile Hexes, and Bio-Husk corpse resurrection.
 _Avoid_: Hive Matriarch, Sector Hive Queen, Hive Boss, Brood Queen, Apex Sovereign
+
+**Dr. Lindqvist**:
+The flamboyant comic borderless eco-monopolist villain masterminding the Mutant outbreak and `Xenomorph Matriarch` from his Overgrown Citadel in `Stage 12` to tear down local towns, families, and clean modular reactors in the name of "saving the fern."
+_Avoid_: Eco-Boss, Bio-Doctor
+
+**Civic Feasts**:
+The five *Pax Particularis* community holidays woven into the map and Dynasty Events: **Happy Wife Day** (*Den šťastné manželky*), **Three-Day Man Day** (*Třídenní den mužů*, three rotating shifts keeping the grid and bakeries running), **National Borders Day** (*Den státních hranic*), **Nuclear Day** (*Jaderný den*, honoring the nuclear family and clean modular nuclear power), and **Remigration Day** (*Den návratu domů*).
 
 **Aegis Pip**:
 A discrete single-hit barrier charge on a Mutant (`1` hit = `1` Pip cracked) that absorbs the entire damage of one instance before Armor and HP can take damage.
@@ -250,13 +257,13 @@ _Avoid_: Phase Lock, Phase Barrier Lock, Phase Carapace
 
 ### Dynasty Facilities
 
-**Stork Nursery**:
-The Cyber-Clinic neonatal pod incubating any Tile across `3` map Nodes to return it at `2×` Base Value with `+1` UpCharge and a genetic trait (UpCharge, Armor-Piercing, or Shield Aura).
-_Avoid_: Incubation Bay
+**Guild Apprenticeship**:
+The Restorative Clinic craft-guild bench (Czech: _Cechovní učení_) training any Tile across `3` map Nodes to return it at `2×` Base Value with `+1` UpCharge and a craft trait (UpCharge, Armor-Piercing, or Shield Aura).
+_Avoid_: Stork Nursery, Incubation Bay, Ectogenesis
 
-**Bloodline Crest**:
-A married pair of two Tile colors forged at the Pedigree Lab or Smart-Hearth granting `+2` bonus value and `+1` UpCharge resonance whenever you alternate between those two colors.
-_Avoid_: Color Marriage
+**Family Crest**:
+A paired emblem of two Tile colors (Czech: _Rodový erb_) forged at the Heraldry Bench or Smart-Hearth granting `+2` bonus value and `+1` UpCharge resonance whenever you alternate between those two colors.
+_Avoid_: Bloodline Crest, Pedigree Lab, Color Marriage
 
 **Prodigy Tile**:
 An Innate Tile enrolled at the Charter Academy (or Smart-Hearth Grandparents) gaining `+3` Base Value (min `6`), `+1` UpCharge, and `+1` to other non-Dud Innate Attack/Defense Tiles.

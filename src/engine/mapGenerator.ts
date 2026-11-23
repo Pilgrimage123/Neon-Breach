@@ -28,11 +28,11 @@ export function getMetropolisDistricts(
       {
         index: 0,
         code: 'D-01',
-        title: isCs ? 'Sektorová proluka' : 'Sky-Bridge Breach',
+        title: isCs ? 'Sluneční předmostí Úsvitu' : 'New Dawn Sky-Bridge',
         subtitle: isCs ? `Úseky 01–0${Math.max(1, totalLayers)}` : `Stages 01–0${Math.max(1, totalLayers)}`,
         startLayer: 0,
         endLayer: Math.max(0, totalLayers - 1),
-        accentColor: '#00F0FF',
+        accentColor: '#F59E0B',
       },
     ];
   }
@@ -40,32 +40,32 @@ export function getMetropolisDistricts(
     {
       index: 0,
       code: 'DIST-I',
-      title: isCs ? 'I. Občanská čtvrť FabLab' : 'I. Civic Makerspace Quarter',
+      title: isCs ? 'I. Sluneční dílny a trh' : 'I. Sunlit Workshops & Market',
       subtitle: isCs
-        ? 'Otevřené FabLaby · Upcycle kiosky · Mesh-Net'
-        : 'Open-Source FabLabs · Upcycle Kiosks · Mesh-Net',
+        ? 'Modulární reaktor · Cechy · Pekárny'
+        : 'Modular Nuclear Core · Craft Guilds · Bakeries',
       startLayer: 0,
       endLayer: 2,
-      accentColor: '#00F0FF',
+      accentColor: '#F59E0B',
     },
     {
       index: 1,
       code: 'DIST-II',
-      title: isCs ? 'II. Biotech kolébka a akademie' : 'II. Neonatal & Pedigree Commons',
+      title: isCs ? 'II. Skleníkové sady a akademie' : 'II. Greenhouse Commons & Academy',
       subtitle: isCs
-        ? 'Čapí jesle · Rodokmenová laboratoř · Akademie'
-        : 'Stork Nursery · Pedigree Lab · Charter Academy',
+        ? 'Obnovná klinika · Cechovní učení · Rodový erb'
+        : 'Restorative Clinic · Guild Craft · Heraldry',
       startLayer: 3,
       endLayer: 5,
-      accentColor: '#FF55C8',
+      accentColor: '#34D399',
     },
     {
       index: 2,
       code: 'DIST-III',
-      title: isCs ? 'III. Dynastické nebeské dómy' : 'III. Dynasty Sky-Domes & Gala',
+      title: isCs ? 'III. Chromové nebeské zahrady' : 'III. Chrome Sky-Gardens & Domes',
       subtitle: isCs
-        ? 'Galavečer dohazovačů · Rodová kovárna · Mag-Lev'
-        : 'Matchmaker’s Gala · Heirloom Forge · Mag-Lev Hub',
+        ? 'Den manželky · Jaderný den · Rodová kovárna'
+        : 'Happy Wife Day · Nuclear Day · Heirloom Forge',
       startLayer: 6,
       endLayer: 8,
       accentColor: '#FFC700',
@@ -73,13 +73,13 @@ export function getMetropolisDistricts(
     {
       index: 3,
       code: 'DIST-IV',
-      title: isCs ? 'IV. Citadela svrchovanosti' : 'IV. Sovereign Citadel Approach',
+      title: isCs ? 'IV. Zarostlá citadela Dr. Lindqvista' : 'IV. Dr. Lindqvist’s Overgrown Citadel',
       subtitle: isCs
-        ? 'Chytrý krb · Eskorta kolébky · Matriarcha'
-        : 'Smart-Hearth Penthouse · Vanguard Escort · Apex Core',
+        ? 'Rodinný krb · Hraniční stráž · Lindqvistova Matriarcha'
+        : 'Family Hearth · Border Watch · Lindqvist’s Matriarch',
       startLayer: 9,
       endLayer: totalLayers - 1,
-      accentColor: '#34D399',
+      accentColor: '#22C55E',
     },
   ];
 }

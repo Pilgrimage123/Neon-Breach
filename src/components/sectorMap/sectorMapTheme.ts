@@ -6,13 +6,13 @@ export const DISTRICT_BADGE_LABELS: Record<
   { en: string; cs: string; colorClass: string }
 > = {
   stork_nursery: {
-    en: 'STORK NURSERY',
-    cs: 'ČAPÍ JESLE',
+    en: 'GUILD CRAFT',
+    cs: 'CECHOVNÍ UČENÍ',
     colorClass: 'bg-pink-500/25 border-pink-300/60 text-pink-200',
   },
   pedigree_lab: {
-    en: 'PEDIGREE LAB',
-    cs: 'RODOKMEN LAB',
+    en: 'HERALDRY BENCH',
+    cs: 'RODOVÝ ERB',
     colorClass: 'bg-cyan-500/25 border-cyan-300/60 text-cyan-200',
   },
   charter_academy: {
@@ -31,18 +31,18 @@ export const DISTRICT_BADGE_LABELS: Record<
     colorClass: 'bg-lime-500/25 border-lime-300/60 text-lime-200',
   },
   smart_hearth: {
-    en: 'SMART-HEARTH',
-    cs: 'CHYTRÝ KRB',
-    colorClass: 'bg-emerald-500/25 border-emerald-300/60 text-emerald-200',
+    en: 'FAMILY HEARTH',
+    cs: 'RODINNÝ KRB',
+    colorClass: 'bg-orange-500/25 border-orange-300/65 text-orange-200',
   },
   rooftop_cafe: {
-    en: 'HYDRO-CAFE',
-    cs: 'HYDRO-KAVÁRNA',
-    colorClass: 'bg-teal-500/25 border-teal-300/60 text-teal-100',
+    en: 'SOLAR CAFÉ',
+    cs: 'SLUNEČNÍ KAVÁRNA',
+    colorClass: 'bg-amber-500/25 border-amber-300/60 text-amber-100',
   },
   suburban_dome: {
-    en: 'SUBURBAN DOME',
-    cs: 'RODINNÝ DÓM',
+    en: 'SUNLIT DOME',
+    cs: 'SLUNEČNÍ DÓM',
     colorClass: 'bg-emerald-500/30 border-emerald-300/65 text-emerald-100',
   },
   nanny_showroom: {
@@ -61,13 +61,13 @@ export const DISTRICT_BADGE_LABELS: Record<
     colorClass: 'bg-yellow-500/25 border-yellow-300/60 text-yellow-200',
   },
   matchmakers_gala: {
-    en: 'MATCHMAKER GALA',
-    cs: 'GALA ALIANCÍ',
+    en: 'HAPPY WIFE DAY',
+    cs: 'DEN MANŽELKY',
     colorClass: 'bg-fuchsia-500/25 border-fuchsia-300/60 text-fuchsia-200',
   },
   mutual_aid_coop: {
-    en: 'MUTUAL-AID CO-OP',
-    cs: 'SOUSEDSKÝ CO-OP',
+    en: '3-DAY MAN SHIFT',
+    cs: '3-DENNÍ SMĚNA',
     colorClass: 'bg-purple-500/25 border-purple-300/60 text-purple-200',
   },
   synth_rave: {
@@ -86,8 +86,8 @@ export const DISTRICT_BADGE_LABELS: Record<
     colorClass: 'bg-pink-500/30 border-pink-300/65 text-pink-100',
   },
   vanguard_escort: {
-    en: 'CRADLE ESCORT',
-    cs: 'ESKORTA KOLÉBKY',
+    en: 'BORDER WATCH',
+    cs: 'HRANIČNÍ STRÁŽ',
     colorClass: 'bg-amber-500/30 border-amber-300/70 text-amber-100',
   },
   data_liberation: {
@@ -131,10 +131,10 @@ export const NODE_STYLE: Record<
     hex: '#F59E0B',
   },
   MED_BAY: {
-    border: 'border-[#10F5A0]/65',
-    accent: 'text-emerald-200',
-    bg: 'bg-gradient-to-b from-[#0E332C]/90 to-[#081C19]/92',
-    hex: '#10F5A0',
+    border: 'border-orange-400/75',
+    accent: 'text-orange-200',
+    bg: 'bg-gradient-to-b from-[#3D2010]/92 to-[#211008]/94',
+    hex: '#FB923C',
   },
   EVENT: {
     border: 'border-purple-400/70',

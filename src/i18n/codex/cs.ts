@@ -4,7 +4,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
   codexButtonLabel: 'Kodex',
   codexTitle: 'Taktický kodex a složka hrdinky',
   codexSubtitle:
-    'Přehled pasivních schopností hrdinek, Overdrive protokolů, bojových mechanik a pravidel mutantů.',
+    'Přehled pasivních schopností hrdinek Obnovené Nové Prahy, externí výstroje, bojových mechanik a mutantů Dr. Lindqvista.',
   tabHeroes: 'Hrdinky a schopnosti',
   tabGlossary: 'Herní slovník',
   heroSelectorAria: 'Vyber složku hrdinky',
@@ -21,7 +21,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
   innateCoreHeader: 'Vrozené jádro (Trvalé dílky)',
   innateCoreDesc: 'Zůstává v hlavním zásobníku dílků bez ohledu na nainstalované AI čipy dovedností.',
   startingGearHeader: 'Startovní AI čipy dovedností',
-  synergiesHeader: 'Doporučené kyber-implantáty z Kyber-kliniky',
+  synergiesHeader: 'Doporučené taktické moduly z Obnovné kliniky',
   tacticalLoopHeader: 'Základní bojový rytmus',
   inspectHeroDossierBtn: 'Schopnosti a Kodex',
   viewGlossaryBtn: 'Slovník',
@@ -90,7 +90,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
           name: 'Jádro reaktoru (Nabití a Brnění)',
           badge: '+1 UC · +1 BRN · +15 % OD',
           description:
-            'Začíná se 3 aktivními dílky Jádra reaktoru (2 ATK, 3 DEF, +15 % DMG TECH). Aktivace jakéhokoli dílku Jádra reaktoru — i po jeho vylepšení v Akademii, Čapích jeslích nebo FabLabu — přidá +1 Nabití, +1 stálého Brnění a +15 % Overdrive.',
+            'Začíná se 3 aktivními dílky Jádra reaktoru (2 ATK, 3 DEF, +15 % DMG TECH). Aktivace jakéhokoli dílku Jádra reaktoru — i po jeho vylepšení v Akademii, Cechovním učení nebo FabLabu — přidá +1 Nabití, +1 stálého Brnění a +15 % Overdrive.',
         },
         {
           name: 'Vysoká paměť čipů',
@@ -107,7 +107,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Přidá +2 Nabití (+2 dílky na desku v příštím tahu).',
       ],
       synergies:
-        'Akademie a Čapí jesle (vylepší dílky Jádra reaktoru se zachováním bonusu +1 UC / +1 Brnění), Plazmový zesilovač, Nanovláknová zbroj a Rezonátor přetížení.',
+        'Akademie a Cechovní učení (vylepší dílky Jádra reaktoru se zachováním bonusu +1 UC / +1 Brnění), Plazmový zesilovač, Nanovláknová zbroj a Rezonátor přetížení.',
       tacticalLoop:
         'Nech 2 Brnění pohltit úvodní údery, toč dílky Jádra reaktoru pro +1 Nabití a +1 Brnění, vylepši je v dynastických zařízeních a odpaluj Královskou salvu (+4 Brnění, +2 Nabití).',
     },
@@ -234,7 +234,7 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: 'Obranný protiúder',
       summary: 'Poškození vrácené mutantovi při Přetížení Obrany nebo vykrytí útoku Štítem.',
       mechanics:
-        'Přetížení Obrany udělí 8 protiúderného DMG přímo přednímu mutantovi. Kyber-implantát Kinetický reflektor navíc vrátí 3 DMG útočníkovi pokaždé, když jeho ránu zachytíš Štítem či Brněním.',
+        'Přetížení Obrany udělí 8 protiúderného DMG přímo přednímu mutantovi. Taktický modul Kinetický reflektor navíc vrátí 3 DMG útočníkovi pokaždé, když jeho ránu zachytíš Štítem či Brněním.',
       tacticalTip:
         'Protiúder bezpečně dorazí Chitinového slídiče bez spuštění jeho Trnové odplaty.',
       keywords: ['odveta', 'odraz', 'riposte', 'obrana', 'reflektor'],

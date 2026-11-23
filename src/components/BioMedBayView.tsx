@@ -4,7 +4,7 @@ import { computeMedBayHealAmount } from '../engine/dynastyClinicEngine';
 import type { RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { MedBayOptionId } from '../utils/nurseSpriteSheet';
-import { NurseStageCanvas } from './medbay/NurseStageCanvas';
+import { HeroPortraitCanvas } from './HeroPortraitCanvas';
 
 export type MedBayActionType =
   | 'heal'
@@ -46,9 +46,8 @@ export function BioMedBayView({
   const overclockMaxed = overclockStacks >= MAX_OVERCLOCK_STACKS;
 
   const [focusedOption, setFocusedOption] = useState<MedBayOptionId | null>(null);
-  const [pulseCount, setPulseCount] = useState(0);
 
-  const nurseQuote =
+  const hearthQuote =
     focusedOption === 'heal'
       ? t.medbayNurseHoverHeal
       : focusedOption === 'calibrate_max_hp'
@@ -63,7 +62,6 @@ export function BioMedBayView({
 
   const triggerAction = useCallback(
     (action: MedBayActionType) => {
-      setPulseCount((c) => c + 1);
       onAction(action);
     },
     [onAction],
@@ -105,20 +103,54 @@ export function BioMedBayView({
             : 'flex-col lg:flex-row gap-4 lg:gap-5'
         }`}
       >
-        <NurseStageCanvas
-          focusedOption={focusedOption}
-          hpRatio={hpRatio}
-          pulseCount={pulseCount}
-          isCompactLandscape={isCompactLandscape}
-          nurseName={t.medbayNurseName}
-          nurseRole={t.medbayNurseRole}
-          onPulseClick={() => setPulseCount((c) => c + 1)}
-        />
+        {/* Warm Dawn-Gold Solar Hearth Showcase */}
+        <div
+          data-testid="family-hearth-showcase"
+          className={`chrome-glass relative z-10 flex shrink-0 flex-col items-center justify-between rounded-2xl border border-amber-400/45 bg-gradient-to-b from-amber-950/45 via-slate-950/85 to-orange-950/40 shadow-[0_8px_32px_rgba(245,158,11,0.22)] ${
+            isCompactLandscape
+              ? 'w-44 p-2 gap-1.5'
+              : 'w-full lg:w-64 p-3.5 sm:p-4 gap-2.5'
+          }`}
+        >
+          <div className="flex w-full items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1 rounded-md border border-amber-400/50 bg-amber-500/20 px-2 py-0.5 font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-amber-200">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#FBBF24" strokeWidth="2.2" aria-hidden="true">
+                <path d="M12 3.5C15.5 8 18.5 11 18.5 14.5A6.5 6.5 0 0 1 5.5 14.5C5.5 11 8.5 8 12 3.5Z" />
+              </svg>
+              {lang === 'cs' ? 'Nový úsvit' : 'New Dawn'}
+            </span>
+            <span className="font-mono-tabular text-[11px] font-bold text-emerald-300">
+              {Math.round(hpRatio * 100)}% HP
+            </span>
+          </div>
+
+          <div
+            className={`relative flex items-center justify-center overflow-hidden rounded-xl border border-amber-300/35 bg-gradient-to-b from-amber-500/15 via-orange-950/35 to-slate-950/80 shadow-[inset_0_0_24px_rgba(251,191,36,0.18)] ${
+              isCompactLandscape ? 'h-28 w-full' : 'h-40 sm:h-48 w-full'
+            }`}
+          >
+            <HeroPortraitCanvas
+              characterId={run.hero.characterId ?? 'kira'}
+              active={true}
+              variant="title"
+              compact={isCompactLandscape}
+            />
+          </div>
+
+          <div className="w-full text-center">
+            <div className="font-display text-sm font-bold text-amber-200">
+              {charMeta.name}
+            </div>
+            <div className="font-mono-tabular text-[11px] font-semibold uppercase tracking-wider text-orange-200/85">
+              {t.medbayTitle}
+            </div>
+          </div>
+        </div>
 
         {/* The Terminal Card Panel */}
         <div
           data-testid="medbay-terminal-panel"
-          className={`chrome-glass relative z-10 flex-1 min-w-0 rounded-2xl shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col justify-between ${
+          className={`chrome-glass relative z-10 flex-1 min-w-0 rounded-2xl border border-amber-400/35 shadow-[0_8px_32px_rgba(0,0,0,0.5)] flex flex-col justify-between ${
             isCompactLandscape
               ? 'p-2.5 gap-2 max-h-[360px]'
               : 'p-3.5 sm:p-5 gap-3'
@@ -127,7 +159,7 @@ export function BioMedBayView({
           <div className="flex flex-col gap-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-500/20 border border-emerald-400/50 text-emerald-300 font-mono-tabular text-xs font-bold uppercase tracking-wider">
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/20 border border-amber-400/55 text-amber-200 font-mono-tabular text-xs font-bold uppercase tracking-wider">
                   {t.medbayTitle}
                 </span>
                 <h1
@@ -149,15 +181,15 @@ export function BioMedBayView({
             </div>
 
             <div
-              data-testid="medbay-nurse-dialogue"
-              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-pink-400/35 bg-gradient-to-r from-pink-950/45 via-slate-900/75 to-emerald-950/35 px-3 py-1.5 text-xs text-pink-100"
+              data-testid="family-hearth-dialogue"
+              className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-400/40 bg-gradient-to-r from-amber-950/50 via-slate-900/80 to-orange-950/35 px-3 py-1.5 text-xs text-amber-100"
             >
               <div className="flex items-center gap-2 min-w-0">
-                <span className="shrink-0 font-mono-tabular text-[12px] font-bold uppercase tracking-wider text-pink-300">
-                  [{t.medbayNurseName}]:
+                <span className="shrink-0 font-mono-tabular text-[12px] font-bold uppercase tracking-wider text-amber-300">
+                  [{lang === 'cs' ? 'Rodinný krb' : 'Family Hearth'}]:
                 </span>
                 <span className="truncate font-mono-tabular text-[12.5px] sm:text-[13px] text-slate-100">
-                  “{nurseQuote}”
+                  “{hearthQuote}”
                 </span>
               </div>
               <span className="shrink-0 font-mono-tabular text-[12px] font-bold text-emerald-300">

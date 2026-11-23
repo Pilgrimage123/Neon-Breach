@@ -72,6 +72,14 @@ describe('Translations and Czech default localization', () => {
       /\bDiscrete Pip/i,
       /\bOperativk[ayou]\b/i,
       /\bAgentk[ayou]\b/i,
+      /\bBio-Med Bay\b/i,
+      /\bBio-ošetřovn[auyě]\b/i,
+      /\bCyber-Clinic\b/i,
+      /\bCyber Implants?\b/i,
+      /\bKyber-klinik/i,
+      /\bkyber-implant/i,
+      /\bStork Nursery\b/i,
+      /\bČapí jesle\b/i,
     ];
 
     const packs: Array<{ name: string; data: unknown }> = [

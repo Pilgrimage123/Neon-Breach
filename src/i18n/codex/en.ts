@@ -4,7 +4,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
   codexButtonLabel: 'Codex',
   codexTitle: 'Tactical Codex & Hero Dossier',
   codexSubtitle:
-    'Complete breakdown of Hero passives, Overdrive protocols, combat mechanics, and Mutant traits.',
+    'Complete breakdown of Reordered Neo-Prague Hero passives, external tactical gear, combat mechanics, and Dr. Lindqvist’s Mutants.',
   tabHeroes: 'Heroes & Powers',
   tabGlossary: 'Combat Glossary',
   heroSelectorAria: 'Select Hero dossier',
@@ -22,7 +22,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
   innateCoreDesc:
     'Always present in your Master Tile Pool regardless of installed AI Skill Chips.',
   startingGearHeader: 'Starting AI Skill Chips',
-  synergiesHeader: 'Best Cyber-Clinic Synergies',
+  synergiesHeader: 'Best Restorative Clinic Synergies',
   tacticalLoopHeader: 'Core Combat Rhythm',
   inspectHeroDossierBtn: 'Full Abilities & Codex',
   viewGlossaryBtn: 'Glossary',
@@ -91,7 +91,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
           name: 'Reactor Core (UpCharge & Plating)',
           badge: '+1 UC · +1 ARM · +15% OD',
           description:
-            'Starts with 3 active Reactor Core Tiles (2 ATK, 3 DEF, +15% DMG TECH). Resolving any Reactor Core—even after upgrading it at the Charter Academy, Stork Nursery, or FabLab—grants +1 UpCharge, +1 persistent Armor, and +15% Overdrive.',
+            'Starts with 3 active Reactor Core Tiles (2 ATK, 3 DEF, +15% DMG TECH). Resolving any Reactor Core—even after upgrading it at the Charter Academy, Guild Apprenticeship, or FabLab—grants +1 UpCharge, +1 persistent Armor, and +15% Overdrive.',
         },
         {
           name: 'High-Memory Neural Rig',
@@ -108,7 +108,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Grants +2 UpCharge so your next Turn draws +2 extra Tiles onto the Board.',
       ],
       synergies:
-        'Charter Academy & Stork Nursery (upgrades Reactor Core tiles into high-stat Prodigies while preserving their +1 UC / +1 ARM bonus), Plasma Amplifier, Nano-Weave Plating, and Surge Resonator.',
+        'Charter Academy & Guild Apprenticeship (upgrades Reactor Core tiles into high-stat Prodigies while preserving their +1 UC / +1 ARM bonus), Plasma Amplifier, Nano-Weave Plating, and Surge Resonator.',
       tacticalLoop:
         'Let your 2 starting Armor absorb early hits while cycling Reactor Core Tiles for +1 UpCharge and +1 Armor, upgrade them at Dynasty facilities, and drop Sovereign Broadside (+4 Armor, +2 UpCharge) to overpower Boss phases.',
     },
@@ -144,7 +144,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Cleanses -2 Corrode stacks from your Hero.',
       ],
       synergies:
-        'Bloodline Crest (pairs two colors to double-dip with Tri-Drone Sync color alternation!), Synapse Overclock (+3 Shield per TECH Tile), Flux Injector (+30% OD per TECH Tile!), and Armor Crack.AI.',
+        'Family Crest (pairs two colors to double-dip with Tri-Drone Sync color alternation!), Synapse Overclock (+3 Shield per TECH Tile), Flux Injector (+30% OD per TECH Tile!), and Armor Crack.AI.',
       tacticalLoop:
         'Alternate Tile colors each Turn (e.g. TECH → Attack → Defense) so your primed Tri-Drone fires on every single action (+4 HP, +4 Pierce DMG, +6 Shield) while cycling +20% OD TECH Tiles into Solar Swarm Protocol.',
     },
@@ -235,7 +235,7 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
       shortTag: 'Defensive Counter',
       summary: 'Damage dealt back to Mutants when triggering Defense Stack Surge or absorbing hits with Shield.',
       mechanics:
-        'A Defense Stack Surge deals 8 counter DMG directly to the frontline Mutant. Separately, the Kinetic Reflector Cyber Implant deals 3 DMG back to any attacker whose hit is absorbed by your Shield or Armor.',
+        'A Defense Stack Surge deals 8 counter DMG directly to the frontline Mutant. Separately, the Kinetic Reflector Tactical Module deals 3 DMG back to any attacker whose hit is absorbed by your Shield or Armor.',
       tacticalTip:
         'Counter damage safely finishes low-HP Chitin Stalkers without triggering their Spike Retaliation.',
       keywords: ['riposte', 'reflect', 'counter', 'defense', 'auraline', 'zuri', 'kinetic'],

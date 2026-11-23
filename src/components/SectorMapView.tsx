@@ -19,6 +19,7 @@ import {
 import {
   MetropolisDistrictNavigator,
   SectorCommandBar,
+  SettlementGrowthStrip,
 } from './sectorMap/SectorCommandBar';
 import { SectorNodeBriefingBar } from './sectorMap/SectorNodeBriefingBar';
 import { SectorNodeCard } from './sectorMap/SectorNodeCard';
@@ -278,6 +279,14 @@ export function SectorMapView({
             isCompactLandscape ? 'p-1.5' : 'p-2 sm:p-3'
           }`}
         >
+          <SettlementGrowthStrip
+            lang={lang}
+            clearedStages={run.mapNodes.reduce(
+              (acc, node) => (node.cleared ? Math.max(acc, node.layer + 1) : acc),
+              0,
+            )}
+            isCompactLandscape={isCompactLandscape}
+          />
           <MetropolisDistrictNavigator
             metropolisDistricts={metropolisDistricts}
             currentLayer={currentLayer}

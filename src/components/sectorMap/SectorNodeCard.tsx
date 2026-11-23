@@ -54,7 +54,7 @@ export function NodeEmblem({ type }: { type: MapNodeType }) {
   }
   if (type === 'MED_BAY') {
     return (
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10F5A0" strokeWidth="2.2" aria-hidden="true">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#FB923C" strokeWidth="2.2" aria-hidden="true">
         <path d="M12 4.5C15.2 8.8 18.2 11.4 18.2 14.6A6.2 6.2 0 0 1 5.8 14.6C5.8 11.4 8.8 8.8 12 4.5Z" />
       </svg>
     );
@@ -218,7 +218,7 @@ export function SectorNodeCard({
               : isMultiHopPath
                 ? `${style.border} ring-1 ring-cyan-300 bg-cyan-950/40 shadow-[0_0_18px_rgba(0,240,255,0.25)] cursor-pointer`
                 : node.cleared
-                  ? 'border-amber-300/35 bg-[#121D3D]/80 opacity-85'
+                  ? 'border-amber-300/45 bg-gradient-to-b from-amber-950/35 to-[#121D3D]/85 shadow-[0_0_10px_rgba(245,158,11,0.12)] opacity-90'
                   : isDownstreamFromFocus
                     ? `${style.border} bg-[#111E40]/90 opacity-95 ring-1 ring-cyan-300/40 cursor-pointer`
                     : isUnreachableLocked
