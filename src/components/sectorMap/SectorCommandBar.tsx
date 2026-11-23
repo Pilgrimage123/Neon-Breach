@@ -177,6 +177,8 @@ export function SectorCommandBar({
 export interface MetropolisDistrictNavigatorProps {
   metropolisDistricts: MetropolisDistrictInfo[];
   currentLayer: number;
+  clearedStages: number;
+  lang: Language;
   isCompactLandscape: boolean;
   onScrollToDistrict: (startLayer: number) => void;
 }
@@ -184,69 +186,12 @@ export interface MetropolisDistrictNavigatorProps {
 export function MetropolisDistrictNavigator({
   metropolisDistricts,
   currentLayer,
+  clearedStages,
+  lang,
   isCompactLandscape,
   onScrollToDistrict,
 }: MetropolisDistrictNavigatorProps) {
   if (metropolisDistricts.length <= 1) return null;
-  return (
-    <div
-      data-testid="metropolis-district-navigator"
-      className="mb-1.5 grid grid-cols-2 sm:grid-cols-4 gap-1.5 shrink-0"
-    >
-      {metropolisDistricts.map((dist) => {
-        const isActiveDistrict =
-          currentLayer + 1 >= dist.startLayer && currentLayer <= dist.endLayer;
-        return (
-          <button
-            key={dist.code}
-            type="button"
-            data-testid={`district-nav-${dist.code}`}
-            onClick={() => onScrollToDistrict(dist.startLayer)}
-            className={`flex items-center justify-between gap-1.5 rounded-lg border px-2.5 py-1 text-left transition-all cursor-pointer ${
-              isActiveDistrict
-                ? 'border-cyan-300/75 bg-cyan-950/60 text-white shadow-[0_0_12px_rgba(0,240,255,0.2)]'
-                : 'border-white/15 bg-slate-950/55 text-slate-300 hover:border-cyan-400/50 hover:text-white'
-            }`}
-          >
-            <div className="min-w-0">
-              <div className="flex items-center gap-1.5">
-                <span
-                  style={{ color: dist.accentColor }}
-                  className="font-mono-tabular text-[11px] font-black uppercase tracking-wider shrink-0"
-                >
-                  {dist.code}
-                </span>
-                <span className="font-display text-[12.5px] sm:text-[13.5px] font-bold truncate">
-                  {dist.title}
-                </span>
-              </div>
-              {!isCompactLandscape && (
-                <div className="font-mono-tabular text-[11px] text-slate-300 truncate">
-                  {dist.subtitle}
-                </div>
-              )}
-            </div>
-            <span className="font-mono-tabular text-[11px] font-bold text-cyan-300 shrink-0">
-              {formatStageCode(dist.startLayer)}–{formatStageCode(dist.endLayer)}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-export interface SettlementGrowthStripProps {
-  lang: Language;
-  clearedStages: number;
-  isCompactLandscape: boolean;
-}
-
-export function SettlementGrowthStrip({
-  lang,
-  clearedStages,
-  isCompactLandscape,
-}: SettlementGrowthStripProps) {
   const isCs = lang === 'cs';
   const milestones = [
     {
@@ -273,32 +218,68 @@ export function SettlementGrowthStrip({
 
   return (
     <div
-      data-testid="settlement-growth-strip"
-      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-400/25 bg-gradient-to-r from-amber-950/30 via-slate-950/55 to-emerald-950/25 ${
-        isCompactLandscape ? 'mb-1 px-2 py-0.5 text-[10.5px]' : 'mb-1.5 px-2.5 py-1 text-[11.5px]'
-      }`}
+      data-testid="metropolis-district-navigator"
+      className={`${
+        isCompactLandscape ? 'mb-1 gap-1' : 'mb-1.5 gap-1.5'
+      } grid grid-cols-2 sm:grid-cols-4 shrink-0`}
     >
-      <span className="font-mono-tabular font-bold uppercase tracking-wider text-amber-300 shrink-0">
-        🌅 {isCs ? 'Rozvoj osady:' : 'Colony Dawn:'}
-      </span>
-      <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-        {milestones.map((m) => {
-          const active = clearedStages >= m.threshold;
-          return (
-            <span
-              key={m.threshold}
-              className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono-tabular font-semibold transition-colors ${
-                active
-                  ? 'border border-amber-300/55 bg-amber-500/20 text-amber-100 shadow-[0_0_8px_rgba(245,158,11,0.18)]'
-                  : 'border border-white/10 bg-slate-900/50 text-slate-400'
-              }`}
-            >
-              <span aria-hidden="true">{m.icon}</span>
-              <span>{m.label}</span>
-            </span>
-          );
-        })}
-      </div>
+      {metropolisDistricts.map((dist, idx) => {
+        const isActiveDistrict =
+          currentLayer >= dist.startLayer && currentLayer <= dist.endLayer;
+        const milestone = milestones[idx];
+        const milestoneActive = milestone ? clearedStages >= milestone.threshold : false;
+        const tooltip = milestone
+          ? `${dist.title} (${formatStageCode(dist.startLayer)}–${formatStageCode(dist.endLayer)}) · ${milestone.icon} ${milestone.label}`
+          : `${dist.title} (${formatStageCode(dist.startLayer)}–${formatStageCode(dist.endLayer)})`;
+
+        return (
+          <button
+            key={dist.code}
+            type="button"
+            data-testid={`district-nav-${dist.code}`}
+            title={tooltip}
+            onClick={() => onScrollToDistrict(dist.startLayer)}
+            className={`flex items-center justify-between gap-1.5 rounded-lg border transition-all cursor-pointer min-w-0 ${
+              isCompactLandscape ? 'px-2 py-0.5' : 'px-2.5 py-1'
+            } ${
+              isActiveDistrict
+                ? 'border-cyan-300/75 bg-cyan-950/60 text-white shadow-[0_0_12px_rgba(0,240,255,0.2)]'
+                : 'border-white/15 bg-slate-950/55 text-slate-300 hover:border-cyan-400/50 hover:text-white'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span
+                style={{ color: dist.accentColor }}
+                className="font-mono-tabular text-[11px] font-black uppercase tracking-wider shrink-0"
+              >
+                {dist.code}
+              </span>
+              <span className="font-display text-[12px] sm:text-[13px] font-bold truncate">
+                {dist.title}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {milestone && (
+                <span
+                  className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono-tabular text-[10px] font-semibold transition-colors ${
+                    milestoneActive
+                      ? 'border border-amber-300/55 bg-amber-500/20 text-amber-100 shadow-[0_0_8px_rgba(245,158,11,0.18)]'
+                      : 'border border-white/10 bg-slate-900/50 text-slate-400'
+                  }`}
+                >
+                  <span aria-hidden="true">{milestone.icon}</span>
+                  <span className="hidden xl:inline max-w-[110px] truncate">
+                    {milestone.label}
+                  </span>
+                </span>
+              )}
+              <span className="font-mono-tabular text-[10.5px] font-bold text-cyan-300">
+                {formatStageCode(dist.startLayer)}–{formatStageCode(dist.endLayer)}
+              </span>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

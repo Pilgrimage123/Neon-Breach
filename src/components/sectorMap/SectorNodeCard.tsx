@@ -111,7 +111,6 @@ export function SectorNodeCard({
   run,
   lang,
   maxLayer,
-  totalCols,
   isAvailable,
   availIndex,
   isCurrent,
@@ -141,17 +140,21 @@ export function SectorNodeCard({
     intelProp ?? getNodeEncounterIntel(node, run.seed, lang, difficultyTier);
   const econ = getNodeEconomyMetrics(node, run.hero, lang, difficultyTier);
 
-  const statusLabel = node.cleared
-    ? '✓'
-    : isRecommended
-      ? `★ ${availIndex + 1}`
-      : isAvailable
-        ? `[${availIndex + 1}]`
-        : isMultiHopPath
-          ? '→'
-          : isDownstreamFromFocus
-            ? '·'
-            : t.nodeLocked;
+  const statusLabel = isCurrent
+    ? lang === 'cs'
+      ? '● ZDE'
+      : '● HERE'
+    : node.cleared
+      ? '✓'
+      : isRecommended
+        ? `★ ${availIndex + 1}`
+        : isAvailable
+          ? `[${availIndex + 1}]`
+          : isMultiHopPath
+            ? '→'
+            : isDownstreamFromFocus
+              ? '·'
+              : t.nodeLocked;
 
   const reconPreview = hasRecon ? getReconPreviewForNode(node, run, lang) : null;
 
@@ -178,6 +181,75 @@ export function SectorNodeCard({
   const minShopCredits = node.modifier === 'flash_sale' ? 20 : 30;
   const nodePip = getNodeCornerPip(node.type);
 
+  const highSignalBadges: Array<{ key: string; label: string; className: string }> = [];
+  if (node.modifier === 'golden_bounty') {
+    highSignalBadges.push({
+      key: 'mod',
+      label: t.bountyGoldenBadge,
+      className: 'bg-amber-400/25 border-amber-300/60 text-amber-300',
+    });
+  } else if (node.modifier === 'double_credits') {
+    highSignalBadges.push({
+      key: 'mod',
+      label: t.bountyDoubleBadge,
+      className: 'bg-emerald-400/25 border-emerald-300/60 text-emerald-300',
+    });
+  } else if (node.modifier === 'nanite_cache') {
+    highSignalBadges.push({
+      key: 'mod',
+      label: t.bountyNaniteBadge,
+      className: 'bg-cyan-400/25 border-cyan-300/60 text-cyan-300',
+    });
+  } else if (node.modifier === 'overcharged_hazard') {
+    highSignalBadges.push({
+      key: 'mod',
+      label: t.bountyOverchargedBadge,
+      className: 'bg-rose-500/25 border-rose-400/60 text-rose-300',
+    });
+  } else if (node.modifier === 'flash_sale') {
+    highSignalBadges.push({
+      key: 'mod',
+      label: t.bountyFlashSaleBadge,
+      className: 'bg-amber-400/25 border-amber-300/60 text-amber-300 animate-pulse',
+    });
+  } else if (node.modifier === 'funded_clinic') {
+    highSignalBadges.push({
+      key: 'mod',
+      label: t.bountyFundedClinicBadge,
+      className: 'bg-emerald-400/25 border-emerald-300/60 text-emerald-300',
+    });
+  }
+
+  if (
+    highSignalBadges.length < 2 &&
+    node.districtBadge &&
+    DISTRICT_BADGE_LABELS[node.districtBadge]
+  ) {
+    const badgeSpec = DISTRICT_BADGE_LABELS[node.districtBadge];
+    highSignalBadges.push({
+      key: 'district',
+      label: lang === 'cs' ? badgeSpec.cs : badgeSpec.en,
+      className: badgeSpec.colorClass,
+    });
+  }
+
+  if (
+    highSignalBadges.length < 2 &&
+    (node.type === 'CHIP_DEALER' || node.type === 'CYBER_CLINIC')
+  ) {
+    highSignalBadges.push({
+      key: 'shop',
+      label:
+        run.hero.credits >= minShopCredits
+          ? `${t.shopAffordable} (${minShopCredits}+ CR)`
+          : t.shopLowCredits,
+      className:
+        run.hero.credits >= minShopCredits
+          ? 'bg-emerald-400/20 border-emerald-400/50 text-emerald-300'
+          : 'bg-amber-400/20 border-amber-400/50 text-amber-300',
+    });
+  }
+
   return (
     <button
       type="button"
@@ -203,27 +275,27 @@ export function SectorNodeCard({
         }
       }}
       className={`group relative flex h-full w-full min-h-0 flex-col justify-between overflow-hidden rounded-xl border ${hcBorderClass} ${
-        isCompactLandscape ? 'px-2 py-1' : 'p-1.5 sm:p-2'
+        isCompactLandscape ? 'px-2.5 py-1.5' : 'px-3 py-2'
       } text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.28)] transition-all duration-150 ${
         isAvailable
           ? `${style.border} ${style.bg} ${
               isKeyboardFocused
-                ? 'ring-2 ring-[#FFC700] shadow-[0_0_26px_rgba(255,199,0,0.38),inset_0_1px_0_rgba(255,255,255,0.65)] -translate-y-0.5'
-                : 'ring-1 ring-[#00F0FF]/80 shadow-[0_0_18px_rgba(0,240,255,0.24)]'
-            } hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(0,240,255,0.38)] cursor-pointer`
+                ? 'ring-2 ring-[#FFC700] shadow-[0_0_26px_rgba(255,199,0,0.42),inset_0_1px_0_rgba(255,255,255,0.65)] -translate-y-0.5'
+                : 'ring-1 ring-[#00F0FF]/85 shadow-[0_0_18px_rgba(0,240,255,0.26)]'
+            } hover:-translate-y-0.5 hover:shadow-[0_0_24px_rgba(0,240,255,0.42)] cursor-pointer`
           : isCurrent
-            ? 'border-[#FFC700]/80 bg-[#1B274D]/95 ring-1 ring-[#FFC700]/55 shadow-[0_0_18px_rgba(255,199,0,0.25)]'
+            ? 'border-[#FFC700] bg-gradient-to-b from-[#2A2610]/95 to-[#171B36]/95 ring-2 ring-[#FFC700]/80 shadow-[0_0_24px_rgba(255,199,0,0.32)]'
             : isInspected
-              ? `${style.border} ring-2 ring-purple-400 bg-purple-950/40 shadow-[0_0_22px_rgba(192,132,252,0.35)] cursor-pointer`
+              ? `${style.border} ring-2 ring-purple-400 bg-purple-950/45 shadow-[0_0_22px_rgba(192,132,252,0.38)] cursor-pointer`
               : isMultiHopPath
                 ? `${style.border} ring-1 ring-cyan-300 bg-cyan-950/40 shadow-[0_0_18px_rgba(0,240,255,0.25)] cursor-pointer`
                 : node.cleared
-                  ? 'border-amber-300/45 bg-gradient-to-b from-amber-950/35 to-[#121D3D]/85 shadow-[0_0_10px_rgba(245,158,11,0.12)] opacity-90'
+                  ? 'border-amber-300/40 bg-gradient-to-b from-amber-950/30 to-[#121D3D]/85 shadow-[0_0_10px_rgba(245,158,11,0.12)] opacity-85'
                   : isDownstreamFromFocus
                     ? `${style.border} bg-[#111E40]/90 opacity-95 ring-1 ring-cyan-300/40 cursor-pointer`
                     : isUnreachableLocked
-                      ? 'border-white/10 bg-[#080F24]/55 text-slate-500 opacity-40 cursor-pointer'
-                      : 'border-white/15 bg-[#0C1530]/75 text-slate-400 opacity-70 cursor-pointer'
+                      ? 'border-white/10 bg-[#080F24]/55 text-slate-500 opacity-35 saturate-50 cursor-pointer'
+                      : 'border-white/15 bg-[#0C1530]/75 text-slate-400 opacity-75 cursor-pointer'
       }`}
     >
       {isCompactLandscape || lod.mapNodeCompactMode ? (
@@ -316,8 +388,8 @@ export function SectorNodeCard({
             />
           )}
 
-          <div className="flex w-full items-center justify-between gap-1">
-            <div className="flex items-center gap-1 min-w-0">
+          <div className="flex w-full items-start justify-between gap-1.5 min-w-0">
+            <div className="flex items-center gap-1.5 min-w-0">
               <span
                 data-testid={`map-node-pip-${node.id}`}
                 style={{ backgroundColor: nodePip.accentHex, color: '#020617' }}
@@ -326,21 +398,21 @@ export function SectorNodeCard({
                 {nodePip.symbol}
               </span>
               <NodeEmblem type={node.type} />
-              <span className="font-mono-tabular text-[11px] sm:text-[12px] font-semibold tracking-wider text-slate-300 truncate">
-                {intel.sectorCode}
+              <span className={`font-display text-[13.5px] sm:text-[14.5px] font-bold leading-tight truncate ${style.accent}`}>
+                {t.nodes[node.type]}
               </span>
             </div>
             <span
-              className={`shrink-0 font-mono-tabular text-[11px] sm:text-[12px] font-bold uppercase tracking-wider ${
-                isRecommended
-                  ? 'text-[#FFC700]'
-                  : isAvailable
-                    ? 'text-[#00F0FF]'
-                    : node.cleared || isCurrent
-                      ? 'text-amber-300'
-                      : isMultiHopPath
-                        ? 'text-cyan-300'
-                        : isDownstreamFromFocus
+              className={`shrink-0 rounded px-1.5 py-0.5 font-mono-tabular text-[10.5px] font-bold uppercase tracking-wider leading-none ${
+                isCurrent
+                  ? 'bg-[#FFC700] text-slate-950 shadow-[0_0_10px_rgba(255,199,0,0.65)] animate-pulse'
+                  : isRecommended
+                    ? 'bg-amber-400/20 text-[#FFC700] border border-amber-300/50'
+                    : isAvailable
+                      ? 'bg-cyan-400/15 text-[#00F0FF] border border-cyan-300/45'
+                      : node.cleared
+                        ? 'text-amber-300'
+                        : isMultiHopPath || isDownstreamFromFocus
                           ? 'text-cyan-300'
                           : 'text-slate-400'
               }`}
@@ -349,73 +421,26 @@ export function SectorNodeCard({
             </span>
           </div>
 
-          <div className="my-0.5 min-w-0">
-            <div className="flex flex-col gap-1 min-w-0">
-              <div className={`font-display text-[13px] sm:text-[13.5px] font-bold leading-tight line-clamp-2 ${style.accent}`}>
-                {t.nodes[node.type]}
-              </div>
-              <div className="flex max-w-full items-center gap-1 min-w-0 flex-wrap overflow-hidden">
-                {node.districtBadge && DISTRICT_BADGE_LABELS[node.districtBadge] && (
-                  <span
-                    className={`max-w-full truncate px-1 py-0.2 rounded border text-[9px] sm:text-[9.5px] font-bold font-mono-tabular leading-tight ${DISTRICT_BADGE_LABELS[node.districtBadge].colorClass}`}
-                  >
-                    {lang === 'cs'
-                      ? DISTRICT_BADGE_LABELS[node.districtBadge].cs
-                      : DISTRICT_BADGE_LABELS[node.districtBadge].en}
-                  </span>
-                )}
-                {node.modifier === 'golden_bounty' && (
-                  <span className="max-w-full truncate px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
-                    {t.bountyGoldenBadge}
-                  </span>
-                )}
-                {node.modifier === 'double_credits' && (
-                  <span className="max-w-full truncate px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
-                    {t.bountyDoubleBadge}
-                  </span>
-                )}
-                {node.modifier === 'nanite_cache' && (
-                  <span className="max-w-full truncate px-1 py-0.2 rounded bg-cyan-400/25 border border-cyan-300/60 text-cyan-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
-                    {t.bountyNaniteBadge}
-                  </span>
-                )}
-                {node.modifier === 'overcharged_hazard' && (
-                  <span className="max-w-full truncate px-1 py-0.2 rounded bg-rose-500/25 border border-rose-400/60 text-rose-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
-                    {t.bountyOverchargedBadge}
-                  </span>
-                )}
-                {node.modifier === 'flash_sale' && (
-                  <span className="max-w-full truncate px-1 py-0.2 rounded bg-amber-400/25 border border-amber-300/60 text-amber-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight animate-pulse">
-                    {t.bountyFlashSaleBadge}
-                  </span>
-                )}
-                {node.modifier === 'funded_clinic' && (
-                  <span className="max-w-full truncate px-1 py-0.2 rounded bg-emerald-400/25 border border-emerald-300/60 text-emerald-300 text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight">
-                    {t.bountyFundedClinicBadge}
-                  </span>
-                )}
-                {(node.type === 'CHIP_DEALER' || node.type === 'CYBER_CLINIC') && (
-                  <span
-                    className={`max-w-full truncate px-1 py-0.2 rounded text-[9.5px] sm:text-[10px] font-bold font-mono-tabular leading-tight border ${
-                      run.hero.credits >= minShopCredits
-                        ? 'bg-emerald-400/20 border-emerald-400/50 text-emerald-300'
-                        : 'bg-amber-400/20 border-amber-400/50 text-amber-300'
-                    }`}
-                  >
-                    {run.hero.credits >= minShopCredits
-                      ? `${t.shopAffordable} (${minShopCredits}+ CR)`
-                      : t.shopLowCredits}
-                  </span>
-                )}
-              </div>
-            </div>
-            <p className="mt-1 line-clamp-2 text-[11px] sm:text-[12px] leading-tight sm:leading-snug text-slate-200/95">
+          <div className="my-1 flex flex-col gap-1 min-w-0">
+            <p className="line-clamp-2 text-[11.5px] sm:text-[12px] leading-snug text-slate-200/95">
               {squadNames.replace(/\*\*/g, '')}
             </p>
+            {highSignalBadges.length > 0 && (
+              <div className="flex max-w-full items-center gap-1 min-w-0 flex-wrap overflow-hidden">
+                {highSignalBadges.map((badge) => (
+                  <span
+                    key={badge.key}
+                    className={`max-w-full truncate px-1.5 py-0.5 rounded border text-[9.5px] font-bold font-mono-tabular leading-none ${badge.className}`}
+                  >
+                    {badge.label}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
-          <div className="flex w-full items-center justify-between gap-1 border-t border-white/15 pt-0.5 sm:pt-1 text-[10.5px] sm:text-[11.5px] font-mono-tabular min-w-0">
-            <div className="flex min-w-0 flex-1 items-center justify-between gap-1">
+          <div className="flex w-full items-center justify-between gap-1.5 border-t border-white/15 pt-1 text-[11px] sm:text-[11.5px] font-mono-tabular min-w-0">
+            <div className="flex min-w-0 items-center gap-1.5">
               <span className="truncate font-bold text-white">{bottomMetric}</span>
               {econ.tensionHpPct !== 0 && (
                 <span
@@ -432,11 +457,9 @@ export function SectorNodeCard({
                 </span>
               )}
             </div>
-            {totalCols <= 8 && (
-              <span className={`min-w-0 truncate text-right font-semibold ${style.accent}`}>
-                {getNodeRewardLabel(node.type, t)}
-              </span>
-            )}
+            <span className={`min-w-0 truncate text-right font-semibold ${style.accent}`}>
+              {getNodeRewardLabel(node.type, t)}
+            </span>
           </div>
         </>
       )}

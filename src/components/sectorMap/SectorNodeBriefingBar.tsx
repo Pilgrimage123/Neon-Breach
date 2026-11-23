@@ -14,12 +14,14 @@ export interface SectorNodeBriefingBarProps {
   lang: Language;
   isCompactLandscape: boolean;
   isAvailable: boolean;
+  isPinnedInspection?: boolean;
   hasRecon: boolean;
   intel?: NodeEncounterIntel;
   maxClearedLayer: number;
   meshReroutesRemaining: number;
   onSelectNode: (nodeId: string) => void;
   onRerouteMeshNet?: (targetNodeId: string) => void;
+  onClearInspection?: () => void;
 }
 
 export function SectorNodeBriefingBar({
@@ -28,12 +30,14 @@ export function SectorNodeBriefingBar({
   lang,
   isCompactLandscape,
   isAvailable,
+  isPinnedInspection = false,
   hasRecon,
   intel,
   maxClearedLayer,
   meshReroutesRemaining,
   onSelectNode,
   onRerouteMeshNet,
+  onClearInspection,
 }: SectorNodeBriefingBarProps) {
   const t = TRANSLATIONS[lang];
   const difficultyTier = run.difficultyTier ?? 3;
@@ -79,33 +83,33 @@ export function SectorNodeBriefingBar({
   return (
     <div
       className={`chrome-panel-bright flex shrink-0 flex-col sm:flex-row items-start sm:items-center justify-between gap-2 rounded-xl ${
-        isCompactLandscape ? 'px-2.5 py-1' : 'px-3.5 py-2 sm:px-4'
+        isCompactLandscape ? 'px-2.5 py-1 min-h-[38px]' : 'px-3.5 py-2 sm:px-4 sm:min-h-[52px]'
       }`}
     >
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0 text-[12px] sm:text-[13px]">
-        <span className="font-mono-tabular font-bold text-[#00F0FF]">
+      <div className="flex flex-wrap sm:flex-nowrap items-center gap-x-2 gap-y-1 min-w-0 flex-1 overflow-hidden text-[12px] sm:text-[13px]">
+        <span className="font-mono-tabular font-bold text-[#00F0FF] shrink-0">
           {intel?.sectorCode}
         </span>
-        <span aria-hidden="true" className="text-slate-500">
+        <span aria-hidden="true" className="text-slate-500 shrink-0">
           ·
         </span>
-        <span className="font-display text-sm sm:text-base font-bold text-white">
+        <span className="font-display text-sm sm:text-base font-bold text-white shrink-0 truncate max-w-[200px]">
           {t.nodes[briefingNode.type]}
         </span>
         {briefingNode.districtBadge && DISTRICT_BADGE_LABELS[briefingNode.districtBadge] && (
           <span
-            className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold ${DISTRICT_BADGE_LABELS[briefingNode.districtBadge].colorClass}`}
+            className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[11px] font-bold shrink-0 ${DISTRICT_BADGE_LABELS[briefingNode.districtBadge].colorClass}`}
           >
             {lang === 'cs'
               ? DISTRICT_BADGE_LABELS[briefingNode.districtBadge].cs
               : DISTRICT_BADGE_LABELS[briefingNode.districtBadge].en}
           </span>
         )}
-        <span className="rounded bg-slate-900/80 border border-white/10 px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold text-[#FFC700]">
+        <span className="rounded bg-slate-900/80 border border-white/10 px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold text-[#FFC700] shrink-0">
           {getNodeRewardLabel(briefingNode.type, t)}
         </span>
         <span
-          className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold ${
+          className={`rounded border px-1.5 py-0.5 font-mono-tabular text-[12px] font-bold shrink-0 ${
             briefingEconomy.tensionHpPct > 20
               ? 'border-rose-400/40 bg-rose-950/50 text-rose-300'
               : briefingEconomy.tensionHpPct < 0
@@ -120,7 +124,7 @@ export function SectorNodeBriefingBar({
               : `+${briefingEconomy.runYieldCredits} CR`}
         </span>
         {intel?.threatTraits?.[0] && (
-          <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-rose-200">
+          <span className="rounded bg-rose-500/20 border border-rose-400/40 px-1.5 py-0.5 font-mono-tabular text-[11px] font-bold text-rose-200 shrink-0 truncate max-w-[180px]">
             {intel.threatTraits[0]}
           </span>
         )}
@@ -131,7 +135,7 @@ export function SectorNodeBriefingBar({
                 ? 'Série bojů bez ošetřovny (+10 % kreditů za boj, max +25 CR)'
                 : 'Combat streak bonus (+10% credits per consecutive fight, max +25 CR)'
             }
-            className="rounded bg-amber-500/20 border border-amber-400/45 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-amber-200"
+            className="rounded bg-amber-500/20 border border-amber-400/45 px-1.5 py-0.5 font-mono-tabular text-[11px] font-bold text-amber-200 shrink-0"
           >
             ⚡ +{streakBonusCredits} CR (max +25 CR)
           </span>
@@ -139,7 +143,7 @@ export function SectorNodeBriefingBar({
         {hasRecon && reconDetail && (
           <span
             title={reconDetail}
-            className="rounded bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.5 font-mono-tabular text-[11.5px] font-bold text-cyan-200 truncate max-w-[300px]"
+            className="rounded bg-cyan-500/20 border border-cyan-400/40 px-1.5 py-0.5 font-mono-tabular text-[11px] font-bold text-cyan-200 truncate min-w-0 max-w-[300px]"
           >
             ✦ {reconDetail}
           </span>
@@ -171,9 +175,21 @@ export function SectorNodeBriefingBar({
             {t.enterNode}: {t.nodes[briefingNode.type]} [Enter]
           </button>
         ) : (
-          <span className="font-mono-tabular text-xs text-slate-400 font-bold px-3 py-1 rounded bg-slate-800/60 border border-slate-700/50 shrink-0">
-            {t.mapMultiHopLabel}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            <span className="font-mono-tabular text-xs text-slate-400 font-bold px-3 py-1 rounded bg-slate-800/60 border border-slate-700/50 whitespace-nowrap">
+              {t.mapMultiHopLabel}
+            </span>
+            {isPinnedInspection && onClearInspection && (
+              <button
+                type="button"
+                data-testid="map-clear-inspection-btn"
+                onClick={onClearInspection}
+                className="chrome-pill rounded-lg border-slate-600/70 px-2.5 py-1 font-mono-tabular text-xs font-bold text-slate-300 hover:border-cyan-400/60 hover:text-white cursor-pointer whitespace-nowrap"
+              >
+                {lang === 'cs' ? 'Esc · Zrušit' : 'Esc · Clear'}
+              </button>
+            )}
+          </div>
         )}
       </div>
     </div>
