@@ -536,7 +536,7 @@ export function simulateFullRun(
             }
           }
           const preview = previewColorResolution(run, action.color);
-          const preBreach = Boolean(run.combat.mandateBreachLootConfiscated);
+          const preBreach = Boolean(run.combat?.mandateBreachLootConfiscated);
           const preHp = run.hero.hp;
           const preArmor = run.hero.armor ?? 0;
           const expectedHeal = Math.min(run.hero.maxHp - preHp, preview.healAmount);

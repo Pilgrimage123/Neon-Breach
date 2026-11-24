@@ -71,20 +71,35 @@ export function computeSolidityAlphas(blendU: number): { alphaA: number; alphaB:
   return { alphaA, alphaB: u };
 }
 
-export function sampleLogoSequence(state: TitleEmblemVfxState): LogoSequenceSample {
+export function sampleLogoSequence(
+  state: TitleEmblemVfxState,
+  outSample?: LogoSequenceSample,
+): LogoSequenceSample {
+  const target: LogoSequenceSample = outSample ?? {
+    active: false,
+    elapsed: 0,
+    frameA: 0,
+    frameB: 0,
+    blendU: 0,
+    alphaA: 1,
+    alphaB: 0,
+    shakeNormX: 0,
+    shakeNormY: 0,
+    poseTiltDeg: 0,
+  };
+
   if (!state.sequenceActive) {
-    return {
-      active: false,
-      elapsed: 0,
-      frameA: 0,
-      frameB: 0,
-      blendU: 0,
-      alphaA: 1,
-      alphaB: 0,
-      shakeNormX: 0,
-      shakeNormY: 0,
-      poseTiltDeg: 0,
-    };
+    target.active = false;
+    target.elapsed = 0;
+    target.frameA = 0;
+    target.frameB = 0;
+    target.blendU = 0;
+    target.alphaA = 1;
+    target.alphaB = 0;
+    target.shakeNormX = 0;
+    target.shakeNormY = 0;
+    target.poseTiltDeg = 0;
+    return target;
   }
 
   const t = Math.max(0, Math.min(SEQUENCE_TOTAL_SEC, state.sequenceElapsed));
@@ -141,18 +156,17 @@ export function sampleLogoSequence(state: TitleEmblemVfxState): LogoSequenceSamp
     shakeNormY = Math.cos(t * 54) * 0.0035 * envelope;
   }
 
-  return {
-    active: true,
-    elapsed: t,
-    frameA,
-    frameB,
-    blendU,
-    alphaA,
-    alphaB,
-    shakeNormX,
-    shakeNormY,
-    poseTiltDeg,
-  };
+  target.active = true;
+  target.elapsed = t;
+  target.frameA = frameA;
+  target.frameB = frameB;
+  target.blendU = blendU;
+  target.alphaA = alphaA;
+  target.alphaB = alphaB;
+  target.shakeNormX = shakeNormX;
+  target.shakeNormY = shakeNormY;
+  target.poseTiltDeg = poseTiltDeg;
+  return target;
 }
 
 export function sampleFloatingAccents(
@@ -257,14 +271,17 @@ export function drawEmblemParticle(
     ctx.translate(px, py - radius * 0.5);
     const tilt = Math.sin(p.age * 7 + p.phase) * 0.22;
     ctx.rotate(tilt);
+    ctx.globalAlpha = alpha * 0.32;
+    ctx.fillStyle = p.glowColor;
+    traceEmblemHeartPath(ctx, radius * 1.25);
+    ctx.fill();
+
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = p.color;
-    ctx.shadowColor = p.glowColor;
-    ctx.shadowBlur = 13 * dpr;
     traceEmblemHeartPath(ctx, radius * 0.85);
     ctx.fill();
 
     ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 0;
     traceEmblemHeartPath(ctx, radius * 0.42);
     ctx.fill();
   } else if (p.shape === 1) {
@@ -276,10 +293,17 @@ export function drawEmblemParticle(
     const uy = speed > 0.001 ? vyPx / speed : -0.3;
 
     ctx.lineCap = 'round';
+    ctx.globalAlpha = alpha * 0.35;
+    ctx.strokeStyle = p.glowColor;
+    ctx.lineWidth = Math.max(3.2 * dpr, radius * 2.1);
+    ctx.beginPath();
+    ctx.moveTo(px - ux * tailLen, py - uy * tailLen);
+    ctx.lineTo(px, py);
+    ctx.stroke();
+
+    ctx.globalAlpha = alpha;
     ctx.strokeStyle = p.glowColor;
     ctx.lineWidth = Math.max(1.8 * dpr, radius * 1.15);
-    ctx.shadowColor = p.glowColor;
-    ctx.shadowBlur = 9 * dpr;
     ctx.beginPath();
     ctx.moveTo(px - ux * tailLen, py - uy * tailLen);
     ctx.lineTo(px, py);
@@ -287,7 +311,6 @@ export function drawEmblemParticle(
 
     ctx.strokeStyle = '#ffffff';
     ctx.lineWidth = Math.max(0.9 * dpr, radius * 0.45);
-    ctx.shadowBlur = 0;
     ctx.beginPath();
     ctx.moveTo(px - ux * tailLen * 0.55, py - uy * tailLen * 0.55);
     ctx.lineTo(px, py);
@@ -295,14 +318,17 @@ export function drawEmblemParticle(
   } else if (p.shape === 2) {
     ctx.translate(px, py);
     ctx.rotate(Math.PI * 0.25 + p.age * 1.8);
+    ctx.globalAlpha = alpha * 0.32;
+    ctx.fillStyle = p.glowColor;
+    const outerHalf = radius * 1.35;
+    ctx.fillRect(-outerHalf, -outerHalf, outerHalf * 2, outerHalf * 2);
+
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = p.color;
-    ctx.shadowColor = p.glowColor;
-    ctx.shadowBlur = 10 * dpr;
     const half = radius * 0.9;
     ctx.fillRect(-half, -half, half * 2, half * 2);
 
     ctx.fillStyle = '#ffffff';
-    ctx.shadowBlur = 0;
     const core = half * 0.45;
     ctx.fillRect(-core, -core, core * 2, core * 2);
   } else {
@@ -350,29 +376,38 @@ export function drawEmblemRimArc(
     }
   };
 
+  ctx.globalAlpha = alpha * 0.3;
+  ctx.strokeStyle = arc.color;
+  ctx.lineWidth = 7.5 * dpr;
+  tracePath();
+  ctx.stroke();
+
   ctx.globalAlpha = alpha * 0.85;
   ctx.strokeStyle = arc.color;
-  ctx.lineWidth = 3.4 * dpr;
-  ctx.shadowColor = arc.color;
-  ctx.shadowBlur = 14 * dpr;
+  ctx.lineWidth = 3.2 * dpr;
   tracePath();
   ctx.stroke();
 
   ctx.globalAlpha = alpha;
   ctx.strokeStyle = '#f8fafc';
   ctx.lineWidth = 1.25 * dpr;
-  ctx.shadowBlur = 4 * dpr;
   tracePath();
   ctx.stroke();
 
   const first = arc.points[0];
   const last = arc.points[arc.points.length - 1];
-  ctx.fillStyle = '#ffffff';
-  ctx.shadowColor = arc.color;
-  ctx.shadowBlur = 10 * dpr;
   for (const pt of [first, last]) {
+    const px = emblemX + pt.nx * emblemW;
+    const py = emblemY + pt.ny * emblemH;
+    ctx.globalAlpha = alpha * 0.4;
+    ctx.fillStyle = arc.color;
     ctx.beginPath();
-    ctx.arc(emblemX + pt.nx * emblemW, emblemY + pt.ny * emblemH, 2.3 * dpr, 0, Math.PI * 2);
+    ctx.arc(px, py, 4.5 * dpr, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(px, py, 2.2 * dpr, 0, Math.PI * 2);
     ctx.fill();
   }
 
@@ -396,11 +431,17 @@ export function drawEmblemShockwave(
   const radius = (0.04 + ease * 0.46) * drawH;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = Math.max(0, (1 - su) * 0.72);
+  const baseAlpha = Math.max(0, (1 - su) * 0.72);
   ctx.strokeStyle = su < 0.45 ? '#00f0ff' : '#ff2e7e';
-  ctx.lineWidth = Math.max(1.5 * dpr, (1 - su) * 6 * dpr);
-  ctx.shadowColor = '#00f0ff';
-  ctx.shadowBlur = 16 * dpr;
+
+  ctx.globalAlpha = baseAlpha * 0.35;
+  ctx.lineWidth = Math.max(4 * dpr, (1 - su) * 12 * dpr);
+  ctx.beginPath();
+  ctx.arc(sx, sy, radius, 0, Math.PI * 2);
+  ctx.stroke();
+
+  ctx.globalAlpha = baseAlpha;
+  ctx.lineWidth = Math.max(1.5 * dpr, (1 - su) * 5 * dpr);
   ctx.beginPath();
   ctx.arc(sx, sy, radius, 0, Math.PI * 2);
   ctx.stroke();
@@ -414,39 +455,35 @@ export function drawEmblemAmbientHalo(
   drawY: number,
   drawW: number,
   drawH: number,
-  cw: number,
-  ch: number,
+  _cw: number,
+  _ch: number,
   compact: boolean,
 ): void {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const auraAlpha = (0.14 + sample.auraPulse * 0.1) * (compact ? 0.8 : 1);
 
-  const leftGlow = ctx.createRadialGradient(
-    drawX + drawW * 0.24,
-    drawY + drawH * 0.44,
-    drawH * 0.04,
-    drawX + drawW * 0.24,
-    drawY + drawH * 0.44,
-    drawH * 0.46,
-  );
+  const lx = drawX + drawW * 0.24;
+  const ly = drawY + drawH * 0.44;
+  const lr = drawH * 0.46;
+  const leftGlow = ctx.createRadialGradient(lx, ly, drawH * 0.04, lx, ly, lr);
   leftGlow.addColorStop(0, `rgba(132, 204, 22, ${auraAlpha * 0.9})`);
   leftGlow.addColorStop(1, 'rgba(132, 204, 22, 0)');
   ctx.fillStyle = leftGlow;
-  ctx.fillRect(0, 0, cw, ch);
+  ctx.beginPath();
+  ctx.arc(lx, ly, lr, 0, Math.PI * 2);
+  ctx.fill();
 
-  const centerGlow = ctx.createRadialGradient(
-    drawX + drawW * 0.48,
-    drawY + drawH * 0.56,
-    drawH * 0.05,
-    drawX + drawW * 0.48,
-    drawY + drawH * 0.56,
-    drawH * 0.54,
-  );
+  const cx = drawX + drawW * 0.48;
+  const cy = drawY + drawH * 0.56;
+  const cr = drawH * 0.54;
+  const centerGlow = ctx.createRadialGradient(cx, cy, drawH * 0.05, cx, cy, cr);
   centerGlow.addColorStop(0, `rgba(0, 240, 255, ${auraAlpha})`);
   centerGlow.addColorStop(0.55, `rgba(255, 46, 126, ${auraAlpha * 0.48})`);
   centerGlow.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = centerGlow;
-  ctx.fillRect(0, 0, cw, ch);
+  ctx.beginPath();
+  ctx.arc(cx, cy, cr, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }

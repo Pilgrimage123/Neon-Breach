@@ -12,9 +12,9 @@
       "unmixLightGlow": true
     },
     "lockupBounds": {
-      "minNx": 0.04,
-      "maxNx": 0.79,
-      "minNy": 0.38,
+      "minNx": 0.035,
+      "maxNx": 0.788,
+      "minNy": 0.382,
       "maxNy": 0.98,
       "featherPx": 12
     },
@@ -46,7 +46,7 @@
       "downscaled": false,
       "sourceSha256": "e221db3947f5aeadf6ce204847803d037fff03a7a31c0460d0ec7eed986274b7",
       "output": "src/assets/sprites/baked/k0.png",
-      "outputSha256": "ab1eb9d6719de0618c9ded4015fa343f75d9a0d31d8220567bd4ba0bf90c7d68"
+      "outputSha256": "c378f11cbe2f995cbc3bc797d4540396bc67147ccd89013349f9d3201142a284"
     },
     {
       "id": "k1",
@@ -58,7 +58,7 @@
       "downscaled": false,
       "sourceSha256": "015db511f87c98910c1b280638ee400e72098e84c06b86217480e466d93b2f35",
       "output": "src/assets/sprites/baked/k1.png",
-      "outputSha256": "97d11fcb0b0c614b4359588e188a74886dc9c1aac8d308a6dad8dcf7e0663d93"
+      "outputSha256": "5c6249eb372d0501422153ba8178de12aa1201bb271fae8b154b30c9710d977e"
     },
     {
       "id": "k2",
@@ -70,7 +70,7 @@
       "downscaled": false,
       "sourceSha256": "75c0e1da850e19d5e2af26fe2cc4717bde0a01f7923516d093939e7c2cf83b71",
       "output": "src/assets/sprites/baked/k2.png",
-      "outputSha256": "9869edc92dd37f5767e7c9c100fe90c0d56043421fefd823a5c1447fb0e80f32"
+      "outputSha256": "ad4ee80a5a66ffbe625e7bc1ffaf206b3dffef58382834470207aeeb9b44c9cf"
     },
     {
       "id": "k3",
@@ -82,7 +82,7 @@
       "downscaled": false,
       "sourceSha256": "17fc46d269f864b778ba81e97cba5bafbd97474a3232157174a3ce85fcaab6e4",
       "output": "src/assets/sprites/baked/k3.png",
-      "outputSha256": "af3e385037e38b1f16e69493608957712e73621da3a89c443601987ae8c27884"
+      "outputSha256": "2dcd84b0fefe4007984a71b25a4c6fb238b2de87b423ed1ee6dfdf9f1ebdd88d"
     },
     {
       "id": "k4",
@@ -94,12 +94,12 @@
       "downscaled": false,
       "sourceSha256": "96b918f2baaef2052510125f118a317393a945d7915885d0672a70e4bdfb79d2",
       "output": "src/assets/sprites/baked/k4.png",
-      "outputSha256": "e1a36c1571a8adb69a031863ca148bdbb951cf31467399b834ed03053308fc54"
+      "outputSha256": "51d4071eae929d113dd1bea58fbf9d27667f6c7f92e56d4fcce088256e3e76d7"
     }
   ],
   "lockup": {
     "sourceKeyframe": "k0",
     "output": "src/assets/sprites/baked/lockup_plane0.png",
-    "outputSha256": "fcb64f1fa5df32ab5e9e87192140c7f33026a89091f3cc7c7c0b364a6a560fef"
+    "outputSha256": "0364962c3915b77666bde5a3a0c35d14e2d2cfd588a88becbd777af6517b6b28"
   }
 }

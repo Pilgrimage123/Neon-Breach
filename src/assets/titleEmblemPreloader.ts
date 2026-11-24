@@ -1,4 +1,4 @@
-export type TitleSpriteSource = ImageBitmap | HTMLImageElement;
+export type TitleSpriteSource = ImageBitmap | HTMLImageElement | HTMLCanvasElement;
 
 export interface TitleSpriteDecodeAdapter {
   decode(url: string): Promise<TitleSpriteSource>;
@@ -36,9 +36,28 @@ function defaultHtmlImageLoader(url: string): Promise<HTMLImageElement> {
   });
 }
 
+function materializeCpuSpriteCanvas(bitmap: ImageBitmap): TitleSpriteSource {
+  if (typeof document === 'undefined') {
+    return bitmap;
+  }
+  const canvas = document.createElement('canvas');
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  if (!ctx) {
+    return bitmap;
+  }
+  ctx.drawImage(bitmap, 0, 0);
+  if (typeof bitmap.close === 'function') {
+    bitmap.close();
+  }
+  return canvas;
+}
+
 /**
  * Decodes baked Title Emblem PNGs off the main thread via fetch() + createImageBitmap(),
- * falling back automatically to HTMLImageElement decoding when createImageBitmap is unavailable.
+ * blitting once into a CPU-backed offscreen canvas for fast triangle mesh rasterization,
+ * and falling back automatically to HTMLImageElement decoding when unavailable.
  */
 export function createBrowserTitleSpriteDecodeAdapter(
   fallbackImageLoader: (url: string) => Promise<HTMLImageElement> = defaultHtmlImageLoader,
@@ -55,7 +74,8 @@ export function createBrowserTitleSpriteDecodeAdapter(
             throw new Error(`HTTP ${response.status} fetching ${url}`);
           }
           const blob = await response.blob();
-          return await createImageBitmap(blob);
+          const bitmap = await createImageBitmap(blob);
+          return materializeCpuSpriteCanvas(bitmap);
         } catch {
           return fallbackImageLoader(url);
         }

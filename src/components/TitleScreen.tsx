@@ -284,7 +284,7 @@ export function TitleScreen({
           decoding="async"
           onLoad={() => setBgReady(true)}
           onError={() => setBgFailed(true)}
-          className={`absolute inset-0 h-full w-full object-cover object-right brightness-105 saturate-115 transition-opacity duration-200 ${
+          className={`absolute inset-0 h-full w-full object-cover object-right transition-opacity duration-200 ${
             bgReady ? 'opacity-100' : 'opacity-0'
           }`}
         />

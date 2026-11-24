@@ -31,63 +31,63 @@ export interface VisorQuad {
 export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
   // K0: Idle / Base Aim (-1.0° goggle axis)
   {
-    p00x: 0.806,
-    p00y: 0.088,
-    p10x: 0.883,
-    p10y: 0.087,
+    p00x: 0.805,
+    p00y: 0.098,
+    p10x: 0.884,
+    p10y: 0.091,
     p01x: 0.807,
-    p01y: 0.148,
-    p11x: 0.884,
+    p01y: 0.157,
+    p11x: 0.885,
     p11y: 0.146,
-    curvature: VISOR_BARREL_CURVATURE,
+    curvature: -0.010,
   },
   // K1: Beat 1 (Wink, -0.8° goggle axis)
   {
-    p00x: 0.807,
-    p00y: 0.093,
-    p10x: 0.886,
-    p10y: 0.090,
-    p01x: 0.808,
-    p01y: 0.154,
-    p11x: 0.887,
-    p11y: 0.151,
-    curvature: VISOR_BARREL_CURVATURE,
+    p00x: 0.806,
+    p00y: 0.098,
+    p10x: 0.884,
+    p10y: 0.092,
+    p01x: 0.807,
+    p01y: 0.164,
+    p11x: 0.885,
+    p11y: 0.154,
+    curvature: -0.011,
   },
   // K2: Beat 2 (Shared Grin, -17.5° up-right head tilt)
   {
-    p00x: 0.762,
-    p00y: 0.089,
-    p10x: 0.835,
-    p10y: 0.052,
-    p01x: 0.772,
-    p01y: 0.147,
-    p11x: 0.844,
-    p11y: 0.109,
-    curvature: VISOR_BARREL_CURVATURE,
+    p00x: 0.765,
+    p00y: 0.096,
+    p10x: 0.829,
+    p10y: 0.054,
+    p01x: 0.783,
+    p01y: 0.159,
+    p11x: 0.846,
+    p11y: 0.111,
+    curvature: -0.014,
   },
   // K3: Beat 3 (Blown Kiss, +14.6° down-right head lean)
   {
-    p00x: 0.773,
-    p00y: 0.055,
-    p10x: 0.842,
-    p10y: 0.085,
-    p01x: 0.765,
-    p01y: 0.114,
-    p11x: 0.834,
-    p11y: 0.143,
-    curvature: VISOR_BARREL_CURVATURE,
+    p00x: 0.772,
+    p00y: 0.067,
+    p10x: 0.838,
+    p10y: 0.088,
+    p01x: 0.763,
+    p01y: 0.123,
+    p11x: 0.828,
+    p11y: 0.153,
+    curvature: -0.015,
   },
   // K4: Beat 4 (Climax !!, +16.6° down-right head lean)
   {
-    p00x: 0.760,
-    p00y: 0.046,
-    p10x: 0.835,
-    p10y: 0.083,
-    p01x: 0.751,
-    p01y: 0.108,
-    p11x: 0.826,
-    p11y: 0.143,
-    curvature: VISOR_BARREL_CURVATURE,
+    p00x: 0.761,
+    p00y: 0.059,
+    p10x: 0.834,
+    p10y: 0.091,
+    p01x: 0.754,
+    p01y: 0.127,
+    p11x: 0.823,
+    p11y: 0.158,
+    curvature: -0.014,
   },
 ];
 
@@ -498,6 +498,11 @@ export function renderVisorMatrix(
   const cellW = Math.max(1.2, (quadW / VISOR_COLS) * 0.72);
   const cellH = Math.max(1.2, (quadH / VISOR_ROWS) * 0.72);
 
+  const cosT = Math.cos(tiltRad);
+  const sinT = Math.sin(tiltRad);
+  const unlitW = cellW * 0.84;
+  const unlitH = cellH * 0.84;
+
   ctx.save();
   for (let r = 0; r < VISOR_ROWS; r++) {
     for (let c = 0; c < VISOR_COLS; c++) {
@@ -511,13 +516,9 @@ export function renderVisorMatrix(
       const py = SCRATCH_PT.y;
 
       if (val === 0 && trailRem <= 0) {
-        // Subtle unlit LED matrix cell grid dot
-        ctx.save();
-        ctx.translate(px, py);
-        ctx.rotate(tiltRad);
+        ctx.setTransform(cosT, sinT, -sinT, cosT, px, py);
         ctx.fillStyle = 'rgba(22, 36, 71, 0.55)';
-        ctx.fillRect(-cellW * 0.42, -cellH * 0.42, cellW * 0.84, cellH * 0.84);
-        ctx.restore();
+        ctx.fillRect(-unlitW * 0.5, -unlitH * 0.5, unlitW, unlitH);
         continue;
       }
 
@@ -530,20 +531,24 @@ export function renderVisorMatrix(
       const w = cellW * scale;
       const h = cellH * scale;
       const colors = getLedColors(state.mode, val || 1);
+      const baseAlpha = isTrailOnly
+        ? Math.max(0.12, (trailRem / VISOR_TRAIL_DURATION_SEC) * 0.65)
+        : 1;
 
-      ctx.save();
-      ctx.translate(px, py);
-      ctx.rotate(tiltRad);
-      if (isTrailOnly) {
-        ctx.globalAlpha = Math.max(0.12, (trailRem / VISOR_TRAIL_DURATION_SEC) * 0.65);
-      }
-      ctx.shadowColor = isOverdrive ? '#ffffff' : colors.glow;
-      ctx.shadowBlur = (isOverdrive ? 7 : 4.5) * (targetW / 960);
+      ctx.setTransform(cosT, sinT, -sinT, cosT, px, py);
+      // Fast outer neon halo without per-LED CPU shadowBlur
+      ctx.globalAlpha = baseAlpha * (isOverdrive ? 0.42 : 0.28);
+      ctx.fillStyle = isOverdrive ? '#ffffff' : colors.glow;
+      const haloMult = isOverdrive ? 1.9 : 1.55;
+      ctx.fillRect(-w * haloMult * 0.5, -h * haloMult * 0.5, w * haloMult, h * haloMult);
+
+      ctx.globalAlpha = baseAlpha;
       ctx.fillStyle = isOverdrive ? '#ffffff' : colors.fill;
       ctx.fillRect(-w * 0.5, -h * 0.5, w, h);
-      ctx.restore();
     }
   }
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1;
 
   // Cathode scanline sweep bar during Beat 1 forward / reverse
   if (state.scanlineRow >= 0 && state.scanlineRow < VISOR_ROWS && !reducedMotion) {
@@ -563,8 +568,6 @@ export function renderVisorMatrix(
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     ctx.strokeStyle = '#e0f2fe';
-    ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur = 8 * (targetW / 960);
     ctx.lineWidth = Math.max(1.2, cellH * 0.7);
     ctx.beginPath();
     ctx.moveTo(sx, sy);

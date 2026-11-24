@@ -28,65 +28,65 @@ export interface VisorQuadNormalized {
 export const DEFAULT_VISOR_CURVATURE = -0.014;
 
 export const KEYFRAME_VISOR_QUADS: readonly VisorQuadNormalized[] = [
-  // K0: Idle / Base Aim (-1.0° goggle axis)
+  // K0: Idle / Base Aim (calibrated between flanking blue bars inside bezel)
+  {
+    p00x: 0.805,
+    p00y: 0.098,
+    p10x: 0.884,
+    p10y: 0.091,
+    p01x: 0.807,
+    p01y: 0.157,
+    p11x: 0.885,
+    p11y: 0.146,
+    curvature: -0.010,
+  },
+  // K1: Beat 1 (Wink)
   {
     p00x: 0.806,
-    p00y: 0.088,
-    p10x: 0.883,
-    p10y: 0.087,
+    p00y: 0.098,
+    p10x: 0.884,
+    p10y: 0.092,
     p01x: 0.807,
-    p01y: 0.148,
-    p11x: 0.884,
-    p11y: 0.146,
-    curvature: DEFAULT_VISOR_CURVATURE,
-  },
-  // K1: Beat 1 (Wink, -0.8° goggle axis)
-  {
-    p00x: 0.807,
-    p00y: 0.093,
-    p10x: 0.886,
-    p10y: 0.090,
-    p01x: 0.808,
-    p01y: 0.154,
-    p11x: 0.887,
-    p11y: 0.151,
-    curvature: DEFAULT_VISOR_CURVATURE,
+    p01y: 0.164,
+    p11x: 0.885,
+    p11y: 0.154,
+    curvature: -0.011,
   },
   // K2: Beat 2 (Shared Grin, -17.5° up-right head tilt)
   {
-    p00x: 0.762,
-    p00y: 0.089,
-    p10x: 0.835,
-    p10y: 0.052,
-    p01x: 0.772,
-    p01y: 0.147,
-    p11x: 0.844,
-    p11y: 0.109,
-    curvature: DEFAULT_VISOR_CURVATURE,
+    p00x: 0.765,
+    p00y: 0.096,
+    p10x: 0.829,
+    p10y: 0.054,
+    p01x: 0.783,
+    p01y: 0.159,
+    p11x: 0.846,
+    p11y: 0.111,
+    curvature: -0.014,
   },
   // K3: Beat 3 (Blown Kiss, +14.6° down-right head lean)
   {
-    p00x: 0.773,
-    p00y: 0.055,
-    p10x: 0.842,
-    p10y: 0.085,
-    p01x: 0.765,
-    p01y: 0.114,
-    p11x: 0.834,
-    p11y: 0.143,
-    curvature: DEFAULT_VISOR_CURVATURE,
+    p00x: 0.772,
+    p00y: 0.067,
+    p10x: 0.838,
+    p10y: 0.088,
+    p01x: 0.763,
+    p01y: 0.123,
+    p11x: 0.828,
+    p11y: 0.153,
+    curvature: -0.015,
   },
   // K4: Beat 4 (Climax !!, +16.6° down-right head lean)
   {
-    p00x: 0.760,
-    p00y: 0.046,
-    p10x: 0.835,
-    p10y: 0.083,
-    p01x: 0.751,
-    p01y: 0.108,
-    p11x: 0.826,
-    p11y: 0.143,
-    curvature: DEFAULT_VISOR_CURVATURE,
+    p00x: 0.761,
+    p00y: 0.059,
+    p10x: 0.834,
+    p10y: 0.091,
+    p01x: 0.754,
+    p01y: 0.127,
+    p11x: 0.823,
+    p11y: 0.158,
+    curvature: -0.014,
   },
 ];
 
@@ -112,9 +112,9 @@ export interface StaticLockupBounds {
 }
 
 export const DEFAULT_LOCKUP_BOUNDS: StaticLockupBounds = {
-  minNx: 0.04,
-  maxNx: 0.79,
-  minNy: 0.38,
+  minNx: 0.035,
+  maxNx: 0.788,
+  minNy: 0.382,
   maxNy: 0.98,
   featherPx: 12,
 };
@@ -136,7 +136,8 @@ export function shouldDownscaleToTarget(width: number, height: number): boolean 
 }
 
 /**
- * Runs the 4-pass procedural alpha extraction on a Title Emblem RGBA buffer in place.
+ * Runs the 4-pass procedural alpha extraction on a Title Emblem RGBA buffer in place,
+ * then removes faint low-alpha neutral checkerboard specks along the exterior perimeter.
  */
 export function extractTitleEmblemCutout(
   rgba: Uint8ClampedArray,
@@ -144,11 +145,61 @@ export function extractTitleEmblemCutout(
   height: number,
 ): void {
   cleanWhiteBackgroundData(rgba, width, height, TITLE_EMBLEM_CUTOUT_OPTIONS);
+
+  for (let i = 0; i < rgba.length; i += 4) {
+    const a = rgba[i + 3];
+    if (a === 0 || a > 52) continue;
+    const r = rgba[i];
+    const g = rgba[i + 1];
+    const b = rgba[i + 2];
+    const maxC = r > g ? (r > b ? r : b) : g > b ? g : b;
+    const minC = r < g ? (r < b ? r : b) : g < b ? g : b;
+    if (minC >= 198 && maxC - minC <= 12) {
+      rgba[i] = 0;
+      rgba[i + 1] = 0;
+      rgba[i + 2] = 0;
+      rgba[i + 3] = 0;
+    }
+  }
+}
+
+function computeLockupTopNy(nx: number, baseMinNy: number): number {
+  if (nx < 0.168) return Math.max(baseMinNy, 0.508);
+  if (nx < 0.25) {
+    const u = (nx - 0.168) / (0.25 - 0.168);
+    return 0.508 + (baseMinNy - 0.508) * u;
+  }
+  return baseMinNy;
+}
+
+function computeLockupLeftNx(ny: number, baseMinNx: number): number {
+  if (ny < 0.495) return Math.max(baseMinNx, 0.168);
+  if (ny < 0.56) {
+    const u = (ny - 0.495) / (0.56 - 0.495);
+    return 0.168 + (baseMinNx - 0.168) * u;
+  }
+  return baseMinNx;
+}
+
+function computeLockupRightNx(ny: number, baseMaxNx: number): number {
+  if (ny < 0.525) return Math.min(baseMaxNx, 0.684);
+  if (ny < 0.65) {
+    const u = (ny - 0.525) / (0.65 - 0.525);
+    return 0.684 + (baseMaxNx - 0.684) * u;
+  }
+  if (ny < 0.77) {
+    const u = (ny - 0.65) / (0.77 - 0.65);
+    return baseMaxNx + (0.750 - baseMaxNx) * u;
+  }
+  if (ny < 0.875) return Math.min(baseMaxNx, 0.752);
+  const u = clamp01((ny - 0.875) / (0.98 - 0.875));
+  return 0.752 + (0.642 - 0.752) * u;
 }
 
 /**
  * Extracts the Static Lockup Plane from an already-cutout K0 RGBA buffer,
- * applying a smooth cosine-feathered ramp along the top NEON bevel and Kira arm seam.
+ * hugging the NEON BREACH / XENO-PURGE PROTOCOL silhouette with a smooth cosine-feathered seam
+ * so Kira's shoulder, belt, and Xeno's lower-left tentacle remain solely on dynamic Plane 1.
  */
 export function extractStaticLockupPlane(
   sourceRgba: Uint8ClampedArray,
@@ -160,18 +211,11 @@ export function extractStaticLockupPlane(
   if (width <= 0 || height <= 0) return out;
 
   const feather = Math.max(1, bounds.featherPx);
-  const topStart = Math.round(height * bounds.minNy) - Math.floor(feather * 0.5);
+  const halfFeather = Math.floor(feather * 0.5);
   const bottomEnd = Math.round(height * bounds.maxNy);
-  const leftStart = Math.round(width * bounds.minNx);
-  const rightEnd = Math.round(width * bounds.maxNx);
 
   for (let y = 0; y < height; y++) {
-    let topW = 1;
-    if (y < topStart) {
-      topW = 0;
-    } else if (y < topStart + feather) {
-      topW = cosineRamp((y - topStart) / feather);
-    }
+    const ny = (y + 0.5) / height;
 
     let bottomW = 1;
     if (y >= bottomEnd) {
@@ -179,27 +223,36 @@ export function extractStaticLockupPlane(
     } else if (y > bottomEnd - feather) {
       bottomW = cosineRamp((bottomEnd - y) / feather);
     }
+    if (bottomW <= 0) continue;
 
-    const rowWeight = topW * bottomW;
-    if (rowWeight <= 0) continue;
+    const leftStart = Math.round(width * computeLockupLeftNx(ny, bounds.minNx));
+    const rightEnd = Math.round(width * computeLockupRightNx(ny, bounds.maxNx));
+    if (rightEnd <= leftStart) continue;
 
     const rowOff = y * width;
-    for (let x = 0; x < width; x++) {
+    for (let x = leftStart; x < rightEnd; x++) {
+      const nx = (x + 0.5) / width;
+      const topStart = Math.round(height * computeLockupTopNy(nx, bounds.minNy)) - halfFeather;
+
+      let topW = 1;
+      if (y < topStart) {
+        topW = 0;
+      } else if (y < topStart + feather) {
+        topW = cosineRamp((y - topStart) / feather);
+      }
+      if (topW <= 0) continue;
+
       let leftW = 1;
-      if (x < leftStart) {
-        leftW = 0;
-      } else if (x < leftStart + feather) {
+      if (x < leftStart + feather) {
         leftW = cosineRamp((x - leftStart) / feather);
       }
 
       let rightW = 1;
-      if (x >= rightEnd) {
-        rightW = 0;
-      } else if (x > rightEnd - feather) {
+      if (x > rightEnd - feather) {
         rightW = cosineRamp((rightEnd - x) / feather);
       }
 
-      const weight = rowWeight * leftW * rightW;
+      const weight = topW * bottomW * leftW * rightW;
       if (weight <= 0) continue;
 
       const p = (rowOff + x) * 4;
@@ -300,10 +353,10 @@ export function inpaintVisorGlass(
   const minNy = Math.min(quad.p00y, quad.p10y, quad.p01y, quad.p11y) - bowSpanY;
   const maxNy = Math.max(quad.p00y, quad.p10y, quad.p01y, quad.p11y) + bowSpanY;
 
-  const minX = Math.max(0, Math.floor(minNx * width) - 3);
-  const maxX = Math.min(width - 1, Math.ceil(maxNx * width) + 3);
-  const minY = Math.max(0, Math.floor(minNy * height) - 3);
-  const maxY = Math.min(height - 1, Math.ceil(maxNy * height) + 3);
+  const minX = Math.max(0, Math.floor(minNx * width) - 4);
+  const maxX = Math.min(width - 1, Math.ceil(maxNx * width) + 4);
+  const minY = Math.max(0, Math.floor(minNy * height) - 4);
+  const maxY = Math.min(height - 1, Math.ceil(maxNy * height) + 4);
 
   const quadW = Math.max(1, Math.hypot((quad.p10x - quad.p00x) * width, (quad.p10y - quad.p00y) * height));
   const quadH = Math.max(1, vPxLen);
@@ -317,7 +370,7 @@ export function inpaintVisorGlass(
       if (!solved) continue;
 
       const { u, v } = solved;
-      if (u < 0 || u > 1 || v < 0 || v > 1) continue;
+      if (u < -0.02 || u > 1.02 || v < -0.02 || v > 1.02) continue;
 
       const p = (rowOff + x) * 4;
       const r = rgba[p];
@@ -326,35 +379,56 @@ export function inpaintVisorGlass(
       const a = rgba[p + 3];
 
       // Preserve glowing cyan/blue side bars flanking the visor aperture
-      if (a > 0 && b >= 165 && g >= 65 && b - r >= 45) {
+      if (
+        a > 0 &&
+        ((b >= 140 && g >= 55 && b - r >= 45) ||
+          ((u < 0.08 || u > 0.92) && b >= 185 && g >= 165 && b > r + 4 && g >= r))
+      ) {
         continue;
       }
 
       const distU = Math.min(u, 1 - u) * quadW;
       const distV = Math.min(v, 1 - v) * quadH;
       const edgeDistPx = Math.min(distU, distV);
-      if (edgeDistPx <= 0) continue;
 
-      const isWarmLed = r > g + 35 || (r > 190 && b > 140);
+      const isWarmLed =
+        (u >= 0.05 &&
+          u <= 0.95 &&
+          v >= 0 &&
+          v <= 1 &&
+          r >= 210 &&
+          g >= 185 &&
+          b >= 190 &&
+          r >= b - 18) ||
+        r > g + 35 ||
+        (r > 190 && b > 130 && g < 165);
       const isMetallicBezel =
-        !isWarmLed && r >= 85 && g >= 75 && b >= 95 && r - b < 35;
+        !isWarmLed &&
+        r >= 85 &&
+        r <= 205 &&
+        g >= 75 &&
+        g <= 190 &&
+        b >= 95 &&
+        b <= 215 &&
+        r - b < 35;
 
-      let edgeWeight = clamp01(edgeDistPx / 1.5);
-      if (edgeDistPx < 3.5 && isMetallicBezel) {
-        edgeWeight *= clamp01((edgeDistPx - 1.0) / 2.5) * 0.35;
-      } else if (isWarmLed) {
-        edgeWeight = 1;
+      if (edgeDistPx <= 0 && !isWarmLed) continue;
+      if (isMetallicBezel && edgeDistPx < 2.5) continue;
+
+      let edgeWeight = isWarmLed ? 1 : cosineRamp(edgeDistPx / 3.5);
+      if (isMetallicBezel && edgeDistPx < 4.5) {
+        edgeWeight *= clamp01((edgeDistPx - 2.5) / 2.0) * 0.45;
       }
       if (edgeWeight <= 0) continue;
 
-      const dx = (u - 0.5) / 0.5;
-      const dy = (v - 0.45) / 0.55;
+      const dx = (clamp01(u) - 0.5) / 0.5;
+      const dy = (clamp01(v) - 0.45) / 0.55;
       const r2 = Math.min(1, dx * dx + dy * dy);
       const baseR = 20 + (11 - 20) * r2;
       const baseG = 33 + (19 - 33) * r2;
       const baseB = 70 + (43 - 70) * r2;
 
-      const glareDist = Math.abs(u * 0.72 + v * 0.58 - 0.52);
+      const glareDist = Math.abs(clamp01(u) * 0.72 + clamp01(v) * 0.58 - 0.52);
       const glare = Math.pow(Math.max(0, 1 - glareDist / 0.14), 2);
 
       const glassR = Math.min(255, Math.round(baseR + 18 * glare));

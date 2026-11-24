@@ -5,7 +5,7 @@ export const SLIME_REF_HEIGHT = 541;
 export const SLIME_SCRATCH_W = 140;
 export const SLIME_SCRATCH_H = 220;
 export const SLIME_STAGE_X = 0;
-export const SLIME_STAGE_Y = 90;
+export const SLIME_STAGE_Y = 60;
 export const SLIME_STAGE_W = 280;
 export const SLIME_STAGE_H = 440;
 export const SLIME_SPLASH_NY = 0.58;
@@ -25,9 +25,9 @@ export interface SlimeNozzleConfig {
 }
 
 export const XENO_SLIME_NOZZLES: readonly SlimeNozzleConfig[] = [
-  { id: 'lower_left_tentacle', nx: 0.031, ny: 0.535, periodSec: 2.35, initialPhase: 0.12 },
+  { id: 'lower_left_tentacle', nx: 0.031, ny: 0.515, periodSec: 2.35, initialPhase: 0.12 },
   { id: 'mid_left_tentacle', nx: 0.033, ny: 0.348, periodSec: 2.85, initialPhase: 0.48 },
-  { id: 'upper_left_tentacle', nx: 0.086, ny: 0.198, periodSec: 3.4, initialPhase: 0.76 },
+  { id: 'upper_left_tentacle', nx: 0.075, ny: 0.128, periodSec: 3.4, initialPhase: 0.76 },
   { id: 'lower_jaw_saliva', nx: 0.21, ny: 0.315, periodSec: 2.1, initialPhase: 0.31 },
 ] as const;
 
@@ -431,12 +431,10 @@ export function renderSlimeEngine(
   }
   sctx.restore();
 
-  // 4. Composite onto unified offscreen buffer behind Plane 0 with #84cc16 outer glow
+  // 4. Composite onto unified offscreen buffer behind Plane 0
   const scaleX = targetW / SLIME_REF_WIDTH;
   const scaleY = targetH / SLIME_REF_HEIGHT;
   ctx.save();
-  ctx.shadowColor = '#84cc16';
-  ctx.shadowBlur = 10 * scaleX;
   ctx.imageSmoothingEnabled = true;
   ctx.drawImage(
     sc,

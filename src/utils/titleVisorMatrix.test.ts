@@ -8,7 +8,6 @@ import {
   interpolateVisorQuad,
   projectVisorCell,
   stepVisorMatrix,
-  VISOR_BARREL_CURVATURE,
   VISOR_CELL_COUNT,
   VISOR_KEYFRAME_QUADS,
   VISOR_OVERDRIVE_DURATION_SEC,
@@ -45,7 +44,9 @@ test('interpolateVisorQuad linearly interpolates corners and projectVisorCell ap
   assert.ok(
     Math.abs(out.p00x - (VISOR_KEYFRAME_QUADS[1].p00x + VISOR_KEYFRAME_QUADS[2].p00x) * 0.5) < 1e-6,
   );
-  assert.ok(Math.abs(out.curvature - VISOR_BARREL_CURVATURE) < 1e-6);
+  const expectedMidCurvature =
+    (VISOR_KEYFRAME_QUADS[1].curvature + VISOR_KEYFRAME_QUADS[2].curvature) * 0.5;
+  assert.ok(Math.abs(out.curvature - expectedMidCurvature) < 1e-6);
 
   const ptEdge = { x: 0, y: 0 };
   const ptMid = { x: 0, y: 0 };

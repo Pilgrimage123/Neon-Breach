@@ -26,7 +26,14 @@ export interface PooledParticle {
 }
 
 export interface RimArcPoint { nx: number; ny: number; }
-export interface ElectricRimArc { active: boolean; age: number; maxLife: number; color: string; points: RimArcPoint[]; }
+export interface ElectricRimArc {
+  active: boolean;
+  age: number;
+  maxLife: number;
+  color: string;
+  points: RimArcPoint[];
+  pointPool: RimArcPoint[];
+}
 export interface ClickShockwave { active: boolean; nx: number; ny: number; age: number; maxLife: number; }
 
 export interface FloatingAccentSample {
@@ -56,6 +63,8 @@ export interface TitleEmblemVfxState {
   particles: PooledParticle[];
   arcs: ElectricRimArc[];
   shockwave: ClickShockwave;
+  scratchSequence: LogoSequenceSample;
+  scratchTransform: EmblemTransformSample;
 }
 
 export interface EmblemTransformSample {
@@ -98,13 +107,35 @@ function createEmptyParticle(): PooledParticle {
   };
 }
 
+const MAX_ARC_POINTS = 16;
+
 function createEmptyArc(): ElectricRimArc {
+  const pointPool: RimArcPoint[] = new Array(MAX_ARC_POINTS);
+  for (let i = 0; i < MAX_ARC_POINTS; i++) {
+    pointPool[i] = { nx: 0, ny: 0 };
+  }
   return {
     active: false,
     age: 0,
     maxLife: 0.2,
     color: '#00f0ff',
     points: [],
+    pointPool,
+  };
+}
+
+function createEmptySequenceSample(): LogoSequenceSample {
+  return {
+    active: false,
+    elapsed: 0,
+    frameA: 0,
+    frameB: 0,
+    blendU: 0,
+    alphaA: 1,
+    alphaB: 0,
+    shakeNormX: 0,
+    shakeNormY: 0,
+    poseTiltDeg: 0,
   };
 }
 
@@ -117,6 +148,7 @@ export function createTitleEmblemVfxState(seed = 20261119): TitleEmblemVfxState 
   for (let i = 0; i < MAX_RIM_ARCS; i++) {
     arcs[i] = createEmptyArc();
   }
+  const scratchSequence = createEmptySequenceSample();
 
   const state: TitleEmblemVfxState = {
     timeSec: 0,
@@ -146,6 +178,17 @@ export function createTitleEmblemVfxState(seed = 20261119): TitleEmblemVfxState 
       ny: 0.5,
       age: 0,
       maxLife: 0.55,
+    },
+    scratchSequence,
+    scratchTransform: {
+      bobNormY: 0,
+      breathScale: 1,
+      rotateXDeg: 0,
+      rotateYDeg: 0,
+      auraPulse: 0.45,
+      sheenProgress: -1,
+      sheenActive: false,
+      sequence: scratchSequence,
     },
   };
 
@@ -341,31 +384,41 @@ export function spawnRimArc(state: TitleEmblemVfxState, forcedEdge?: 'bottom' | 
   const span = 1 + Math.floor(nextRand(state) * maxSpan);
   const startIdx = Math.floor(nextRand(state) * (anchors.length - span));
 
-  const points: RimArcPoint[] = [];
+  const points = slot.points;
+  const pool = slot.pointPool;
+  points.length = 0;
+  let ptCursor = 0;
+  const pushPoint = (nx: number, ny: number) => {
+    if (ptCursor >= pool.length) return;
+    const pt = pool[ptCursor++];
+    pt.nx = nx;
+    pt.ny = ny;
+    points.push(pt);
+  };
+
   for (let i = startIdx; i < startIdx + span; i++) {
     const a = anchors[i];
     const b = anchors[i + 1];
     if (i === startIdx) {
-      points.push({ nx: a.nx, ny: a.ny });
+      pushPoint(a.nx, a.ny);
     }
     const subdivisions = 3;
     for (let s = 1; s < subdivisions; s++) {
       const t = s / subdivisions;
       const jitterX = randRange(state, -0.008, 0.008);
       const jitterY = randRange(state, -0.015, 0.015);
-      points.push({
-        nx: a.nx + (b.nx - a.nx) * t + jitterX,
-        ny: Math.max(0.74, Math.min(0.96, a.ny + (b.ny - a.ny) * t + jitterY)),
-      });
+      pushPoint(
+        a.nx + (b.nx - a.nx) * t + jitterX,
+        Math.max(0.74, Math.min(0.96, a.ny + (b.ny - a.ny) * t + jitterY)),
+      );
     }
-    points.push({ nx: b.nx, ny: b.ny });
+    pushPoint(b.nx, b.ny);
   }
 
   slot.active = true;
   slot.age = 0;
   slot.maxLife = randRange(state, 0.24, 0.44);
   slot.color = nextRand(state) < 0.62 ? '#00f0ff' : '#ff2e7e';
-  slot.points = points;
   return slot;
 }
 
@@ -474,7 +527,7 @@ export function stepTitleEmblemVfx(
     }
   }
 
-  const sequence = sampleLogoSequence(state);
+  const sequence = sampleLogoSequence(state, state.scratchSequence);
 
   if (reducedMotion) {
     state.parallaxX = 0;
@@ -486,21 +539,20 @@ export function stepTitleEmblemVfx(
     for (let i = 0; i < MAX_RIM_ARCS; i++) {
       state.arcs[i].active = false;
     }
-    return {
-      bobNormY: 0,
-      breathScale: 1,
-      rotateXDeg: 0,
-      rotateYDeg: 0,
-      auraPulse: 0.45,
-      sheenProgress: -1,
-      sheenActive: false,
-      sequence: {
-        ...sequence,
-        shakeNormX: 0,
-        shakeNormY: 0,
-        poseTiltDeg: 0,
-      },
-    };
+    sequence.shakeNormX = 0;
+    sequence.shakeNormY = 0;
+    sequence.poseTiltDeg = 0;
+
+    const out = state.scratchTransform;
+    out.bobNormY = 0;
+    out.breathScale = 1;
+    out.rotateXDeg = 0;
+    out.rotateYDeg = 0;
+    out.auraPulse = 0.45;
+    out.sheenProgress = -1;
+    out.sheenActive = false;
+    out.sequence = sequence;
+    return out;
   }
 
   state.timeSec += dt;
@@ -614,12 +666,12 @@ export function stepTitleEmblemVfx(
   }
 
   const bobNormY = Math.sin(state.timeSec * 1.65) * 0.011 + sequence.shakeNormY;
-  const breathWave = Math.sin(state.timeSec * 2.15 + 0.4);
   const recoilScale = 1 + state.recoil * 0.045;
   const sequenceLift = sequence.active
     ? Math.sin((sequence.elapsed / SEQUENCE_TOTAL_SEC) * Math.PI) * 0.014
     : 0;
-  const breathScale = (1 + breathWave * 0.011 + sequenceLift) * recoilScale;
+  // Idle breathing is driven by Stage 4 vertex displacement so Static Lockup Plane stays rock-solid
+  const breathScale = (1 + sequenceLift) * recoilScale;
   const rotateYDeg = state.parallaxX * 6.2;
   const rotateXDeg = -state.parallaxY * 4.6;
   const auraPulse =
@@ -628,14 +680,14 @@ export function stepTitleEmblemVfx(
     Math.min(0.2, Math.abs(state.recoil) * 0.35) +
     (sequence.active ? 0.15 : 0);
 
-  return {
-    bobNormY,
-    breathScale,
-    rotateXDeg,
-    rotateYDeg,
-    auraPulse: Math.max(0.15, Math.min(1, auraPulse)),
-    sheenProgress: state.sheenProgress,
-    sheenActive: state.sheenProgress >= -0.35 && state.sheenProgress <= 1.38,
-    sequence,
-  };
+  const out = state.scratchTransform;
+  out.bobNormY = bobNormY;
+  out.breathScale = breathScale;
+  out.rotateXDeg = rotateXDeg;
+  out.rotateYDeg = rotateYDeg;
+  out.auraPulse = Math.max(0.15, Math.min(1, auraPulse));
+  out.sheenProgress = state.sheenProgress;
+  out.sheenActive = state.sheenProgress >= -0.35 && state.sheenProgress <= 1.38;
+  out.sequence = sequence;
+  return out;
 }

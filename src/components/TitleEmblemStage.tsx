@@ -19,6 +19,14 @@ import {
   triggerEmblemClickBurst,
 } from '../utils/titleEmblemVfx';
 import {
+  MESH_VERTEX_COUNT,
+  WARP_TRIANGLES,
+  computeVertexIdleBreathNormY,
+  createMeshWarpScratch,
+  renderWarpedFramePair,
+} from '../utils/titleMeshWarp';
+import {
+  XENO_SLIME_NOZZLES,
   createSlimeEngineState,
   renderSlimeEngine,
   stepSlimeEngine,
@@ -50,8 +58,15 @@ export function TitleEmblemStage({
   const vfxRef = useRef(createTitleEmblemVfxState());
   const visorRef = useRef(createVisorMatrixState());
   const slimeRef = useRef(createSlimeEngineState());
+  const meshScratchRef = useRef(createMeshWarpScratch());
   const pointerTargetRef = useRef({ x: 0, y: 0 });
   const burstCountRef = useRef(0);
+  const lastSeqDatasetRef = useRef({
+    active: 'false',
+    frameA: 0,
+    frameB: 0,
+    blendPct: 0,
+  });
 
   const [ready, setReady] = useState<boolean>(() => Boolean(getPreloadedTitleLogo()));
   const [failed, setFailed] = useState(false);
@@ -74,7 +89,7 @@ export function TitleEmblemStage({
     }
 
     const cachedFrames = getPreloadedTitleLogoFrames();
-    if (cachedFrames && cachedFrames[0]) {
+    if (cachedFrames.length > 0 && cachedFrames.every(Boolean)) {
       framesRef.current = cachedFrames;
       setReady(true);
       return () => {
@@ -142,7 +157,11 @@ export function TitleEmblemStage({
 
     const handlePointerDown = (event: PointerEvent) => {
       const targetEl = event.target instanceof Element ? event.target : null;
-      if (targetEl?.closest('button, [role="radio"], [role="option"], [role="dialog"], a, input')) {
+      if (
+        targetEl?.closest(
+          'button, [role="radio"], [role="option"], [role="dialog"], [data-title-overlay-open="true"], a, input',
+        )
+      ) {
         return;
       }
       const el = wrapperRef.current;
@@ -159,7 +178,10 @@ export function TitleEmblemStage({
         triggerEmblemClickBurst(vfxRef.current, normX, normY);
         burstCountRef.current += 1;
         el.dataset.bursts = String(burstCountRef.current);
-        el.dataset.seqActive = 'true';
+        if (lastSeqDatasetRef.current.active !== 'true') {
+          lastSeqDatasetRef.current.active = 'true';
+          el.dataset.seqActive = 'true';
+        }
       }
     };
 
@@ -195,6 +217,10 @@ export function TitleEmblemStage({
     const padBottom = compact ? 0.12 : 0.15;
     const totalWMult = 1 + padX * 2;
     const totalHMult = 1 + padTop + padBottom;
+
+    const debugMesh =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('debugTitleMesh') === '1';
 
     let rafId = 0;
     let lastTs = performance.now();
@@ -252,14 +278,24 @@ export function TitleEmblemStage({
       });
 
       const seq = sample.sequence;
-      if (wrapperRef.current) {
+      const el = wrapperRef.current;
+      if (el) {
         const activeStr = seq.active ? 'true' : 'false';
-        if (wrapperRef.current.dataset.seqActive !== activeStr) {
-          wrapperRef.current.dataset.seqActive = activeStr;
+        const lastDs = lastSeqDatasetRef.current;
+        if (lastDs.active !== activeStr) {
+          lastDs.active = activeStr;
+          el.dataset.seqActive = activeStr;
         }
-        const frameTag = `${seq.frameA}->${seq.frameB}:${seq.blendU.toFixed(2)}`;
-        if (wrapperRef.current.dataset.seqFrame !== frameTag) {
-          wrapperRef.current.dataset.seqFrame = frameTag;
+        const blendPct = Math.round(seq.blendU * 100);
+        if (
+          lastDs.frameA !== seq.frameA ||
+          lastDs.frameB !== seq.frameB ||
+          lastDs.blendPct !== blendPct
+        ) {
+          lastDs.frameA = seq.frameA;
+          lastDs.frameB = seq.frameB;
+          lastDs.blendPct = blendPct;
+          el.dataset.seqFrame = `${seq.frameA}->${seq.frameB}:${(blendPct / 100).toFixed(2)}`;
         }
       }
 
@@ -287,9 +323,10 @@ export function TitleEmblemStage({
       const frameACanvas = frames[seq.frameA] ?? baseLogo;
       const frameBCanvas = frames[seq.frameB] ?? frameACanvas;
       const lockupSource = lockupRef.current;
+      const idleBreathingActive = !seq.active && !reducedMotion;
 
       // Build unified 960x541 offscreen composite in strict Z-order:
-      // Plane 1 (dynamic character) -> Visor Matrix -> Xeno Slime -> Plane 0 (Static Lockup Plane)
+      // Plane 1 (Anatomical Warp Lattice) -> Visor Matrix -> Xeno Slime -> Plane 0 (Static Lockup Plane)
       let activeLogoSource: HTMLCanvasElement | TitleSpriteSource = frameACanvas;
       const isTransitioning =
         seq.active &&
@@ -298,25 +335,53 @@ export function TitleEmblemStage({
         frameBCanvas !== frameACanvas;
 
       const comp = getCompositeScratch(baseLogo.width, baseLogo.height);
-      const cctx = comp.getContext('2d');
+      const cctx = comp.getContext('2d', { willReadFrequently: true });
       if (cctx) {
         cctx.clearRect(0, 0, comp.width, comp.height);
         cctx.globalCompositeOperation = 'source-over';
-        if (isTransitioning) {
-          cctx.globalAlpha = seq.alphaA;
-          cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
-          cctx.globalAlpha = seq.alphaB;
-          cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
-        } else if (seq.active && seq.alphaB >= 0.999) {
-          cctx.globalAlpha = 1;
-          cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+        if (reducedMotion) {
+          if (isTransitioning) {
+            cctx.globalAlpha = seq.alphaA;
+            cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
+            cctx.globalAlpha = seq.alphaB;
+            cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+          } else if (seq.active && seq.alphaB >= 0.999) {
+            cctx.globalAlpha = 1;
+            cctx.drawImage(frameBCanvas, 0, 0, comp.width, comp.height);
+          } else {
+            cctx.globalAlpha = 1;
+            cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
+          }
         } else {
-          cctx.globalAlpha = 1;
-          cctx.drawImage(frameACanvas, 0, 0, comp.width, comp.height);
+          renderWarpedFramePair(
+            cctx,
+            frameACanvas,
+            frameBCanvas,
+            seq.frameA,
+            seq.frameB,
+            seq.blendU,
+            seq.alphaA,
+            seq.alphaB,
+            meshScratchRef.current,
+            comp.width,
+            comp.height,
+            vfx.timeSec,
+            idleBreathingActive,
+          );
         }
         cctx.globalAlpha = 1;
 
-        renderVisorMatrix(cctx, visorRef.current, comp.width, comp.height, 0, reducedMotion);
+        const visorBreathNormY = idleBreathingActive
+          ? computeVertexIdleBreathNormY(8, vfx.timeSec)
+          : 0;
+        renderVisorMatrix(
+          cctx,
+          visorRef.current,
+          comp.width,
+          comp.height,
+          visorBreathNormY,
+          reducedMotion,
+        );
         renderSlimeEngine(cctx, slimeRef.current, comp.width, comp.height, reducedMotion);
 
         if (lockupSource) {
@@ -346,18 +411,29 @@ export function TitleEmblemStage({
         }
       }
 
+      // Fast elliptical depth drop-shadow replacing 28px full-canvas shadowBlur
       ctx.save();
-      ctx.shadowColor = 'rgba(2, 6, 23, 0.9)';
-      ctx.shadowBlur = 28 * dpr;
-      ctx.shadowOffsetY = 12 * dpr;
+      ctx.translate(drawX + drawW * 0.5, drawY + drawH * 0.58 + 10 * dpr);
+      ctx.scale(1, 0.56);
+      const dropGrad = ctx.createRadialGradient(0, 0, drawW * 0.1, 0, 0, drawW * 0.52);
+      dropGrad.addColorStop(0, 'rgba(2, 6, 23, 0.52)');
+      dropGrad.addColorStop(0.6, 'rgba(2, 6, 23, 0.22)');
+      dropGrad.addColorStop(1, 'rgba(2, 6, 23, 0)');
+      ctx.fillStyle = dropGrad;
+      ctx.beginPath();
+      ctx.arc(0, 0, drawW * 0.52, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.save();
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'high';
+      ctx.imageSmoothingQuality = 'low';
       ctx.drawImage(activeLogoSource, drawX, drawY, drawW, drawH);
       ctx.restore();
 
       if (sample.sheenActive && !reducedMotion) {
         const sc = getSheenScratch();
-        const sctx = sc.getContext('2d');
+        const sctx = sc.getContext('2d', { willReadFrequently: true });
         if (sctx) {
           const sw = sc.width;
           const sh = sc.height;
@@ -402,6 +478,58 @@ export function TitleEmblemStage({
         if (p.active && !p.behind) {
           drawEmblemParticle(ctx, p, drawX, drawY, drawW, drawH, dpr);
         }
+      }
+
+      // Layer 8: Optional dev calibration overlay (?debugTitleMesh=1)
+      if (debugMesh) {
+        const verts = meshScratchRef.current.activeVertices;
+        ctx.save();
+        ctx.lineWidth = Math.max(1, dpr);
+        ctx.strokeStyle = 'rgba(0, 240, 255, 0.45)';
+        for (let t = 0; t < WARP_TRIANGLES.length; t++) {
+          const [i0, i1, i2] = WARP_TRIANGLES[t];
+          ctx.beginPath();
+          ctx.moveTo(drawX + verts[i0 * 2] * drawW, drawY + verts[i0 * 2 + 1] * drawH);
+          ctx.lineTo(drawX + verts[i1 * 2] * drawW, drawY + verts[i1 * 2 + 1] * drawH);
+          ctx.lineTo(drawX + verts[i2 * 2] * drawW, drawY + verts[i2 * 2 + 1] * drawH);
+          ctx.closePath();
+          ctx.stroke();
+        }
+        ctx.font = `${Math.round(9 * dpr)}px monospace`;
+        for (let i = 0; i < MESH_VERTEX_COUNT; i++) {
+          const vx = drawX + verts[i * 2] * drawW;
+          const vy = drawY + verts[i * 2 + 1] * drawH;
+          const isPinned = i >= 16;
+          ctx.fillStyle = isPinned ? '#fbbf24' : '#00f0ff';
+          ctx.beginPath();
+          ctx.arc(vx, vy, 3 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillText(`V${i}`, vx + 4 * dpr, vy - 3 * dpr);
+        }
+        const q = visorRef.current.workingQuad;
+        ctx.fillStyle = '#ff2e93';
+        for (const [label, qx, qy] of [
+          ['P00', q.p00x, q.p00y],
+          ['P10', q.p10x, q.p10y],
+          ['P01', q.p01x, q.p01y],
+          ['P11', q.p11x, q.p11y],
+        ] as const) {
+          const px = drawX + qx * drawW;
+          const py = drawY + qy * drawH;
+          ctx.fillRect(px - 2.5 * dpr, py - 2.5 * dpr, 5 * dpr, 5 * dpr);
+          ctx.fillText(label, px + 4 * dpr, py + 4 * dpr);
+        }
+        ctx.fillStyle = '#a3e635';
+        for (let i = 0; i < XENO_SLIME_NOZZLES.length; i++) {
+          const n = XENO_SLIME_NOZZLES[i];
+          const nx = drawX + n.nx * drawW;
+          const ny = drawY + n.ny * drawH;
+          ctx.beginPath();
+          ctx.arc(nx, ny, 3.5 * dpr, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillText(`N${i + 1}`, nx + 4 * dpr, ny + 4 * dpr);
+        }
+        ctx.restore();
       }
     };
 
