@@ -31,3 +31,5 @@ All real-time character and emblem animation in Neon Breach follows one of **two
 3. [Title Emblem Pipeline](./animation/title-emblem-pipeline.md) — `960 × 541` `K0–K4` keyframes, `Static Lockup Plane`, `2.86 s` `Choreography Beat` arc, `24 × 9` `Visor Matrix`, `0.5×` metaball `Xeno Slime`, and `34`-triangle `Anatomical Warp Lattice`.
 4. [Hero Animation Playbook](./animation/hero-animation-playbook.md) — `HeroAnimator`, `214.0 px` `rowScale` multi-sheet stitching, `muzzleRel`/`kickTipRel`, Kira's `Evasive Dodge`, Auraline's scattergun recoil, and Zuri's hover + `Tri-Drone Sync`.
 5. [Mutant Animation Playbook](./animation/mutant-animation-playbook.md) — Tier A convergence for all 9 Mutants, 4-Layer `proceduralJuiceCore`, `#00D856` chroma-green baking, landmark scanning, and transitional status of legacy archetypes.
+6. [Exceed-Style Standee Animation Guide & Pipeline](./animation/exceed-standee-animation-guide.md) — First-principles pipeline for animating character standees in an *Exceed*-based turn-based fighting game (1D slot kinematics, Strike clash choreography, Paradigm 1 vs. Paradigm 2 selection, and failure-mode mitigations).
+
