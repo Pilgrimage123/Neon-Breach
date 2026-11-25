@@ -18,6 +18,7 @@ describe('devLabMode helpers', () => {
 
   it('parses valid devLabTab query values and ignores invalid ones', () => {
     assert.equal(getInitialDevLabTab(''), null);
+    assert.equal(getInitialDevLabTab('?devLabTab=hero'), 'hero');
     assert.equal(getInitialDevLabTab('?devLabs=1&devLabTab=spitter'), 'spitter');
     assert.equal(getInitialDevLabTab('?devLabTab=brute'), 'brute');
     assert.equal(getInitialDevLabTab('?devLabTab=mutdog'), 'mutdog');

@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0011
 ---
 
 # 0005. Build-Time Baked Title Emblem Sprites and Offline Static Masks

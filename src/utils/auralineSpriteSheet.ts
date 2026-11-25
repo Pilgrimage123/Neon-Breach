@@ -209,7 +209,7 @@ const AURALINE_MODE_DURATIONS: Record<HeroAnimMode, number> = {
   victory: 0.96,
 };
 
-const FRAME_BLEND_DURATION = 0.052;
+const FRAME_BLEND_DURATION = 0;
 
 function sampleAuralineAmbientIdleFrame(
   totalTime: number,

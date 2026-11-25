@@ -15,7 +15,7 @@ import {
 import { SpriteJuiceFeedbackHandler } from './SpriteJuiceFeedbackHandler';
 import { CombatActionSequencer } from './CombatActionSequencer';
 import { sampleCrawlerFrame } from '../../utils/crawlerSpriteSheet';
-import { sampleStalkerFrame } from '../../utils/stalkerSpriteSheet';
+import { createStalkerJuiceState, stepStalkerJuice } from '../../utils/stalkerJuiceController';
 import {
   classifyEnemyAttackStaging,
   classifyHeroAttackStaging,
@@ -619,9 +619,17 @@ test('Crawler and Stalker sheets expose crisp static cut-in pose overrides', () 
     assert.equal(sampleCrawlerFrame(variant, undefined, 0.5, 0, 'recoil_pose').frameIndex, 9);
   }
 
-  const stalkerAtk = sampleStalkerFrame(undefined, 0.5, 0, undefined, 0.016, 'attack_pose');
-  const stalkerBrace = sampleStalkerFrame(undefined, 0.5, 0, undefined, 0.016, 'brace_pose');
-  const stalkerRecoil = sampleStalkerFrame(undefined, 0.5, 0, undefined, 0.016, 'recoil_pose');
+  const stalkerAtk = stepStalkerJuice(createStalkerJuiceState(1), 0.016, 0.5, {
+    attackAnimTimer: 0.2,
+    attackAnimDuration: 0.5,
+  });
+  const stalkerBrace = stepStalkerJuice(createStalkerJuiceState(1), 0.016, 0.5, {
+    armoredGuard: true,
+  });
+  const stalkerRecoil = stepStalkerJuice(createStalkerJuiceState(1), 0.016, 0.5, {
+    staggerTimer: 0.2,
+    staggerDuration: 0.4,
+  });
   assert.equal(stalkerAtk.mode, 'attack');
   assert.equal(stalkerAtk.frameIndex, 1);
   assert.equal(stalkerAtk.frameBlendAlpha, 1);

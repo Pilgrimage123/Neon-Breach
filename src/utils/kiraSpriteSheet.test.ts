@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { computeFrameTransitionState } from './spriteSheetAnim';
 import {
   KIRA_COMBAT_FRAMES,
   KIRA_DODGE_DURATION,
@@ -19,10 +20,10 @@ import {
 } from './kiraSpriteSheet';
 
 const DODGE_PNG_PATHS = [
-  'src/assets/sprites/kira_dodge_0_vault.png',
-  'src/assets/sprites/kira_dodge_1_slide.png',
-  'src/assets/sprites/kira_dodge_2_spin.png',
-  'src/assets/sprites/kira_dodge_3_land.png',
+  'src/assets/sprites/baked/kira_dodge_0_vault.png',
+  'src/assets/sprites/baked/kira_dodge_1_slide.png',
+  'src/assets/sprites/baked/kira_dodge_2_spin.png',
+  'src/assets/sprites/baked/kira_dodge_3_land.png',
 ] as const;
 
 function readPngHeader(relPath: string): { width: number; height: number; colorType: number; bytes: number } {
@@ -41,12 +42,12 @@ test('all 76 sprite sheet frames (36 combat + 36 emote + 4 resized RGBA dodge) l
   assert.equal(KIRA_DODGE_FRAMES.length, 4);
   assert.equal(KIRA_SHEET_FRAMES.length, 76);
 
-  const combatDims = readPngHeader('src/assets/sprites/kira_spritesheet.png');
+  const combatDims = readPngHeader('src/assets/sprites/baked/kira_spritesheet.png');
   assert.equal(combatDims.width, KIRA_SHEET_WIDTH);
   assert.equal(combatDims.height, KIRA_SHEET_HEIGHT);
 
   const emoteDims = readPngHeader(
-    'src/assets/sprites/kira_emote_sheet.png',
+    'src/assets/sprites/baked/kira_emote_sheet.png',
   );
   assert.equal(emoteDims.width, KIRA_EMOTE_SHEET_WIDTH);
   assert.equal(emoteDims.height, KIRA_EMOTE_SHEET_HEIGHT);
@@ -326,7 +327,7 @@ test('all standing poses across combat and emote sheets normalize to uniform 214
     );
   }
 
-  // Verify sub-frame cross-blending triggers smoothly on pose transition and settles to 1
+  // Verify crisp zero-ghosting pose transitions (frameBlendAlpha === 1) and NaN-safety at dt = 0
   const s0 = createInitialHeroAnimState();
   const hoverStep1 = stepKiraAnimState(s0, 0.016, {
     isDead: false,
@@ -336,7 +337,7 @@ test('all standing poses across combat and emote sheets normalize to uniform 214
   });
   assert.equal(hoverStep1.prevFrameIndex, 0);
   assert.equal(hoverStep1.frameIndex, 7);
-  assert.ok(hoverStep1.frameBlendAlpha > 0 && hoverStep1.frameBlendAlpha < 1);
+  assert.equal(hoverStep1.frameBlendAlpha, 1);
 
   const hoverStep2 = stepKiraAnimState(hoverStep1.state, 0.06, {
     isDead: false,
@@ -345,6 +346,15 @@ test('all standing poses across combat and emote sheets normalize to uniform 214
     totalTime: 1.06,
   });
   assert.equal(hoverStep2.frameBlendAlpha, 1);
+
+  const zeroDtTrans = computeFrameTransitionState(
+    { lastFrameIndex: 0, prevFrameIndex: 0, frameBlendElapsed: 0 },
+    7,
+    0,
+    0,
+  );
+  assert.equal(zeroDtTrans.frameBlendAlpha, 1);
+  assert.equal(Number.isNaN(zeroDtTrans.frameBlendAlpha), false);
 });
 
 test('dodge choreography traverses Vault (72) -> Slide 1 (73) -> Deep Slide 2 (74) -> 3-Point Land (75) -> Idle in 0.96s', () => {

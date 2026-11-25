@@ -4,13 +4,12 @@ import zlib from 'node:zlib';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  buildOptionsKey,
+  cleanChromaGreenData,
   cleanDarkBackgroundData,
   cleanWhiteBackgroundData,
   computeSpriteBoundsFromData,
-} from './spriteCutout';
+} from './spriteCutoutAlgorithms';
 import { AURALINE_SHEET_FRAMES } from './auralineSpriteSheet';
-import { BRUTE_SHEET_OPTIONS } from './bruteSpriteSheet';
 import { NURSE_FRAMES, NURSE_SHEET_OPTIONS } from './nurseSpriteSheet';
 import {
   ZURI_DRONES_OPTIONS,
@@ -169,7 +168,7 @@ test('cleanWhiteBackgroundData removes bottom floor shadow & trapped between-boo
 });
 
 test('Auraline sprite sheet frames clean bottom floor wedges/shadows without punching holes in dress or muzzle flashes', () => {
-  const sheet = decodePngRgba('src/assets/sprites/auraline_spritesheet.png');
+  const sheet = decodePngRgba('assets-src/heroes/auraline_spritesheet.png');
   const targetIds = ['aurelia_r0_f0', 'aurelia_r0_f4', 'aurelia_r0_f7', 'aurelia_r0_f9', 'aurelia_r1_f4', 'aurelia_r1_f6'];
 
   for (const id of targetIds) {
@@ -283,18 +282,55 @@ test('computeSpriteBoundsFromData computes normalized ratios for opaque pixels',
   assert.equal(bounds.centerXRatio, ((2 + 7) * 0.5) / 10);
 });
 
-test('buildOptionsKey differentiates maxDimension, unmixDarkHoloGlass, and default options', () => {
-  const fullKey = buildOptionsKey({ removeInteriorWhite: true, minPocketArea: 18 });
-  const bruteKey = buildOptionsKey(BRUTE_SHEET_OPTIONS);
-  const scaledKey = buildOptionsKey({ removeInteriorWhite: true, minPocketArea: 18, maxDimension: 512 });
-  const holoKey = buildOptionsKey({ removeDarkBackground: true, unmixDarkHoloGlass: true });
-  const darkKey = buildOptionsKey({ removeDarkBackground: true, unmixDarkHoloGlass: false });
-  assert.equal(BRUTE_SHEET_OPTIONS.unmixLightGlow, true);
-  assert.notEqual(fullKey, bruteKey);
-  assert.notEqual(fullKey, scaledKey);
-  assert.notEqual(holoKey, darkKey);
-  assert.ok(scaledKey.endsWith('|512'));
-  assert.ok(fullKey.endsWith('|full'));
+test('cleanChromaGreenData removes #00D856 backdrop while preserving bright white uniform and dark limbs', () => {
+  const w = 6;
+  const h = 4;
+  const data = new Uint8ClampedArray(w * h * 4);
+  const setPx = (x: number, y: number, r: number, g: number, b: number, a = 255) => {
+    const p = (y * w + x) * 4;
+    data[p] = r;
+    data[p + 1] = g;
+    data[p + 2] = b;
+    data[p + 3] = a;
+  };
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) setPx(x, y, 0, 216, 86, 255);
+  }
+  setPx(2, 1, 248, 248, 248, 255); // bright white medical uniform
+  setPx(3, 1, 22, 16, 28, 255); // dark necrotic limb
+  setPx(1, 1, 180, 198, 180, 255); // green-spill fringe
+
+  cleanChromaGreenData(data, w, h);
+
+  assert.equal(data[3], 0, 'Chroma green background must be transparent');
+  assert.equal(data[(1 * w + 2) * 4 + 3], 255, 'White uniform must stay 100% opaque');
+  assert.equal(data[(1 * w + 3) * 4 + 3], 255, 'Dark limb must stay 100% opaque');
+  const fringeP = (1 * w + 1) * 4;
+  assert.ok(data[fringeP + 1] <= Math.max(data[fringeP], data[fringeP + 2]), 'Green spill must be clamped');
+  assert.ok(data[fringeP + 3] > 0 && data[fringeP + 3] < 255, 'Fringe alpha must attenuate');
+});
+
+test('All baked PNGs referenced by bake-manifest.json exist in src/assets/sprites/baked/', () => {
+  const manifestRaw = fs.readFileSync(
+    path.resolve(process.cwd(), 'src/assets/sprites/baked/bake-manifest.json'),
+    'utf8',
+  );
+  const manifest = JSON.parse(manifestRaw) as {
+    keyframes: Array<{ output: string }>;
+    lockup: { output: string };
+    sheets: Array<{ output: string }>;
+    singles: Array<{ output: string }>;
+  };
+  const allOutputs = [
+    ...manifest.keyframes.map((k) => k.output),
+    manifest.lockup.output,
+    ...manifest.sheets.map((s) => s.output),
+    ...manifest.singles.map((s) => s.output),
+  ];
+  assert.ok(allOutputs.length >= 29);
+  for (const rel of allOutputs) {
+    assert.ok(fs.existsSync(path.resolve(process.cwd(), rel)), `Missing baked output ${rel}`);
+  }
 });
 
 function applyExcludeRects(
@@ -317,8 +353,8 @@ function applyExcludeRects(
 }
 
 test('cleanDarkBackgroundData clears Zuri black background while preserving opaque black bra, shorts, hair, and thruster glow across combat and emote sheets', () => {
-  const combatSheet = decodePngRgba('src/assets/sprites/zuri_spritesheet.png');
-  const emoteSheet = decodePngRgba('src/assets/sprites/zuri_emote_sheet.png');
+  const combatSheet = decodePngRgba('assets-src/heroes/zuri_spritesheet.png');
+  const emoteSheet = decodePngRgba('assets-src/heroes/zuri_emote_sheet.png');
   const targetIds = [
     'zuri_r0_f0',
     'zuri_r1_f0',
@@ -428,7 +464,7 @@ test('cleanDarkBackgroundData clears Zuri black background while preserving opaq
 });
 
 test('Zuri Drones cutout preserves Med Drone white medical crosses while clearing Shield Drone between-leg white pocket', () => {
-  const droneSheet = decodePngRgba('src/assets/sprites/zuri_drones_sheet.png');
+  const droneSheet = decodePngRgba('assets-src/heroes/zuri_drones_sheet.png');
 
   // Shield Drone (index 0): between-leg white pocket at (330, 580) must be cleared
   const shieldSpec = ZURI_DRONE_FRAMES[0];
@@ -457,7 +493,7 @@ test('Zuri Drones cutout preserves Med Drone white medical crosses while clearin
 });
 
 test('Nurse sprite sheet frames clean black background while keeping uniform, medical cross, and syringe opaque', () => {
-  const nurseSheet = decodePngRgba('src/assets/sprites/nurse_spritesheet.png');
+  const nurseSheet = decodePngRgba('assets-src/clinic/nurse_spritesheet.png');
   assert.equal(nurseSheet.width, 2170);
   assert.equal(nurseSheet.height, 725);
 

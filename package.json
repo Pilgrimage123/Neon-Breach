@@ -10,7 +10,8 @@
     "clean": "node -e \"import('node:fs').then(fs => fs.rmSync('dist', { recursive: true, force: true }))\"",
     "lint": "tsc --noEmit",
     "test": "node scripts/run-tests.mjs",
-    "bake:title": "tsx scripts/bakeTitleSprites.ts"
+    "bake:title": "tsx scripts/bakeSprites.ts --only=title",
+    "bake:sprites": "tsx scripts/bakeSprites.ts"
   },
   "dependencies": {
     "react": "^19.0.1",

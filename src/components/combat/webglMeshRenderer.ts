@@ -5,6 +5,7 @@ import {
   type IMeshSprite,
   type MeshGridTopology,
   type SpriteRenderCommand,
+  type StageTextureSource,
   createMeshGridTopology,
 } from './stageSpriteAdapter';
 import { renderMeshDebugWireframeOverlay } from './webglDebugWireframe';
@@ -67,7 +68,7 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
   private readonly topology: MeshGridTopology;
   private readonly spritePool = new Map<string, MeshSprite>();
   private readonly queuedSprites: MeshSprite[] = [];
-  private readonly textureCache = new Map<HTMLCanvasElement, WebGLTexture>();
+  private readonly textureCache = new Map<StageTextureSource, WebGLTexture>();
 
   private viewProjMatrix = new Float32Array(9);
   private frameParams: {
@@ -196,7 +197,7 @@ export class WebGL2CharacterStageRenderer implements ICharacterStageRenderer {
     gl.bindVertexArray(null);
   }
 
-  private getOrCreateTexture(source: HTMLCanvasElement): WebGLTexture | null {
+  private getOrCreateTexture(source: StageTextureSource): WebGLTexture | null {
     const gl = this.gl;
     if (!gl || gl.isContextLost() || !source || source.width === 0 || source.height === 0) {
       return null;

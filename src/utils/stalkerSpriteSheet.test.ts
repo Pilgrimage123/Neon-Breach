@@ -7,8 +7,11 @@ import {
   STALKER_SHEET_WIDTH,
   STALKER_SLIME_NOZZLES,
   computeStalkerBlinkState,
-  sampleStalkerFrame,
 } from './stalkerSpriteSheet';
+import {
+  createStalkerJuiceState,
+  stepStalkerJuice,
+} from './stalkerJuiceController';
 
 test('STALKER_SHEET_FRAMES defines both 512x512 native-left frames with valid landmarks and slime nozzles', () => {
   assert.equal(STALKER_SHEET_FRAMES.length, 2);
@@ -64,128 +67,69 @@ test('computeStalkerBlinkState performs natural periodic single & double blinks 
   assert.ok(computeStalkerBlinkState(0.5, 0, 'pain', 0.2).blinkClosure > 0.5);
 });
 
-test('sampleStalkerFrame drives distinct states for idle, ambush crouch, guard, bristle flare, attack lunge, pain, and death collapse', () => {
-  const ambush = sampleStalkerFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      ambushPrimed: true,
-    },
-    0.35,
-    0,
-  );
+test('stepStalkerJuice drives distinct states and smooth eyelid blink cross-dissolve', () => {
+  const ambush = stepStalkerJuice(createStalkerJuiceState(), 0.016, 0.35, {
+    ambushPrimed: true,
+    instanceIndex: 0,
+  });
   assert.equal(ambush.mode, 'ambush');
   assert.equal(ambush.frameIndex, 1);
   assert.ok(ambush.spineGlowIntensity >= 0.65);
 
-  const guard = sampleStalkerFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      armoredGuard: true,
-    },
-    0.2,
-    0,
-  );
+  const guard = stepStalkerJuice(createStalkerJuiceState(), 0.016, 0.2, {
+    armoredGuard: true,
+    instanceIndex: 0,
+  });
   assert.equal(guard.mode, 'guard');
 
-  const bristlePeak = sampleStalkerFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      bristleTimer: 0.24,
-      bristleDuration: 0.48,
-      bristleKind: 'retaliate',
-    },
-    0.5,
-    0,
-  );
+  const bristlePeak = stepStalkerJuice(createStalkerJuiceState(), 0.016, 0.5, {
+    bristleTimer: 0.24,
+    bristleDuration: 0.48,
+    bristleKind: 'retaliate',
+    instanceIndex: 0,
+  });
   assert.equal(bristlePeak.mode, 'bristle');
   assert.equal(bristlePeak.frameIndex, 1);
   assert.equal(bristlePeak.spineGlowIntensity, 1.0);
 
-  const atkMid = sampleStalkerFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0.22,
-      attackAnimDuration: 0.52,
-    },
-    1.0,
-    0,
-  );
+  const atkMid = stepStalkerJuice(createStalkerJuiceState(), 0.016, 1.0, {
+    attackAnimTimer: 0.22,
+    attackAnimDuration: 0.52,
+    instanceIndex: 0,
+  });
   assert.equal(atkMid.mode, 'attack');
   assert.equal(atkMid.frameIndex, 1);
-  assert.ok(atkMid.xOffsetRatio < -0.1, 'Lunge slash must travel left toward hero');
+  assert.ok(atkMid.offsetX < -30, 'Lunge slash must travel left toward hero');
   assert.ok(atkMid.clawSlashProgress > 0.3);
 
-  const pain = sampleStalkerFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0.28,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-    },
-    1.0,
-    0,
-  );
+  const pain = stepStalkerJuice(createStalkerJuiceState(), 0.016, 1.0, {
+    staggerTimer: 0.28,
+    staggerDuration: 0.36,
+    instanceIndex: 0,
+  });
   assert.equal(pain.mode, 'pain');
   assert.equal(pain.frameIndex, 1);
 
-  const koEnd = sampleStalkerFrame(
-    {
-      dead: true,
-      koProgress: 0.9,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-    },
-    1.0,
-    0,
-  );
+  const koEnd = stepStalkerJuice(createStalkerJuiceState(), 0.016, 1.0, {
+    dead: true,
+    koProgress: 0.9,
+    instanceIndex: 0,
+  });
   assert.equal(koEnd.mode, 'death');
   assert.equal(koEnd.frameIndex, 1);
   assert.ok(koEnd.alpha > 0 && koEnd.alpha < 1);
-});
 
-test('sampleStalkerFrame cross-dissolves smoothly across open -> narrowed eye transitions', () => {
-  const openSample = sampleStalkerFrame(undefined, 0.05, 0, undefined, 0.016);
+  // Allowlist #2: identical-silhouette open -> narrowed eye transition cross-dissolves smoothly
+  const blinkState = createStalkerJuiceState();
+  const openSample = stepStalkerJuice(blinkState, 0.016, 0.05, { instanceIndex: 0 });
   assert.equal(openSample.frameIndex, 0);
   assert.equal(openSample.frameBlendAlpha, 1);
 
-  const switchFrame = sampleStalkerFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      ambushPrimed: true,
-    },
-    0.07,
-    0,
-    openSample.transitionState,
-    0.016,
-  );
-  assert.equal(switchFrame.frameIndex, 1);
-  assert.equal(switchFrame.prevFrameIndex, 0);
-  assert.ok(switchFrame.frameBlendAlpha > 0 && switchFrame.frameBlendAlpha < 0.5);
+  const switchSample = stepStalkerJuice(blinkState, 0.016, 0.07, {
+    ambushPrimed: true,
+    instanceIndex: 0,
+  });
+  assert.equal(switchSample.frameIndex, 1);
+  assert.equal(switchSample.prevFrameIndex, 0);
+  assert.ok(switchSample.frameBlendAlpha > 0 && switchSample.frameBlendAlpha < 0.5);
 });

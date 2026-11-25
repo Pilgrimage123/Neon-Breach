@@ -9,6 +9,13 @@ import {
   triggerBruteJuiceState,
 } from '../../utils/bruteJuiceController';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
+import type { DevLabTabId } from '../../utils/devLabMode';
+import type { HeroAnimMode } from '../../utils/heroAnimator';
+import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
+import {
+  TIER_A_LAB_ARCHETYPES,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
 import {
   DEFAULT_FERAL_NURSE_JUICE_CONFIG,
   type FeralNurseJuiceConfig,
@@ -16,7 +23,6 @@ import {
   createFeralNurseJuiceState,
   triggerFeralNurseJuiceState,
 } from '../../utils/feralNurseJuiceController';
-import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
 import {
   DEFAULT_MUTDOG_JUICE_CONFIG,
   type MutdogJuiceConfig,
@@ -42,6 +48,7 @@ import type {
 } from './combatDevLabsTypes';
 import { computeEnemySlotLayout } from './combatEnemyUi';
 import { CombatFeralNurseLabPanel } from './CombatFeralNurseLabPanel';
+import { CombatHeroLabPanel } from './CombatHeroLabPanel';
 import { CombatMutdogLabPanel } from './CombatMutdogLabPanel';
 import {
   type CombatPresentationConfig,
@@ -81,45 +88,57 @@ export function CombatDevLabsPanel({
   activeHeroId = 'kira',
   onSwitchHero,
 }: CombatDevLabsPanelProps) {
-  const [spitterLabOpen, setSpitterLabOpen] = useState(() => initialLab === 'spitter');
+  const [activeLab, setActiveLab] = useState<DevLabTabId | null>(() => initialLab);
+  const [lastSelectedLab, setLastSelectedLab] = useState<DevLabTabId>(
+    () => initialLab ?? 'hero',
+  );
+  const [lastHeroTrigger, setLastHeroTrigger] = useState<HeroAnimMode>('idle');
+
   const [spitterJuiceConfig, setSpitterJuiceConfig] = useState<SpitterJuiceConfig>(
     DEFAULT_SPITTER_JUICE_CONFIG,
   );
   const [lastSpitterTrigger, setLastSpitterTrigger] = useState<SpitterJuiceTrigger>('idle');
 
-  const [bruteLabOpen, setBruteLabOpen] = useState(() => initialLab === 'brute');
   const [bruteJuiceConfig, setBruteJuiceConfig] = useState<BruteJuiceConfig>(
     DEFAULT_BRUTE_JUICE_CONFIG,
   );
   const [lastBruteTrigger, setLastBruteTrigger] = useState<BruteJuiceTrigger>('idle');
 
-  const [mutdogLabOpen, setMutdogLabOpen] = useState(() => initialLab === 'mutdog');
   const [mutdogJuiceConfig, setMutdogJuiceConfig] = useState<MutdogJuiceConfig>(
     DEFAULT_MUTDOG_JUICE_CONFIG,
   );
   const [lastMutdogTrigger, setLastMutdogTrigger] = useState<MutdogJuiceTrigger>('idle');
 
-  const [feralNurseLabOpen, setFeralNurseLabOpen] = useState(() => initialLab === 'feral_nurse');
   const [feralNurseJuiceConfig, setFeralNurseJuiceConfig] = useState<FeralNurseJuiceConfig>(
     DEFAULT_FERAL_NURSE_JUICE_CONFIG,
   );
   const [lastFeralNurseTrigger, setLastFeralNurseTrigger] =
     useState<FeralNurseJuiceTrigger>('idle');
 
-  const [cameraLabOpen, setCameraLabOpen] = useState(() => initialLab === 'camera');
   const [presentationConfig, setPresentationConfig] = useState<CombatPresentationConfig>(
     DEFAULT_COMBAT_PRESENTATION_CONFIG,
   );
   const [lastCameraTrigger, setLastCameraTrigger] = useState<CameraLabTriggerKind>('idle');
 
+  const spitterLabOpen = activeLab === 'spitter';
+  const bruteLabOpen = activeLab === 'brute';
+  const mutdogLabOpen = activeLab === 'mutdog';
+  const feralNurseLabOpen = activeLab === 'feral_nurse';
+  const cameraLabOpen = activeLab === 'camera';
+  const heroLabOpen = activeLab === 'hero';
+
   useEffect(() => {
     if (!initialLab) return;
-    setSpitterLabOpen(initialLab === 'spitter');
-    setBruteLabOpen(initialLab === 'brute');
-    setMutdogLabOpen(initialLab === 'mutdog');
-    setFeralNurseLabOpen(initialLab === 'feral_nurse');
-    setCameraLabOpen(initialLab === 'camera');
+    setActiveLab(initialLab);
+    setLastSelectedLab(initialLab);
   }, [initialLab]);
+
+  const selectLab = (tab: DevLabTabId | null) => {
+    setActiveLab(tab);
+    if (tab !== null) {
+      setLastSelectedLab(tab);
+    }
+  };
 
   labRuntimeRef.current = {
     spitterLabActive: spitterLabOpen,
@@ -329,18 +348,7 @@ export function CombatDevLabsPanel({
       const arch = combatCur.enemies[safeIdx]?.archetype ?? 'larva';
       const crowdScale = effectiveSlotCount >= 5 ? 0.78 : effectiveSlotCount === 4 ? 0.86 : 1;
       const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
-      const archScale =
-        arch === 'boss'
-          ? 1.24
-          : arch === 'brute'
-            ? 1.32
-            : arch === 'larva'
-              ? 0.76
-              : arch === 'skitter'
-                ? 0.88
-                : arch === 'stinger'
-                  ? 0.96
-                  : 0.94;
+      const archScale = getMutantArchScale(arch);
       const heightPx = baseEnemySize * archScale;
       const enemyGroundY = groundY + (safeIdx % 2 === 1 ? -6 : 0);
       const centerSlot = slotCenters[safeIdx] ?? safeIdx;
@@ -543,17 +551,36 @@ export function CombatDevLabsPanel({
     requestDraw();
   };
 
+  const fireHeroTrigger = (mode: HeroAnimMode) => {
+    const sim = simRef.current;
+    if (!sim) return;
+    const activeChar = heroRef.current.characterId ?? 'kira';
+    sim.heroState = triggerCharacterAnimation(sim.heroState, mode, activeChar);
+    if (mode === 'dodge' && activeChar === 'kira') {
+      const { w, h } = sim.size;
+      const heroX = w < 460 ? w * 0.19 : w * 0.22;
+      triggerKiraDodgeVfx(sim, heroX, getBridgeGroundY(h));
+    }
+    setLastHeroTrigger(mode);
+    sim.needsRedraw = true;
+    requestDraw();
+  };
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    if (
-      !spitterLabOpen &&
-      !bruteLabOpen &&
-      !mutdogLabOpen &&
-      !feralNurseLabOpen &&
-      !cameraLabOpen
-    ) {
-      return;
-    }
+    if (!activeLab) return;
+    const heroKeyMap: Record<string, HeroAnimMode> = {
+      '1': 'idle',
+      '2': 'idle1',
+      '3': 'idle2',
+      '4': 'shoot',
+      '5': 'dash_kick',
+      '6': 'overdrive',
+      '7': 'guard',
+      '8': 'dodge',
+      '9': 'upgrade',
+      '0': 'hit',
+    };
     const spitterKeyMap: Record<string, SpitterJuiceTrigger> = {
       '1': 'idle',
       '2': 'advance_retreat',
@@ -598,6 +625,15 @@ export function CombatDevLabsPanel({
     };
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (heroLabOpen) {
+        const trig = heroKeyMap[e.key];
+        if (trig) {
+          e.preventDefault();
+          e.stopPropagation();
+          fireHeroTrigger(trig);
+        }
+        return;
+      }
       if (cameraLabOpen) {
         const trig = cameraKeyMap[e.key];
         if (trig) {
@@ -648,138 +684,50 @@ export function CombatDevLabsPanel({
   });
 
   const toggleButtons = (
-    <>
+    <div className="flex items-center gap-1">
       <button
         type="button"
-        data-testid="spitter-lab-toggle"
-        aria-pressed={spitterLabOpen}
-        onClick={() => {
-          setSpitterLabOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setBruteLabOpen(false);
-              setMutdogLabOpen(false);
-              setFeralNurseLabOpen(false);
-              setCameraLabOpen(false);
-            }
-            return next;
-          });
-        }}
-        title="Open Bile Spitter 4-Layer Procedural Juice Lab & Keys 1–6 Test Harness"
+        data-testid="anim-lab-toggle"
+        aria-pressed={activeLab !== null}
+        onClick={() => selectLab(activeLab ? null : lastSelectedLab)}
+        title="Toggle Unified DEV Animation Lab (Hero, Tier A Mutants & Action Camera)"
         className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
-          spitterLabOpen
-            ? 'bg-lime-400 text-slate-950 ring-1 ring-lime-300 shadow-[0_0_10px_rgba(163,230,53,0.5)]'
-            : 'bg-slate-900/90 text-lime-300/90 ring-1 ring-lime-400/35 hover:text-white'
-        }`}
-      >
-        ⬡ SPITTER
-      </button>
-      <button
-        type="button"
-        data-testid="brute-lab-toggle"
-        aria-pressed={bruteLabOpen}
-        onClick={() => {
-          setBruteLabOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setSpitterLabOpen(false);
-              setMutdogLabOpen(false);
-              setFeralNurseLabOpen(false);
-              setCameraLabOpen(false);
-            }
-            return next;
-          });
-        }}
-        title="Open Carapace Brute 4-Layer Procedural Juice Lab & Keys 1–6 Test Harness"
-        className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
-          bruteLabOpen
-            ? 'bg-amber-400 text-slate-950 ring-1 ring-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]'
-            : 'bg-slate-900/90 text-amber-300/90 ring-1 ring-amber-400/35 hover:text-white'
-        }`}
-      >
-        ■ BRUTE
-      </button>
-      <button
-        type="button"
-        data-testid="mutdog-lab-toggle"
-        aria-pressed={mutdogLabOpen}
-        onClick={() => {
-          setMutdogLabOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setSpitterLabOpen(false);
-              setBruteLabOpen(false);
-              setFeralNurseLabOpen(false);
-              setCameraLabOpen(false);
-            }
-            return next;
-          });
-        }}
-        title="Open Rabid MutDog 4-Layer Procedural Juice Lab & Keys 1–6 Test Harness"
-        className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
-          mutdogLabOpen
-            ? 'bg-lime-400 text-slate-950 ring-1 ring-lime-200 shadow-[0_0_10px_rgba(163,230,53,0.5)]'
-            : 'bg-slate-900/90 text-lime-300/90 ring-1 ring-lime-400/35 hover:text-white'
-        }`}
-      >
-        ✦ MUTDOG
-      </button>
-      <button
-        type="button"
-        data-testid="feral-nurse-lab-toggle"
-        aria-pressed={feralNurseLabOpen}
-        onClick={() => {
-          setFeralNurseLabOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setSpitterLabOpen(false);
-              setBruteLabOpen(false);
-              setMutdogLabOpen(false);
-              setCameraLabOpen(false);
-            }
-            return next;
-          });
-        }}
-        title="Open Feral Nurse 4-Layer Procedural Juice Lab & Keys 1–6 Test Harness"
-        className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
-          feralNurseLabOpen
-            ? 'bg-fuchsia-400 text-slate-950 ring-1 ring-fuchsia-200 shadow-[0_0_10px_rgba(232,121,249,0.55)]'
-            : 'bg-slate-900/90 text-fuchsia-300/90 ring-1 ring-fuchsia-400/35 hover:text-white'
-        }`}
-      >
-        ✚ NURSE
-      </button>
-      <button
-        type="button"
-        data-testid="camera-lab-toggle"
-        aria-pressed={cameraLabOpen}
-        onClick={() => {
-          setCameraLabOpen((prev) => {
-            const next = !prev;
-            if (next) {
-              setSpitterLabOpen(false);
-              setBruteLabOpen(false);
-              setMutdogLabOpen(false);
-              setFeralNurseLabOpen(false);
-            }
-            return next;
-          });
-        }}
-        title="Open Action Camera & Cut-In Lab (Keys 1–5 Test Triggers)"
-        className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap transition-colors cursor-pointer ${
-          cameraLabOpen
+          activeLab !== null
             ? 'bg-cyan-300 text-slate-950 ring-1 ring-cyan-200 shadow-[0_0_10px_rgba(0,240,255,0.5)]'
             : 'bg-slate-900/90 text-cyan-200/90 ring-1 ring-cyan-400/35 hover:text-white'
         }`}
       >
-        ◎ CAMERA
+        ⚗ ANIM LAB
       </button>
-    </>
+      <select
+        aria-label="Select DEV Animation Lab"
+        value={activeLab ?? lastSelectedLab}
+        onChange={(e) => selectLab(e.target.value as DevLabTabId)}
+        className="rounded bg-slate-900/95 px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-slate-200 ring-1 ring-white/20 cursor-pointer"
+      >
+        <option value="hero">★ HERO</option>
+        {TIER_A_LAB_ARCHETYPES.map((entry) => (
+          <option key={entry.tabId} value={entry.tabId}>
+            {entry.label}
+          </option>
+        ))}
+        <option value="camera">◎ CAMERA</option>
+      </select>
+    </div>
   );
 
   return (
     <>
       {toolbarMountNode && createPortal(toggleButtons, toolbarMountNode)}
+
+      {heroLabOpen && (
+        <CombatHeroLabPanel
+          activeHeroId={activeHeroId}
+          lastTrigger={lastHeroTrigger}
+          onSwitchHero={onSwitchHero}
+          onFireTrigger={fireHeroTrigger}
+        />
+      )}
 
       {spitterLabOpen && (
         <CombatSpitterLabPanel
@@ -787,35 +735,11 @@ export function CombatDevLabsPanel({
           setSpitterJuiceConfig={setSpitterJuiceConfig}
           lastSpitterTrigger={lastSpitterTrigger}
           onFireTrigger={fireSpitterTrigger}
-          onOpenBruteLab={() => {
-            setSpitterLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(false);
-            setBruteLabOpen(true);
-          }}
-          onOpenMutdogLab={() => {
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(false);
-            setMutdogLabOpen(true);
-          }}
-          onOpenFeralNurseLab={() => {
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setCameraLabOpen(false);
-            setFeralNurseLabOpen(true);
-          }}
-          onOpenCameraLab={() => {
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(true);
-          }}
-          onClose={() => setSpitterLabOpen(false)}
+          onOpenBruteLab={() => selectLab('brute')}
+          onOpenMutdogLab={() => selectLab('mutdog')}
+          onOpenFeralNurseLab={() => selectLab('feral_nurse')}
+          onOpenCameraLab={() => selectLab('camera')}
+          onClose={() => selectLab(null)}
         />
       )}
 
@@ -825,35 +749,11 @@ export function CombatDevLabsPanel({
           setBruteJuiceConfig={setBruteJuiceConfig}
           lastBruteTrigger={lastBruteTrigger}
           onFireTrigger={fireBruteTrigger}
-          onOpenSpitterLab={() => {
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(false);
-            setSpitterLabOpen(true);
-          }}
-          onOpenMutdogLab={() => {
-            setBruteLabOpen(false);
-            setSpitterLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(false);
-            setMutdogLabOpen(true);
-          }}
-          onOpenFeralNurseLab={() => {
-            setBruteLabOpen(false);
-            setSpitterLabOpen(false);
-            setMutdogLabOpen(false);
-            setCameraLabOpen(false);
-            setFeralNurseLabOpen(true);
-          }}
-          onOpenCameraLab={() => {
-            setBruteLabOpen(false);
-            setSpitterLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(true);
-          }}
-          onClose={() => setBruteLabOpen(false)}
+          onOpenSpitterLab={() => selectLab('spitter')}
+          onOpenMutdogLab={() => selectLab('mutdog')}
+          onOpenFeralNurseLab={() => selectLab('feral_nurse')}
+          onOpenCameraLab={() => selectLab('camera')}
+          onClose={() => selectLab(null)}
         />
       )}
 
@@ -863,35 +763,11 @@ export function CombatDevLabsPanel({
           setMutdogJuiceConfig={setMutdogJuiceConfig}
           lastMutdogTrigger={lastMutdogTrigger}
           onFireTrigger={fireMutdogTrigger}
-          onOpenSpitterLab={() => {
-            setMutdogLabOpen(false);
-            setBruteLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(false);
-            setSpitterLabOpen(true);
-          }}
-          onOpenBruteLab={() => {
-            setMutdogLabOpen(false);
-            setSpitterLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(false);
-            setBruteLabOpen(true);
-          }}
-          onOpenFeralNurseLab={() => {
-            setMutdogLabOpen(false);
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setCameraLabOpen(false);
-            setFeralNurseLabOpen(true);
-          }}
-          onOpenCameraLab={() => {
-            setMutdogLabOpen(false);
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setCameraLabOpen(true);
-          }}
-          onClose={() => setMutdogLabOpen(false)}
+          onOpenSpitterLab={() => selectLab('spitter')}
+          onOpenBruteLab={() => selectLab('brute')}
+          onOpenFeralNurseLab={() => selectLab('feral_nurse')}
+          onOpenCameraLab={() => selectLab('camera')}
+          onClose={() => selectLab(null)}
         />
       )}
 
@@ -901,35 +777,11 @@ export function CombatDevLabsPanel({
           setFeralNurseJuiceConfig={setFeralNurseJuiceConfig}
           lastFeralNurseTrigger={lastFeralNurseTrigger}
           onFireTrigger={fireFeralNurseTrigger}
-          onOpenSpitterLab={() => {
-            setFeralNurseLabOpen(false);
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setCameraLabOpen(false);
-            setSpitterLabOpen(true);
-          }}
-          onOpenBruteLab={() => {
-            setFeralNurseLabOpen(false);
-            setSpitterLabOpen(false);
-            setMutdogLabOpen(false);
-            setCameraLabOpen(false);
-            setBruteLabOpen(true);
-          }}
-          onOpenMutdogLab={() => {
-            setFeralNurseLabOpen(false);
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setCameraLabOpen(false);
-            setMutdogLabOpen(true);
-          }}
-          onOpenCameraLab={() => {
-            setFeralNurseLabOpen(false);
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setCameraLabOpen(true);
-          }}
-          onClose={() => setFeralNurseLabOpen(false)}
+          onOpenSpitterLab={() => selectLab('spitter')}
+          onOpenBruteLab={() => selectLab('brute')}
+          onOpenMutdogLab={() => selectLab('mutdog')}
+          onOpenCameraLab={() => selectLab('camera')}
+          onClose={() => selectLab(null)}
         />
       )}
 
@@ -939,34 +791,10 @@ export function CombatDevLabsPanel({
           setPresentationConfig={setPresentationConfig}
           lastCameraTrigger={lastCameraTrigger}
           onFireTrigger={fireCameraTrigger}
-          onOpenSpitterLab={() => {
-            setCameraLabOpen(false);
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setSpitterLabOpen(true);
-          }}
-          onOpenBruteLab={() => {
-            setCameraLabOpen(false);
-            setSpitterLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setBruteLabOpen(true);
-          }}
-          onOpenMutdogLab={() => {
-            setCameraLabOpen(false);
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setFeralNurseLabOpen(false);
-            setMutdogLabOpen(true);
-          }}
-          onOpenFeralNurseLab={() => {
-            setCameraLabOpen(false);
-            setSpitterLabOpen(false);
-            setBruteLabOpen(false);
-            setMutdogLabOpen(false);
-            setFeralNurseLabOpen(true);
-          }}
+          onOpenSpitterLab={() => selectLab('spitter')}
+          onOpenBruteLab={() => selectLab('brute')}
+          onOpenMutdogLab={() => selectLab('mutdog')}
+          onOpenFeralNurseLab={() => selectLab('feral_nurse')}
           activeHeroId={activeHeroId}
           onSwitchHero={onSwitchHero}
           onReset={() => {
@@ -974,7 +802,7 @@ export function CombatDevLabsPanel({
             simRef.current?.actionSequencer.reset();
             setLastCameraTrigger('idle');
           }}
-          onClose={() => setCameraLabOpen(false)}
+          onClose={() => selectLab(null)}
         />
       )}
     </>

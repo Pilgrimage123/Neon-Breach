@@ -317,8 +317,8 @@ const MODE_DURATIONS: Record<HeroAnimMode, number> = {
   victory: 0.96,
 };
 
-const FRAME_BLEND_DURATION = 0.052;
-const DODGE_FRAME_BLEND_DURATION = 0.072;
+const FRAME_BLEND_DURATION = 0;
+const DODGE_FRAME_BLEND_DURATION = 0;
 
 export function triggerKiraAnimation(
   prev: HeroAnimState,

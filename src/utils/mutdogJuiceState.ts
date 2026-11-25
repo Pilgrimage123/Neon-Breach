@@ -99,6 +99,7 @@ export interface MutdogJuiceSample {
   pounceImpactTriggered: boolean;
   droolBurstTriggered: boolean;
   pawPlantTriggered: boolean;
+  alpha: number;
 }
 
 export interface MutdogCombatSyncInput {

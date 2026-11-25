@@ -98,7 +98,7 @@ export function createInitialHeroAnimState(): HeroAnimState {
     emittedKickImpact: false,
     lastFrameIndex: 0,
     prevFrameIndex: 0,
-    frameBlendElapsed: 0.052,
+    frameBlendElapsed: 0,
   };
 }
 

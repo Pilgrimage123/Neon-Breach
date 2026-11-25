@@ -215,7 +215,7 @@ The `14 HP` armored support Mutant (`2` Armor, `1` Aegis Pip) cycling `Bolster +
 _Avoid_: Aegis Skitter, Acid Skitter
 
 **Pyre Stinger**:
-The fragile `16 HP` ranged time-bomb Mutant charging across 2 Turns before firing a staggerable `Overwhelm 6 (×3)` Heavy blast.
+The fragile `16 HP` ranged time-bomb Mutant charging across 2 Turns before firing a staggerable `Overwhelm 7 (×2)` Heavy blast.
 _Avoid_: Stinger
 
 **Chitin Stalker**:
@@ -226,8 +226,20 @@ _Avoid_: Spine Stalker
 The `22 HP` backline disrupter Mutant cycling `Pause → Acid 5 (+2 Corrode) → Acid 6 (+2 Corrode, Caustic Slag)`.
 _Avoid_: Spitter
 
+**Rabid MutDog**:
+The `20 HP` feral rush Mutant cycling `Attack 5` → staggerable `Overwhelm 6 (×2)` Maul → `Pause`.
+_Avoid_: MutDog, Mutant Hound, Bio-Hound
+
+**Feral Nurse**:
+The `17 HP` crimson ambush Mutant cycling **Optical Cloak** → `Charge` (`Pierce 7` telegraph) → `Pierce 7`.
+_Avoid_: Corrupted Nurse, Cyber-Nurse
+
+**Optical Cloak**:
+Feral Nurse's Turn-1 stealth maneuver phasing her for 1 Turn so she takes only `10%` of incoming frontline damage while `90%` passes through to the Mutant behind her.
+_Avoid_: Invisibility, Stealth, Camouflage
+
 **Carapace Brute**:
-The `2`-slot `38 HP` heavyweight tank Mutant combining `8` starting Armor, `1` Aegis Pip, **Mutagen Vial Brace** (`Armor +6`), a staggerable **Seismic Carapace Crush** (`Overwhelm 6 (×2)` Heavy), and `Pause`.
+The `2`-slot `38 HP` heavyweight tank Mutant combining `6` starting Armor, `1` Aegis Pip, **Mutagen Vial Brace** (`Armor +6`), a staggerable **Seismic Carapace Crush** (`Overwhelm 6 (×2)` Heavy), and `Pause`.
 _Avoid_: Brute
 
 **Mutagen Vial Brace**:
@@ -239,7 +251,7 @@ Carapace Brute's staggerable `Overwhelm 6 (×2)` Heavy attack where it coils ove
 _Avoid_: Brute Smash, Seismic Slam, Heavy Crush
 
 **Xenomorph Matriarch**:
-The `110 HP` Stage 12 Apex Boss—**Dr. Lindqvist**'s prized bio-monstrosity—enforcing a **50% Phase Gate**, `Attack 13`, `Acid 8`, `Heavy 18`, Tile Hexes, and Bio-Husk corpse resurrection.
+The `104 HP` Stage 12 Apex Boss—**Dr. Lindqvist**'s prized bio-monstrosity—enforcing a **50% Phase Gate**, `Armor +8`, `Attack 12`, `Acid 8`, `Heavy 16`, Tile Hexes, and Bio-Husk corpse resurrection.
 _Avoid_: Hive Matriarch, Sector Hive Queen, Hive Boss, Brood Queen, Apex Sovereign
 
 **Dr. Lindqvist**:

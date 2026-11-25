@@ -9,6 +9,7 @@ npm install --no-package-lock   # Install dependencies locally (keeps bun.lock c
 npm run dev                     # Start Vite dev server on port 3000 (with DEV-only Combat Labs)
 npm run lint                    # TypeScript check (tsc --noEmit)
 npm test                        # Run all unit test suites via node:test + tsx
+npm run bake:sprites            # Bake raw assets-src/ sprites into src/assets/sprites/baked/
 npm run build                   # Production Vite build into dist/
 npm run preview                 # Preview production build
 ```
@@ -27,5 +28,4 @@ npm run preview                 # Preview production build
   - [Low Floor, High Ceiling Design](./docs/design/LOW_FLOOR_HIGH_CEILING_DESIGN.md)
   - [Cross-Platform Accessibility](./docs/design/CROSS_PLATFORM_ACCESSIBILITY.md)
   - [Spatial Minimalist UX](./docs/design/SPATIAL_MINIMALIST_UX.md)
-  - [Title Emblem Animation Architecture](./docs/design/LOGO_ANIMATION_ARCHITECTURE.md)
-  - [Enemy Animation & Combat Presentation Specs](./docs/design/ENEMY_ANIMATION_GUIDE.md)
+  - [Animation Architecture & Domain Playbooks](./docs/design/ANIMATION_ARCHITECTURE.md)

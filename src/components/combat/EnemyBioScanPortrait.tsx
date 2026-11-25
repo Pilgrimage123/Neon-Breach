@@ -4,8 +4,8 @@ import {
   loadEnemyPortrait,
 } from '../../assets/assetPreloader';
 import { GAME_ASSETS } from '../../assets/gameAssets';
+import { BAKED_ENEMY_PORTRAIT_BOUNDS } from '../../assets/sprites/baked/bakedBounds';
 import type { EnemyUnit } from '../../engine/types';
-import { measureSpriteBounds } from '../../utils/spriteCutout';
 
 export interface EnemyBioScanPortraitProps {
   archetype: EnemyUnit['archetype'];
@@ -80,7 +80,7 @@ export function EnemyBioScanPortrait({
     void loadEnemyPortrait(archetype)
       .then((cut) => {
         if (cancelled || !cut) return;
-        drawCutout(cut, measureSpriteBounds(cut));
+        drawCutout(cut, BAKED_ENEMY_PORTRAIT_BOUNDS[archetype]);
       })
       .catch(() => {});
 

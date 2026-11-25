@@ -2,9 +2,16 @@ import { DEFAULT_DIFFICULTY_TIER } from '../engine/difficulty';
 import { createInitialRun } from '../engine/gameEngine';
 import type { CharacterId, DifficultyTier, RunState } from '../engine/types';
 
-export type DevLabTabId = 'spitter' | 'brute' | 'mutdog' | 'feral_nurse' | 'camera';
+export type DevLabTabId =
+  | 'hero'
+  | 'spitter'
+  | 'brute'
+  | 'mutdog'
+  | 'feral_nurse'
+  | 'camera';
 
 const VALID_DEV_LAB_TABS = new Set<DevLabTabId>([
+  'hero',
   'spitter',
   'brute',
   'mutdog',

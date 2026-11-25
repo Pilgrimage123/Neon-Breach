@@ -21,6 +21,7 @@ import {
   type FrameTransitionResult,
   sampleDeathCollapseFrame,
 } from './spriteSheetAnim';
+import type { SpitterAnimMode } from './spitterSpriteSheet';
 
 export type SpitterJuiceTrigger =
   | 'idle'
@@ -79,10 +80,12 @@ export interface SpitterJuiceState
 }
 
 export interface SpitterJuiceSample {
+  mode: SpitterAnimMode;
   activeTrigger: SpitterJuiceTrigger;
   frameIndex: number;
   prevFrameIndex: number;
   frameBlendAlpha: number;
+  alpha: number;
   springScaleX: number;
   springScaleY: number;
   rotationRad: number;
@@ -217,7 +220,9 @@ export function triggerSpitterJuiceState(
 }
 
 interface SpitterEvalCtx {
+  mode: SpitterAnimMode;
   frameIndex: number;
+  alpha: number;
   targetPosX: number;
   hopYPx: number;
   rotationRad: number;
@@ -256,6 +261,7 @@ function applySpitterAttackBranch(
   }
 
   if (isClaw) {
+    ctx.mode = 'claw';
     if (u < 0.26) {
       const a = Math.sin((u / 0.26) * (Math.PI * 0.5));
       ctx.frameIndex = 8;
@@ -287,6 +293,7 @@ function applySpitterAttackBranch(
     return;
   }
 
+  ctx.mode = 'spit';
   if (u < 0.22) {
     const a = Math.sin((u / 0.22) * (Math.PI * 0.5));
     ctx.frameIndex = 4;
@@ -393,7 +400,9 @@ export function stepSpitterJuice(
   if (flipStep.completedFlip) applySpitterSquash(state, 1.09, 0.92);
 
   const ctx: SpitterEvalCtx = {
+    mode: 'idle',
     frameIndex: 0,
+    alpha: 1,
     targetPosX: 0,
     hopYPx: flipStep.hopYPx,
     rotationRad: 0,
@@ -420,9 +429,12 @@ export function stepSpitterJuice(
 
   if (isDead) {
     const death = sampleDeathCollapseFrame(combatSync?.koProgress ?? 0, 12, 4, 0.8);
+    ctx.mode = 'death';
     ctx.frameIndex = death.frameIndex;
+    ctx.alpha = death.alpha;
     ctx.pustuleGlowIntensity = Math.max(0, 0.55 * (1 - death.progress * 1.2));
   } else if (state.activeTrigger === 'advance_retreat') {
+    ctx.mode = 'idle';
     const u = state.triggerElapsed / Math.max(0.01, state.triggerDuration);
     ctx.targetPosX = -Math.sin(u * Math.PI) * 84;
     const isAdvancing = u < 0.5;
@@ -441,6 +453,7 @@ export function stepSpitterJuice(
   } else if (state.activeTrigger === 'attack_lunge' || hasCombatAttack) {
     applySpitterAttackBranch(ctx, state, safeDt, hasCombatAttack, combatSync, prevTriggerElapsed);
   } else if (state.activeTrigger === 'cast_charge' || combatSync?.blightPrimed || hasCombatRupture) {
+    ctx.mode = hasCombatRupture ? 'rupture' : 'blightCharge';
     const chargeProgress =
       state.activeTrigger === 'cast_charge'
         ? Math.min(1, state.triggerElapsed / Math.max(0.2, state.triggerDuration * 0.65))
@@ -469,6 +482,7 @@ export function stepSpitterJuice(
     }
     ctx.tintRgba = [0.95 + 0.05 * pulse, 1.0, 0.86 + 0.14 * pulse, 1.0];
   } else if (state.activeTrigger === 'take_hit' || hasCombatHurt) {
+    ctx.mode = 'pain';
     const u = hasCombatHurt
       ? Math.max(0, Math.min(0.999, 1 - combatSync!.staggerTimer! / combatSync!.staggerDuration!))
       : Math.max(0, Math.min(0.999, state.triggerElapsed / Math.max(0.01, state.triggerDuration)));
@@ -486,6 +500,7 @@ export function stepSpitterJuice(
     ctx.rotationRad = whip * 0.065;
     ctx.pustuleGlowIntensity = 0.85 * (1 - u * 0.4);
   } else if (combatSync?.pustuleHover || combatSync?.armoredGuard) {
+    ctx.mode = 'guard';
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 5.0 + idx);
     ctx.frameIndex = combatSync.pustuleHover ? 10 : 11;
     ctx.pustuleGlowIntensity = (combatSync.pustuleHover ? 0.86 : 0.58) + 0.14 * pulse;
@@ -531,10 +546,7 @@ export function stepSpitterJuice(
     config.maxSkewPx,
   );
 
-  const blendDur =
-    state.activeTrigger === 'attack_lunge' || hasCombatAttack || state.activeTrigger === 'take_hit'
-      ? 0.05
-      : 0.07;
+  const blendDur = 0;
   state.transition = computeFrameTransitionState(state.transition, ctx.frameIndex, safeDt, blendDur);
 
   let flashRgba: [number, number, number, number] | null = null;
@@ -550,10 +562,12 @@ export function stepSpitterJuice(
   }
 
   return {
+    mode: ctx.mode,
     activeTrigger: state.activeTrigger,
     frameIndex: ctx.frameIndex,
     prevFrameIndex: state.transition.prevFrameIndex,
     frameBlendAlpha: isDead ? 1 : state.transition.frameBlendAlpha,
+    alpha: ctx.alpha,
     springScaleX: state.springScaleX,
     springScaleY: state.springScaleY,
     rotationRad: ctx.rotationRad,

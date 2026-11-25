@@ -8,7 +8,6 @@ import {
   FERAL_NURSE_SHEET_HEIGHT,
   FERAL_NURSE_SHEET_OPTIONS,
   FERAL_NURSE_SHEET_WIDTH,
-  computeFeralNurseTransition,
   sampleFeralNurseFrame,
 } from './feralNurseSpriteSheet';
 
@@ -152,13 +151,4 @@ test('sampleFeralNurseFrame drives Optical Cloak, Prepare Coil, 8-beat 7-Pierce 
   assert.equal(koFinal.mode, 'death');
   assert.equal(koFinal.frameIndex, 31);
   assert.ok(koFinal.alpha < 0.35);
-
-  const trans = computeFeralNurseTransition(
-    { lastFrameIndex: 0, prevFrameIndex: 0, frameBlendElapsed: 1 },
-    12,
-    0.02,
-  );
-  assert.equal(trans.lastFrameIndex, 12);
-  assert.equal(trans.prevFrameIndex, 0);
-  assert.ok(trans.frameBlendAlpha > 0 && trans.frameBlendAlpha < 1);
 });

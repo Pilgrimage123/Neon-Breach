@@ -1,7 +1,7 @@
 import {
   cleanWhiteBackgroundData,
   type SpriteCutoutOptions,
-} from '../src/utils/spriteCutout';
+} from '../src/utils/spriteCutoutAlgorithms';
 
 export const TITLE_TARGET_WIDTH = 960;
 export const TITLE_TARGET_HEIGHT = 541;

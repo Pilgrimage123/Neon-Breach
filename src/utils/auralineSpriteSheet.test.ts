@@ -25,7 +25,7 @@ function readPngDimensions(relPath: string): { width: number; height: number } {
 test('all 40 Auraline sprite sheet frames lie cleanly inside sheet bounds without overlap and normalize to 214px height', () => {
   assert.equal(AURALINE_SHEET_FRAMES.length, 40);
 
-  const dims = readPngDimensions('src/assets/sprites/auraline_spritesheet.png');
+  const dims = readPngDimensions('src/assets/sprites/baked/auraline_spritesheet.png');
   assert.equal(dims.width, AURALINE_SHEET_WIDTH);
   assert.equal(dims.height, AURALINE_SHEET_HEIGHT);
   assert.equal(dims.width, 3545);
@@ -210,7 +210,7 @@ test('Auraline frame 39 (Row 0 Col 9) has dense opaque pixels and clean backgrou
   const f39 = AURALINE_SHEET_FRAMES[39];
   assert.equal(f39.id, 'aurelia_r0_f9');
 
-  const buf = fs.readFileSync(path.resolve(process.cwd(), 'src/assets/sprites/auraline_spritesheet.png'));
+  const buf = fs.readFileSync(path.resolve(process.cwd(), 'src/assets/sprites/baked/auraline_spritesheet.png'));
   let pos = 8, width = 0, height = 0, colorType = 0;
   const idatChunks: Buffer[] = [];
   while (pos < buf.length) {

@@ -24,6 +24,7 @@ import {
   type MeshGridTopology,
   type SpriteFrameUV,
   type SpriteRenderCommand,
+  type StageTextureSource,
   computeDeformedMeshVertices,
   createDefaultShaderUniforms,
   createIdentityControlPoints,
@@ -49,6 +50,7 @@ export type {
   MeshGridTopology,
   SpriteFrameUV,
   SpriteRenderCommand,
+  StageTextureSource,
 };
 
 export type RendererMode = 'webgl2' | 'canvas2d';
@@ -99,9 +101,9 @@ export interface IMeshSprite {
   readonly cols: number;
   readonly rows: number;
   setFrame(
-    primarySource: HTMLCanvasElement,
+    primarySource: StageTextureSource,
     primaryUv?: SpriteFrameUV,
-    secondarySource?: HTMLCanvasElement | null,
+    secondarySource?: StageTextureSource | null,
     secondaryUv?: SpriteFrameUV,
   ): void;
   setTransform(

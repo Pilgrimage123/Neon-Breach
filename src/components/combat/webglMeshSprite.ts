@@ -7,6 +7,7 @@ import {
   type MeshGridTopology,
   type SpriteFrameUV,
   type SpriteRenderCommand,
+  type StageTextureSource,
   computeDeformedMeshVertices,
   createDefaultShaderUniforms,
   createIdentityControlPoints,
@@ -60,9 +61,9 @@ export class MeshSprite implements IMeshSprite {
   }
 
   public setFrame(
-    primarySource: HTMLCanvasElement,
+    primarySource: StageTextureSource,
     primaryUv: SpriteFrameUV = FULL_FRAME_UV,
-    secondarySource: HTMLCanvasElement | null = null,
+    secondarySource: StageTextureSource | null = null,
     secondaryUv: SpriteFrameUV = FULL_FRAME_UV,
   ): void {
     this.command.primarySource = primarySource;

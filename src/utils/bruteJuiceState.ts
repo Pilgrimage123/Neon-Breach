@@ -102,6 +102,7 @@ export interface BruteJuiceSample {
   vialShatterTriggered: boolean;
   chitinShardTriggered: boolean;
   footPlantTriggered: boolean;
+  alpha: number;
 }
 
 export interface BruteCombatSyncInput {

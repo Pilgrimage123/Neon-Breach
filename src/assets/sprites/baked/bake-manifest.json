@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "targetDimensions": {
     "width": 960,
     "height": 541
@@ -101,5 +101,357 @@
     "sourceKeyframe": "k0",
     "output": "src/assets/sprites/baked/lockup_plane0.png",
     "outputSha256": "0364962c3915b77666bde5a3a0c35d14e2d2cfd588a88becbd777af6517b6b28"
+  },
+  "sheets": [
+    {
+      "id": "auraline",
+      "source": "assets-src/heroes/auraline_spritesheet.png",
+      "output": "src/assets/sprites/baked/auraline_spritesheet.png",
+      "width": 3545,
+      "height": 1703,
+      "sourceSha256": "d9eb5b6efec2a94d40f67dd0996321041a66bd7fdf6630ad72107c097616245f",
+      "outputSha256": "3d480ab67162465a6b4ef2e7bb783be68e3da47d308e5b6b3787c53d275e6562"
+    },
+    {
+      "id": "kiraCombat",
+      "source": "assets-src/heroes/kira_spritesheet.png",
+      "output": "src/assets/sprites/baked/kira_spritesheet.png",
+      "width": 2115,
+      "height": 1189,
+      "sourceSha256": "c08408948a934554aed0a7cf6bab760f0769bda3170d58f3b4d509868d3c5cf0",
+      "outputSha256": "7e4d132637961f3be6184e20a614c029ac278d2d08f4575f75ee4d895636618e"
+    },
+    {
+      "id": "kiraEmote",
+      "source": "assets-src/heroes/kira_emote_sheet.png",
+      "output": "src/assets/sprites/baked/kira_emote_sheet.png",
+      "width": 2095,
+      "height": 1007,
+      "sourceSha256": "29f295d91e1f1f281ead96fe87c2f8b69cfd8bec4dbda8e3cb8adcaec2638e27",
+      "outputSha256": "6238ce25df7ed4eab3656382393b7b4b07f3a2ae5b5f29c3f0939df0fa5fea49"
+    },
+    {
+      "id": "zuriCombat",
+      "source": "assets-src/heroes/zuri_spritesheet.png",
+      "output": "src/assets/sprites/baked/zuri_spritesheet.png",
+      "width": 2172,
+      "height": 724,
+      "sourceSha256": "241629e250078e10682e661095a2146fa60862d9b9afcf6ed62f475b2ea1f98f",
+      "outputSha256": "9ccc2675e7885b45856bdb84479ba39e87501b1159457d1edf93bc306cb46da2"
+    },
+    {
+      "id": "zuriEmote",
+      "source": "assets-src/heroes/zuri_emote_sheet.png",
+      "output": "src/assets/sprites/baked/zuri_emote_sheet.png",
+      "width": 2170,
+      "height": 725,
+      "sourceSha256": "e72e7df0347fe0f4ea4d43b71c5c0e5616c0f139ba9748441808afdb956827e8",
+      "outputSha256": "06529491617db04feb1bf2f34f0298944cb3f4ba174d479049836de0f16fa4f6"
+    },
+    {
+      "id": "zuriDrones",
+      "source": "assets-src/heroes/zuri_drones_sheet.png",
+      "output": "src/assets/sprites/baked/zuri_drones_sheet.png",
+      "width": 2172,
+      "height": 724,
+      "sourceSha256": "1e67a01094937aad6d319013b8ad2bab790f758d75dd27e5dea0552314d70ba5",
+      "outputSha256": "64d9b4c980aa676a7a5aebb7db93f9cb964579d3f95584b4682d6f34e14f1697"
+    },
+    {
+      "id": "nurse",
+      "source": "assets-src/clinic/nurse_spritesheet.png",
+      "output": "src/assets/sprites/baked/nurse_spritesheet.png",
+      "width": 2170,
+      "height": 725,
+      "sourceSha256": "d7235730d00507d7550fceb3f49cee7c3546218991ccbb8621675ad3add1a81b",
+      "outputSha256": "9fd6645b31585488031bfe4a951d273ea08eb2947bf5ab63db4af6c1b3d40863"
+    },
+    {
+      "id": "crawler",
+      "source": "assets-src/mutants/crawler_spritesheet.png",
+      "output": "src/assets/sprites/baked/crawler_spritesheet.png",
+      "width": 2172,
+      "height": 724,
+      "sourceSha256": "c3123f190131425d61e16298c476fdda55040bb7739e4dc54ec36c92488bc209",
+      "outputSha256": "77a8a0fdbb85a95f9592997150a83be477d98cc64fb5aeb30aabb2c5b5d6cdf6"
+    },
+    {
+      "id": "spitter",
+      "source": "assets-src/mutants/spitter_spritesheet.jpg",
+      "output": "src/assets/sprites/baked/spitter_spritesheet.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "e3b57fccdb6c5e48e49bd9e425149f8049667dcb20d1bca33747c1096cbe78df",
+      "outputSha256": "70d807e4505b7620484741cb2c1d636c6fae4a35434a1489b221acd1f4de7ada"
+    },
+    {
+      "id": "mutdog",
+      "source": "assets-src/mutants/mutdog_spritesheet.jpg",
+      "output": "src/assets/sprites/baked/mutdog_spritesheet.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "0ea5d19f309916a58ec15a21c96fcd3745480934f46ee794ea2b628bfc9991d3",
+      "outputSha256": "a40d8974bdeff532d86f300f333a07547120bad5912b7e97193b5845ea359a38"
+    },
+    {
+      "id": "feralNurseA",
+      "source": "assets-src/mutants/feral_nurse_sheet_a.png",
+      "output": "src/assets/sprites/baked/feral_nurse_sheet_a.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "4fef04c98248bfd50ec44c1cbfd6b9500800f153b9a3d5015b340516f854627a",
+      "outputSha256": "9ff7ddc86dddc286d84e4aa0c625d014645c71e74a8d73695bcf680f901ca8b3"
+    },
+    {
+      "id": "feralNurseB",
+      "source": "assets-src/mutants/feral_nurse_sheet_b.png",
+      "output": "src/assets/sprites/baked/feral_nurse_sheet_b.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "393cc3ba5bd7202aedf3cd92bbc765f06c356745038ac2e66aaaeb32f0de873c",
+      "outputSha256": "7b38cbbc70520b62af42b3435a85f2c917dd5e05d81d3a69c75e06028d950cc7"
+    },
+    {
+      "id": "brute",
+      "source": "assets-src/mutants/brute_spritesheet.jpg",
+      "output": "src/assets/sprites/baked/brute_spritesheet.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "2587db31c92d606cda5c09388329bf4f0592769d93aa4b45fdfcecd923acf735",
+      "outputSha256": "d522088a01bffddc84182ae50f908a78d29f2a6256f39f7d20b3dde94f76bac4"
+    }
+  ],
+  "singles": [
+    {
+      "id": "kiraDodge0",
+      "source": "assets-src/heroes/kira_dodge_0_vault.png",
+      "output": "src/assets/sprites/baked/kira_dodge_0_vault.png",
+      "width": 193,
+      "height": 256,
+      "sourceSha256": "3755dc490547d42d80a5ee6875bc379a08094969b854c2a8571aa74c81225239",
+      "outputSha256": "a3dfc735777cd8d31f876bd923eacb29ea5f1165774b3f56489fca9b511b9e29"
+    },
+    {
+      "id": "kiraDodge1",
+      "source": "assets-src/heroes/kira_dodge_1_slide.png",
+      "output": "src/assets/sprites/baked/kira_dodge_1_slide.png",
+      "width": 215,
+      "height": 264,
+      "sourceSha256": "e87910b8fdbaced052f1ae813726014d1d8d38b1ff508d1a593b1d11e67c207e",
+      "outputSha256": "2594569845f7843994969d5b385f11a3aee63f48fbd06a526717bccc24fd2ad4"
+    },
+    {
+      "id": "kiraDodge2",
+      "source": "assets-src/heroes/kira_dodge_2_spin.png",
+      "output": "src/assets/sprites/baked/kira_dodge_2_spin.png",
+      "width": 210,
+      "height": 264,
+      "sourceSha256": "9c0480009a06de8a19789e01f8f96b2b09327d3a046cf6c42137321dc691614d",
+      "outputSha256": "83a0e68a873aae3c3c1148959d8fa14e7dd702688601e09e81bb1fd4200ce7a1"
+    },
+    {
+      "id": "kiraDodge3",
+      "source": "assets-src/heroes/kira_dodge_3_land.png",
+      "output": "src/assets/sprites/baked/kira_dodge_3_land.png",
+      "width": 192,
+      "height": 248,
+      "sourceSha256": "7cccae623e03d667b542113c5f06e9c97b5636517dbe970984bdffffa3234088",
+      "outputSha256": "fbe9534947c4f843b4852a9cf2b0b1d6841a28d6a69d6bf13ada934963e0c173"
+    },
+    {
+      "id": "stalkerOpen",
+      "source": "assets-src/mutants/stalker_open.png",
+      "output": "src/assets/sprites/baked/stalker_open.png",
+      "width": 512,
+      "height": 512,
+      "sourceSha256": "81429f4a84a8d3b5ebbd99f03240c022ad4b83958e9d8d28f8074dea50ede3e4",
+      "outputSha256": "81429f4a84a8d3b5ebbd99f03240c022ad4b83958e9d8d28f8074dea50ede3e4"
+    },
+    {
+      "id": "stalkerBlink",
+      "source": "assets-src/mutants/stalker_blink.png",
+      "output": "src/assets/sprites/baked/stalker_blink.png",
+      "width": 512,
+      "height": 512,
+      "sourceSha256": "d34dd5d376d5f65ba8754564cdb6322f8a1ccdaa2545b210ff65335f2cf8cd9f",
+      "outputSha256": "d34dd5d376d5f65ba8754564cdb6322f8a1ccdaa2545b210ff65335f2cf8cd9f"
+    },
+    {
+      "id": "spitterPortrait",
+      "source": "assets-src/portraits/spitter_portrait.jpg",
+      "output": "src/assets/sprites/baked/spitter_portrait.png",
+      "width": 512,
+      "height": 512,
+      "sourceSha256": "0e9340dc6e6599b80daa6e801a796a96b40a2c38b69b06195939e2b42684dba4",
+      "outputSha256": "7da91b2edfeda59b5f49aa9183b5eb6bf4873aeea45c2f55a9da0535b9e83baa"
+    },
+    {
+      "id": "mutdogPortrait",
+      "source": "assets-src/portraits/mutdog_portrait.png",
+      "output": "src/assets/sprites/baked/mutdog_portrait.png",
+      "width": 512,
+      "height": 512,
+      "sourceSha256": "4e556d8e94600224c0dadd976a5e2073eb37e132f39458c2fb3a4ed35d604413",
+      "outputSha256": "052b24946e5b982aaa853d3cec46613476c6841922ffcb081b540745420f3ff9"
+    },
+    {
+      "id": "feralNursePortrait",
+      "source": "assets-src/portraits/feral_nurse_portrait.png",
+      "output": "src/assets/sprites/baked/feral_nurse_portrait.png",
+      "width": 494,
+      "height": 512,
+      "sourceSha256": "7979309f18eed4146e877001f4cc116b96dd602e288fa08435d0558ed90e1c16",
+      "outputSha256": "e30f21287d6b3ff7973c2c2dd1dbaa8829ec28da65f5d4444a0ec9811b954075"
+    },
+    {
+      "id": "brutePortrait",
+      "source": "assets-src/portraits/brute_portrait.jpg",
+      "output": "src/assets/sprites/baked/brute_portrait.png",
+      "width": 512,
+      "height": 512,
+      "sourceSha256": "ea50fa77d063264000e3b0bc967167b9270f57832a85b7dd30038cb35156f607",
+      "outputSha256": "b0dd308201519940ec8fd825b3b1b23637a7798f6976fac6aaa1670a4173ebd8"
+    },
+    {
+      "id": "bossPortrait",
+      "source": "assets-src/portraits/boss_portrait.jpg",
+      "output": "src/assets/sprites/baked/boss_portrait.png",
+      "width": 512,
+      "height": 512,
+      "sourceSha256": "8963b5d41805943c8dae627dd32310d14d1ad93272f9ea057be310026f71c639",
+      "outputSha256": "821b71843874e36c48d6ad100121f34c56481b3db82a684dbb9c37a8c2b0b9ec"
+    }
+  ],
+  "bounds": {
+    "enemyCutouts": {
+      "larva": {
+        "topRatio": 0.16022099447513813,
+        "bottomRatio": 0.9779005524861878,
+        "leftRatio": 0.053691275167785234,
+        "rightRatio": 1,
+        "centerXRatio": 0.5234899328859061
+      },
+      "skitter": {
+        "topRatio": 0.14673913043478262,
+        "bottomRatio": 0.9728260869565217,
+        "leftRatio": 0.053691275167785234,
+        "rightRatio": 1,
+        "centerXRatio": 0.5234899328859061
+      },
+      "stinger": {
+        "topRatio": 0.15591397849462366,
+        "bottomRatio": 0.9838709677419355,
+        "leftRatio": 0.053691275167785234,
+        "rightRatio": 1,
+        "centerXRatio": 0.5234899328859061
+      },
+      "stalker": {
+        "topRatio": 0.10546875,
+        "bottomRatio": 0.931640625,
+        "leftRatio": 0.001953125,
+        "rightRatio": 0.9921875,
+        "centerXRatio": 0.49609375
+      },
+      "spitter": {
+        "topRatio": 0.0040650406504065045,
+        "bottomRatio": 1,
+        "leftRatio": 0,
+        "rightRatio": 1,
+        "centerXRatio": 0.49714285714285716
+      },
+      "mutdog": {
+        "topRatio": 0.01764705882352941,
+        "bottomRatio": 0.9882352941176471,
+        "leftRatio": 0.008,
+        "rightRatio": 1,
+        "centerXRatio": 0.502
+      },
+      "feral_nurse": {
+        "topRatio": 0.004739336492890996,
+        "bottomRatio": 0.995260663507109,
+        "leftRatio": 0.004975124378109453,
+        "rightRatio": 0.9950248756218906,
+        "centerXRatio": 0.4975124378109453
+      },
+      "brute": {
+        "topRatio": 0.0044444444444444444,
+        "bottomRatio": 0.9955555555555555,
+        "leftRatio": 0.003952569169960474,
+        "rightRatio": 0.9960474308300395,
+        "centerXRatio": 0.4980237154150198
+      },
+      "boss": {
+        "topRatio": 0.0234375,
+        "bottomRatio": 0.98828125,
+        "leftRatio": 0.083984375,
+        "rightRatio": 0.943359375,
+        "centerXRatio": 0.5126953125
+      }
+    },
+    "enemyPortraits": {
+      "larva": {
+        "topRatio": 0.16022099447513813,
+        "bottomRatio": 0.9779005524861878,
+        "leftRatio": 0.053691275167785234,
+        "rightRatio": 1,
+        "centerXRatio": 0.5234899328859061
+      },
+      "skitter": {
+        "topRatio": 0.14673913043478262,
+        "bottomRatio": 0.9728260869565217,
+        "leftRatio": 0.053691275167785234,
+        "rightRatio": 1,
+        "centerXRatio": 0.5234899328859061
+      },
+      "stinger": {
+        "topRatio": 0.15591397849462366,
+        "bottomRatio": 0.9838709677419355,
+        "leftRatio": 0.053691275167785234,
+        "rightRatio": 1,
+        "centerXRatio": 0.5234899328859061
+      },
+      "stalker": {
+        "topRatio": 0.10546875,
+        "bottomRatio": 0.931640625,
+        "leftRatio": 0.001953125,
+        "rightRatio": 0.9921875,
+        "centerXRatio": 0.49609375
+      },
+      "spitter": {
+        "topRatio": 0.03125,
+        "bottomRatio": 0.978515625,
+        "leftRatio": 0.0390625,
+        "rightRatio": 0.955078125,
+        "centerXRatio": 0.49609375
+      },
+      "mutdog": {
+        "topRatio": 0.20703125,
+        "bottomRatio": 0.791015625,
+        "leftRatio": 0.021484375,
+        "rightRatio": 0.986328125,
+        "centerXRatio": 0.5029296875
+      },
+      "feral_nurse": {
+        "topRatio": 0,
+        "bottomRatio": 0.98046875,
+        "leftRatio": 0.006072874493927126,
+        "rightRatio": 0.9959514170040485,
+        "centerXRatio": 0.5
+      },
+      "brute": {
+        "topRatio": 0,
+        "bottomRatio": 1,
+        "leftRatio": 0,
+        "rightRatio": 1,
+        "centerXRatio": 0.4990234375
+      },
+      "boss": {
+        "topRatio": 0.0234375,
+        "bottomRatio": 0.98828125,
+        "leftRatio": 0.083984375,
+        "rightRatio": 0.943359375,
+        "centerXRatio": 0.5126953125
+      }
+    }
   }
 }

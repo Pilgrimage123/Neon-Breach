@@ -11,3 +11,7 @@ export {
 } from './spriteCutoutBounds';
 export { cleanWhiteBackgroundData } from './spriteCutoutWhitePass';
 export { cleanDarkBackgroundData } from './spriteCutoutDarkPass';
+export {
+  type ChromaGreenOptions,
+  cleanChromaGreenData,
+} from './spriteCutoutChromaPass';

@@ -1,10 +1,5 @@
-import type { CutInPoseOverride } from '../components/combat/SpriteJuiceFeedbackHandler';
 import type { SpriteRect } from './spriteCutout';
-import {
-  type FrameTransitionInput,
-  type FrameTransitionResult,
-  computeFrameTransitionState,
-} from './spriteSheetAnim';
+import type { FrameTransitionResult } from './spriteSheetAnim';
 
 /**
  * Resized 512x512 native left-facing Chitin Stalker frames:
@@ -198,7 +193,7 @@ export interface StalkerFrameSample {
   prevFrameIndex: number;
   prevFrame: StalkerSpriteFrame;
   frameBlendAlpha: number;
-  transitionState: FrameTransitionResult;
+  transitionState?: FrameTransitionResult;
   /** Full eyelid shut accent [0..1] during blink apex or hit wince */
   blinkClosure: number;
   /** Additional local horizontal dash/lunge ratio relative to size (negative = left toward hero) */
@@ -288,144 +283,4 @@ export function computeStalkerBlinkState(
   }
 
   return { frameIndex: 0, blinkClosure: 0, isBlinking: false };
-}
-
-export function sampleStalkerFrame(
-  anim: StalkerAnimInput | undefined,
-  elapsed: number,
-  instanceIndex = 0,
-  prevTransition?: FrameTransitionInput,
-  dt = 0.016,
-  poseOverride: CutInPoseOverride = 'none',
-): StalkerFrameSample {
-  let mode: StalkerAnimMode = 'idle';
-  let modeProgress = 0;
-  let xOffsetRatio = 0;
-  let yHopPx = 0;
-  let alpha = 1;
-  let spineGlowIntensity = 0.24 + 0.1 * Math.sin(elapsed * 3.1 + instanceIndex);
-  let breathScaleX = 1;
-  let breathScaleY = 1;
-  let tiltRad = 0;
-  let clawSlashProgress = 0;
-
-  if (anim?.dead) {
-    mode = 'death';
-    modeProgress = Math.max(0, Math.min(1, anim.koProgress));
-    alpha = modeProgress < 0.72 ? 1 : Math.max(0, 1 - (modeProgress - 0.72) / 0.28);
-    spineGlowIntensity = Math.max(0, 0.52 * (1 - modeProgress * 1.2));
-  } else if (poseOverride !== 'none') {
-    if (poseOverride === 'attack_pose') {
-      mode = 'attack';
-      modeProgress = 0.62;
-      spineGlowIntensity = 0.92;
-      tiltRad = -0.065;
-      clawSlashProgress = 0.65;
-    } else if (poseOverride === 'brace_pose') {
-      mode = 'guard';
-      spineGlowIntensity = 0.72;
-    } else {
-      mode = 'pain';
-      modeProgress = 0.22;
-      spineGlowIntensity = 0.68;
-      tiltRad = 0.055;
-    }
-  } else if (anim && anim.staggerTimer > 0 && anim.staggerDuration > 0) {
-    mode = 'pain';
-    modeProgress = Math.max(0, Math.min(0.999, 1 - anim.staggerTimer / anim.staggerDuration));
-    spineGlowIntensity = 0.65 * (1 - modeProgress * 0.4);
-    tiltRad = 0.048 * Math.sin(modeProgress * Math.PI);
-  } else if (anim && (anim.bristleTimer ?? 0) > 0 && (anim.bristleDuration ?? 0) > 0) {
-    mode = 'bristle';
-    const dur = anim.bristleDuration ?? 0.5;
-    modeProgress = Math.max(0, Math.min(0.999, 1 - (anim.bristleTimer ?? 0) / dur));
-    const swell = Math.sin(modeProgress * Math.PI);
-    xOffsetRatio = -0.02 * swell;
-    yHopPx = -10 * swell;
-    spineGlowIntensity = anim.bristleKind === 'retaliate' ? 1.0 : 0.88;
-    breathScaleX = 1 + swell * 0.055;
-    breathScaleY = 1 + swell * 0.062;
-  } else if (anim && anim.attackAnimTimer > 0 && anim.attackAnimDuration > 0) {
-    mode = 'attack';
-    modeProgress = Math.max(0, Math.min(0.999, 1 - anim.attackAnimTimer / anim.attackAnimDuration));
-    if (modeProgress < 0.24) {
-      const k = modeProgress / 0.24;
-      xOffsetRatio = 0.06 * k;
-      yHopPx = 0;
-      tiltRad = 0.05 * k;
-    } else if (modeProgress < 0.54) {
-      const k = (modeProgress - 0.24) / 0.30;
-      xOffsetRatio = 0.06 - 0.36 * k;
-      yHopPx = -28 * Math.sin(k * Math.PI);
-      tiltRad = -0.075 * k;
-      clawSlashProgress = k * 0.55;
-    } else if (modeProgress < 0.78) {
-      const k = (modeProgress - 0.54) / 0.24;
-      xOffsetRatio = -0.30 - 0.04 * (1 - k);
-      yHopPx = -6 * (1 - k);
-      tiltRad = -0.075 * (1 - k * 0.45);
-      clawSlashProgress = 0.55 + k * 0.45;
-    } else {
-      const k = (modeProgress - 0.78) / 0.22;
-      xOffsetRatio = -0.30 * (1 - k);
-      yHopPx = 0;
-      tiltRad = -0.04 * (1 - k);
-    }
-    spineGlowIntensity = modeProgress > 0.18 && modeProgress < 0.82 ? 0.9 : 0.45;
-  } else if (anim?.ambushPrimed) {
-    mode = 'ambush';
-    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 6.5 + instanceIndex);
-    spineGlowIntensity = 0.68 + 0.3 * pulse;
-    breathScaleX = 1.03 + pulse * 0.024;
-    breathScaleY = 0.96 - pulse * 0.018;
-    tiltRad = -0.032;
-  } else if (anim?.retaliateHover) {
-    mode = 'guard';
-    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 8.5 + instanceIndex);
-    spineGlowIntensity = 0.86 + 0.14 * pulse;
-    breathScaleX = 1 + pulse * 0.035;
-    breathScaleY = 1 + pulse * 0.028;
-  } else if (anim?.armoredGuard) {
-    mode = 'guard';
-    const pulse = 0.5 + 0.5 * Math.sin(elapsed * 4.8 + instanceIndex);
-    spineGlowIntensity = 0.62 + 0.25 * pulse;
-    breathScaleX = 1 + pulse * 0.02;
-    breathScaleY = 1 + pulse * 0.014;
-  } else {
-    mode = 'idle';
-    const breath = Math.sin(elapsed * 2.8 + instanceIndex * 1.5);
-    breathScaleY = 1 + breath * 0.022;
-    breathScaleX = 1 - breath * 0.012;
-  }
-
-  const blink = computeStalkerBlinkState(elapsed, instanceIndex, mode, modeProgress);
-  const frameIndex = blink.frameIndex;
-
-  // Fast crisp blink cross-dissolve so eye-shut snaps organically without blurry ghosting
-  const blendDur = blink.isBlinking ? 0.042 : mode === 'attack' || mode === 'bristle' ? 0.055 : 0.075;
-  const transitionState = computeFrameTransitionState(
-    prevTransition ?? {},
-    frameIndex,
-    dt,
-    blendDur,
-  );
-
-  return {
-    mode,
-    frameIndex,
-    frame: STALKER_SHEET_FRAMES[frameIndex],
-    prevFrameIndex: transitionState.prevFrameIndex,
-    prevFrame: STALKER_SHEET_FRAMES[transitionState.prevFrameIndex] ?? STALKER_SHEET_FRAMES[frameIndex],
-    frameBlendAlpha: mode === 'death' || poseOverride !== 'none' ? 1 : transitionState.frameBlendAlpha,
-    transitionState,
-    blinkClosure: blink.blinkClosure,
-    xOffsetRatio,
-    yHopPx,
-    breathScaleX,
-    breathScaleY,
-    tiltRad,
-    spineGlowIntensity,
-    clawSlashProgress,
-    alpha,
-  };
 }

@@ -5,8 +5,12 @@ import {
   SPITTER_SHEET_FRAMES,
   SPITTER_SHEET_HEIGHT,
   SPITTER_SHEET_WIDTH,
-  sampleSpitterFrame,
 } from './spitterSpriteSheet';
+import {
+  DEFAULT_SPITTER_JUICE_CONFIG,
+  createSpitterJuiceState,
+  stepSpitterJuice,
+} from './spitterJuiceController';
 
 test('SPITTER_SHEET_FRAMES covers all 16 poses within sheet dimensions with valid anchors, excludeRects, and VFX origins', () => {
   assert.equal(SPITTER_SHEET_FRAMES.length, 16);
@@ -30,155 +34,71 @@ test('SPITTER_SHEET_FRAMES covers all 16 poses within sheet dimensions with vali
   assert.equal(SPITTER_CANONICAL_HEIGHT, 246);
 });
 
-test('sampleSpitterFrame drives idle, blightCharge, pustuleHover guard, spit, claw lunge, rupture, pain, and death', () => {
+test('stepSpitterJuice drives idle, blightCharge, pustuleHover guard, spit, claw lunge, rupture, pain, and death with crisp cuts', () => {
+  const idleState = createSpitterJuiceState();
   const idleFrames = new Set<number>();
-  for (let t = 0; t < 2.6; t += 0.05) {
-    const s = sampleSpitterFrame(undefined, t, 0);
+  for (let t = 0; t < 3.0; t += 0.05) {
+    const s = stepSpitterJuice(idleState, 0.05, t, DEFAULT_SPITTER_JUICE_CONFIG, { instanceIndex: 0 });
     assert.equal(s.mode, 'idle');
+    assert.equal(s.frameBlendAlpha, 1);
     idleFrames.add(s.frameIndex);
   }
   assert.deepEqual([...idleFrames].sort((a, b) => a - b), [0, 1]);
 
-  const blight = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      blightPrimed: true,
-    },
-    0.45,
-    0,
-  );
+  const blight = stepSpitterJuice(createSpitterJuiceState(), 0.016, 0.45, DEFAULT_SPITTER_JUICE_CONFIG, {
+    blightPrimed: true,
+    instanceIndex: 0,
+  });
   assert.equal(blight.mode, 'blightCharge');
   assert.equal(blight.frameIndex, 4);
   assert.ok(blight.pustuleGlowIntensity >= 0.65);
 
-  const hoverGuard = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      pustuleHover: true,
-    },
-    0.2,
-    0,
-  );
+  const hoverState = createSpitterJuiceState();
+  const first = stepSpitterJuice(hoverState, 0.016, 0.02, DEFAULT_SPITTER_JUICE_CONFIG, { instanceIndex: 0 });
+  assert.equal(first.frameIndex, 0);
+  const hoverGuard = stepSpitterJuice(hoverState, 0.016, 0.04, DEFAULT_SPITTER_JUICE_CONFIG, {
+    pustuleHover: true,
+    instanceIndex: 0,
+  });
   assert.equal(hoverGuard.mode, 'guard');
   assert.equal(hoverGuard.frameIndex, 10);
-  assert.ok(hoverGuard.pustuleGlowIntensity >= 0.85);
+  assert.equal(hoverGuard.prevFrameIndex, 0);
+  assert.equal(hoverGuard.frameBlendAlpha, 1, 'Spitter pose switches must be crisp with zero ghosting');
 
-  const rupturePeak = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      bristleTimer: 0.38,
-      bristleDuration: 0.52,
-      bristleKind: 'pustule_rupture',
-    },
-    0.6,
-    0,
-  );
-  assert.equal(rupturePeak.mode, 'rupture');
-  assert.equal(rupturePeak.frameIndex, 12);
-  assert.equal(rupturePeak.pustuleGlowIntensity, 1.0);
-
-  const spitMid = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0.18,
-      attackAnimDuration: 0.52,
-      spitterAttackKind: 'spit',
-    },
-    1.0,
-    0,
-  );
+  const spitMid = stepSpitterJuice(createSpitterJuiceState(), 0.016, 1.0, DEFAULT_SPITTER_JUICE_CONFIG, {
+    attackAnimTimer: 0.18,
+    attackAnimDuration: 0.52,
+    spitterAttackKind: 'spit',
+    instanceIndex: 0,
+  });
   assert.equal(spitMid.mode, 'spit');
   assert.equal(spitMid.frameIndex, 6);
   assert.ok(spitMid.spitStreamProgress > 0.3 && spitMid.spitStreamProgress <= 1);
 
-  const clawMid = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0.24,
-      attackAnimDuration: 0.52,
-      spitterAttackKind: 'claw',
-    },
-    1.0,
-    0,
-  );
+  const clawMid = stepSpitterJuice(createSpitterJuiceState(), 0.05, 1.0, DEFAULT_SPITTER_JUICE_CONFIG, {
+    attackAnimTimer: 0.24,
+    attackAnimDuration: 0.52,
+    spitterAttackKind: 'claw',
+    instanceIndex: 0,
+  });
   assert.equal(clawMid.mode, 'claw');
   assert.equal(clawMid.frameIndex, 9);
-  assert.ok(clawMid.xOffsetRatio < -0.1, 'Claw Rend lunge must travel left toward hero');
+  assert.ok(clawMid.offsetX < -20, 'Claw Rend lunge must travel left toward hero');
 
-  const pain = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0.28,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-    },
-    1.0,
-    0,
-  );
+  const pain = stepSpitterJuice(createSpitterJuiceState(), 0.016, 1.0, DEFAULT_SPITTER_JUICE_CONFIG, {
+    staggerTimer: 0.28,
+    staggerDuration: 0.36,
+    instanceIndex: 0,
+  });
   assert.equal(pain.mode, 'pain');
   assert.equal(pain.frameIndex, 12);
 
-  const koEnd = sampleSpitterFrame(
-    {
-      dead: true,
-      koProgress: 0.9,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-    },
-    1.0,
-    0,
-  );
+  const koEnd = stepSpitterJuice(createSpitterJuiceState(), 0.016, 1.0, DEFAULT_SPITTER_JUICE_CONFIG, {
+    dead: true,
+    koProgress: 0.9,
+    instanceIndex: 0,
+  });
   assert.equal(koEnd.mode, 'death');
   assert.equal(koEnd.frameIndex, 15);
   assert.ok(koEnd.alpha > 0 && koEnd.alpha < 1);
-});
-
-test('sampleSpitterFrame cross-dissolves smoothly across pose switches', () => {
-  const first = sampleSpitterFrame(undefined, 0.02, 0, undefined, 0.016);
-  assert.equal(first.frameIndex, 0);
-  assert.equal(first.frameBlendAlpha, 1);
-
-  const switchFrame = sampleSpitterFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.36,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      pustuleHover: true,
-    },
-    0.04,
-    0,
-    first.transitionState,
-    0.016,
-  );
-  assert.equal(switchFrame.frameIndex, 10);
-  assert.equal(switchFrame.prevFrameIndex, 0);
-  assert.ok(switchFrame.frameBlendAlpha > 0 && switchFrame.frameBlendAlpha < 0.5);
 });

@@ -4,8 +4,12 @@ import {
   BRUTE_SHEET_FRAMES,
   BRUTE_SHEET_HEIGHT,
   BRUTE_SHEET_WIDTH,
-  sampleBruteFrame,
 } from './bruteSpriteSheet';
+import {
+  DEFAULT_BRUTE_JUICE_CONFIG,
+  createBruteJuiceState,
+  stepBruteJuice,
+} from './bruteJuiceController';
 
 test('BRUTE_SHEET_FRAMES contains 16 valid non-overlapping frames within 1024x1024 bounds', () => {
   assert.equal(BRUTE_SHEET_FRAMES.length, 16);
@@ -19,82 +23,54 @@ test('BRUTE_SHEET_FRAMES contains 16 valid non-overlapping frames within 1024x10
   }
 });
 
-test('sampleBruteFrame covers idle ping-pong, Mutagen Brace, Seismic Heavy Smash, Maw Claw, Stagger, and Collapse cleanly', () => {
-  const idleSample = sampleBruteFrame(undefined, 0.35, 0);
+test('stepBruteJuice covers idle, Mutagen Brace, Seismic Heavy Smash, Maw Claw, Stagger, and Collapse with crisp cuts', () => {
+  const idleSample = stepBruteJuice(createBruteJuiceState(), 0.016, 0.35, DEFAULT_BRUTE_JUICE_CONFIG, {
+    instanceIndex: 0,
+  });
   assert.equal(idleSample.mode, 'idle');
   assert.ok([0, 1, 2, 3].includes(idleSample.frameIndex));
+  assert.equal(idleSample.frameBlendAlpha, 1);
 
-  const braceSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      bristleTimer: 0.42,
-      bristleDuration: 0.72,
-      bristleKind: 'armor',
-    },
-    1.2,
-    0,
-  );
+  const braceSample = stepBruteJuice(createBruteJuiceState(), 0.016, 1.2, DEFAULT_BRUTE_JUICE_CONFIG, {
+    bristleTimer: 0.42,
+    bristleDuration: 0.72,
+    instanceIndex: 0,
+  });
   assert.equal(braceSample.mode, 'brace');
   assert.equal(braceSample.frameIndex, 5);
   assert.equal(braceSample.vialGlowIntensity, 1.0);
+  assert.equal(braceSample.frameBlendAlpha, 1);
 
-  const airSmashSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0.46,
-      attackAnimDuration: 0.74,
-      bruteAttackKind: 'heavy',
-    },
-    2.0,
-    0,
-  );
+  const airSmashSample = stepBruteJuice(createBruteJuiceState(), 0.016, 2.0, DEFAULT_BRUTE_JUICE_CONFIG, {
+    attackAnimTimer: 0.46,
+    attackAnimDuration: 0.74,
+    bruteAttackKind: 'heavy',
+    instanceIndex: 0,
+  });
   assert.equal(airSmashSample.mode, 'heavySmash');
   assert.equal(airSmashSample.frameIndex, 9);
-  assert.ok(airSmashSample.yHopPx < -8, 'Airborne smash should leap upward before impact');
+  assert.ok(airSmashSample.hopYPx < -8, 'Airborne smash should leap upward before impact');
 
-  const groundImpactSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0.25,
-      attackAnimDuration: 0.74,
-      bruteAttackKind: 'heavy',
-    },
-    2.2,
-    0,
-  );
+  const groundImpactSample = stepBruteJuice(createBruteJuiceState(), 0.016, 2.2, DEFAULT_BRUTE_JUICE_CONFIG, {
+    attackAnimTimer: 0.25,
+    attackAnimDuration: 0.74,
+    bruteAttackKind: 'heavy',
+    instanceIndex: 0,
+  });
   assert.equal(groundImpactSample.mode, 'heavySmash');
   assert.equal(groundImpactSample.frameIndex, 10);
   assert.ok(groundImpactSample.shockwaveIntensity > 0.2);
 
-  const clawMawSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0.30,
-      attackAnimDuration: 0.58,
-      bruteAttackKind: 'attack',
-    },
-    3.0,
-    0,
-  );
+  const clawMawSample = stepBruteJuice(createBruteJuiceState(), 0.016, 3.0, DEFAULT_BRUTE_JUICE_CONFIG, {
+    attackAnimTimer: 0.30,
+    attackAnimDuration: 0.58,
+    bruteAttackKind: 'attack',
+    instanceIndex: 0,
+  });
   assert.equal(clawMawSample.mode, 'clawMaw');
   assert.equal(clawMawSample.frameIndex, 11);
   assert.ok(clawMawSample.clawSlashProgress > 0.2, 'Maw/Claw lunge should emit clawSlashProgress');
 
-  // Frame 10 must strip baked-in side & floor splinters via excludeRects
   const smashImpactFrame = BRUTE_SHEET_FRAMES[10];
   assert.equal(smashImpactFrame.id, 'brute_smash_impact_10');
   assert.ok(
@@ -102,83 +78,39 @@ test('sampleBruteFrame covers idle ping-pong, Mutagen Brace, Seismic Heavy Smash
     'Frame 10 must exclude baked floor/side impact splinters',
   );
 
-  // Distinct 3-turn intent postures (armorPrimed, heavyPrimed, pauseRecover) and guardHover
-  const armorPrimedSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      armorPrimed: true,
-    },
-    0.4,
-    0,
-  );
+  const armorPrimedSample = stepBruteJuice(createBruteJuiceState(), 0.016, 0.4, DEFAULT_BRUTE_JUICE_CONFIG, {
+    armorPrimed: true,
+    instanceIndex: 0,
+  });
   assert.equal(armorPrimedSample.mode, 'armorPrimed');
   assert.ok([4, 7].includes(armorPrimedSample.frameIndex));
 
-  const heavyPrimedSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      heavyPrimed: true,
-    },
-    0.2,
-    0,
-  );
+  const heavyPrimedSample = stepBruteJuice(createBruteJuiceState(), 0.016, 0.2, DEFAULT_BRUTE_JUICE_CONFIG, {
+    heavyPrimed: true,
+    instanceIndex: 0,
+  });
   assert.equal(heavyPrimedSample.mode, 'heavyPrimed');
   assert.ok([6, 8].includes(heavyPrimedSample.frameIndex));
 
-  const pauseRecoverSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      pauseRecover: true,
-    },
-    0.5,
-    0,
-  );
+  const pauseRecoverSample = stepBruteJuice(createBruteJuiceState(), 0.016, 0.5, DEFAULT_BRUTE_JUICE_CONFIG, {
+    pauseRecover: true,
+    instanceIndex: 0,
+  });
   assert.equal(pauseRecoverSample.mode, 'pauseRecover');
   assert.ok([0, 1].includes(pauseRecoverSample.frameIndex));
 
-  const staggeredSample = sampleBruteFrame(
-    {
-      dead: false,
-      koProgress: 0,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-      staggered: true,
-    },
-    4.0,
-    0,
-  );
+  const staggeredSample = stepBruteJuice(createBruteJuiceState(), 0.016, 4.0, DEFAULT_BRUTE_JUICE_CONFIG, {
+    staggeredStatus: true,
+    instanceIndex: 0,
+  });
   assert.equal(staggeredSample.mode, 'staggered');
   assert.equal(staggeredSample.frameIndex, 13);
 
-  const deathEnd = sampleBruteFrame(
-    {
-      dead: true,
-      koProgress: 0.9,
-      staggerTimer: 0,
-      staggerDuration: 0.44,
-      attackAnimTimer: 0,
-      attackAnimDuration: 0.52,
-    },
-    5.0,
-    0,
-  );
+  const deathEnd = stepBruteJuice(createBruteJuiceState(), 0.016, 5.0, DEFAULT_BRUTE_JUICE_CONFIG, {
+    dead: true,
+    koProgress: 0.9,
+    instanceIndex: 0,
+  });
   assert.equal(deathEnd.mode, 'death');
   assert.equal(deathEnd.frameIndex, 15);
   assert.ok(deathEnd.alpha < 1 && deathEnd.alpha > 0);

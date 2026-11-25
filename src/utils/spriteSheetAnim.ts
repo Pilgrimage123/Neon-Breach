@@ -120,7 +120,7 @@ export function computeFrameTransitionState(
   prevState: FrameTransitionInput,
   targetFrameIndex: number,
   dt: number,
-  blendDuration = 0.082,
+  blendDuration = 0,
 ): FrameTransitionResult {
   const prevLast = prevState.lastFrameIndex ?? targetFrameIndex;
   let prevIdx = prevState.prevFrameIndex ?? prevLast;
@@ -129,6 +129,15 @@ export function computeFrameTransitionState(
   if (targetFrameIndex !== prevLast) {
     prevIdx = prevLast;
     blendElapsed = Math.max(0, dt);
+  }
+
+  if (blendDuration <= 0) {
+    return {
+      lastFrameIndex: targetFrameIndex,
+      prevFrameIndex: prevIdx,
+      frameBlendElapsed: 0,
+      frameBlendAlpha: 1,
+    };
   }
 
   const rawT = Math.max(0, Math.min(1, blendElapsed / blendDuration));

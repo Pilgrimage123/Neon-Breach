@@ -2,7 +2,6 @@ import type { SpriteCutoutOptions, SpriteRect } from './spriteCutout';
 import {
   type FrameTransitionInput,
   type FrameTransitionResult,
-  computeFrameTransitionState,
   sampleDeathCollapseFrame,
 } from './spriteSheetAnim';
 
@@ -562,14 +561,6 @@ export interface FeralNurseAnimSample {
 
 export type FeralNurseTransitionInput = FrameTransitionInput;
 export type FeralNurseTransitionResult = FrameTransitionResult;
-
-export function computeFeralNurseTransition(
-  prevState: FeralNurseTransitionInput,
-  targetFrameIndex: number,
-  dt: number,
-): FeralNurseTransitionResult {
-  return computeFrameTransitionState(prevState, targetFrameIndex, dt, 0.045);
-}
 
 interface LoopedFrameKeyframe {
   frame: number;

@@ -90,10 +90,12 @@ export function stepBruteJuice(
   const hasCombatBrace =
     (combatSync?.bristleTimer ?? 0) > 0 && (combatSync?.bristleDuration ?? 0) > 0;
 
+  let deathAlpha = 1;
   if (isDead) {
     ctx.mode = 'death';
     const death = sampleDeathCollapseFrame(combatSync?.koProgress ?? 0, 12, 4, 0.8);
     ctx.frameIndex = death.frameIndex;
+    deathAlpha = death.alpha;
     ctx.vialGlowIntensity = Math.max(0, 0.35 * (1 - death.progress * 1.3));
     ctx.shellGlowIntensity = Math.max(0, 0.25 * (1 - death.progress * 1.3));
   } else if (state.activeTrigger === 'stomp_walk') {
@@ -276,12 +278,7 @@ export function stepBruteJuice(
     config.maxSkewPx,
   );
 
-  const blendDur =
-    state.activeTrigger === 'seismic_smash' || hasCombatAttack || state.activeTrigger === 'take_hit'
-      ? 0.045
-      : state.activeTrigger === 'mutagen_brace' || hasCombatBrace
-        ? 0.065
-        : 0.085;
+  const blendDur = 0;
   state.transition = computeFrameTransitionState(state.transition, ctx.frameIndex, safeDt, blendDur);
 
   let flashRgba: [number, number, number, number] | null = null;
@@ -328,5 +325,6 @@ export function stepBruteJuice(
     vialShatterTriggered: ctx.vialShatterTriggered,
     chitinShardTriggered,
     footPlantTriggered: ctx.footPlantTriggered,
+    alpha: isDead ? deathAlpha : 1,
   };
 }

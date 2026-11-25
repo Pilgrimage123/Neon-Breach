@@ -99,10 +99,12 @@ export function stepMutdogJuice(
   const hasCombatHowl =
     (combatSync?.bristleTimer ?? 0) > 0 && (combatSync?.bristleDuration ?? 0) > 0;
 
+  let deathAlpha = 1;
   if (isDead) {
     ctx.mode = 'death';
     const death = sampleDeathCollapseFrame(combatSync?.koProgress ?? 0, 12, 4, 0.8);
     ctx.frameIndex = death.frameIndex;
+    deathAlpha = death.alpha;
     ctx.lureGlowIntensity = Math.max(0, 0.45 * (1 - death.progress * 1.4));
     ctx.droolIntensity = Math.max(0, 0.35 * (1 - death.progress * 1.3));
   } else if (state.activeTrigger === 'prowl_stalk') {
@@ -294,12 +296,7 @@ export function stepMutdogJuice(
     config.maxSkewPx,
   );
 
-  const blendDur =
-    state.activeTrigger === 'pounce_maul' || hasCombatAttack || state.activeTrigger === 'take_hit'
-      ? 0.042
-      : state.activeTrigger === 'frenzy_howl' || hasCombatHowl
-        ? 0.062
-        : 0.082;
+  const blendDur = 0;
   state.transition = computeFrameTransitionState(state.transition, ctx.frameIndex, safeDt, blendDur);
 
   let flashRgba: [number, number, number, number] | null = null;
@@ -344,5 +341,6 @@ export function stepMutdogJuice(
     pounceImpactTriggered: ctx.pounceImpactTriggered,
     droolBurstTriggered: ctx.droolBurstTriggered,
     pawPlantTriggered: ctx.pawPlantTriggered,
+    alpha: isDead ? deathAlpha : 1,
   };
 }

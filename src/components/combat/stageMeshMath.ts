@@ -111,6 +111,8 @@ export function createDefaultShaderUniforms(): CharacterShaderUniforms {
   };
 }
 
+export type StageTextureSource = HTMLCanvasElement | ImageBitmap;
+
 /**
  * Complete declarative draw command for a single character, drone, afterimage, or reflection.
  */
@@ -118,9 +120,9 @@ export interface SpriteRenderCommand {
   /** Unique stable key for pooling the underlying MeshSprite (e.g. 'hero', 'enemy:e1', 'refl:hero') */
   id: string;
   /** Primary raster frame source */
-  primarySource: HTMLCanvasElement;
+  primarySource: StageTextureSource;
   /** Optional outgoing raster frame source for smoothstep cross-dissolve */
-  secondarySource?: HTMLCanvasElement | null;
+  secondarySource?: StageTextureSource | null;
   /** Primary UV window (defaults to FULL_FRAME_UV) */
   primaryUv?: SpriteFrameUV;
   /** Secondary UV window (defaults to FULL_FRAME_UV) */

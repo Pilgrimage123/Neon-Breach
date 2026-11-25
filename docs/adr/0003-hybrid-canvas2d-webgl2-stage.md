@@ -1,5 +1,5 @@
 # Three-Layer Hybrid Canvas2D + WebGL2 Stage with DEV-Only Tuning Labs
 
-Combat rendering splits across three synchronized `<canvas>` layers (`baseCtx` Canvas2D for backdrop, glass sky-bridge, and persistent decals → raw WebGL2 `#version 300 es` `4×6` Hermite-spline deformable character meshes → `fgCtx` Canvas2D for lifebars, intent vectors, projectiles, and VFX), paired with runtime BFS alpha cutout of static sprite sheets.
+Combat rendering splits across three synchronized `<canvas>` layers (`baseCtx` Canvas2D for backdrop, glass sky-bridge, and persistent decals → raw WebGL2 `#version 300 es` `4×6` Hermite-spline deformable character meshes → `fgCtx` Canvas2D for lifebars, intent vectors, projectiles, and VFX), originally paired with runtime BFS alpha cutout of static sprite sheets (runtime cutout subsequently superseded by universal offline sprite baking in ADR-0011).
 
 We chose this three-layer split over migrating the entire stage into WebGL2 or pre-baking external alpha textures because procedural blood capillaries, Bezier intent arcs, and sharp vector HUD overlays stay crisp on Canvas2D while characters deform on GPU without breaking Canvas2D camera parity. Interactive Spitter/Brute/Camera tuning labs are isolated behind `import.meta.env.DEV` lazy loading so developers keep live tooling while production builds ship zero debug overhead.

@@ -318,27 +318,22 @@ export function createCombatStageSim(): CombatStageSim {
     enemyCutouts: new Map(),
     crawlerFrames: new Map(),
     stalkerFrames: null,
-    stalkerTransitions: new Map(),
     stalkerJuiceStates: new Map(),
     stalkerSamples: new Map(),
     stalkerJuiceSamples: new Map(),
     spitterFrames: null,
-    spitterTransitions: new Map(),
     spitterJuiceStates: new Map(),
     spitterSamples: new Map(),
     spitterJuiceSamples: new Map(),
     bruteFrames: null,
-    bruteTransitions: new Map(),
     bruteJuiceStates: new Map(),
     bruteSamples: new Map(),
     bruteJuiceSamples: new Map(),
     mutdogFrames: null,
-    mutdogTransitions: new Map(),
     mutdogJuiceStates: new Map(),
     mutdogSamples: new Map(),
     mutdogJuiceSamples: new Map(),
     feralNurseFrames: null,
-    feralNurseTransitions: new Map(),
     feralNurseJuiceStates: new Map(),
     feralNurseSamples: new Map(),
     feralNurseJuiceSamples: new Map(),
@@ -406,23 +401,18 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.enemyWoundOrigins.clear();
   sim.prevEnemySlots.clear();
   sim.enemyInitialArmor.clear();
-  sim.stalkerTransitions.clear();
   sim.stalkerJuiceStates.clear();
   sim.stalkerSamples?.clear();
   sim.stalkerJuiceSamples?.clear();
-  sim.spitterTransitions.clear();
   sim.spitterJuiceStates.clear();
   sim.spitterSamples?.clear();
   sim.spitterJuiceSamples?.clear();
-  sim.bruteTransitions.clear();
   sim.bruteJuiceStates.clear();
   sim.bruteSamples?.clear();
   sim.bruteJuiceSamples?.clear();
-  sim.mutdogTransitions.clear();
   sim.mutdogJuiceStates.clear();
   sim.mutdogSamples?.clear();
   sim.mutdogJuiceSamples?.clear();
-  sim.feralNurseTransitions.clear();
   sim.feralNurseJuiceStates.clear();
   sim.feralNurseSamples?.clear();
   sim.feralNurseJuiceSamples?.clear();

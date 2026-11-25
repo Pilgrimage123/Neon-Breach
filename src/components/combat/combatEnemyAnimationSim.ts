@@ -8,7 +8,6 @@ import {
   BRUTE_CANONICAL_HEIGHT,
   BRUTE_SHEET_FRAMES,
   type BruteFrameSample,
-  sampleBruteFrame,
 } from '../../utils/bruteSpriteSheet';
 import {
   type BruteJuiceConfig,
@@ -21,8 +20,6 @@ import {
   FERAL_NURSE_CANONICAL_HEIGHT,
   FERAL_NURSE_SHEET_FRAMES,
   type FeralNurseAnimSample,
-  computeFeralNurseTransition,
-  sampleFeralNurseFrame,
 } from '../../utils/feralNurseSpriteSheet';
 import {
   DEFAULT_FERAL_NURSE_JUICE_CONFIG,
@@ -35,7 +32,6 @@ import {
   MUTDOG_CANONICAL_HEIGHT,
   MUTDOG_SHEET_FRAMES,
   type MutdogFrameSample,
-  sampleMutdogFrame,
 } from '../../utils/mutdogSpriteSheet';
 import {
   DEFAULT_MUTDOG_JUICE_CONFIG,
@@ -48,7 +44,6 @@ import {
   SPITTER_CANONICAL_HEIGHT,
   SPITTER_SHEET_FRAMES,
   type SpitterFrameSample,
-  sampleSpitterFrame,
 } from '../../utils/spitterSpriteSheet';
 import {
   DEFAULT_SPITTER_JUICE_CONFIG,
@@ -61,7 +56,6 @@ import {
   STALKER_CANONICAL_HEIGHT,
   STALKER_SHEET_FRAMES,
   type StalkerFrameSample,
-  sampleStalkerFrame,
 } from '../../utils/stalkerSpriteSheet';
 import {
   type StalkerJuiceSample,
@@ -246,31 +240,7 @@ export function stepEnemyAnimationSamples(
         enemy.passive === 'spike_retaliate' &&
         idx === frontLivingIdx;
       const armoredGuard = !isDead && enemy.armor > 0;
-      const prevTrans = sim.stalkerTransitions.get(enemy.id);
       const stalkerCutIn = getActorJuice(enemy.id);
-      const sample = sampleStalkerFrame(
-        ea
-          ? {
-              dead: ea.dead,
-              koProgress: ea.koProgress,
-              staggerTimer: ea.staggerTimer,
-              staggerDuration: ea.staggerDuration,
-              attackAnimTimer: ea.attackAnimTimer,
-              attackAnimDuration: ea.attackAnimDuration,
-              bristleTimer: ea.bristleTimer,
-              bristleDuration: ea.bristleDuration,
-              bristleKind: ea.bristleKind === 'retaliate' ? 'retaliate' : 'armor',
-              ambushPrimed,
-              armoredGuard,
-              retaliateHover,
-            }
-          : undefined,
-        tacticalViewActive ? 0 : elapsed,
-        idx,
-        prevTrans,
-        tacticalViewActive ? 0 : dtStep,
-        stalkerCutIn.poseOverride,
-      );
 
       let juiceState = sim.stalkerJuiceStates.get(enemy.id);
       if (!juiceState) {
@@ -307,21 +277,27 @@ export function stepEnemyAnimationSamples(
         }
         if (stalkerCutIn.isMeleeClash) {
           juiceSample.offsetX = 0;
-          sample.xOffsetRatio = 0;
         }
       }
 
-      sample.mode = juiceSample.mode;
-      sample.frameIndex = juiceSample.frameIndex;
-      sample.frame = STALKER_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
-      sample.prevFrameIndex = juiceSample.prevFrameIndex;
-      sample.prevFrame = STALKER_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
-      sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
-      sample.blinkClosure = juiceSample.blinkClosure;
-      sample.spineGlowIntensity = juiceSample.spineGlowIntensity;
-      sample.clawSlashProgress = Math.max(sample.clawSlashProgress, juiceSample.clawSlashProgress);
+      const sample: StalkerFrameSample = {
+        mode: juiceSample.mode,
+        frameIndex: juiceSample.frameIndex,
+        frame: STALKER_SHEET_FRAMES[juiceSample.frameIndex] ?? STALKER_SHEET_FRAMES[0],
+        prevFrameIndex: juiceSample.prevFrameIndex,
+        prevFrame: STALKER_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? STALKER_SHEET_FRAMES[0],
+        frameBlendAlpha: juiceSample.frameBlendAlpha,
+        blinkClosure: juiceSample.blinkClosure,
+        xOffsetRatio: 0,
+        yHopPx: juiceSample.hopYPx,
+        breathScaleX: juiceSample.springScaleX,
+        breathScaleY: juiceSample.springScaleY,
+        tiltRad: juiceSample.rotationRad,
+        spineGlowIntensity: juiceSample.spineGlowIntensity,
+        clawSlashProgress: juiceSample.clawSlashProgress,
+        alpha: juiceSample.alpha,
+      };
 
-      sim.stalkerTransitions.set(enemy.id, sample.transitionState);
       sim.stalkerSamples.set(enemy.id, sample);
       sim.stalkerJuiceSamples.set(enemy.id, juiceSample);
 
@@ -377,30 +353,6 @@ export function stepEnemyAnimationSamples(
         enemy.passive === 'acid_jam' &&
         idx === frontLivingIdx;
       const armoredGuard = !isDead && enemy.armor > 0;
-      const prevTrans = sim.spitterTransitions.get(enemy.id);
-      const sample = sampleSpitterFrame(
-        ea
-          ? {
-              dead: ea.dead,
-              koProgress: ea.koProgress,
-              staggerTimer: ea.staggerTimer,
-              staggerDuration: ea.staggerDuration,
-              attackAnimTimer: ea.attackAnimTimer,
-              attackAnimDuration: ea.attackAnimDuration,
-              spitterAttackKind: ea.spitterAttackKind,
-              bristleTimer: ea.bristleTimer,
-              bristleDuration: ea.bristleDuration,
-              bristleKind: ea.bristleKind,
-              blightPrimed,
-              armoredGuard,
-              pustuleHover,
-            }
-          : undefined,
-        tacticalViewActive ? 0 : elapsed,
-        idx,
-        prevTrans,
-        tacticalViewActive ? 0 : dtStep,
-      );
 
       let juiceState = sim.spitterJuiceStates.get(enemy.id);
       if (!juiceState) {
@@ -429,20 +381,29 @@ export function stepEnemyAnimationSamples(
           instanceIndex: idx,
         },
       );
-      sample.frameIndex = juiceSample.frameIndex;
-      sample.frame = SPITTER_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
-      sample.prevFrameIndex = juiceSample.prevFrameIndex;
-      sample.prevFrame = SPITTER_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
-      sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
-      sample.pustuleGlowIntensity = juiceSample.pustuleGlowIntensity;
-      sample.spitStreamProgress = Math.max(sample.spitStreamProgress, juiceSample.spitStreamProgress);
+
+      const sample: SpitterFrameSample = {
+        mode: juiceSample.mode,
+        frameIndex: juiceSample.frameIndex,
+        frame: SPITTER_SHEET_FRAMES[juiceSample.frameIndex] ?? SPITTER_SHEET_FRAMES[0],
+        prevFrameIndex: juiceSample.prevFrameIndex,
+        prevFrame: SPITTER_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? SPITTER_SHEET_FRAMES[0],
+        frameBlendAlpha: juiceSample.frameBlendAlpha,
+        xOffsetRatio: 0,
+        yHopPx: juiceSample.hopYPx,
+        breathScaleX: juiceSample.springScaleX,
+        breathScaleY: juiceSample.springScaleY,
+        tiltRad: juiceSample.rotationRad,
+        pustuleGlowIntensity: juiceSample.pustuleGlowIntensity,
+        spitStreamProgress: juiceSample.spitStreamProgress,
+        alpha: juiceSample.alpha,
+      };
 
       const spitterCutIn = getActorJuice(enemy.id);
       if (!ea?.dead && !spitterLabActive && spitterCutIn.active) {
         juiceSample.facingScale = -1;
         if (spitterCutIn.isMeleeClash) {
           juiceSample.offsetX = 0;
-          sample.xOffsetRatio = 0;
         }
         if (spitterCutIn.poseOverride !== 'none') {
           const overrideIdx =
@@ -459,7 +420,6 @@ export function stepEnemyAnimationSamples(
         }
       }
 
-      sim.spitterTransitions.set(enemy.id, sample.transitionState);
       sim.spitterSamples.set(enemy.id, sample);
       sim.spitterJuiceSamples.set(enemy.id, juiceSample);
 
@@ -548,46 +508,6 @@ export function stepEnemyAnimationSamples(
           !hoverArmorPrev.willDie &&
           (enemy.armor > 0 || enemy.shieldPips > 0),
       );
-      const prevTrans = sim.bruteTransitions.get(enemy.id);
-      const sample = sampleBruteFrame(
-        ea
-          ? {
-              dead: ea.dead,
-              koProgress: ea.koProgress,
-              staggerTimer: ea.staggerTimer,
-              staggerDuration: ea.staggerDuration,
-              attackAnimTimer: ea.attackAnimTimer,
-              attackAnimDuration: ea.attackAnimDuration,
-              bruteAttackKind: ea.bruteAttackKind,
-              bristleTimer: ea.bristleTimer,
-              bristleDuration: ea.bristleDuration,
-              bristleKind: ea.bristleKind,
-              armorPrimed,
-              heavyPrimed,
-              pauseRecover,
-              guardHover,
-              staggered: Boolean(enemy.staggered),
-              staggerHover,
-            }
-          : {
-              dead: false,
-              koProgress: 0,
-              staggerTimer: 0,
-              staggerDuration: 0.44,
-              attackAnimTimer: 0,
-              attackAnimDuration: 0.58,
-              armorPrimed,
-              heavyPrimed,
-              pauseRecover,
-              guardHover,
-              staggered: Boolean(enemy.staggered),
-              staggerHover,
-            },
-        tacticalViewActive ? 0 : elapsed,
-        idx,
-        prevTrans,
-        tacticalViewActive ? 0 : dtStep,
-      );
 
       let juiceState = sim.bruteJuiceStates.get(enemy.id);
       if (!juiceState) {
@@ -619,24 +539,31 @@ export function stepEnemyAnimationSamples(
           instanceIndex: idx,
         },
       );
-      sample.mode = juiceSample.mode;
-      sample.frameIndex = juiceSample.frameIndex;
-      sample.frame = BRUTE_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
-      sample.prevFrameIndex = juiceSample.prevFrameIndex;
-      sample.prevFrame = BRUTE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
-      sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
-      sample.transitionState = juiceState.transition;
-      sample.vialGlowIntensity = juiceSample.vialGlowIntensity;
-      sample.shellGlowIntensity = juiceSample.shellGlowIntensity;
-      sample.shockwaveIntensity = Math.max(sample.shockwaveIntensity, juiceSample.shockwaveIntensity);
-      sample.clawSlashProgress = Math.max(sample.clawSlashProgress, juiceSample.clawSlashProgress);
+
+      const sample: BruteFrameSample = {
+        mode: juiceSample.mode,
+        frameIndex: juiceSample.frameIndex,
+        frame: BRUTE_SHEET_FRAMES[juiceSample.frameIndex] ?? BRUTE_SHEET_FRAMES[1],
+        prevFrameIndex: juiceSample.prevFrameIndex,
+        prevFrame: BRUTE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? BRUTE_SHEET_FRAMES[1],
+        frameBlendAlpha: juiceSample.frameBlendAlpha,
+        xOffsetRatio: 0,
+        yHopPx: juiceSample.hopYPx,
+        breathScaleX: juiceSample.springScaleX,
+        breathScaleY: juiceSample.springScaleY,
+        tiltRad: juiceSample.rotationRad,
+        vialGlowIntensity: juiceSample.vialGlowIntensity,
+        shellGlowIntensity: juiceSample.shellGlowIntensity,
+        shockwaveIntensity: juiceSample.shockwaveIntensity,
+        clawSlashProgress: juiceSample.clawSlashProgress,
+        alpha: juiceSample.alpha,
+      };
 
       const bruteCutIn = getActorJuice(enemy.id);
       if (!ea?.dead && !bruteLabActive && bruteCutIn.active) {
         juiceSample.facingScale = -1;
         if (bruteCutIn.isMeleeClash) {
           juiceSample.offsetX = 0;
-          sample.xOffsetRatio = 0;
         }
         if (bruteCutIn.poseOverride !== 'none') {
           const overrideIdx =
@@ -653,7 +580,6 @@ export function stepEnemyAnimationSamples(
         }
       }
 
-      sim.bruteTransitions.set(enemy.id, sample.transitionState);
       sim.bruteSamples.set(enemy.id, sample);
       sim.bruteJuiceSamples.set(enemy.id, juiceSample);
 
@@ -835,50 +761,27 @@ export function stepEnemyAnimationSamples(
         },
       );
 
-      const sample = sampleMutdogFrame(
-        {
-          dead: isDead || Boolean(ea?.dead),
-          koProgress: ea?.koProgress ?? (isDead ? 1 : 0),
-          staggerTimer: ea?.staggerTimer ?? 0,
-          staggerDuration: ea?.staggerDuration ?? 0.44,
-          attackAnimTimer: ea?.attackAnimTimer ?? 0,
-          attackAnimDuration: ea?.attackAnimDuration ?? 0.62,
-          mutdogAttackKind: ea?.mutdogAttackKind ?? 'pounce',
-          bristleTimer: ea?.bristleTimer ?? 0,
-          bristleDuration: ea?.bristleDuration ?? 0.74,
-          maulPrimed: isMaulPrimed,
-          pouncePrimed: isPouncePrimed,
-          pauseRecover: isPauseRecover,
-          feralGuard: isFeralGuard,
-          guardHover: isGuardHover,
-          staggered: Boolean(enemy.staggered),
-          staggerHover: isStaggerHover,
-        },
-        tacticalViewActive ? 0 : elapsed,
-        idx,
-        sim.mutdogTransitions.get(enemy.id),
-        tacticalViewActive ? 0 : dtStep,
-      );
-
-      if (!isDead && !ea?.dead) {
-        sample.frameIndex = juiceSample.frameIndex;
-        sample.frame = MUTDOG_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
-        sample.prevFrameIndex = juiceSample.prevFrameIndex;
-        sample.prevFrame = MUTDOG_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
-        sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
-        sample.lureGlowIntensity = juiceSample.lureGlowIntensity;
-        sample.droolIntensity = juiceSample.droolIntensity;
-        sample.clawSlashProgress = Math.max(
-          sample.clawSlashProgress,
-          juiceSample.clawSlashProgress,
-        );
-        sample.pounceImpactIntensity = Math.max(
-          sample.pounceImpactIntensity,
+      const sample: MutdogFrameSample = {
+        mode: juiceSample.mode,
+        frameIndex: juiceSample.frameIndex,
+        frame: MUTDOG_SHEET_FRAMES[juiceSample.frameIndex] ?? MUTDOG_SHEET_FRAMES[0],
+        prevFrameIndex: juiceSample.prevFrameIndex,
+        prevFrame: MUTDOG_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? MUTDOG_SHEET_FRAMES[0],
+        frameBlendAlpha: juiceSample.frameBlendAlpha,
+        xOffsetRatio: 0,
+        yHopPx: juiceSample.hopYPx,
+        breathScaleX: juiceSample.springScaleX,
+        breathScaleY: juiceSample.springScaleY,
+        tiltRad: juiceSample.rotationRad,
+        lureGlowIntensity: juiceSample.lureGlowIntensity,
+        droolIntensity: juiceSample.droolIntensity,
+        pounceImpactIntensity:
           juiceSample.pounceImpactProgress > 0.01
             ? Math.sin(juiceSample.pounceImpactProgress * Math.PI)
             : 0,
-        );
-      }
+        clawSlashProgress: juiceSample.clawSlashProgress,
+        alpha: juiceSample.alpha,
+      };
 
       const mutdogCutIn = getActorJuice(enemy.id);
       if (mutdogCutIn.active && mutdogCutIn.poseOverride && !isDead && !ea?.dead) {
@@ -899,7 +802,6 @@ export function stepEnemyAnimationSamples(
         }
       }
 
-      sim.mutdogTransitions.set(enemy.id, sample.transitionState);
       sim.mutdogSamples.set(enemy.id, sample);
       sim.mutdogJuiceSamples.set(enemy.id, juiceSample);
 
@@ -1075,39 +977,38 @@ export function stepEnemyAnimationSamples(
         feralNurseLabActive ? undefined : combatSync,
       );
 
-      const sample = sampleFeralNurseFrame(
-        combatSync,
-        tacticalViewActive ? 0 : elapsed,
-        idx,
-      );
-
-      const prevTrans = sim.feralNurseTransitions.get(enemy.id) ?? {};
-      const transResult = computeFeralNurseTransition(
-        prevTrans,
-        juiceSample.frameIndex,
-        tacticalViewActive ? 0 : dtStep,
-      );
-
-      if (!isDead && !ea?.dead) {
-        sample.frameIndex = juiceSample.frameIndex;
-        sample.frame = FERAL_NURSE_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
-        sample.prevFrameIndex = juiceSample.prevFrameIndex;
-        sample.prevFrame = FERAL_NURSE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
-        sample.blendAlpha = juiceSample.blendAlpha;
-        sample.xShiftPx = juiceSample.xShiftPx;
-        sample.yHopPx = juiceSample.hopYPx;
-        sample.alpha = juiceSample.alpha;
-        sample.headsetGlowIntensity = juiceSample.headsetGlowIntensity;
-        sample.cloakIntensity = Math.max(sample.cloakIntensity, juiceSample.cloakIntensity);
-        sample.clawSlashProgress = Math.max(
-          sample.clawSlashProgress,
-          juiceSample.clawSlashProgress,
-        );
-        sample.pierceImpactIntensity = Math.max(
-          sample.pierceImpactIntensity,
-          juiceSample.pierceImpactIntensity,
-        );
-      }
+      const sample: FeralNurseAnimSample = {
+        mode: isDead
+          ? 'death'
+          : isCloaked
+            ? 'opticalCloak'
+            : (ea?.cloakCastTimer ?? 0) > 0
+              ? 'cloakCast'
+              : (ea?.attackAnimTimer ?? 0) > 0
+                ? 'pierceStrike'
+                : (ea?.staggerTimer ?? 0) > 0
+                  ? 'pain'
+                  : isPreparePrimed
+                    ? 'prepareCoil'
+                    : isFeralGuard
+                      ? 'feralGuard'
+                      : 'idle',
+        frameIndex: juiceSample.frameIndex,
+        frame: FERAL_NURSE_SHEET_FRAMES[juiceSample.frameIndex] ?? FERAL_NURSE_SHEET_FRAMES[1],
+        prevFrameIndex: juiceSample.prevFrameIndex,
+        prevFrame: FERAL_NURSE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? FERAL_NURSE_SHEET_FRAMES[1],
+        blendAlpha: juiceSample.blendAlpha,
+        xShiftPx: juiceSample.xShiftPx,
+        yHopPx: juiceSample.hopYPx,
+        scaleX: juiceSample.springScaleX,
+        scaleY: juiceSample.springScaleY,
+        tiltRad: juiceSample.rotationRad,
+        alpha: juiceSample.alpha,
+        headsetGlowIntensity: juiceSample.headsetGlowIntensity,
+        cloakIntensity: juiceSample.cloakIntensity,
+        clawSlashProgress: juiceSample.clawSlashProgress,
+        pierceImpactIntensity: juiceSample.pierceImpactIntensity,
+      };
 
       const feralNurseCutIn = getActorJuice(enemy.id);
       if (feralNurseCutIn.active && !feralNurseLabActive && !isDead && !ea?.dead) {
@@ -1133,7 +1034,6 @@ export function stepEnemyAnimationSamples(
         }
       }
 
-      sim.feralNurseTransitions.set(enemy.id, transResult);
       sim.feralNurseSamples.set(enemy.id, sample);
       sim.feralNurseJuiceSamples.set(enemy.id, juiceSample);
 

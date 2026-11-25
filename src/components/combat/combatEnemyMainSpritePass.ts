@@ -1,10 +1,10 @@
 import type { EnemyUnit, TurnPreview } from '../../engine/types';
 import { BRUTE_CANONICAL_HEIGHT } from '../../utils/bruteSpriteSheet';
 import {
-  CRAWLER_ARCH_SCALE,
   isCrawlerArchetype,
   sampleCrawlerFrame,
 } from '../../utils/crawlerSpriteSheet';
+import { getMutantArchScale } from '../../utils/mutantAnimationRegistry';
 import { FERAL_NURSE_CANONICAL_HEIGHT } from '../../utils/feralNurseSpriteSheet';
 import { MUTDOG_CANONICAL_HEIGHT } from '../../utils/mutdogSpriteSheet';
 import { SPITTER_CANONICAL_HEIGHT } from '../../utils/spitterSpriteSheet';
@@ -132,17 +132,7 @@ export function renderEnemySpritePass(params: {
     const stagger = getEnemyStaggerKinematics(ea);
     const crowdScale = effectiveSlotCount >= 5 ? 0.78 : effectiveSlotCount === 4 ? 0.86 : 1;
     const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
-    const archScale = isCrawlerArchetype(arch)
-      ? CRAWLER_ARCH_SCALE[arch]
-      : arch === 'boss'
-        ? 1.24
-        : arch === 'brute'
-          ? 1.32
-          : arch === 'feral_nurse'
-            ? 1.02
-            : arch === 'stalker'
-              ? 0.98
-              : 0.94;
+    const archScale = getMutantArchScale(arch);
     const size = baseEnemySize * archScale;
     const hasSheetSample =
       (isCrawler && Boolean(crawlerSample)) ||

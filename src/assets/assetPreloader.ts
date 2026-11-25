@@ -11,35 +11,22 @@ import {
   KIRA_EMOTE_FRAMES,
   KIRA_SHEET_FRAMES,
 } from '../utils/kiraSpriteSheet';
-import {
-  NURSE_FRAMES,
-  NURSE_SHEET_OPTIONS,
-} from '../utils/nurseSpriteSheet';
-import {
-  BRUTE_SHEET_FRAMES,
-  BRUTE_SHEET_OPTIONS,
-} from '../utils/bruteSpriteSheet';
+import { NURSE_FRAMES } from '../utils/nurseSpriteSheet';
+import { BRUTE_SHEET_FRAMES } from '../utils/bruteSpriteSheet';
 import {
   FERAL_NURSE_SHEET_A_FRAMES,
   FERAL_NURSE_SHEET_B_FRAMES,
-  FERAL_NURSE_SHEET_OPTIONS,
 } from '../utils/feralNurseSpriteSheet';
-import {
-  MUTDOG_SHEET_FRAMES,
-  MUTDOG_SHEET_OPTIONS,
-} from '../utils/mutdogSpriteSheet';
+import { MUTDOG_SHEET_FRAMES } from '../utils/mutdogSpriteSheet';
 import { SPITTER_SHEET_FRAMES } from '../utils/spitterSpriteSheet';
 import {
   ZURI_COMBAT_FRAMES,
-  ZURI_DRONES_OPTIONS,
   ZURI_DRONE_FRAMES,
   ZURI_EMOTE_FRAMES,
   ZURI_SHEET_FRAMES,
-  ZURI_SHEET_OPTIONS,
 } from '../utils/zuriSpriteSheet';
 import {
   type SpriteBounds,
-  type SpriteCutoutOptions,
   type SpriteRect,
   getCachedDecodedImage,
   getCachedSpriteCutout,
@@ -49,8 +36,11 @@ import {
   loadSpriteCutout,
   loadSpriteFrame,
   loadSpriteSheetFrames,
-  measureSpriteBounds,
 } from '../utils/spriteCutout';
+import {
+  BAKED_ENEMY_CUTOUT_BOUNDS,
+  BAKED_ENEMY_PORTRAIT_BOUNDS,
+} from './sprites/baked/bakedBounds';
 import {
   buildBackgroundTaskOrder,
   buildEnemyPreloadOrder,
@@ -63,76 +53,6 @@ import {
 import { GAME_ASSETS } from './gameAssets';
 
 export type { TitleSpriteSource };
-
-const KIRA_COMBAT_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 14,
-  defringeStrength: 0.78,
-};
-
-const KIRA_EMOTE_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 14,
-  defringeStrength: 0.78,
-  unmixLightGlow: true,
-};
-
-const KIRA_DODGE_OPTIONS: SpriteCutoutOptions = {
-  preserveExistingAlpha: true,
-};
-
-const AURALINE_SHEET_OPTIONS: SpriteCutoutOptions = {
-  removeBottomFloorShadow: true,
-  defringeStrength: 0.78,
-};
-
-const ENEMY_CUTOUT_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.78,
-  maxDimension: 512,
-};
-
-const CRAWLER_SHEET_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 24,
-  defringeStrength: 0.78,
-};
-
-const STALKER_CUTOUT_OPTIONS: SpriteCutoutOptions = {
-  preserveExistingAlpha: true,
-};
-
-const SPITTER_SHEET_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.76,
-};
-
-const SPITTER_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.76,
-  maxDimension: 512,
-};
-
-const MUTDOG_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.78,
-  unmixLightGlow: true,
-  maxDimension: 512,
-};
-
-const BRUTE_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
-  maxDimension: 512,
-};
-
-const FERAL_NURSE_CUTOUT_OPTIONS: SpriteCutoutOptions = {
-  removeBottomFloorShadow: true,
-  defringeStrength: 0.78,
-  maxDimension: 512,
-};
 
 const titleEmblemPreloader = createTitleEmblemPreloader({
   frameUrls: GAME_ASSETS.titleLogoFrames,
@@ -148,40 +68,42 @@ interface PreloadedEnemyCutout {
 interface SheetSpec<R extends SpriteRect = SpriteRect> {
   url: string;
   frames: readonly R[];
-  options: SpriteCutoutOptions;
 }
 
 const SHEET_SPECS = {
-  auraline: { url: GAME_ASSETS.auraline, frames: AURALINE_SHEET_FRAMES, options: AURALINE_SHEET_OPTIONS },
-  kiraCombat: { url: GAME_ASSETS.kira, frames: KIRA_COMBAT_FRAMES, options: KIRA_COMBAT_OPTIONS },
-  kiraEmote: { url: GAME_ASSETS.kiraEmote, frames: KIRA_EMOTE_FRAMES, options: KIRA_EMOTE_OPTIONS },
-  zuriCombat: { url: GAME_ASSETS.zuri, frames: ZURI_COMBAT_FRAMES, options: ZURI_SHEET_OPTIONS },
-  zuriEmote: { url: GAME_ASSETS.zuriEmote, frames: ZURI_EMOTE_FRAMES, options: ZURI_SHEET_OPTIONS },
-  zuriDrones: { url: GAME_ASSETS.zuriDrones, frames: ZURI_DRONE_FRAMES, options: ZURI_DRONES_OPTIONS },
-  nurse: { url: GAME_ASSETS.nurse, frames: NURSE_FRAMES, options: NURSE_SHEET_OPTIONS },
-  spitter: { url: GAME_ASSETS.spitterSheet, frames: SPITTER_SHEET_FRAMES, options: SPITTER_SHEET_OPTIONS },
-  mutdog: { url: GAME_ASSETS.mutdogSheet, frames: MUTDOG_SHEET_FRAMES, options: MUTDOG_SHEET_OPTIONS },
-  feralNurseA: { url: GAME_ASSETS.feralNurseSheetA, frames: FERAL_NURSE_SHEET_A_FRAMES, options: FERAL_NURSE_SHEET_OPTIONS },
-  feralNurseB: { url: GAME_ASSETS.feralNurseSheetB, frames: FERAL_NURSE_SHEET_B_FRAMES, options: FERAL_NURSE_SHEET_OPTIONS },
-  brute: { url: GAME_ASSETS.bruteSheet, frames: BRUTE_SHEET_FRAMES, options: BRUTE_SHEET_OPTIONS },
+  auraline: { url: GAME_ASSETS.auraline, frames: AURALINE_SHEET_FRAMES },
+  kiraCombat: { url: GAME_ASSETS.kira, frames: KIRA_COMBAT_FRAMES },
+  kiraEmote: { url: GAME_ASSETS.kiraEmote, frames: KIRA_EMOTE_FRAMES },
+  zuriCombat: { url: GAME_ASSETS.zuri, frames: ZURI_COMBAT_FRAMES },
+  zuriEmote: { url: GAME_ASSETS.zuriEmote, frames: ZURI_EMOTE_FRAMES },
+  zuriDrones: { url: GAME_ASSETS.zuriDrones, frames: ZURI_DRONE_FRAMES },
+  nurse: { url: GAME_ASSETS.nurse, frames: NURSE_FRAMES },
+  spitter: { url: GAME_ASSETS.spitterSheet, frames: SPITTER_SHEET_FRAMES },
+  mutdog: { url: GAME_ASSETS.mutdogSheet, frames: MUTDOG_SHEET_FRAMES },
+  feralNurseA: { url: GAME_ASSETS.feralNurseSheetA, frames: FERAL_NURSE_SHEET_A_FRAMES },
+  feralNurseB: { url: GAME_ASSETS.feralNurseSheetB, frames: FERAL_NURSE_SHEET_B_FRAMES },
+  brute: { url: GAME_ASSETS.bruteSheet, frames: BRUTE_SHEET_FRAMES },
 } as const satisfies Record<string, SheetSpec>;
 
 function getSheet(spec: SheetSpec): HTMLCanvasElement[] | null {
-  return getCachedSpriteSheetFrames(spec.url, spec.frames, spec.options);
+  return getCachedSpriteSheetFrames(spec.url, spec.frames);
 }
 
 function loadSheet(spec: SheetSpec): Promise<HTMLCanvasElement[]> {
-  return loadSpriteSheetFrames(spec.url, spec.frames, spec.options);
+  return loadSpriteSheetFrames(spec.url, spec.frames);
 }
 
-function getCutoutWithBounds(url: string, options: SpriteCutoutOptions): PreloadedEnemyCutout | null {
-  const canvas = getCachedSpriteCutout(url, options);
-  return canvas ? { canvas, bounds: measureSpriteBounds(canvas) } : null;
+function getCutoutWithBounds(url: string, bounds: SpriteBounds): PreloadedEnemyCutout | null {
+  const canvas = getCachedSpriteCutout(url);
+  return canvas ? { canvas, bounds } : null;
 }
 
-function getFirstFrameCutout(frames: HTMLCanvasElement[] | null): PreloadedEnemyCutout | null {
+function getFirstFrameCutout(
+  frames: HTMLCanvasElement[] | null,
+  bounds: SpriteBounds,
+): PreloadedEnemyCutout | null {
   if (!frames || !frames[0]) return null;
-  return { canvas: frames[0], bounds: measureSpriteBounds(frames[0]) };
+  return { canvas: frames[0], bounds };
 }
 
 export function getPreloadedTitleBg(): HTMLImageElement | null {
@@ -218,24 +140,24 @@ export function loadTitleLogoFrames(
   return titleEmblemPreloader.loadTitleLogoFrames(onFrameReady);
 }
 
-function getPortraitSpec(charId: CharacterId): { url: string; frame: SpriteRect; options: SpriteCutoutOptions } {
+function getPortraitSpec(charId: CharacterId): { url: string; frame: SpriteRect } {
   if (charId === 'auraline') {
-    return { url: GAME_ASSETS.auraline, frame: AURALINE_SHEET_FRAMES[0], options: AURALINE_SHEET_OPTIONS };
+    return { url: GAME_ASSETS.auraline, frame: AURALINE_SHEET_FRAMES[0] };
   }
   if (charId === 'zuri') {
-    return { url: GAME_ASSETS.zuri, frame: ZURI_SHEET_FRAMES[8], options: ZURI_SHEET_OPTIONS };
+    return { url: GAME_ASSETS.zuri, frame: ZURI_SHEET_FRAMES[8] };
   }
-  return { url: GAME_ASSETS.kira, frame: KIRA_COMBAT_FRAMES[0], options: KIRA_COMBAT_OPTIONS };
+  return { url: GAME_ASSETS.kira, frame: KIRA_COMBAT_FRAMES[0] };
 }
 
 export function getPreloadedPortraitFrame(charId: CharacterId): HTMLCanvasElement | null {
   const spec = getPortraitSpec(charId);
-  return getCachedSpriteFrame(spec.url, spec.frame, spec.options);
+  return getCachedSpriteFrame(spec.url, spec.frame);
 }
 
 export function loadPortraitFrame(charId: CharacterId): Promise<HTMLCanvasElement> {
   const spec = getPortraitSpec(charId);
-  return loadSpriteFrame(spec.url, spec.frame, spec.options);
+  return loadSpriteFrame(spec.url, spec.frame);
 }
 
 export function getPreloadedBackdrop(): HTMLImageElement | null {
@@ -246,7 +168,6 @@ export function getPreloadedCrawlerFrames(variant: CrawlerVariant): HTMLCanvasEl
   return getCachedSpriteSheetFrames(
     GAME_ASSETS.crawlerSheet,
     CRAWLER_FRAMES_BY_VARIANT[variant],
-    CRAWLER_SHEET_OPTIONS,
   );
 }
 
@@ -254,7 +175,6 @@ export function loadCrawlerVariantFrames(variant: CrawlerVariant): Promise<HTMLC
   return loadSpriteSheetFrames(
     GAME_ASSETS.crawlerSheet,
     CRAWLER_FRAMES_BY_VARIANT[variant],
-    CRAWLER_SHEET_OPTIONS,
   );
 }
 
@@ -265,7 +185,7 @@ export function getPreloadedZuriDroneFrames(): HTMLCanvasElement[] | null {
 function getPreloadedKiraDodgeFrames(): HTMLCanvasElement[] | null {
   const frames: HTMLCanvasElement[] = [];
   for (let i = 0; i < GAME_ASSETS.kiraDodge.length; i++) {
-    const canvas = getCachedSpriteCutout(GAME_ASSETS.kiraDodge[i], KIRA_DODGE_OPTIONS);
+    const canvas = getCachedSpriteCutout(GAME_ASSETS.kiraDodge[i]);
     if (!canvas) return null;
     frames.push(canvas);
   }
@@ -274,7 +194,7 @@ function getPreloadedKiraDodgeFrames(): HTMLCanvasElement[] | null {
 
 function loadKiraDodgeFrames(): Promise<HTMLCanvasElement[]> {
   return Promise.all(
-    GAME_ASSETS.kiraDodge.map((url) => loadSpriteCutout(url, KIRA_DODGE_OPTIONS)),
+    GAME_ASSETS.kiraDodge.map((url) => loadSpriteCutout(url)),
   );
 }
 
@@ -289,7 +209,7 @@ export function loadNurseFrames(): Promise<HTMLCanvasElement[]> {
 export function getPreloadedStalkerFrames(): HTMLCanvasElement[] | null {
   const frames: HTMLCanvasElement[] = [];
   for (let i = 0; i < GAME_ASSETS.stalkerFrames.length; i++) {
-    const canvas = getCachedSpriteCutout(GAME_ASSETS.stalkerFrames[i], STALKER_CUTOUT_OPTIONS);
+    const canvas = getCachedSpriteCutout(GAME_ASSETS.stalkerFrames[i]);
     if (!canvas) return null;
     frames.push(canvas);
   }
@@ -298,7 +218,7 @@ export function getPreloadedStalkerFrames(): HTMLCanvasElement[] | null {
 
 function loadStalkerFrames(): Promise<HTMLCanvasElement[]> {
   return Promise.all(
-    GAME_ASSETS.stalkerFrames.map((url) => loadSpriteCutout(url, STALKER_CUTOUT_OPTIONS)),
+    GAME_ASSETS.stalkerFrames.map((url) => loadSpriteCutout(url)),
   );
 }
 
@@ -321,39 +241,32 @@ export function getPreloadedBruteFrames(): HTMLCanvasElement[] | null {
   return getSheet(SHEET_SPECS.brute);
 }
 
-function getEnemyPortraitOptions(arch: EnemyArchetype): SpriteCutoutOptions {
-  if (arch === 'brute') return BRUTE_PORTRAIT_OPTIONS;
-  if (arch === 'feral_nurse') return FERAL_NURSE_CUTOUT_OPTIONS;
-  if (arch === 'mutdog') return MUTDOG_PORTRAIT_OPTIONS;
-  if (arch === 'spitter') return SPITTER_PORTRAIT_OPTIONS;
-  return STALKER_CUTOUT_OPTIONS;
-}
-
 export function getPreloadedEnemyPortrait(arch: EnemyArchetype): PreloadedEnemyCutout | null {
   const portraitUrl = GAME_ASSETS.enemyPortraits[arch];
   if (!portraitUrl) return getPreloadedEnemyCutout(arch);
-  return getCutoutWithBounds(portraitUrl, getEnemyPortraitOptions(arch));
+  return getCutoutWithBounds(portraitUrl, BAKED_ENEMY_PORTRAIT_BOUNDS[arch]);
 }
 
 export function loadEnemyPortrait(arch: EnemyArchetype): Promise<HTMLCanvasElement> {
   const portraitUrl = GAME_ASSETS.enemyPortraits[arch];
   if (portraitUrl) {
-    return loadSpriteCutout(portraitUrl, getEnemyPortraitOptions(arch));
+    return loadSpriteCutout(portraitUrl);
   }
   if (isCrawlerArchetype(arch)) {
     return loadCrawlerVariantFrames(arch).then((frames) => frames[0]);
   }
-  return loadSpriteCutout(GAME_ASSETS.bossPortrait, ENEMY_CUTOUT_OPTIONS);
+  return loadSpriteCutout(GAME_ASSETS.bossPortrait);
 }
 
 export function getPreloadedEnemyCutout(arch: EnemyArchetype): PreloadedEnemyCutout | null {
-  if (isCrawlerArchetype(arch)) return getFirstFrameCutout(getPreloadedCrawlerFrames(arch));
-  if (arch === 'stalker') return getFirstFrameCutout(getPreloadedStalkerFrames());
-  if (arch === 'spitter') return getFirstFrameCutout(getPreloadedSpitterFrames());
-  if (arch === 'mutdog') return getFirstFrameCutout(getPreloadedMutdogFrames());
-  if (arch === 'feral_nurse') return getFirstFrameCutout(getPreloadedFeralNurseFrames());
-  if (arch === 'brute') return getFirstFrameCutout(getPreloadedBruteFrames());
-  return getCutoutWithBounds(GAME_ASSETS.bossPortrait, ENEMY_CUTOUT_OPTIONS);
+  const bounds = BAKED_ENEMY_CUTOUT_BOUNDS[arch];
+  if (isCrawlerArchetype(arch)) return getFirstFrameCutout(getPreloadedCrawlerFrames(arch), bounds);
+  if (arch === 'stalker') return getFirstFrameCutout(getPreloadedStalkerFrames(), bounds);
+  if (arch === 'spitter') return getFirstFrameCutout(getPreloadedSpitterFrames(), bounds);
+  if (arch === 'mutdog') return getFirstFrameCutout(getPreloadedMutdogFrames(), bounds);
+  if (arch === 'feral_nurse') return getFirstFrameCutout(getPreloadedFeralNurseFrames(), bounds);
+  if (arch === 'brute') return getFirstFrameCutout(getPreloadedBruteFrames(), bounds);
+  return getCutoutWithBounds(GAME_ASSETS.bossPortrait, bounds);
 }
 
 export function getPreloadedHeroFrames(charId: CharacterId): HTMLCanvasElement[] | null {
@@ -384,7 +297,7 @@ export function getPreloadedHeroFrames(charId: CharacterId): HTMLCanvasElement[]
   const dodgeOffset = KIRA_COMBAT_FRAMES.length + KIRA_EMOTE_FRAMES.length;
   for (let i = 0; i < KIRA_DODGE_FRAMES.length; i++) {
     const url = GAME_ASSETS.kiraDodge[i];
-    const dodgeCanvas = url ? getCachedSpriteCutout(url, KIRA_DODGE_OPTIONS) : null;
+    const dodgeCanvas = url ? getCachedSpriteCutout(url) : null;
     if (dodgeCanvas) slots[dodgeOffset + i] = dodgeCanvas;
   }
   return slots;
@@ -452,7 +365,7 @@ function loadEnemyAssets(arch: EnemyArchetype): Promise<unknown> {
     ]);
   }
   if (arch === 'brute') return Promise.all([loadSheet(SHEET_SPECS.brute), loadEnemyPortrait('brute')]);
-  return loadSpriteCutout(GAME_ASSETS.bossPortrait, ENEMY_CUTOUT_OPTIONS);
+  return loadSpriteCutout(GAME_ASSETS.bossPortrait);
 }
 
 async function runBackgroundTask(taskId: string): Promise<void> {
