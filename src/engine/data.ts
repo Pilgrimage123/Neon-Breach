@@ -168,8 +168,8 @@ const AURALINE_INNATE_TILES: readonly TileSpec[] = [
 ];
 
 const ZURI_INNATE_TILES: readonly TileSpec[] = [
-  { type: 'attack', value: 4 },
-  { type: 'defense', value: 8 },
+  { type: 'attack', value: 6, upcharge: 1 },
+  { type: 'defense', value: 10, upcharge: 1 },
   {
     type: 'tech',
     value: 0,
@@ -183,7 +183,8 @@ const ZURI_INNATE_TILES: readonly TileSpec[] = [
   {
     type: 'tech',
     value: 0,
-    techEffect: { kind: 'damage_boost', percent: 36, decayPerTurn: 10 },
+    upcharge: 1,
+    techEffect: { kind: 'damage_boost', percent: 45, decayPerTurn: 10 },
   },
 ];
 
