@@ -12,6 +12,7 @@ Neon Breach uses uniform grid layouts tailored to each Mutant class:
 | **Chitin Stalker** (`stalker`) | **4 × 4 uniform grid** (`stalkerSpriteSheet.ts`) | `1024 × 1024` | `16` | `src/assets/images/stalker_spritesheet_1794927639433.jpg` |
 | **Bile Spitter** (`spitter`) | **4 × 4 uniform grid** (`spitterSpriteSheet.ts`) | `1024 × 1024` | `16` | `src/assets/images/spitter_spritesheet_1794935806587.jpg` |
 | **Carapace Brute** (`brute`) | **4 × 4 uniform grid** (`bruteSpriteSheet.ts`) | `1024 × 1024` | `16` | `src/assets/images/brute_spritesheet_1794946123451.jpg` |
+| **Feral Nurse** (`feral_nurse`) | **Dual 4 × 4 uniform grids** (`feralNurseSpriteSheet.ts`) | `2 × (1024 × 1024)` | `32` (`16` per sheet) | `src/assets/sprites/feral_nurse_sheet_a.png`, `src/assets/sprites/feral_nurse_sheet_b.png` |
 | **Xenomorph Matriarch** (`boss`) | Single static portrait | `1024 × 1024` | `1` | `src/assets/images/mutant_boss_1794546443418.jpg` |
 
 *(Hero sheets follow `kiraSpriteSheet.ts`, `auralineSpriteSheet.ts`, `zuriSpriteSheet.ts`, and `nurseSpriteSheet.ts`.)*
