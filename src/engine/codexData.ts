@@ -153,6 +153,12 @@ export const GLOSSARY_TERMS: readonly GlossaryTermMeta[] = [
     accent: 'lime',
     relatedTerms: ['jammed_tile', 'overdrive'],
   },
+  {
+    id: 'overwhelm',
+    category: 'status',
+    accent: 'rose',
+    relatedTerms: ['shield', 'stagger', 'thermal_charge'],
+  },
 ];
 
 export const PASSIVE_TO_GLOSSARY_TERM: Record<EnemyPassiveKind, GlossaryTermId> = {

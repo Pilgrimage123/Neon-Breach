@@ -23,6 +23,7 @@ import type {
   RunState,
 } from '../engine/types';
 import type { Language } from '../i18n/translations';
+import { createDevLabSandboxRun, isDevLabRunId } from '../utils/devLabMode';
 import { applyBossObjectivesIfVictory, useCombatSandbox } from './useCombatSandbox';
 import { useNodeNavigationAndVendors } from './useNodeNavigationAndVendors';
 
@@ -150,6 +151,9 @@ export function useRunController({
   } = sandbox;
 
   const finalizeEndedRunIfNeeded = useCallback((candidateRun: RunState) => {
+    if (isDevLabRunId(candidateRun.runId)) {
+      return;
+    }
     if (candidateRun.screen !== 'victory' && candidateRun.screen !== 'gameover') {
       return;
     }
@@ -289,6 +293,8 @@ export function useRunController({
           soundEngine.playEnemyArmor();
         } else if (cues.some((c) => c.kind === 'enemy_charge')) {
           soundEngine.playEnemyCharge();
+        } else if (cues.some((c) => c.kind === 'enemy_cloak')) {
+          soundEngine.playTelegraphPing();
         }
         if (cues.some((c) => c.kind === 'enemy_burst')) soundEngine.playBioBurst();
         if (cues.some((c) => c.kind === 'enemy_phase_gate')) soundEngine.playShieldPipCrack();
@@ -330,9 +336,15 @@ export function useRunController({
   useEffect(() => {
     if (showTitle) return;
 
+    const isDevLab = isDevLabRunId(run.runId);
+
     if (run.screen === 'victory') {
       if (recordedRunIdRef.current !== run.runId) {
-        finalizeEndedRunIfNeeded(run);
+        if (!isDevLab) {
+          finalizeEndedRunIfNeeded(run);
+        } else {
+          recordedRunIdRef.current = run.runId;
+        }
         soundEngine.playVictory();
       }
       return;
@@ -343,14 +355,14 @@ export function useRunController({
         defeatSoundPlayedOutcomeRef.current = outcomeKey;
         soundEngine.playDefeat();
       }
-      if (!hasDefeatRecoveryOption) {
+      if (!isDevLab && !hasDefeatRecoveryOption) {
         finalizeEndedRunIfNeeded(run);
         setEncounterStartSnapshot(null);
       }
       return;
     }
 
-    if (lastPersistedRunRef.current !== run) {
+    if (!isDevLab && lastPersistedRunRef.current !== run) {
       lastPersistedRunRef.current = run;
       saveActiveRun(run);
       setSavedRunSnapshot(run);
@@ -371,6 +383,41 @@ export function useRunController({
     objectivesSummary,
     resetCombatSandboxForNewNode,
   });
+
+  const handleStartDevLab = useCallback(
+    (charOverride?: CharacterId) => {
+      const charId = charOverride ?? selectedCharacter;
+      blurActiveElement();
+      soundEngine.playClick();
+      const sandboxRun = createDevLabSandboxRun(charId, selectedDifficultyTier, 104729);
+      if (sandboxRun.combat) {
+        void ensureCombatAssetsReady(
+          charId,
+          sandboxRun.combat.enemies.map((e) => e.archetype),
+        );
+      }
+      recordedRunIdRef.current = null;
+      defeatSoundPlayedOutcomeRef.current = null;
+      setPaused(false);
+      setPoolModalOpen(false);
+      navAndVendors.setDefibNoticeVisible(false);
+      resetCombatSandboxForNewNode(null);
+      setRun(sandboxRun);
+      setShowTitle(false);
+      if (typeof document !== 'undefined') {
+        document.body.dataset.state = 'playing';
+      }
+    },
+    [
+      navAndVendors,
+      resetCombatSandboxForNewNode,
+      selectedCharacter,
+      selectedDifficultyTier,
+      setPaused,
+      setPoolModalOpen,
+      setShowTitle,
+    ],
+  );
 
   const handleStartNewRun = useCallback(
     (charOverride?: CharacterId) => {
@@ -504,6 +551,7 @@ export function useRunController({
     diffProfile,
     postCombatOverlayReady,
     handleCueSequenceComplete,
+    handleStartDevLab,
     handleStartNewRun,
     handleContinueRun,
     handleReturnToTitle,

@@ -315,9 +315,11 @@ export function CombatEnemyHudCards({
                         ? 'text-cyan-300'
                         : intent.kind === 'pause'
                           ? 'text-slate-400'
-                          : intent.pierceShield || intent.overwhelmMultiplier
-                            ? 'text-[#FF85B3]'
-                            : 'text-lime-300'
+                          : intent.kind === 'cloak'
+                            ? 'text-cyan-200'
+                            : intent.pierceShield || intent.overwhelmMultiplier
+                              ? 'text-[#FF85B3]'
+                              : 'text-lime-300'
                     }`}
                   >
                     <IntentIcon kind={intent.kind} size={13} />
@@ -380,6 +382,20 @@ export function CombatEnemyHudCards({
                       passive={enemy.passive as 'volatile_burst' | 'phase_gate'}
                       size={12}
                     />
+                  </span>
+                )}
+                {!isDead && (enemy.cloakedTurns ?? 0) > 0 && (
+                  <span
+                    data-testid={`enemy-cloaked-${enemy.id}`}
+                    title={
+                      lang === 'cs'
+                        ? 'Neviditelná: bere jen 10 % DMG, 90 % projde za ni'
+                        : 'Cloaked: takes 10% DMG, 90% passes behind'
+                    }
+                    className="inline-flex items-center gap-0.5 rounded bg-cyan-500/20 px-1 py-0.5 text-[10px] font-extrabold text-cyan-200 ring-1 ring-cyan-300/60"
+                  >
+                    <IntentIcon kind="cloak" size={10} />
+                    <span>10%</span>
                   </span>
                 )}
                 {!isDead &&

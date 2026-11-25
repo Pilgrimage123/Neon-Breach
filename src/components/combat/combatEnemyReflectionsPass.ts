@@ -6,6 +6,8 @@ import {
   isCrawlerArchetype,
   sampleCrawlerFrame,
 } from '../../utils/crawlerSpriteSheet';
+import { FERAL_NURSE_CANONICAL_HEIGHT } from '../../utils/feralNurseSpriteSheet';
+import { MUTDOG_CANONICAL_HEIGHT } from '../../utils/mutdogSpriteSheet';
 import { SPITTER_CANONICAL_HEIGHT } from '../../utils/spitterSpriteSheet';
 import { STALKER_CANONICAL_HEIGHT } from '../../utils/stalkerSpriteSheet';
 import { getEnemyStaggerKinematics } from './combatEnemyAnimationSim';
@@ -65,6 +67,9 @@ export function renderEnemyReflectionsPass(params: {
       : null;
     const stalkerSample = arch === 'stalker' ? sim.stalkerSamples?.get(enemy.id) : undefined;
     const spitterSample = arch === 'spitter' ? sim.spitterSamples?.get(enemy.id) : undefined;
+    const mutdogSample = arch === 'mutdog' ? sim.mutdogSamples?.get(enemy.id) : undefined;
+    const feralNurseSample =
+      arch === 'feral_nurse' ? sim.feralNurseSamples?.get(enemy.id) : undefined;
     const bruteSample = arch === 'brute' ? sim.bruteSamples?.get(enemy.id) : undefined;
     const koAlpha = isDead
       ? ea
@@ -75,9 +80,13 @@ export function renderEnemyReflectionsPass(params: {
               ? stalkerSample.alpha
               : spitterSample
                 ? spitterSample.alpha
-                : bruteSample
-                  ? bruteSample.alpha
-                  : Math.max(0, 1 - ea.koProgress)
+                : mutdogSample
+                  ? mutdogSample.alpha
+                  : feralNurseSample
+                    ? feralNurseSample.alpha
+                    : bruteSample
+                      ? bruteSample.alpha
+                      : Math.max(0, 1 - ea.koProgress)
           : 1
         : 0
       : 1;
@@ -92,15 +101,22 @@ export function renderEnemyReflectionsPass(params: {
         ? 1.24
         : arch === 'brute'
           ? 1.32
-          : 0.94;
+          : arch === 'feral_nurse'
+            ? 1.02
+            : arch === 'stalker'
+              ? 0.98
+              : 0.94;
     const size = baseEnemySize * archScale;
     const hasCustomSheetMotion =
       (arch === 'stalker' && Boolean(stalkerSample)) ||
       (arch === 'spitter' && Boolean(spitterSample)) ||
+      (arch === 'mutdog' && Boolean(mutdogSample)) ||
+      (arch === 'feral_nurse' && Boolean(feralNurseSample)) ||
       (arch === 'brute' && Boolean(bruteSample));
     const suppressNativeShift = enemyCutIn.isMeleeClash;
     const suppressStaggerDx =
-      enemyCutIn.isMeleeClash || (enemyCutIn.active && enemyCutIn.role === 'target');
+      enemyCutIn.isMeleeClash ||
+      (enemyCutIn.active && enemyCutIn.role === 'target');
     const lunge =
       ea && !hasCustomSheetMotion && !suppressNativeShift
         ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09)
@@ -119,9 +135,13 @@ export function renderEnemyReflectionsPass(params: {
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
     const breathScaleY =
-      hasCustomSheetMotion && ea?.dead ? 1 : (1 + breathPhase * 0.018) * stagger.scaleYMul;
+      hasCustomSheetMotion && ea?.dead
+        ? 1
+        : (1 + breathPhase * 0.018) * stagger.scaleYMul;
     const breathScaleX =
-      hasCustomSheetMotion && ea?.dead ? 1 : (1 - breathPhase * 0.009) * stagger.scaleXMul;
+      hasCustomSheetMotion && ea?.dead
+        ? 1
+        : (1 - breathPhase * 0.009) * stagger.scaleXMul;
 
     if (isCrawlerArchetype(arch) && crawlerSample) {
       const cFrames = sim.crawlerFrames.get(arch);
@@ -167,13 +187,26 @@ export function renderEnemyReflectionsPass(params: {
     }
 
     if (arch === 'stalker' && stalkerSample && sim.stalkerFrames) {
+      const stalkerJuice = sim.stalkerJuiceSamples?.get(enemy.id);
       const sCanvas = sim.stalkerFrames[stalkerSample.frameIndex] ?? sim.stalkerFrames[0];
       if (!sCanvas) continue;
       const sf = stalkerSample.frame;
       const drawScale = size / STALKER_CANONICAL_HEIGHT;
-      const rx = ex + (suppressNativeShift ? 0 : stalkerSample.xOffsetRatio * size);
-      const sx = breathScaleX * stalkerSample.breathScaleX * enemyCutIn.scaleX;
-      const sy = breathScaleY * stalkerSample.breathScaleY * enemyCutIn.scaleY;
+      const rx =
+        ex +
+        (suppressNativeShift
+          ? 0
+          : stalkerJuice
+            ? stalkerJuice.offsetX * drawScale
+            : stalkerSample.xOffsetRatio * size);
+      const sx =
+        (stalkerJuice
+          ? stagger.scaleXMul * stalkerJuice.springScaleX
+          : breathScaleX * stalkerSample.breathScaleX) * enemyCutIn.scaleX;
+      const sy =
+        (stalkerJuice
+          ? stagger.scaleYMul * stalkerJuice.springScaleY
+          : breathScaleY * stalkerSample.breathScaleY) * enemyCutIn.scaleY;
       if (webglRenderer) {
         webglRenderer.drawSprite({
           id: `refl:enemy:${enemy.id}`,
@@ -184,7 +217,7 @@ export function renderEnemyReflectionsPass(params: {
           heightPx: sf.h * drawScale,
           anchorOffsetXPx: sf.anchorX * drawScale * sx,
           anchorOffsetYPx: sf.bottomY * drawScale,
-          facingSign: -1,
+          facingSign: 1,
           verticalScaleSign: -0.3 * sy,
           rotationRad: 0,
           alpha: 0.12 * koAlpha * reflDimMul,
@@ -196,7 +229,7 @@ export function renderEnemyReflectionsPass(params: {
         ctx.save();
         ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
         ctx.translate(rx, enemyGroundY + 1);
-        ctx.scale(-sx, -0.3 * sy);
+        ctx.scale(sx, -0.3 * sy);
         ctx.drawImage(
           sCanvas,
           -sf.anchorX * drawScale,
@@ -266,6 +299,63 @@ export function renderEnemyReflectionsPass(params: {
       continue;
     }
 
+    if (arch === 'mutdog' && mutdogSample && sim.mutdogFrames) {
+      const mutdogJuice = sim.mutdogJuiceSamples?.get(enemy.id);
+      const mCanvas = sim.mutdogFrames[mutdogSample.frameIndex] ?? sim.mutdogFrames[0];
+      if (!mCanvas) continue;
+      const mf = mutdogSample.frame;
+      const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+      const rx =
+        ex +
+        (suppressNativeShift
+          ? 0
+          : mutdogJuice
+            ? mutdogJuice.offsetX * drawScale
+            : mutdogSample.xOffsetRatio * size);
+      const facing = mutdogJuice ? mutdogJuice.facingScale : -1;
+      const sx =
+        (mutdogJuice
+          ? stagger.scaleXMul * mutdogJuice.springScaleX
+          : breathScaleX * mutdogSample.breathScaleX) * enemyCutIn.scaleX;
+      const sy =
+        (mutdogJuice
+          ? stagger.scaleYMul * mutdogJuice.springScaleY
+          : breathScaleY * mutdogSample.breathScaleY) * enemyCutIn.scaleY;
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: mCanvas,
+          worldX: rx,
+          worldY: enemyGroundY + 1,
+          widthPx: mf.w * drawScale * sx,
+          heightPx: mf.h * drawScale,
+          anchorOffsetXPx: mf.anchorX * drawScale * sx,
+          anchorOffsetYPx: mf.bottomY * drawScale,
+          facingSign: facing,
+          verticalScaleSign: -0.3 * sy,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha * reflDimMul,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
+        ctx.translate(rx, enemyGroundY + 1);
+        ctx.scale(facing * sx, -0.3 * sy);
+        ctx.drawImage(
+          mCanvas,
+          -mf.anchorX * drawScale,
+          -mf.bottomY * drawScale,
+          mf.w * drawScale,
+          mf.h * drawScale,
+        );
+        ctx.restore();
+      }
+      continue;
+    }
+
     if (arch === 'brute' && bruteSample && sim.bruteFrames) {
       const bruteJuice = sim.bruteJuiceSamples?.get(enemy.id);
       const bCanvas = sim.bruteFrames[bruteSample.frameIndex] ?? sim.bruteFrames[0];
@@ -317,6 +407,69 @@ export function renderEnemyReflectionsPass(params: {
           -bf.bottomY * drawScale,
           bf.w * drawScale,
           bf.h * drawScale,
+        );
+        ctx.restore();
+      }
+      continue;
+    }
+
+    if (arch === 'feral_nurse' && feralNurseSample && sim.feralNurseFrames) {
+      const feralNurseJuice = sim.feralNurseJuiceSamples?.get(enemy.id);
+      const fCanvas =
+        sim.feralNurseFrames[feralNurseSample.frameIndex] ?? sim.feralNurseFrames[0];
+      if (!fCanvas) continue;
+      const ff = feralNurseSample.frame;
+      const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+      const rx =
+        ex +
+        (suppressNativeShift
+          ? 0
+          : feralNurseJuice
+            ? feralNurseJuice.xShiftPx * drawScale
+            : feralNurseSample.xShiftPx * drawScale);
+      const facing = feralNurseJuice ? feralNurseJuice.facingScale : -1;
+      const cloakAlpha = isDead
+        ? 1
+        : feralNurseJuice
+          ? feralNurseJuice.alpha
+          : feralNurseSample.alpha;
+      const sx =
+        (feralNurseJuice
+          ? stagger.scaleXMul * feralNurseJuice.springScaleX
+          : breathScaleX * feralNurseSample.scaleX) * enemyCutIn.scaleX;
+      const sy =
+        (feralNurseJuice
+          ? stagger.scaleYMul * feralNurseJuice.springScaleY
+          : breathScaleY * feralNurseSample.scaleY) * enemyCutIn.scaleY;
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: fCanvas,
+          worldX: rx,
+          worldY: enemyGroundY + 1,
+          widthPx: ff.w * drawScale * sx,
+          heightPx: ff.h * drawScale,
+          anchorOffsetXPx: ff.anchorX * drawScale * sx,
+          anchorOffsetYPx: ff.bottomY * drawScale,
+          facingSign: facing,
+          verticalScaleSign: -0.3 * sy,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha * cloakAlpha * reflDimMul,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha * cloakAlpha * reflDimMul;
+        ctx.translate(rx, enemyGroundY + 1);
+        ctx.scale(facing * sx, -0.3 * sy);
+        ctx.drawImage(
+          fCanvas,
+          -ff.anchorX * drawScale,
+          -ff.bottomY * drawScale,
+          ff.w * drawScale,
+          ff.h * drawScale,
         );
         ctx.restore();
       }

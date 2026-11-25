@@ -2,7 +2,9 @@ import { soundEngine } from '../../audio/soundEngine';
 import type { CombatState, HeroState, TileType, TurnPreview } from '../../engine/types';
 import type { BruteJuiceConfig } from '../../utils/bruteJuiceController';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
+import type { FeralNurseJuiceConfig } from '../../utils/feralNurseJuiceController';
 import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
+import type { MutdogJuiceConfig } from '../../utils/mutdogJuiceController';
 import type { SpitterJuiceConfig } from '../../utils/spitterJuiceController';
 import {
   addCoverBloodDecal,
@@ -247,6 +249,192 @@ export function spawnBruteMutagenMist(
   }
 }
 
+export function spawnMutdogDroolSplatter(
+  sim: CombatStageSim,
+  cx: number,
+  cy: number,
+  floorY: number,
+  count: number,
+  dir = -1,
+  strength = 1,
+): void {
+  const safeCount = Math.max(1, Math.round(count * Math.max(0.5, strength)));
+  const droolColors = ['#BEF264', '#FEFCE8', '#A3E635', '#D9F99D'];
+  for (let i = 0; i < safeCount; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const spread = (Math.random() - 0.5) * 1.15;
+    const ang = (dir < 0 ? Math.PI : 0) + spread - 0.25;
+    const spd = (65 + Math.random() * 145) * Math.max(0.7, strength);
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * 14;
+    p.y = cy + (Math.random() - 0.5) * 10;
+    p.vx = Math.cos(ang) * spd;
+    p.vy = Math.sin(ang) * spd - 35;
+    p.life = 0;
+    p.maxLife = 0.36 + Math.random() * 0.28;
+    p.size = 2.1 + Math.random() * 2.4;
+    p.color = droolColors[i % droolColors.length];
+    p.shape = 2;
+    p.rot = 0;
+    p.vRot = 0;
+    p.gravity = 460;
+    p.floorY = floorY;
+    p.bounced = false;
+  }
+  emitBloodDroplets(
+    sim,
+    cx,
+    cy,
+    floorY,
+    Math.max(2, Math.round(safeCount * 0.45)),
+    Math.max(0.75, strength),
+    'mutdog',
+    'kinetic',
+    dir,
+  );
+}
+
+export function spawnMutdogLeapDust(
+  sim: CombatStageSim,
+  cx: number,
+  groundY: number,
+  count: number,
+  strength = 1,
+): void {
+  const dustColors = ['#CBD5E1', '#94A3B8', '#BEF264', '#FDBA74'];
+  const safeCount = Math.max(2, Math.round(count * Math.max(0.5, strength)));
+  for (let i = 0; i < safeCount; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const ang = -Math.PI * 0.5 + (Math.random() - 0.5) * 2.25;
+    const spd = (75 + Math.random() * 155) * Math.max(0.7, strength);
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * 32;
+    p.y = groundY - 2 - Math.random() * 6;
+    p.vx = Math.cos(ang) * spd;
+    p.vy = Math.sin(ang) * spd - 38;
+    p.life = 0;
+    p.maxLife = 0.34 + Math.random() * 0.3;
+    p.size = 2.6 + Math.random() * 3.4;
+    p.color = dustColors[i % dustColors.length];
+    p.shape = i % 3 === 0 ? 1 : 0;
+    p.rot = Math.random() * Math.PI * 2;
+    p.vRot = (Math.random() - 0.5) * 12;
+    p.gravity = 380;
+    p.floorY = groundY + 2;
+    p.bounced = false;
+  }
+}
+
+export function spawnFeralNurseIchorSpray(
+  sim: CombatStageSim,
+  cx: number,
+  cy: number,
+  floorY: number,
+  count: number,
+  dir = -1,
+  strength = 1,
+): void {
+  const safeCount = Math.max(2, Math.round(count * Math.max(0.5, strength)));
+  const ichorColors = ['#F43F5E', '#E879F9', '#FB7185', '#FDA4AF'];
+  for (let i = 0; i < safeCount; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const spread = (Math.random() - 0.5) * 1.25;
+    const ang = (dir < 0 ? Math.PI : 0) + spread - 0.22;
+    const spd = (72 + Math.random() * 155) * Math.max(0.7, strength);
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * 16;
+    p.y = cy + (Math.random() - 0.5) * 12;
+    p.vx = Math.cos(ang) * spd;
+    p.vy = Math.sin(ang) * spd - 36;
+    p.life = 0;
+    p.maxLife = 0.34 + Math.random() * 0.28;
+    p.size = 2.2 + Math.random() * 2.6;
+    p.color = ichorColors[i % ichorColors.length];
+    p.shape = 2;
+    p.rot = 0;
+    p.vRot = 0;
+    p.gravity = 440;
+    p.floorY = floorY;
+    p.bounced = false;
+  }
+  emitBloodDroplets(
+    sim,
+    cx,
+    cy,
+    floorY,
+    Math.max(2, Math.round(safeCount * 0.45)),
+    Math.max(0.75, strength),
+    'feral_nurse',
+    'kinetic',
+    dir,
+  );
+}
+
+export function spawnFeralNurseCloakShimmer(
+  sim: CombatStageSim,
+  cx: number,
+  cy: number,
+  count = 14,
+): void {
+  const shimmerColors = ['#22D3EE', '#67E8F9', '#E879F9', '#ECFEFF'];
+  for (let i = 0; i < count; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const ang = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.45;
+    const spd = 28 + Math.random() * 88;
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * 34;
+    p.y = cy + (Math.random() - 0.5) * 62;
+    p.vx = Math.cos(ang) * spd;
+    p.vy = Math.sin(ang) * spd * 0.55 - 26 - Math.random() * 34;
+    p.life = 0;
+    p.maxLife = 0.36 + Math.random() * 0.34;
+    p.size = 2.0 + Math.random() * 2.6;
+    p.color = shimmerColors[i % shimmerColors.length];
+    p.shape = i % 2 === 0 ? 1 : 0;
+    p.rot = Math.random() * Math.PI * 2;
+    p.vRot = (Math.random() - 0.5) * 8;
+    p.gravity = -18;
+    p.floorY = 9999;
+    p.bounced = false;
+  }
+}
+
+export function spawnFeralNurseLeapDust(
+  sim: CombatStageSim,
+  cx: number,
+  groundY: number,
+  count: number,
+  strength = 1,
+): void {
+  const dustColors = ['#E2E8F0', '#94A3B8', '#F472B6', '#FDA4AF'];
+  const safeCount = Math.max(2, Math.round(count * Math.max(0.5, strength)));
+  for (let i = 0; i < safeCount; i++) {
+    const p = sim.particles[sim.particleCursor];
+    sim.particleCursor = (sim.particleCursor + 1) % PARTICLE_POOL_SIZE;
+    const ang = -Math.PI * 0.5 + (Math.random() - 0.5) * 2.2;
+    const spd = (68 + Math.random() * 140) * Math.max(0.7, strength);
+    p.active = true;
+    p.x = cx + (Math.random() - 0.5) * 28;
+    p.y = groundY - 2 - Math.random() * 5;
+    p.vx = Math.cos(ang) * spd;
+    p.vy = Math.sin(ang) * spd - 34;
+    p.life = 0;
+    p.maxLife = 0.30 + Math.random() * 0.26;
+    p.size = 2.2 + Math.random() * 3.0;
+    p.color = dustColors[i % dustColors.length];
+    p.shape = i % 3 === 0 ? 1 : 0;
+    p.rot = Math.random() * Math.PI * 2;
+    p.vRot = (Math.random() - 0.5) * 10;
+    p.gravity = 360;
+    p.floorY = groundY + 2;
+    p.bounced = false;
+  }
+}
+
 export function triggerEnemyHitStagger(
   sim: CombatStageSim,
   enemyId: string,
@@ -475,6 +663,8 @@ export function ensureEnemyAnim(sim: CombatStageSim, id: string): ActorAnim {
       bleedSpurtTimer: 0,
       attackAnimTimer: 0,
       attackAnimDuration: 0.52,
+      cloakCastTimer: 0,
+      cloakCastDuration: 0.72,
       bristleTimer: 0,
       bristleDuration: 0.5,
       bristleKind: 'armor',
@@ -500,6 +690,10 @@ export interface StepCombatSimulationOptions {
   spitterLabActive?: boolean;
   bruteJuiceConfig?: BruteJuiceConfig;
   bruteLabActive?: boolean;
+  mutdogJuiceConfig?: MutdogJuiceConfig;
+  mutdogLabActive?: boolean;
+  feralNurseJuiceConfig?: FeralNurseJuiceConfig;
+  feralNurseLabActive?: boolean;
 }
 
 export function stepCombatSimulation(
@@ -601,6 +795,9 @@ export function stepCombatSimulation(
     if (ea.attackAnimTimer > 0) {
       ea.attackAnimTimer = Math.max(0, ea.attackAnimTimer - simDt);
     }
+    if (ea.cloakCastTimer && ea.cloakCastTimer > 0) {
+      ea.cloakCastTimer = Math.max(0, ea.cloakCastTimer - simDt);
+    }
     if (ea.bristleTimer > 0) {
       ea.bristleTimer = Math.max(0, ea.bristleTimer - simDt);
     }
@@ -646,6 +843,10 @@ export function stepCombatSimulation(
       spitterLabActive: options.spitterLabActive,
       bruteJuiceConfig: options.bruteJuiceConfig,
       bruteLabActive: options.bruteLabActive,
+      mutdogJuiceConfig: options.mutdogJuiceConfig,
+      mutdogLabActive: options.mutdogLabActive,
+      feralNurseJuiceConfig: options.feralNurseJuiceConfig,
+      feralNurseLabActive: options.feralNurseLabActive,
       emitSideEffects: true,
     });
   }

@@ -4,6 +4,7 @@ import { computeMedBayHealAmount } from '../engine/dynastyClinicEngine';
 import type { RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { MedBayOptionId } from '../utils/nurseSpriteSheet';
+import { FormattedText } from './FormattedText';
 import { HeroPortraitCanvas } from './HeroPortraitCanvas';
 
 export type MedBayActionType =
@@ -167,7 +168,7 @@ export function BioMedBayView({
                     isCompactLandscape ? 'text-sm sm:text-base' : 'text-base md:text-xl'
                   }`}
                 >
-                  {t.medbaySubtitle.replace('{name}', charMeta.name)}
+                  <FormattedText text={t.medbaySubtitle.replace('{name}', charMeta.name)} />
                 </h1>
                 {isFundedClinic && (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-lime-500/20 border border-lime-400/60 text-lime-300 font-mono-tabular text-[12px] font-bold uppercase tracking-wider">
@@ -189,17 +190,21 @@ export function BioMedBayView({
                   [{lang === 'cs' ? 'Rodinný krb' : 'Family Hearth'}]:
                 </span>
                 <span className="truncate font-mono-tabular text-[12.5px] sm:text-[13px] text-slate-100">
-                  “{hearthQuote}”
+                  “<FormattedText text={hearthQuote} />”
                 </span>
               </div>
               <span className="shrink-0 font-mono-tabular text-[12px] font-bold text-emerald-300">
-                {isFundedClinic
-                  ? `✦ ${t.fundedClinicAllActionsNote}`
-                  : isHighHp
-                    ? `⚡ ${t.greedyClinicNotice}`
-                    : isCriticalHp
-                      ? `⚠ ${t.opportunityCostNotice}`
-                      : ''}
+                {isFundedClinic ? (
+                  <>
+                    ✦ <FormattedText text={t.fundedClinicAllActionsNote} />
+                  </>
+                ) : isHighHp ? (
+                  `⚡ ${t.greedyClinicNotice}`
+                ) : isCriticalHp ? (
+                  `⚠ ${t.opportunityCostNotice}`
+                ) : (
+                  ''
+                )}
               </span>
             </div>
           </div>
@@ -281,7 +286,7 @@ export function BioMedBayView({
                   )}
                 </div>
                 <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
-                  {t.medbayCalibrateDesc}
+                  <FormattedText text={t.medbayCalibrateDesc} />
                 </p>
               </div>
               <span
@@ -323,7 +328,7 @@ export function BioMedBayView({
                   )}
                 </div>
                 <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
-                  {t.medbaySalvageDesc}
+                  <FormattedText text={t.medbaySalvageDesc} />
                 </p>
               </div>
               <span
@@ -368,7 +373,7 @@ export function BioMedBayView({
                   )}
                 </div>
                 <p className="mt-0.5 text-[12px] leading-snug text-slate-200">
-                  {t.medbayOverclockDesc}
+                  <FormattedText text={t.medbayOverclockDesc} />
                 </p>
               </div>
               <span

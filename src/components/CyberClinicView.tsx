@@ -13,6 +13,7 @@ import type { CyberImplantId, RunState, TileType } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { MedBayOptionId } from '../utils/nurseSpriteSheet';
 import { formatTileShortLabel } from '../utils/tileDisplay';
+import { FormattedText } from './FormattedText';
 import { ImplantIcon } from './ImplantIcon';
 import { NurseStageCanvas } from './medbay/NurseStageCanvas';
 
@@ -240,7 +241,7 @@ export function CyberClinicView({
               </span>
             )}
             <p className="text-[12.5px] sm:text-sm text-slate-200 truncate min-w-0">
-              {t.clinicSubtitle.replace('{name}', charCode)}
+              <FormattedText text={t.clinicSubtitle.replace('{name}', charCode)} />
             </p>
           </div>
           <div className="flex items-center gap-1.5 font-mono-tabular text-[12.5px] sm:text-sm shrink-0">
@@ -293,7 +294,7 @@ export function CyberClinicView({
             [{t.medbayNurseName}]:
           </span>
           <span className="truncate font-mono-tabular text-[12px] sm:text-[12.5px] text-slate-100">
-            “{nurseQuote}”
+            “<FormattedText text={nurseQuote} />”
           </span>
         </div>
 
@@ -555,7 +556,7 @@ export function CyberClinicView({
             {!pendingImplant ? (
               <>
                 <div className="truncate text-[12px] sm:text-[13px] font-bold uppercase tracking-wider text-[#00F0FF]">
-                  {t.clinicSelectPrompt}
+                  <FormattedText text={t.clinicSelectPrompt} />
                 </div>
                 <div
                   className={`mt-1 grid ${
@@ -633,7 +634,7 @@ export function CyberClinicView({
                               )}
                             </div>
                             <p className="mt-0.5 font-mono-tabular text-[12px] sm:text-[13px] leading-snug text-slate-200">
-                              {meta.desc}
+                              <FormattedText text={meta.desc} />
                             </p>
                           </div>
                         </div>
@@ -670,7 +671,9 @@ export function CyberClinicView({
                           <div className="font-display text-[13px] font-bold text-white">
                             {meta.name}
                           </div>
-                          <div className="mt-0.5 text-[12px] text-slate-200">{meta.desc}</div>
+                          <div className="mt-0.5 text-[12px] text-slate-200">
+                            <FormattedText text={meta.desc} />
+                          </div>
                           <div className="mt-0.5 text-[12px] font-bold text-rose-300">
                             {t.replaceSlot} →
                           </div>

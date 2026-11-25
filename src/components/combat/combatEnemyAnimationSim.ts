@@ -18,6 +18,33 @@ import {
   stepBruteJuice,
 } from '../../utils/bruteJuiceController';
 import {
+  FERAL_NURSE_CANONICAL_HEIGHT,
+  FERAL_NURSE_SHEET_FRAMES,
+  type FeralNurseAnimSample,
+  computeFeralNurseTransition,
+  sampleFeralNurseFrame,
+} from '../../utils/feralNurseSpriteSheet';
+import {
+  DEFAULT_FERAL_NURSE_JUICE_CONFIG,
+  type FeralNurseJuiceConfig,
+  type FeralNurseJuiceSample,
+  createFeralNurseJuiceState,
+  stepFeralNurseJuice,
+} from '../../utils/feralNurseJuiceController';
+import {
+  MUTDOG_CANONICAL_HEIGHT,
+  MUTDOG_SHEET_FRAMES,
+  type MutdogFrameSample,
+  sampleMutdogFrame,
+} from '../../utils/mutdogSpriteSheet';
+import {
+  DEFAULT_MUTDOG_JUICE_CONFIG,
+  type MutdogJuiceConfig,
+  type MutdogJuiceSample,
+  createMutdogJuiceState,
+  stepMutdogJuice,
+} from '../../utils/mutdogJuiceController';
+import {
   SPITTER_CANONICAL_HEIGHT,
   SPITTER_SHEET_FRAMES,
   type SpitterFrameSample,
@@ -31,9 +58,16 @@ import {
   stepSpitterJuice,
 } from '../../utils/spitterJuiceController';
 import {
+  STALKER_CANONICAL_HEIGHT,
+  STALKER_SHEET_FRAMES,
   type StalkerFrameSample,
   sampleStalkerFrame,
 } from '../../utils/stalkerSpriteSheet';
+import {
+  type StalkerJuiceSample,
+  createStalkerJuiceState,
+  stepStalkerJuice,
+} from '../../utils/stalkerJuiceController';
 import { computeEnemyArmorPreview, computeEnemySlotLayout } from './combatEnemyUi';
 import {
   type ActorAnim,
@@ -48,6 +82,11 @@ import {
   spawnBruteKineticShards,
   spawnBruteMutagenMist,
   spawnBurst,
+  spawnFeralNurseCloakShimmer,
+  spawnFeralNurseIchorSpray,
+  spawnFeralNurseLeapDust,
+  spawnMutdogDroolSplatter,
+  spawnMutdogLeapDust,
 } from './combatVfx';
 import {
   type ActorJuiceSnapshot,
@@ -110,6 +149,10 @@ export interface StepEnemyAnimationOptions {
   spitterLabActive?: boolean;
   bruteJuiceConfig?: BruteJuiceConfig;
   bruteLabActive?: boolean;
+  mutdogJuiceConfig?: MutdogJuiceConfig;
+  mutdogLabActive?: boolean;
+  feralNurseJuiceConfig?: FeralNurseJuiceConfig;
+  feralNurseLabActive?: boolean;
   getActorJuice?: (actorId: string) => ActorJuiceSnapshot;
   emitSideEffects?: boolean;
 }
@@ -131,6 +174,10 @@ export function stepEnemyAnimationSamples(
     spitterLabActive = false,
     bruteJuiceConfig = DEFAULT_BRUTE_JUICE_CONFIG,
     bruteLabActive = false,
+    mutdogJuiceConfig = DEFAULT_MUTDOG_JUICE_CONFIG,
+    mutdogLabActive = false,
+    feralNurseJuiceConfig = DEFAULT_FERAL_NURSE_JUICE_CONFIG,
+    feralNurseLabActive = false,
     emitSideEffects = true,
   } = options;
   const enemies = combat.enemies;
@@ -156,16 +203,28 @@ export function stepEnemyAnimationSamples(
   };
 
   if (!sim.stalkerSamples) sim.stalkerSamples = new Map<string, StalkerFrameSample>();
+  if (!sim.stalkerJuiceSamples) sim.stalkerJuiceSamples = new Map<string, StalkerJuiceSample>();
   if (!sim.spitterSamples) sim.spitterSamples = new Map<string, SpitterFrameSample>();
   if (!sim.spitterJuiceSamples) sim.spitterJuiceSamples = new Map<string, SpitterJuiceSample>();
+  if (!sim.mutdogSamples) sim.mutdogSamples = new Map<string, MutdogFrameSample>();
+  if (!sim.mutdogJuiceSamples) sim.mutdogJuiceSamples = new Map<string, MutdogJuiceSample>();
+  if (!sim.feralNurseSamples) sim.feralNurseSamples = new Map<string, FeralNurseAnimSample>();
+  if (!sim.feralNurseJuiceSamples) {
+    sim.feralNurseJuiceSamples = new Map<string, FeralNurseJuiceSample>();
+  }
   if (!sim.bruteSamples) sim.bruteSamples = new Map<string, BruteFrameSample>();
   if (!sim.bruteJuiceSamples) sim.bruteJuiceSamples = new Map<string, BruteJuiceSample>();
 
   sim.stalkerSamples.clear();
+  sim.stalkerJuiceSamples.clear();
   sim.spitterSamples.clear();
   sim.spitterJuiceSamples.clear();
   sim.bruteSamples.clear();
   sim.bruteJuiceSamples.clear();
+  sim.mutdogSamples.clear();
+  sim.mutdogJuiceSamples.clear();
+  sim.feralNurseSamples.clear();
+  sim.feralNurseJuiceSamples.clear();
 
   if (sim.stalkerFrames) {
     for (let idx = 0; idx < enemies.length; idx++) {
@@ -212,8 +271,85 @@ export function stepEnemyAnimationSamples(
         tacticalViewActive ? 0 : dtStep,
         stalkerCutIn.poseOverride,
       );
+
+      let juiceState = sim.stalkerJuiceStates.get(enemy.id);
+      if (!juiceState) {
+        juiceState = createStalkerJuiceState(1337 + idx * 97);
+        sim.stalkerJuiceStates.set(enemy.id, juiceState);
+      }
+      const juiceSample = stepStalkerJuice(
+        juiceState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        {
+          dead: ea?.dead,
+          koProgress: ea?.koProgress,
+          attackAnimTimer: ea?.attackAnimTimer,
+          attackAnimDuration: ea?.attackAnimDuration,
+          staggerTimer: ea?.staggerTimer,
+          staggerDuration: ea?.staggerDuration,
+          bristleTimer: ea?.bristleTimer,
+          bristleDuration: ea?.bristleDuration,
+          bristleKind: ea?.bristleKind === 'retaliate' ? 'retaliate' : 'armor',
+          ambushPrimed,
+          armoredGuard,
+          retaliateHover,
+          staggeredStatus: Boolean(enemy.staggered),
+          instanceIndex: idx,
+        },
+      );
+
+      if (!ea?.dead && stalkerCutIn.active && stalkerCutIn.poseOverride !== 'none') {
+        juiceSample.frameIndex = 1;
+        juiceSample.frameBlendAlpha = 1;
+        if (stalkerCutIn.poseOverride === 'attack_pose') {
+          juiceSample.clawSlashProgress = Math.max(juiceSample.clawSlashProgress, 0.65);
+        }
+        if (stalkerCutIn.isMeleeClash) {
+          juiceSample.offsetX = 0;
+          sample.xOffsetRatio = 0;
+        }
+      }
+
+      sample.mode = juiceSample.mode;
+      sample.frameIndex = juiceSample.frameIndex;
+      sample.frame = STALKER_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
+      sample.prevFrameIndex = juiceSample.prevFrameIndex;
+      sample.prevFrame = STALKER_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
+      sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
+      sample.blinkClosure = juiceSample.blinkClosure;
+      sample.spineGlowIntensity = juiceSample.spineGlowIntensity;
+      sample.clawSlashProgress = Math.max(sample.clawSlashProgress, juiceSample.clawSlashProgress);
+
       sim.stalkerTransitions.set(enemy.id, sample.transitionState);
       sim.stalkerSamples.set(enemy.id, sample);
+      sim.stalkerJuiceSamples.set(enemy.id, juiceSample);
+
+      if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
+        if (juiceSample.slimeBurstTriggered || juiceSample.slashImpactTriggered) {
+          const size = baseEnemySize * 0.98;
+          const drawScale = size / STALKER_CANONICAL_HEIGHT;
+          const stagger = getEnemyStaggerKinematics(ea);
+          const cutInShiftX = stalkerCutIn.active ? stalkerCutIn.clashSlideX + stalkerCutIn.knockbackX : 0;
+          const suppressStaggerDx =
+            stalkerCutIn.isMeleeClash || (stalkerCutIn.active && stalkerCutIn.role === 'target');
+          const ex =
+            enemyBaseX +
+            (slotCenters[idx] ?? idx) * enemyStepX +
+            (suppressStaggerDx ? 0 : stagger.dx);
+          const spriteX =
+            ex +
+            cutInShiftX +
+            (stalkerCutIn.isMeleeClash ? 0 : juiceSample.offsetX * drawScale);
+          const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
+          const jawX = spriteX + sample.frame.jawOriginRel.dx * drawScale;
+          const jawY = enemyGroundY + juiceSample.hopYPx * drawScale + sample.frame.jawOriginRel.dy * drawScale;
+          spawnBurst(sim, jawX, jawY, 8, '#A3E635', -0.4, 0.9, 95, 0.36, 0.24, 2.2, 2.8);
+          if (juiceSample.slashImpactTriggered) {
+            sim.trauma = Math.min(1, sim.trauma + 0.22);
+          }
+        }
+      }
     }
   }
 
@@ -629,6 +765,476 @@ export function stepEnemyAnimationSamples(
         if (labJuice.mutagenMistProgress > 0.12) {
           const emitCount = labJuice.mutagenMistProgress > 0.45 ? 2 : 1;
           spawnBruteMutagenMist(sim, chestVialX, chestVialY, emitCount, labJuice.mutagenMistProgress);
+        }
+      }
+    }
+  }
+
+  if (sim.mutdogFrames) {
+    for (let idx = 0; idx < enemies.length; idx++) {
+      const enemy = enemies[idx];
+      if (enemy.archetype !== 'mutdog') continue;
+      const ea = sim.enemyAnims.get(enemy.id);
+      const isDead = enemy.hp <= 0;
+      const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
+      const isMaulPrimed =
+        !isDead &&
+        !enemy.staggered &&
+        activeIntent?.kind === 'attack' &&
+        Boolean(activeIntent.overwhelmMultiplier && activeIntent.overwhelmMultiplier > 1);
+      const isPouncePrimed =
+        !isDead &&
+        !enemy.staggered &&
+        activeIntent?.kind === 'attack' &&
+        !isMaulPrimed;
+      const isPauseRecover = !isDead && !enemy.staggered && activeIntent?.kind === 'pause';
+      const isFeralGuard = !isDead && !enemy.staggered && enemy.armor > 0;
+      const hoverArmorPrev =
+        !isDead &&
+        activePreview &&
+        activePreview.color === 'attack' &&
+        (idx === frontLivingIdx || activePreview.surgeTriggered)
+          ? computeEnemyArmorPreview(enemy, idx, frontLivingIdx, activePreview, enemies)
+          : null;
+      const isGuardHover =
+        !isDead &&
+        !enemy.staggered &&
+        hoveredColor === 'defense' &&
+        (activeIntent?.kind === 'attack' || activeIntent?.kind === 'heavy');
+      const isStaggerHover = Boolean(hoverArmorPrev?.willStagger);
+
+      let juiceState = sim.mutdogJuiceStates.get(enemy.id);
+      if (!juiceState) {
+        juiceState = createMutdogJuiceState();
+        sim.mutdogJuiceStates.set(enemy.id, juiceState);
+      }
+
+      const juiceSample = stepMutdogJuice(
+        juiceState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        mutdogJuiceConfig,
+        {
+          dead: isDead || Boolean(ea?.dead),
+          koProgress: ea?.koProgress ?? (isDead ? 1 : 0),
+          attackAnimTimer: ea?.attackAnimTimer ?? 0,
+          attackAnimDuration: ea?.attackAnimDuration ?? 0.62,
+          mutdogAttackKind: ea?.mutdogAttackKind ?? 'pounce',
+          staggerTimer: ea?.staggerTimer ?? 0,
+          staggerDuration: ea?.staggerDuration ?? 0.44,
+          bristleTimer: ea?.bristleTimer ?? 0,
+          bristleDuration: ea?.bristleDuration ?? 0.74,
+          maulPrimed: isMaulPrimed,
+          pouncePrimed: isPouncePrimed,
+          pauseRecover: isPauseRecover,
+          feralGuard: isFeralGuard,
+          guardHover: isGuardHover,
+          staggerHover: isStaggerHover,
+          staggeredStatus: Boolean(enemy.staggered),
+          instanceIndex: idx,
+        },
+      );
+
+      const sample = sampleMutdogFrame(
+        {
+          dead: isDead || Boolean(ea?.dead),
+          koProgress: ea?.koProgress ?? (isDead ? 1 : 0),
+          staggerTimer: ea?.staggerTimer ?? 0,
+          staggerDuration: ea?.staggerDuration ?? 0.44,
+          attackAnimTimer: ea?.attackAnimTimer ?? 0,
+          attackAnimDuration: ea?.attackAnimDuration ?? 0.62,
+          mutdogAttackKind: ea?.mutdogAttackKind ?? 'pounce',
+          bristleTimer: ea?.bristleTimer ?? 0,
+          bristleDuration: ea?.bristleDuration ?? 0.74,
+          maulPrimed: isMaulPrimed,
+          pouncePrimed: isPouncePrimed,
+          pauseRecover: isPauseRecover,
+          feralGuard: isFeralGuard,
+          guardHover: isGuardHover,
+          staggered: Boolean(enemy.staggered),
+          staggerHover: isStaggerHover,
+        },
+        tacticalViewActive ? 0 : elapsed,
+        idx,
+        sim.mutdogTransitions.get(enemy.id),
+        tacticalViewActive ? 0 : dtStep,
+      );
+
+      if (!isDead && !ea?.dead) {
+        sample.frameIndex = juiceSample.frameIndex;
+        sample.frame = MUTDOG_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
+        sample.prevFrameIndex = juiceSample.prevFrameIndex;
+        sample.prevFrame = MUTDOG_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
+        sample.frameBlendAlpha = juiceSample.frameBlendAlpha;
+        sample.lureGlowIntensity = juiceSample.lureGlowIntensity;
+        sample.droolIntensity = juiceSample.droolIntensity;
+        sample.clawSlashProgress = Math.max(
+          sample.clawSlashProgress,
+          juiceSample.clawSlashProgress,
+        );
+        sample.pounceImpactIntensity = Math.max(
+          sample.pounceImpactIntensity,
+          juiceSample.pounceImpactProgress > 0.01
+            ? Math.sin(juiceSample.pounceImpactProgress * Math.PI)
+            : 0,
+        );
+      }
+
+      const mutdogCutIn = getActorJuice(enemy.id);
+      if (mutdogCutIn.active && mutdogCutIn.poseOverride && !isDead && !ea?.dead) {
+        const overrideIdx =
+          mutdogCutIn.poseOverride === 'attack_pose'
+            ? ea?.mutdogAttackKind === 'maul'
+              ? 10
+              : 11
+            : mutdogCutIn.poseOverride === 'recoil_pose'
+              ? 12
+              : mutdogCutIn.poseOverride === 'brace_pose'
+                ? 6
+                : null;
+        if (overrideIdx !== null) {
+          sample.frameIndex = overrideIdx;
+          sample.frame = MUTDOG_SHEET_FRAMES[overrideIdx] ?? sample.frame;
+          sample.frameBlendAlpha = 1;
+        }
+      }
+
+      sim.mutdogTransitions.set(enemy.id, sample.transitionState);
+      sim.mutdogSamples.set(enemy.id, sample);
+      sim.mutdogJuiceSamples.set(enemy.id, juiceSample);
+
+      if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
+        const size = baseEnemySize * 0.94;
+        const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+        const stagger = getEnemyStaggerKinematics(ea);
+        const cutInShiftX = mutdogCutIn.active ? mutdogCutIn.clashSlideX + mutdogCutIn.knockbackX : 0;
+        const suppressStaggerDx =
+          mutdogCutIn.isMeleeClash || (mutdogCutIn.active && mutdogCutIn.role === 'target');
+        const ex =
+          enemyBaseX +
+          (slotCenters[idx] ?? idx) * enemyStepX +
+          (suppressStaggerDx ? 0 : stagger.dx);
+        const spriteX =
+          ex +
+          cutInShiftX +
+          (mutdogCutIn.isMeleeClash ? 0 : juiceSample.offsetX * drawScale);
+        const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
+        const hopY = juiceSample.hopYPx * drawScale;
+        const mf = sample.frame;
+        const juiceFacing = juiceSample.facingScale;
+        const clawX = spriteX + mf.clawOriginRel.dx * drawScale * (-juiceFacing);
+        const mawX = spriteX + mf.mawOriginRel.dx * drawScale * (-juiceFacing);
+        const mawY = enemyGroundY + hopY + mf.mawOriginRel.dy * drawScale;
+
+        if (juiceSample.pounceImpactTriggered) {
+          sim.trauma = Math.min(1, sim.trauma + 0.30 * mutdogJuiceConfig.feralVfxStrength);
+          spawnMutdogLeapDust(sim, clawX, enemyGroundY, 12, mutdogJuiceConfig.feralVfxStrength);
+          spawnMutdogDroolSplatter(
+            sim,
+            mawX,
+            mawY,
+            enemyGroundY + 2,
+            8,
+            juiceFacing,
+            mutdogJuiceConfig.feralVfxStrength,
+          );
+        }
+        if (juiceSample.droolBurstTriggered) {
+          spawnMutdogDroolSplatter(
+            sim,
+            mawX,
+            mawY,
+            enemyGroundY + 2,
+            10,
+            juiceFacing,
+            mutdogJuiceConfig.feralVfxStrength,
+          );
+        }
+        if (juiceSample.pawPlantTriggered) {
+          spawnMutdogLeapDust(sim, spriteX - 10, enemyGroundY, 6, 0.72);
+        }
+      }
+    }
+
+    const hasLivingMutdog = enemies.some((e) => e.archetype === 'mutdog' && e.hp > 0);
+    if (mutdogLabActive && !hasLivingMutdog) {
+      let labState = sim.mutdogJuiceStates.get('mutdog_lab_specimen');
+      if (!labState) {
+        labState = createMutdogJuiceState();
+        sim.mutdogJuiceStates.set('mutdog_lab_specimen', labState);
+      }
+      const labJuice = stepMutdogJuice(
+        labState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        mutdogJuiceConfig,
+        { instanceIndex: 0 },
+      );
+      sim.mutdogJuiceSamples.set('mutdog_lab_specimen', labJuice);
+
+      if (emitSideEffects && dtStep > 0 && !tacticalViewActive) {
+        const mf = MUTDOG_SHEET_FRAMES[labJuice.frameIndex] ?? MUTDOG_SHEET_FRAMES[0];
+        const rawBaseSize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+        const size = rawBaseSize * 0.98;
+        const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+        const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.60);
+        const labWorldX = labBaseX + labJuice.offsetX * drawScale;
+        const labGroundY = groundY - 2;
+        const labHopY = labJuice.hopYPx * drawScale;
+        const clawX = labWorldX + mf.clawOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const mawX = labWorldX + mf.mawOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const mawY = labGroundY + labHopY + mf.mawOriginRel.dy * drawScale;
+
+        if (labJuice.pounceImpactTriggered) {
+          sim.trauma = Math.min(1, sim.trauma + 0.30 * mutdogJuiceConfig.feralVfxStrength);
+          spawnMutdogLeapDust(sim, clawX, labGroundY, 13, mutdogJuiceConfig.feralVfxStrength);
+          spawnMutdogDroolSplatter(
+            sim,
+            mawX,
+            mawY,
+            labGroundY + 2,
+            9,
+            labJuice.facingScale,
+            mutdogJuiceConfig.feralVfxStrength,
+          );
+        }
+        if (labJuice.droolBurstTriggered) {
+          spawnMutdogDroolSplatter(
+            sim,
+            mawX,
+            mawY,
+            labGroundY + 2,
+            10,
+            labJuice.facingScale,
+            mutdogJuiceConfig.feralVfxStrength,
+          );
+        }
+        if (labJuice.pawPlantTriggered) {
+          spawnMutdogLeapDust(sim, labWorldX - 10, labGroundY, 6, 0.72);
+        }
+      }
+    }
+  }
+
+  if (sim.feralNurseFrames) {
+    for (let idx = 0; idx < enemies.length; idx++) {
+      const enemy = enemies[idx];
+      if (enemy.archetype !== 'feral_nurse') continue;
+      const ea = sim.enemyAnims.get(enemy.id);
+      const isDead = enemy.hp <= 0;
+      if (isDead && (!ea || !ea.dead || ea.koProgress >= 1)) continue;
+      const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
+      const isAwake = !isDead && !enemy.staggered && !(enemy.sleepCounter && enemy.sleepCounter > 0);
+      const isCloaked = !isDead && (enemy.cloakedTurns ?? 0) > 0;
+      const isPreparePrimed = isAwake && activeIntent?.kind === 'charge';
+      const isPiercePrimed =
+        isAwake && (activeIntent?.kind === 'attack' || activeIntent?.kind === 'heavy');
+      const isFeralGuard = !isDead && !enemy.staggered && enemy.armor > 0;
+      const hoverArmorPrev =
+        !isDead &&
+        activePreview &&
+        activePreview.color === 'attack' &&
+        (idx === frontLivingIdx || activePreview.surgeTriggered)
+          ? computeEnemyArmorPreview(enemy, idx, frontLivingIdx, activePreview, enemies)
+          : null;
+      const isGuardHover =
+        isAwake &&
+        hoveredColor === 'defense' &&
+        (activeIntent?.kind === 'attack' || activeIntent?.kind === 'heavy');
+      const isStaggerHover = Boolean(hoverArmorPrev?.willStagger);
+
+      let juiceState = sim.feralNurseJuiceStates.get(enemy.id);
+      if (!juiceState) {
+        juiceState = createFeralNurseJuiceState();
+        sim.feralNurseJuiceStates.set(enemy.id, juiceState);
+      }
+
+      const combatSync = {
+        dead: isDead || Boolean(ea?.dead),
+        koProgress: ea?.koProgress ?? (isDead ? 1 : 0),
+        staggerTimer: ea?.staggerTimer ?? 0,
+        staggerDuration: ea?.staggerDuration ?? 0.44,
+        attackAnimTimer: ea?.attackAnimTimer ?? 0,
+        attackAnimDuration: ea?.attackAnimDuration ?? 0.86,
+        cloakCastTimer: ea?.cloakCastTimer ?? 0,
+        cloakCastDuration: ea?.cloakCastDuration ?? 0.72,
+        cloaked: isCloaked,
+        preparePrimed: isPreparePrimed,
+        piercePrimed: isPiercePrimed,
+        feralGuard: isFeralGuard,
+        guardHover: isGuardHover,
+        staggerHover: isStaggerHover,
+        staggered: Boolean(enemy.staggered),
+      };
+
+      const juiceSample = stepFeralNurseJuice(
+        juiceState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        feralNurseJuiceConfig,
+        feralNurseLabActive ? undefined : combatSync,
+      );
+
+      const sample = sampleFeralNurseFrame(
+        combatSync,
+        tacticalViewActive ? 0 : elapsed,
+        idx,
+      );
+
+      const prevTrans = sim.feralNurseTransitions.get(enemy.id) ?? {};
+      const transResult = computeFeralNurseTransition(
+        prevTrans,
+        juiceSample.frameIndex,
+        tacticalViewActive ? 0 : dtStep,
+      );
+
+      if (!isDead && !ea?.dead) {
+        sample.frameIndex = juiceSample.frameIndex;
+        sample.frame = FERAL_NURSE_SHEET_FRAMES[juiceSample.frameIndex] ?? sample.frame;
+        sample.prevFrameIndex = juiceSample.prevFrameIndex;
+        sample.prevFrame = FERAL_NURSE_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? sample.frame;
+        sample.blendAlpha = juiceSample.blendAlpha;
+        sample.xShiftPx = juiceSample.xShiftPx;
+        sample.yHopPx = juiceSample.hopYPx;
+        sample.alpha = juiceSample.alpha;
+        sample.headsetGlowIntensity = juiceSample.headsetGlowIntensity;
+        sample.cloakIntensity = Math.max(sample.cloakIntensity, juiceSample.cloakIntensity);
+        sample.clawSlashProgress = Math.max(
+          sample.clawSlashProgress,
+          juiceSample.clawSlashProgress,
+        );
+        sample.pierceImpactIntensity = Math.max(
+          sample.pierceImpactIntensity,
+          juiceSample.pierceImpactIntensity,
+        );
+      }
+
+      const feralNurseCutIn = getActorJuice(enemy.id);
+      if (feralNurseCutIn.active && !feralNurseLabActive && !isDead && !ea?.dead) {
+        juiceSample.facingScale = -1;
+        if (feralNurseCutIn.isMeleeClash) {
+          juiceSample.xShiftPx = 0;
+          sample.xShiftPx = 0;
+        }
+        if (feralNurseCutIn.poseOverride && feralNurseCutIn.poseOverride !== 'none') {
+          const overrideIdx =
+            feralNurseCutIn.poseOverride === 'attack_pose'
+              ? 23
+              : feralNurseCutIn.poseOverride === 'recoil_pose'
+                ? 28
+                : feralNurseCutIn.poseOverride === 'brace_pose'
+                  ? 11
+                  : null;
+          if (overrideIdx !== null) {
+            sample.frameIndex = overrideIdx;
+            sample.frame = FERAL_NURSE_SHEET_FRAMES[overrideIdx] ?? sample.frame;
+            sample.blendAlpha = 1;
+          }
+        }
+      }
+
+      sim.feralNurseTransitions.set(enemy.id, transResult);
+      sim.feralNurseSamples.set(enemy.id, sample);
+      sim.feralNurseJuiceSamples.set(enemy.id, juiceSample);
+
+      if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
+        const size = baseEnemySize * 1.02;
+        const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+        const stagger = getEnemyStaggerKinematics(ea);
+        const cutInShiftX = feralNurseCutIn.active
+          ? feralNurseCutIn.clashSlideX + feralNurseCutIn.knockbackX
+          : 0;
+        const suppressStaggerDx =
+          feralNurseCutIn.isMeleeClash ||
+          (feralNurseCutIn.active && feralNurseCutIn.role === 'target');
+        const ex =
+          enemyBaseX +
+          (slotCenters[idx] ?? idx) * enemyStepX +
+          (suppressStaggerDx ? 0 : stagger.dx);
+        const spriteX =
+          ex +
+          cutInShiftX +
+          (feralNurseCutIn.isMeleeClash ? 0 : juiceSample.xShiftPx * drawScale);
+        const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
+        const hopY = juiceSample.hopYPx * drawScale;
+        const ff = sample.frame;
+        const juiceFacing = juiceSample.facingScale;
+        const clawX = spriteX + ff.clawOriginRel.dx * drawScale * (-juiceFacing);
+        const clawY = enemyGroundY + hopY + ff.clawOriginRel.dy * drawScale;
+
+        if (juiceSample.cloakTriggered) {
+          spawnFeralNurseCloakShimmer(sim, spriteX, enemyGroundY - size * 0.48, 16);
+        }
+        if (juiceSample.pierceImpactTriggered) {
+          sim.trauma = Math.min(1, sim.trauma + 0.24);
+          spawnFeralNurseLeapDust(sim, clawX, enemyGroundY, 10, 1.0);
+          spawnFeralNurseIchorSpray(sim, clawX, clawY, enemyGroundY + 2, 10, juiceFacing, 1.05);
+        }
+        if (juiceSample.ichorBurstTriggered) {
+          spawnFeralNurseIchorSpray(
+            sim,
+            spriteX,
+            enemyGroundY - size * 0.45,
+            enemyGroundY + 2,
+            10,
+            -juiceFacing,
+            1.0,
+          );
+        }
+        if (juiceSample.heelPlantTriggered) {
+          spawnFeralNurseLeapDust(sim, spriteX - 8, enemyGroundY, 5, 0.68);
+        }
+      }
+    }
+
+    const hasLivingFeralNurse = enemies.some((e) => e.archetype === 'feral_nurse' && e.hp > 0);
+    if (feralNurseLabActive && !hasLivingFeralNurse) {
+      let labState = sim.feralNurseJuiceStates.get('feral_nurse_lab_specimen');
+      if (!labState) {
+        labState = createFeralNurseJuiceState();
+        sim.feralNurseJuiceStates.set('feral_nurse_lab_specimen', labState);
+      }
+      const labJuice = stepFeralNurseJuice(
+        labState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        feralNurseJuiceConfig,
+      );
+      sim.feralNurseJuiceSamples.set('feral_nurse_lab_specimen', labJuice);
+
+      if (emitSideEffects && dtStep > 0 && !tacticalViewActive) {
+        const ff = FERAL_NURSE_SHEET_FRAMES[labJuice.frameIndex] ?? FERAL_NURSE_SHEET_FRAMES[0];
+        const rawBaseSize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+        const size = rawBaseSize * 1.04;
+        const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+        const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.58);
+        const labWorldX = labBaseX + labJuice.xShiftPx * drawScale;
+        const labGroundY = groundY - 2;
+        const labHopY = labJuice.hopYPx * drawScale;
+        const clawX = labWorldX + ff.clawOriginRel.dx * drawScale * (-labJuice.facingScale);
+        const clawY = labGroundY + labHopY + ff.clawOriginRel.dy * drawScale;
+
+        if (labJuice.cloakTriggered) {
+          spawnFeralNurseCloakShimmer(sim, labWorldX, labGroundY - size * 0.48, 16);
+        }
+        if (labJuice.pierceImpactTriggered) {
+          sim.trauma = Math.min(1, sim.trauma + 0.24);
+          spawnFeralNurseLeapDust(sim, clawX, labGroundY, 11, 1.0);
+          spawnFeralNurseIchorSpray(sim, clawX, clawY, labGroundY + 2, 10, labJuice.facingScale, 1.05);
+        }
+        if (labJuice.ichorBurstTriggered) {
+          spawnFeralNurseIchorSpray(
+            sim,
+            labWorldX,
+            labGroundY - size * 0.45,
+            labGroundY + 2,
+            10,
+            -labJuice.facingScale,
+            1.0,
+          );
+        }
+        if (labJuice.heelPlantTriggered) {
+          spawnFeralNurseLeapDust(sim, labWorldX - 8, labGroundY, 5, 0.68);
         }
       }
     }

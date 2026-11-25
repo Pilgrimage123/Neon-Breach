@@ -130,3 +130,178 @@ test('Encounter builder respects Threat Rating budgets, bridge slots, and ADR-00
     assert.equal(larva?.maxHp, computeSmartScaledEnemyHp('larva', 9, 0, tier));
   }
 });
+
+test('Feral Nurse has TR === 9, 1-turn Invisibility (10% taken / 90% pass-through behind, solo 10%), Prepare, and 7 Pierce', async () => {
+  const { computeEnemyArmorPreview } = await import('../components/combat/combatEnemyUi');
+  const threat = computeMutantThreatRating(ENEMY_TEMPLATES.feral_nurse);
+  assert.equal(threat.total, 9, `Expected Feral Nurse TR === 9, got ${threat.total} (raw ${threat.rawScore.toFixed(3)})`);
+  assert.equal(ARCHETYPE_THREAT_RATING.feral_nurse, 9);
+  assert.equal(getEnemySlotSpan('feral_nurse'), 1);
+
+  const tpl = ENEMY_TEMPLATES.feral_nurse;
+  assert.equal(tpl.intentCycle.length, 3);
+  assert.equal(tpl.intentCycle[0].kind, 'cloak');
+  assert.equal(tpl.intentCycle[1].kind, 'charge');
+  assert.equal(tpl.intentCycle[1].value, 7);
+  assert.equal(tpl.intentCycle[1].pierceShield, true);
+  assert.equal(tpl.intentCycle[2].kind, 'attack');
+  assert.equal(tpl.intentCycle[2].value, 7);
+  assert.equal(tpl.intentCycle[2].pierceShield, true);
+
+  const baseRun = createInitialRun(2026);
+  assert.ok(baseRun.combat);
+
+  const makeNurse = (id: string, intentIdx = 0, cloakedTurns = 0) => ({
+    id,
+    archetype: 'feral_nurse' as const,
+    hp: tpl.maxHp,
+    maxHp: tpl.maxHp,
+    armor: tpl.startingArmor,
+    shieldPips: tpl.startingShieldPips,
+    maxShieldPips: tpl.startingShieldPips,
+    passive: tpl.passive,
+    roleColor: tpl.roleColor,
+    intentCycle: tpl.intentCycle,
+    currentIntentIndex: intentIdx,
+    cloakedTurns,
+  });
+
+  // 1. Move 1 (Cloak) grants cloakedTurns = 1 and advances to Move 2 (Prepare)
+  const nurseStart = makeNurse('nurse_1', 0, 0);
+  const stalkerBehind = {
+    ...baseRun.combat.enemies[1],
+    id: 'stalker_behind',
+    hp: 24,
+    maxHp: 24,
+    armor: 0,
+    shieldPips: 0,
+  };
+  const afterCloakTurn = executeSingleEnemyAction(
+    {
+      ...baseRun,
+      hero: { ...baseRun.hero, hp: 50, shield: 10, armor: 0 },
+      combat: {
+        ...baseRun.combat,
+        phase: 'PLAYER_RESOLVED' as const,
+        enemies: [nurseStart, stalkerBehind],
+      },
+    },
+    0,
+  );
+  assert.equal(afterCloakTurn.combat?.enemies[0].cloakedTurns, 1);
+  assert.equal(afterCloakTurn.combat?.enemies[0].currentIntentIndex, 1);
+  assert.ok(afterCloakTurn.combat?.lastCues.some((c) => c.kind === 'enemy_cloak'));
+
+  // 2. While cloaked, a 10-DMG attack deals 10% (1 DMG) to Nurse and passes 90% (9 DMG) to Stalker behind her
+  const attackRun = {
+    ...afterCloakTurn,
+    hero: { ...afterCloakTurn.hero, damageBoostPct: 0, implants: [], scionAlliedHouse: null },
+    combat: {
+      ...afterCloakTurn.combat!,
+      phase: 'PLAYER_IDLE' as const,
+      battlefieldRule: undefined,
+      board: [
+        { id: 'atk1', type: 'attack' as const, sourceId: 's', value: 10, isHeldFromPrevTurn: false },
+      ],
+    },
+  };
+
+  // Preview parity check before clicking
+  const nursePreview = computeEnemyArmorPreview(
+    attackRun.combat.enemies[0],
+    0,
+    0,
+    {
+      color: 'attack',
+      tileCount: 1,
+      stayCount: 0,
+      baseDamage: 10,
+      damageBoostPct: 0,
+      totalDamage: 10,
+      cleaveDamage: 0,
+      armorPiercing: false,
+      shieldGained: 0,
+      damageBoostAddedPct: 0,
+      healAmount: 0,
+      overdriveGained: 10,
+      surgeTriggered: false,
+      surgeThreshold: 4,
+      reflectOnBlock: 0,
+      armorShredAmount: 0,
+      techPierceDamage: 0,
+      cleanseCorrodeAmount: 0,
+      retaliateDamage: 0,
+    },
+    attackRun.combat.enemies,
+  );
+  const behindPreview = computeEnemyArmorPreview(
+    attackRun.combat.enemies[1],
+    1,
+    0,
+    {
+      color: 'attack',
+      tileCount: 1,
+      stayCount: 0,
+      baseDamage: 10,
+      damageBoostPct: 0,
+      totalDamage: 10,
+      cleaveDamage: 0,
+      armorPiercing: false,
+      shieldGained: 0,
+      damageBoostAddedPct: 0,
+      healAmount: 0,
+      overdriveGained: 10,
+      surgeTriggered: false,
+      surgeThreshold: 4,
+      reflectOnBlock: 0,
+      armorShredAmount: 0,
+      techPierceDamage: 0,
+      cleanseCorrodeAmount: 0,
+      retaliateDamage: 0,
+    },
+    attackRun.combat.enemies,
+  );
+  assert.equal(nursePreview.previewHpLoss, 1);
+  assert.equal(behindPreview.previewHpLoss, 9);
+
+  const afterPassThroughAtk = resolvePlayerColor(attackRun, 'attack');
+  assert.equal(afterPassThroughAtk.combat?.enemies[0].hp, tpl.maxHp - 1);
+  assert.equal(afterPassThroughAtk.combat?.enemies[1].hp, 24 - 9);
+
+  // 3. Solo cloaked Feral Nurse STILL takes only 10% (1 DMG on 10 DMG hit), 90% dissipates harmlessly
+  const soloRun = {
+    ...attackRun,
+    combat: {
+      ...attackRun.combat,
+      enemies: [makeNurse('solo_nurse', 1, 1)],
+    },
+  };
+  const afterSoloAtk = resolvePlayerColor(soloRun, 'attack');
+  assert.equal(afterSoloAtk.combat?.enemies[0].hp, tpl.maxHp - 1);
+
+  // 4. Move 2 (Prepare) clears cloakedTurns back to 0 (lasts 1 turn only!) and advances to Move 3 (7 Pierce)
+  const afterPrepare = executeSingleEnemyAction(
+    {
+      ...afterPassThroughAtk,
+      combat: { ...afterPassThroughAtk.combat!, phase: 'PLAYER_RESOLVED' as const },
+    },
+    0,
+  );
+  assert.equal(afterPrepare.combat?.enemies[0].cloakedTurns, 0);
+  assert.equal(afterPrepare.combat?.enemies[0].currentIntentIndex, 2);
+
+  // 5. Move 3 deals 7 Pierce damage bypassing Hero Shield (10 Shield -> still 10 Shield, Hero loses 7 HP)
+  const afterPierce = executeSingleEnemyAction(
+    {
+      ...afterPrepare,
+      hero: { ...afterPrepare.hero, hp: 50, shield: 10, armor: 0 },
+      combat: { ...afterPrepare.combat!, phase: 'PLAYER_RESOLVED' as const },
+    },
+    0,
+  );
+  assert.equal(afterPierce.hero.hp, 43);
+  assert.equal(afterPierce.hero.shield, 10);
+  assert.equal(afterPierce.combat?.enemies[0].currentIntentIndex, 0);
+});
+
+

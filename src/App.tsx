@@ -25,6 +25,12 @@ import {
   type AccessibilityPrefs,
 } from './utils/accessibilityAndScale';
 import { canRepositionEnemies } from './utils/tacticalSandboxAndHints';
+import {
+  type DevLabTabId,
+  getInitialDevLabTab,
+  isDevLabRunId,
+  isDevLabsQueryEnabled,
+} from './utils/devLabMode';
 import { useFullscreen } from './utils/useFullscreen';
 import { useViewportMetrics } from './utils/useViewportMetrics';
 
@@ -54,6 +60,10 @@ export default function App() {
   const [altHeldTactical, setAltHeldTactical] = useState<boolean>(false);
   const [hoveringSwap, setHoveringSwap] = useState<boolean>(false);
   const [quantizedScaleMode, setQuantizedScaleMode] = useState<boolean>(false);
+  const [devLabsEnabled, setDevLabsEnabled] = useState<boolean>(() => isDevLabsQueryEnabled());
+  const [initialDevLabTab, setInitialDevLabTab] = useState<DevLabTabId | null>(() =>
+    getInitialDevLabTab(),
+  );
 
   const screenProfile = useMemo(
     () =>
@@ -220,6 +230,41 @@ export default function App() {
     void fullscreen.toggleFullscreen();
   }, [fullscreen]);
 
+  const handleOpenDevLab = useCallback(() => {
+    setDevLabsEnabled(true);
+    setInitialDevLabTab('camera');
+    controller.handleStartDevLab(controller.selectedCharacter);
+  }, [controller]);
+
+  const handleToggleDevLabs = useCallback(() => {
+    soundEngine.playClick();
+    setDevLabsEnabled((prev) => {
+      const next = !prev;
+      if (!next) {
+        setInitialDevLabTab(null);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleSwitchDevLabHero = useCallback(
+    (charId: CharacterId) => {
+      controller.setSelectedCharacter(charId);
+      if (isDevLabRunId(run.runId)) {
+        controller.handleStartDevLab(charId);
+      }
+    },
+    [controller, run.runId],
+  );
+
+  const handleReturnToTitleFromRun = useCallback(() => {
+    if (isDevLabRunId(run.runId)) {
+      setDevLabsEnabled(isDevLabsQueryEnabled());
+      setInitialDevLabTab(getInitialDevLabTab());
+    }
+    controller.handleReturnToTitle();
+  }, [controller, run.runId]);
+
   useGlobalHotkeys({
     showTitle,
     paused,
@@ -298,6 +343,7 @@ export default function App() {
           isFullscreen={fullscreen.isFullscreen}
           onToggleFullscreen={handleToggleFullscreen}
           onOpenCodex={(tab, hero) => handleOpenCodex(tab, hero, null)}
+          onOpenDevLab={handleOpenDevLab}
         />
         {codexTarget && (
           <CodexModal
@@ -504,6 +550,9 @@ export default function App() {
                 quantizedScaleMode={quantizedScaleMode}
                 hoveringSwap={hoveringSwap}
                 difficultyTier={controller.diffProfile.tier}
+                devLabsEnabled={devLabsEnabled}
+                initialDevLabTab={initialDevLabTab}
+                onSwitchDevLabHero={handleSwitchDevLabHero}
                 onUndoTurn={controller.handleUndoTurn}
                 onOpenCodex={handleOpenCodex}
                 onCueSequenceComplete={controller.handleCueSequenceComplete}
@@ -573,8 +622,12 @@ export default function App() {
           lang={lang}
           onResume={handleResumePause}
           onOpenCodex={() => handleOpenCodex('heroes', run.hero.characterId ?? 'kira', null)}
-          onRestart={() => controller.handleStartNewRun(run.hero.characterId ?? 'kira')}
-          onTitle={controller.handleReturnToTitle}
+          onRestart={() =>
+            isDevLabRunId(run.runId)
+              ? controller.handleStartDevLab(run.hero.characterId ?? 'kira')
+              : controller.handleStartNewRun(run.hero.characterId ?? 'kira')
+          }
+          onTitle={handleReturnToTitleFromRun}
           settings={{
             tacticalView: effectiveTacticalView,
             semanticZoom: a11yPrefs.semanticZoom,
@@ -587,6 +640,7 @@ export default function App() {
             isLandscapeRotated: viewport.isLandscapeRotated,
             showFullscreenButton,
             isFullscreen: fullscreen.isFullscreen,
+            devLabsEnabled,
             onToggleTacticalView: handleToggleTacticalView,
             onCycleSemanticZoom: handleCycleSemanticZoom,
             onToggleAutoFocusCamera: handleToggleAutoFocusCamera,
@@ -597,6 +651,7 @@ export default function App() {
             onToggleLang: handleToggleLang,
             onToggleLandscape: viewport.toggleLandscapeLock,
             onToggleFullscreen: handleToggleFullscreen,
+            onToggleDevLabs: handleToggleDevLabs,
           }}
         />
       )}
@@ -631,7 +686,7 @@ export default function App() {
             onFailForwardRetry={controller.handleFailForwardRetry}
             onSkipEncounter={controller.handleSkipEncounter}
             onPlayAgain={() => controller.handleStartNewRun(run.hero.characterId ?? 'kira')}
-            onTitle={controller.handleReturnToTitle}
+            onTitle={handleReturnToTitleFromRun}
           />
         )}
     </div>

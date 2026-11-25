@@ -558,6 +558,32 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
       { kind: 'acid', value: 6, secondaryValue: 2, topDeckBlight: true },
     ],
   },
+  mutdog: {
+    archetype: 'mutdog',
+    maxHp: 20,
+    startingArmor: 0,
+    startingShieldPips: 0,
+    passive: 'none',
+    roleColor: 'lime',
+    intentCycle: [
+      { kind: 'attack', value: 5, clawRend: true },
+      { kind: 'attack', value: 6, overwhelmMultiplier: 2 },
+      { kind: 'pause', value: 0 },
+    ],
+  },
+  feral_nurse: {
+    archetype: 'feral_nurse',
+    maxHp: 17,
+    startingArmor: 0,
+    startingShieldPips: 0,
+    passive: 'none',
+    roleColor: 'crimson',
+    intentCycle: [
+      { kind: 'cloak', value: 0 },
+      { kind: 'charge', value: 7, secondaryValue: 1, pierceShield: true },
+      { kind: 'attack', value: 7, pierceShield: true, clawRend: true },
+    ],
+  },
   brute: {
     archetype: 'brute',
     maxHp: 38,

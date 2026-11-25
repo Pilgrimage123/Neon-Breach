@@ -117,6 +117,18 @@ export function getNodeEncounterIntel(
       threatTraits.push(
         isCs ? 'Nabíjený Přetlak (×2) · 16+ Omráčí' : 'Charged Overwhelm (×2) · 16+ Staggers',
       );
+    } else if (unit.archetype === 'mutdog') {
+      threatTraits.push(
+        isCs
+          ? 'Divoký skok a Zuřivý zákus (×2 Přetlak)'
+          : 'Feral Pounce & Savage Maul (×2 Overwhelm)',
+      );
+    } else if (unit.archetype === 'feral_nurse') {
+      threatTraits.push(
+        isCs
+          ? 'Optické maskování (10 % DMG) · Příprava → 7 Průraz'
+          : 'Optical Cloak (10% DMG) · Prepare → 7 Pierce',
+      );
     } else if (unit.archetype === 'brute') {
       threatTraits.push(
         isCs ? 'Přetlakový drtivý úder · 6 Brnění a 1 Aegis Pip' : 'Overwhelm Heavy Smash · 6 Armor & 1 Aegis Pip',

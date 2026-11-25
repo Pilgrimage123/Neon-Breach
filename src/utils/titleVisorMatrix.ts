@@ -68,9 +68,9 @@ export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
   // K3: Beat 3 (Blown Kiss, +14.6° down-right head lean)
   {
     p00x: 0.772,
-    p00y: 0.067,
+    p00y: 0.071,
     p10x: 0.838,
-    p10y: 0.088,
+    p10y: 0.092,
     p01x: 0.763,
     p01y: 0.123,
     p11x: 0.828,
@@ -80,9 +80,9 @@ export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
   // K4: Beat 4 (Climax !!, +16.6° down-right head lean)
   {
     p00x: 0.761,
-    p00y: 0.059,
+    p00y: 0.063,
     p10x: 0.834,
-    p10y: 0.091,
+    p10y: 0.095,
     p01x: 0.754,
     p01y: 0.127,
     p11x: 0.823,

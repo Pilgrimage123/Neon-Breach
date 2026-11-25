@@ -248,7 +248,7 @@ export function buildEncounterSpec(
 
     const candidates = budget.allowedArchetypes.filter((arch) => {
       const archMaxCopies =
-        layer < 8 && (arch === 'stalker' || arch === 'spitter')
+        layer < 8 && (arch === 'stalker' || arch === 'spitter' || arch === 'mutdog' || arch === 'feral_nurse')
           ? 1
           : budget.maxCopiesPerArchetype;
       if ((counts[arch] ?? 0) >= archMaxCopies) return false;

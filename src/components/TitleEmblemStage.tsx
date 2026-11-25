@@ -19,6 +19,7 @@ import {
   triggerEmblemClickBurst,
 } from '../utils/titleEmblemVfx';
 import {
+  KEYFRAME_LATTICE_VERTICES,
   MESH_VERTEX_COUNT,
   WARP_TRIANGLES,
   computeVertexIdleBreathNormY,
@@ -26,9 +27,13 @@ import {
   renderWarpedFramePair,
 } from '../utils/titleMeshWarp';
 import {
+  SLIME_REF_HEIGHT,
+  SLIME_REF_WIDTH,
+  type SlimeNozzleOffset,
   XENO_SLIME_NOZZLES,
   createSlimeEngineState,
   renderSlimeEngine,
+  renderSlimeForegroundSplashes,
   stepSlimeEngine,
 } from '../utils/titleSlimeEngine';
 import {
@@ -58,6 +63,9 @@ export function TitleEmblemStage({
   const vfxRef = useRef(createTitleEmblemVfxState());
   const visorRef = useRef(createVisorMatrixState());
   const slimeRef = useRef(createSlimeEngineState());
+  const slimeOffsetsRef = useRef<SlimeNozzleOffset[]>(
+    XENO_SLIME_NOZZLES.map(() => ({ dxNorm: 0, dyNorm: 0 })),
+  );
   const meshScratchRef = useRef(createMeshWarpScratch());
   const pointerTargetRef = useRef({ x: 0, y: 0 });
   const burstCountRef = useRef(0);
@@ -97,12 +105,14 @@ export function TitleEmblemStage({
       };
     }
 
+    let initialLogoPromise: Promise<unknown>;
     const cachedLogo = getPreloadedTitleLogo();
     if (cachedLogo) {
       framesRef.current[0] = cachedLogo;
       setReady(true);
+      initialLogoPromise = Promise.resolve(cachedLogo);
     } else {
-      void loadTitleLogo()
+      initialLogoPromise = loadTitleLogo()
         .then((cutout) => {
           if (cancelled) return;
           framesRef.current[0] = cutout;
@@ -113,25 +123,38 @@ export function TitleEmblemStage({
         });
     }
 
-    void loadTitleLogoFrames((idx, frameSprite) => {
+    let secondaryTimer: ReturnType<typeof setTimeout> | null = null;
+    void Promise.allSettled([
+      initialLogoPromise,
+      cachedLockup ? Promise.resolve(cachedLockup) : loadTitleLockup(),
+    ]).then(() => {
       if (cancelled) return;
-      framesRef.current[idx] = frameSprite;
-      if (idx === 0) {
-        setReady(true);
-      }
-    })
-      .then((allFrames) => {
-        if (!cancelled) {
-          framesRef.current = allFrames;
-          setReady(true);
-        }
-      })
-      .catch(() => {
-        // Keep base logo functional if secondary frames fail
-      });
+      secondaryTimer = setTimeout(() => {
+        if (cancelled) return;
+        void loadTitleLogoFrames((idx, frameSprite) => {
+          if (cancelled) return;
+          framesRef.current[idx] = frameSprite;
+          if (idx === 0) {
+            setReady(true);
+          }
+        })
+          .then((allFrames) => {
+            if (!cancelled) {
+              framesRef.current = allFrames;
+              setReady(true);
+            }
+          })
+          .catch(() => {
+            // Keep base logo functional if secondary frames fail
+          });
+      }, 200);
+    });
 
     return () => {
       cancelled = true;
+      if (secondaryTimer !== null) {
+        clearTimeout(secondaryTimer);
+      }
     };
   }, []);
 
@@ -316,14 +339,47 @@ export function TitleEmblemStage({
       const baseLogo = frames[0];
       if (!baseLogo) return;
 
-      stepVisorMatrix(visorRef.current, seq, dt, reducedMotion);
-      const isXenoShocked = seq.active && (seq.frameA >= 3 || seq.frameB >= 3);
-      stepSlimeEngine(slimeRef.current, vfx, dt, isXenoShocked, reducedMotion);
-
       const frameACanvas = frames[seq.frameA] ?? baseLogo;
       const frameBCanvas = frames[seq.frameB] ?? frameACanvas;
       const lockupSource = lockupRef.current;
       const idleBreathingActive = !seq.active && !reducedMotion;
+
+      // Sync Xeno slime nozzle anchors with live mesh vertex displacement (idle breathing + K0..K4 warp)
+      const baseVerts = KEYFRAME_LATTICE_VERTICES[0];
+      const vertsA =
+        KEYFRAME_LATTICE_VERTICES[
+          Math.max(0, Math.min(KEYFRAME_LATTICE_VERTICES.length - 1, seq.frameA))
+        ];
+      const vertsB =
+        KEYFRAME_LATTICE_VERTICES[
+          Math.max(0, Math.min(KEYFRAME_LATTICE_VERTICES.length - 1, seq.frameB))
+        ];
+      const blendU = seq.blendU <= 0 ? 0 : seq.blendU >= 1 ? 1 : seq.blendU;
+      const omU = 1 - blendU;
+      const nozzleOffsets = slimeOffsetsRef.current;
+      for (let i = 0; i < XENO_SLIME_NOZZLES.length; i++) {
+        const vIdx = XENO_SLIME_NOZZLES[i].meshVertexIdx;
+        const dxNorm =
+          vertsA[vIdx].nx * omU + vertsB[vIdx].nx * blendU - baseVerts[vIdx].nx;
+        let dyNorm =
+          vertsA[vIdx].ny * omU + vertsB[vIdx].ny * blendU - baseVerts[vIdx].ny;
+        if (idleBreathingActive) {
+          dyNorm += computeVertexIdleBreathNormY(vIdx, vfx.timeSec);
+        }
+        nozzleOffsets[i].dxNorm = dxNorm;
+        nozzleOffsets[i].dyNorm = dyNorm;
+      }
+
+      stepVisorMatrix(visorRef.current, seq, dt, reducedMotion);
+      const isXenoShocked = seq.active && (seq.frameA >= 3 || seq.frameB >= 3);
+      stepSlimeEngine(
+        slimeRef.current,
+        vfx,
+        dt,
+        isXenoShocked,
+        reducedMotion,
+        nozzleOffsets,
+      );
 
       // Build unified 960x541 offscreen composite in strict Z-order:
       // Plane 1 (Anatomical Warp Lattice) -> Visor Matrix -> Xeno Slime -> Plane 0 (Static Lockup Plane)
@@ -388,6 +444,13 @@ export function TitleEmblemStage({
           cctx.globalAlpha = 1;
           cctx.drawImage(lockupSource, 0, 0, comp.width, comp.height);
         }
+        renderSlimeForegroundSplashes(
+          cctx,
+          slimeRef.current,
+          comp.width,
+          comp.height,
+          reducedMotion,
+        );
         cctx.globalAlpha = 1;
         activeLogoSource = comp;
       }
@@ -520,10 +583,11 @@ export function TitleEmblemStage({
           ctx.fillText(label, px + 4 * dpr, py + 4 * dpr);
         }
         ctx.fillStyle = '#a3e635';
-        for (let i = 0; i < XENO_SLIME_NOZZLES.length; i++) {
-          const n = XENO_SLIME_NOZZLES[i];
-          const nx = drawX + n.nx * drawW;
-          const ny = drawY + n.ny * drawH;
+        const liveNozzles = slimeRef.current.nozzles;
+        for (let i = 0; i < liveNozzles.length; i++) {
+          const n = liveNozzles[i];
+          const nx = drawX + (n.anchorX / SLIME_REF_WIDTH) * drawW;
+          const ny = drawY + (n.anchorY / SLIME_REF_HEIGHT) * drawH;
           ctx.beginPath();
           ctx.arc(nx, ny, 3.5 * dpr, 0, Math.PI * 2);
           ctx.fill();

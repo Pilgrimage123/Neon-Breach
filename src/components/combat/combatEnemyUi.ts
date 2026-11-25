@@ -2,11 +2,13 @@ import {
   PLASMA_BARREL_BURST_DAMAGE,
   STAGGER_BURST_THRESHOLD,
   VOLATILE_BURST_DAMAGE,
+  simulatePlayerActionOnEnemies,
 } from '../../engine/gameEngine';
 import {
   getEffectiveEnemyIntentValue,
 } from '../../engine/reinforcementDirector';
 import type {
+  AnimationCue,
   EnemyIntent,
   EnemyPropKind,
   EnemyUnit,
@@ -99,6 +101,62 @@ export function computeEnemyArmorPreview(
       remainingShieldPips: enemy.shieldPips,
       willTriggerPhaseGate: false,
       chainedBurstDmg: 0,
+    };
+  }
+
+  // Exact engine-parity preview whenever any enemy in the row (or this unit) is optically cloaked
+  const hasAnyCloaked =
+    (enemy.cloakedTurns ?? 0) > 0 ||
+    Boolean(allEnemies?.some((u) => u.hp > 0 && !u.escaped && (u.cloakedTurns ?? 0) > 0));
+  if (hasAnyCloaked) {
+    const simList = allEnemies && allEnemies.length > idx ? allEnemies : [enemy];
+    const simIdx = allEnemies && allEnemies.length > idx ? idx : 0;
+    const simCues: AnimationCue[] = [];
+    const sim = simulatePlayerActionOnEnemies(simList, 0, activePreview, simCues);
+    const after = sim.enemies[simIdx];
+    const targetCues = simCues.filter((c) => c.targetId === enemy.id);
+    const rawPreviewDmg = targetCues.reduce(
+      (sum, c) =>
+        c.kind === 'hero_slash' || c.kind === 'enemy_burst' ? sum + (c.value ?? 0) : sum,
+      0,
+    );
+    const chainedBurstDmg = targetCues.reduce(
+      (sum, c) => (c.kind === 'enemy_burst' ? sum + (c.value ?? 0) : sum),
+      0,
+    );
+    const willTriggerPhaseGate = targetCues.some((c) => c.kind === 'enemy_phase_gate');
+    const willCrackShieldPip =
+      after.shieldPips < enemy.shieldPips ||
+      targetCues.some((c) => c.textLabel === 'PIP CRACKED');
+    const previewHpLoss = Math.max(0, enemy.hp - after.hp);
+    const armorAbsorbed = Math.max(0, enemy.armor - after.armor);
+    const willBreakArmor = enemy.armor > 0 && after.armor === 0;
+    const willDie = after.hp <= 0;
+    const curIntent = enemy.intentCycle[enemy.currentIntentIndex];
+    const isStaggerable =
+      !willDie &&
+      !enemy.staggered &&
+      (curIntent?.kind === 'charge' || curIntent?.kind === 'heavy');
+    const totalBurstTurnDmg = after.turnDamageTaken ?? (enemy.turnDamageTaken ?? 0) + previewHpLoss + armorAbsorbed;
+    const staggerProgress = isStaggerable
+      ? Math.min(1, totalBurstTurnDmg / STAGGER_BURST_THRESHOLD)
+      : 0;
+    const willStagger = Boolean(after.staggered) || (isStaggerable && totalBurstTurnDmg >= STAGGER_BURST_THRESHOLD);
+    return {
+      rawPreviewDmg,
+      willBreakArmor,
+      armorAbsorbed,
+      remainingArmor: after.armor,
+      previewHpLoss,
+      projectedHp: after.hp,
+      willDie,
+      willCrackShieldPip,
+      remainingShieldPips: after.shieldPips,
+      willTriggerPhaseGate,
+      chainedBurstDmg,
+      willStagger,
+      isStaggerable,
+      staggerProgress,
     };
   }
 
@@ -364,6 +422,8 @@ export function formatEnemyIntentCompact(
       return `+${val}`;
     case 'charge':
       return `${intent.secondaryValue ?? 1}T`;
+    case 'cloak':
+      return '10%';
     case 'leech':
       return `${val}`;
     default:
@@ -445,8 +505,17 @@ export function formatEnemyIntentSummary(
       return `+${val} ${t.armorLabel} (${t.allTargetsLabel})`;
     case 'charge': {
       const multTag = intent.overwhelmMultiplier ? ` ×${intent.overwhelmMultiplier}` : '';
-      return `0 DMG · ${intent.secondaryValue ?? 1}T → ${val}${multTag}`;
+      const pierceTag = intent.pierceShield
+        ? lang === 'cs'
+          ? ' Průraz'
+          : ' Pierce'
+        : '';
+      return `0 DMG · ${intent.secondaryValue ?? 1}T → ${val}${pierceTag}${multTag}`;
     }
+    case 'cloak':
+      return lang === 'cs'
+        ? '0 DMG · Neviditelnost (1T: bere 10 % DMG, 90 % projde za ni)'
+        : '0 DMG · Invisibility (1T: takes 10% DMG, 90% passes behind)';
     case 'leech':
       return `${val} DMG · +${intent.secondaryValue ?? 4} ${t.hpLabel}`;
     default:

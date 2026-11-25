@@ -76,6 +76,17 @@ export function computeBoardIntentVectors(combat: CombatState): BoardIntentVecto
         badgeText: `🩸 ${val}`,
         accentHex: '#C084FC',
       });
+    } else if (intent.kind === 'cloak') {
+      vectors.push({
+        enemyId: enemy.id,
+        enemyIndex: idx,
+        intentKind: intent.kind,
+        damageValue: 0,
+        secondaryValue: 1,
+        targetsHero: false,
+        badgeText: '◎ 10%',
+        accentHex: '#22D3EE',
+      });
     } else if (intent.kind === 'charge') {
       const turnsLeft = intent.secondaryValue ?? 1;
       vectors.push({

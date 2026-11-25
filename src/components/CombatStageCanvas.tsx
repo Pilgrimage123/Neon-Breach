@@ -12,7 +12,14 @@ import type {
 import type { GlossaryTermId } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import { DEFAULT_BRUTE_JUICE_CONFIG } from '../utils/bruteJuiceController';
+import { DEFAULT_FERAL_NURSE_JUICE_CONFIG } from '../utils/feralNurseJuiceController';
+import { DEFAULT_MUTDOG_JUICE_CONFIG } from '../utils/mutdogJuiceController';
 import { DEFAULT_SPITTER_JUICE_CONFIG } from '../utils/spitterJuiceController';
+import {
+  type DevLabTabId,
+  getInitialDevLabTab,
+  isDevLabsQueryEnabled,
+} from '../utils/devLabMode';
 import type { CodexTab } from './CodexModal';
 import type { CombatDevLabsRuntimeState } from './combat/CombatDevLabsPanel';
 import {
@@ -32,9 +39,7 @@ import {
 } from './combat/stageSpriteAdapter';
 import { useCombatStageRuntime } from './combat/useCombatStageRuntime';
 
-const LazyCombatDevLabsPanel = import.meta.env.DEV
-  ? lazy(() => import('./combat/CombatDevLabsPanel'))
-  : null;
+const LazyCombatDevLabsPanel = lazy(() => import('./combat/CombatDevLabsPanel'));
 
 interface CombatStageCanvasProps {
   runId: string;
@@ -50,6 +55,9 @@ interface CombatStageCanvasProps {
   quantizedScaleMode?: boolean;
   hoveringSwap?: boolean;
   difficultyTier?: DifficultyTier;
+  devLabsEnabled?: boolean;
+  initialDevLabTab?: DevLabTabId | null;
+  onSwitchDevLabHero?: (charId: CharacterId) => void;
   onUndoTurn?: () => void;
   onOpenCodex?: (tab: CodexTab, hero?: CharacterId, termId?: GlossaryTermId | null) => void;
   onCueSequenceComplete?: (batchKey: string) => void;
@@ -91,6 +99,9 @@ export function CombatStageCanvas({
   quantizedScaleMode = false,
   hoveringSwap = false,
   difficultyTier = 3,
+  devLabsEnabled = isDevLabsQueryEnabled(),
+  initialDevLabTab = getInitialDevLabTab(),
+  onSwitchDevLabHero,
   onUndoTurn,
   onOpenCodex,
   onCueSequenceComplete,
@@ -114,6 +125,10 @@ export function CombatStageCanvas({
     spitterJuiceConfig: DEFAULT_SPITTER_JUICE_CONFIG,
     bruteLabActive: false,
     bruteJuiceConfig: DEFAULT_BRUTE_JUICE_CONFIG,
+    mutdogLabActive: false,
+    mutdogJuiceConfig: DEFAULT_MUTDOG_JUICE_CONFIG,
+    feralNurseLabActive: false,
+    feralNurseJuiceConfig: DEFAULT_FERAL_NURSE_JUICE_CONFIG,
     cameraLabActive: false,
     presentationConfig: DEFAULT_COMBAT_PRESENTATION_CONFIG,
   });
@@ -181,6 +196,7 @@ export function CombatStageCanvas({
     onCueSequenceComplete,
     setInspectedTarget,
     setHoveredEnemyId,
+    lang,
   });
 
   // Clear inspected/hovered target if that enemy dies or pending drop resolves
@@ -263,6 +279,10 @@ export function CombatStageCanvas({
         data-spitter-trigger="idle"
         data-brute-lab="false"
         data-brute-trigger="idle"
+        data-mutdog-lab="false"
+        data-mutdog-trigger="idle"
+        data-feral-nurse-lab="false"
+        data-feral-nurse-trigger="idle"
         data-camera-lab="false"
         data-camera-trigger="idle"
         onContextMenu={(e) => {
@@ -401,11 +421,11 @@ export function CombatStageCanvas({
         setInspectedTarget={setInspectedTarget}
         setHoveredEnemyId={setHoveredEnemyId}
         onOpenCodex={onOpenCodex}
-        setDevToolbarMountNode={import.meta.env.DEV ? setDevToolbarMountNode : undefined}
+        setDevToolbarMountNode={devLabsEnabled ? setDevToolbarMountNode : undefined}
         sequentialHudStates={sequentialHudStates}
       />
 
-      {import.meta.env.DEV && LazyCombatDevLabsPanel && (
+      {devLabsEnabled && (
         <Suspense fallback={null}>
           <LazyCombatDevLabsPanel
             simRef={simRef}
@@ -417,6 +437,9 @@ export function CombatStageCanvas({
             toolbarMountNode={devToolbarMountNode}
             requestDraw={requestDraw}
             onExtraArchetypesChange={setExtraLabArchetypes}
+            initialLab={initialDevLabTab}
+            activeHeroId={charId}
+            onSwitchHero={onSwitchDevLabHero}
           />
         </Suspense>
       )}

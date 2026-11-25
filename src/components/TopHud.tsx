@@ -6,6 +6,7 @@ import type { CyberImplantId, DifficultyTier, RunState } from '../engine/types';
 import { CODEX_TRANSLATIONS } from '../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { EncounterObjectivesSummary } from '../utils/tacticalSandboxAndHints';
+import { FormattedText } from './FormattedText';
 import { ImplantIcon } from './ImplantIcon';
 
 interface TopHudProps {
@@ -160,7 +161,7 @@ export function TopHud({
                     key={impId}
                     type="button"
                     onClick={() => setInspectImplantId((prev) => (prev === impId ? null : impId))}
-                    title={`${copy.name}: ${copy.desc}`}
+                    title={`${copy.name}: ${copy.desc.replace(/\*\*/g, '')}`}
                     aria-label={copy.name}
                     className={`flex h-6 w-6 items-center justify-center rounded-md border transition cursor-pointer ${
                       isSelected
@@ -321,7 +322,7 @@ export function TopHud({
                 {t.implants[inspectImplantId].name}
               </div>
               <div className="text-[#F4F4F6] text-[14px] leading-[1.3] max-w-[40ch]">
-                {t.implants[inspectImplantId].desc}
+                <FormattedText text={t.implants[inspectImplantId].desc} />
               </div>
             </div>
           </div>

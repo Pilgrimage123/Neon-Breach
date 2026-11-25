@@ -64,6 +64,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
           ? nextIndexOnStagger
           : (safeIndex + 1) % cycleLen,
     staggered: false,
+    cloakedTurns: Math.max(0, (enemy.cloakedTurns ?? 0) - 1),
     turnDamageTaken: 0,
   };
 
@@ -121,6 +122,15 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
     });
   } else if (intent.kind === 'pause') {
     // Breather / windup turn: 0 DMG, advances intent cycle cleanly
+  } else if (intent.kind === 'cloak') {
+    updatedEnemy.cloakedTurns = 1;
+    cues.push({
+      id: `cue_e_${combat.turn}_${enemy.id}_cloak`,
+      kind: 'enemy_cloak',
+      targetId: enemy.id,
+      value: 0,
+      textLabel: 'CLOAKED (10% DMG)',
+    });
   } else if (intent.kind === 'charge') {
     const turnsLeft = intent.secondaryValue ?? 1;
     cues.push({
@@ -128,7 +138,7 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       kind: 'enemy_charge',
       targetId: enemy.id,
       value: intent.value,
-      textLabel: `CHARGING (${turnsLeft}T)`,
+      textLabel: `PREPARE (${turnsLeft}T)`,
     });
   } else {
     const incoming = getEffectiveEnemyIntentValue(enemy, intent, {
@@ -253,6 +263,13 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
       if (gainedArmorOnHit > 0) {
         updatedEnemy.armor += gainedArmorOnHit;
       }
+      let leechHealAmt = 0;
+      if (intent.kind === 'leech' && hpDamage > 0 && updatedEnemy.hp > 0) {
+        const healAmt = intent.secondaryValue ?? 4;
+        const prevHp = updatedEnemy.hp;
+        updatedEnemy.hp = Math.min(updatedEnemy.maxHp, updatedEnemy.hp + healAmt);
+        leechHealAmt = updatedEnemy.hp - prevHp;
+      }
       cues.push({
         id: `cue_e_${combat.turn}_${enemy.id}_atk`,
         kind: 'enemy_attack',
@@ -264,13 +281,10 @@ export function executeSingleEnemyAction(run: RunState, enemyIndex: number): Run
         reflectedDamage,
         clawRend: intent.clawRend,
         heavySmash: intent.kind === 'heavy',
+        leechStrike: intent.kind === 'leech',
+        ...(leechHealAmt > 0 ? { secondaryHeal: leechHealAmt } : {}),
         textLabel: gainedArmorOnHit > 0 ? `+${gainedArmorOnHit} ARM` : undefined,
       });
-    }
-
-    if (intent.kind === 'leech' && hpDamage > 0 && updatedEnemy.hp > 0) {
-      const healAmt = intent.secondaryValue ?? 4;
-      updatedEnemy.hp = Math.min(updatedEnemy.maxHp, updatedEnemy.hp + healAmt);
     }
   }
 

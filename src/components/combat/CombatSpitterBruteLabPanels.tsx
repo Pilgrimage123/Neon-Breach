@@ -16,6 +16,8 @@ export interface CombatSpitterLabPanelProps {
   lastSpitterTrigger: SpitterJuiceTrigger;
   onFireTrigger: (trig: SpitterJuiceTrigger) => void;
   onOpenBruteLab: () => void;
+  onOpenMutdogLab: () => void;
+  onOpenFeralNurseLab: () => void;
   onOpenCameraLab: () => void;
   onClose: () => void;
 }
@@ -26,6 +28,8 @@ export function CombatSpitterLabPanel({
   lastSpitterTrigger,
   onFireTrigger,
   onOpenBruteLab,
+  onOpenMutdogLab,
+  onOpenFeralNurseLab,
   onOpenCameraLab,
   onClose,
 }: CombatSpitterLabPanelProps) {
@@ -37,7 +41,7 @@ export function CombatSpitterLabPanel({
       onClick={(e) => e.stopPropagation()}
       className="aaa-charcoal-surface pointer-events-auto absolute left-2 bottom-2 z-30 w-[332px] max-w-[calc(100vw-16px)] max-h-[calc(100%-8px)] overflow-y-auto sm:w-[376px] rounded-xl border border-lime-400/65 bg-[#0B121E]/95 p-2.5 text-[10px] font-mono-tabular text-slate-100 shadow-2xl"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-1.5">
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-lime-400 text-[9px] font-black text-slate-950">
             ⬡
@@ -46,20 +50,36 @@ export function CombatSpitterLabPanel({
             Bile Spitter Juice Lab
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             type="button"
             data-testid="brute-lab-tab"
             onClick={onOpenBruteLab}
-            className="rounded border border-amber-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 hover:text-white cursor-pointer"
+            className="rounded border border-amber-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             ■ Brute
           </button>
           <button
             type="button"
+            data-testid="mutdog-lab-tab-from-spitter"
+            onClick={onOpenMutdogLab}
+            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ✦ Dog
+          </button>
+          <button
+            type="button"
+            data-testid="feral-nurse-lab-tab-from-spitter"
+            onClick={onOpenFeralNurseLab}
+            className="rounded border border-fuchsia-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-fuchsia-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ✚ Nurse
+          </button>
+          <button
+            type="button"
             data-testid="camera-lab-tab"
             onClick={onOpenCameraLab}
-            className="rounded border border-cyan-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-cyan-200 hover:text-white cursor-pointer"
+            className="rounded border border-cyan-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-cyan-200 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             ◎ Cam
           </button>
@@ -238,6 +258,8 @@ export interface CombatBruteLabPanelProps {
   lastBruteTrigger: BruteJuiceTrigger;
   onFireTrigger: (trig: BruteJuiceTrigger) => void;
   onOpenSpitterLab: () => void;
+  onOpenMutdogLab: () => void;
+  onOpenFeralNurseLab: () => void;
   onOpenCameraLab: () => void;
   onClose: () => void;
 }
@@ -248,6 +270,8 @@ export function CombatBruteLabPanel({
   lastBruteTrigger,
   onFireTrigger,
   onOpenSpitterLab,
+  onOpenMutdogLab,
+  onOpenFeralNurseLab,
   onOpenCameraLab,
   onClose,
 }: CombatBruteLabPanelProps) {
@@ -259,7 +283,7 @@ export function CombatBruteLabPanel({
       onClick={(e) => e.stopPropagation()}
       className="aaa-charcoal-surface pointer-events-auto absolute left-2 bottom-2 z-30 w-[332px] max-w-[calc(100vw-16px)] max-h-[calc(100%-8px)] overflow-y-auto sm:w-[376px] rounded-xl border border-amber-400/65 bg-[#0B121E]/95 p-2.5 text-[10px] font-mono-tabular text-slate-100 shadow-2xl"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-1.5">
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-amber-400 text-[9px] font-black text-slate-950">
             ■
@@ -268,20 +292,36 @@ export function CombatBruteLabPanel({
             Carapace Brute Juice Lab
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             type="button"
             data-testid="spitter-lab-tab"
             onClick={onOpenSpitterLab}
-            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white cursor-pointer"
+            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
-            ⬡ Spitter
+            ⬡ Spit
+          </button>
+          <button
+            type="button"
+            data-testid="mutdog-lab-tab-from-brute"
+            onClick={onOpenMutdogLab}
+            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ✦ Dog
+          </button>
+          <button
+            type="button"
+            data-testid="feral-nurse-lab-tab-from-brute"
+            onClick={onOpenFeralNurseLab}
+            className="rounded border border-fuchsia-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-fuchsia-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ✚ Nurse
           </button>
           <button
             type="button"
             data-testid="camera-lab-tab-from-brute"
             onClick={onOpenCameraLab}
-            className="rounded border border-cyan-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-cyan-200 hover:text-white cursor-pointer"
+            className="rounded border border-cyan-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-cyan-200 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             ◎ Cam
           </button>

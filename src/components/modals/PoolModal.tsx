@@ -7,6 +7,7 @@ import { CODEX_TRANSLATIONS } from '../../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import { formatTileDetailText, formatTileShortLabel } from '../../utils/tileDisplay';
 import type { CodexTab } from '../CodexModal';
+import { FormattedText } from '../FormattedText';
 import { ImplantIcon } from '../ImplantIcon';
 import { TileGlyph } from '../TileGlyph';
 
@@ -323,7 +324,7 @@ export function PoolModal({ run, lang, onEquip, onUnequip, onScrap, onOpenCodex,
                     <div className="min-w-0">
                       <div className="text-[13px] font-bold text-[#00F0FF]">{t.implants[id].name}</div>
                       <div className="text-[12.5px] leading-snug text-slate-200">
-                        {t.implants[id].desc}
+                        <FormattedText text={t.implants[id].desc} />
                       </div>
                     </div>
                   </div>

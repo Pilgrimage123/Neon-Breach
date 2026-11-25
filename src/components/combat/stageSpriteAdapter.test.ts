@@ -12,6 +12,7 @@ import {
   evaluateAnatomicalSplineRow,
 } from './stageSpriteAdapter';
 import { MeshSprite, WebGL2CharacterStageRenderer } from './webglMeshRenderer';
+import { computeHitFlashRgb } from './webglShaders';
 
 test('createMeshGridTopology generates a 4x6 subdivided grid with 35 vertices and 48 triangles', () => {
   const topo = createMeshGridTopology(4, 6);
@@ -528,6 +529,33 @@ test('WebGL2CharacterStageRenderer handles context loss/restore, bounded LRU tex
   assert.equal(deletedVaos, 1);
   assert.equal(deletedBuffers, 2);
 });
+
+test('computeHitFlashRgb preserves pixel luminance contrast during peak white and crimson hit-flashes', () => {
+  const dark: [number, number, number] = [0.05, 0.05, 0.05];
+  const mid: [number, number, number] = [0.45, 0.35, 0.55];
+  const bright: [number, number, number] = [0.9, 0.9, 0.9];
+
+  // Below threshold returns exact identity
+  assert.deepEqual(computeHitFlashRgb(mid, [1, 1, 1], 0.005), mid);
+
+  // Peak white flash (0.88): dark, mid, and bright remain separated without collapsing to pure white
+  const outDark = computeHitFlashRgb(dark, [1, 1, 1], 0.88);
+  const outMid = computeHitFlashRgb(mid, [1, 1, 1], 0.88);
+  const outBright = computeHitFlashRgb(bright, [1, 1, 1], 0.88);
+
+  const luma = (c: [number, number, number]) => c[0] * 0.299 + c[1] * 0.587 + c[2] * 0.114;
+  assert.ok(luma(outDark) > luma(dark));
+  assert.ok(luma(outDark) < 0.65, `Dark outline blew out: ${luma(outDark)}`);
+  assert.ok(luma(outDark) < luma(outMid) && luma(outMid) < luma(outBright));
+  assert.ok(outMid[2] > outMid[1], 'Hue separation in midtones should survive white flash');
+
+  // Peak crimson crit flash (0.76): red dominates green/blue while retaining dark vs mid separation
+  const crimDark = computeHitFlashRgb(dark, [1, 0.14, 0.18], 0.76);
+  const crimMid = computeHitFlashRgb(mid, [1, 0.14, 0.18], 0.76);
+  assert.ok(crimMid[0] > crimMid[1] && crimMid[0] > crimMid[2]);
+  assert.ok(luma(crimDark) < luma(crimMid));
+});
+
 
 
 

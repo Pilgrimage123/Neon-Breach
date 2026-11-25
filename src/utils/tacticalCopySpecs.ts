@@ -404,6 +404,32 @@ export function formatEnemyStreamlinedRule(
 
   switch (enemy.passive) {
     case 'none': {
+      if (enemy.archetype === 'mutdog') {
+        return {
+          shortRule:
+            lang === 'cs'
+              ? `**5 Skok → 7 ×2 Přetlak Zákus → Pauza.**`
+              : `**5 Pounce → 7 ×2 Overwhelm Maul → Pause.**`,
+          counterMath:
+            lang === 'cs'
+              ? `🛡 Kryj **Štítem** nebo znič **20 HP**.`
+              : `🛡 Block with **Shield** or burst **20 HP**.`,
+          keywords: withUnique(['shield', 'surge']),
+        };
+      }
+      if (enemy.archetype === 'feral_nurse') {
+        return {
+          shortRule:
+            lang === 'cs'
+              ? `**Neviditelnost (10 % DMG)** → **Příprava** → **7 Průraz**.`
+              : `**Invisibility (10% DMG)** → **Prepare** → **7 Pierce**.`,
+          counterMath:
+            lang === 'cs'
+              ? `⚡ 90 % projde za ni; **16+ Omráčí** při Přípravě.`
+              : `⚡ 90% passes behind; **16+ Staggers** on Prepare.`,
+          keywords: withUnique(['pierce', 'stagger']),
+        };
+      }
       const hasPierce = enemy.intentCycle.some((i) => i.pierceShield);
       const hasOverwhelm = enemy.intentCycle.some((i) => Boolean(i.overwhelmMultiplier));
       const hasCharge = enemy.intentCycle.some((i) => i.kind === 'charge');

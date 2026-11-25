@@ -5,6 +5,8 @@ export const EN_TRANSLATIONS: TranslationPack = {
   continueRun: 'Continue Run',
   newRun: 'New Run',
   selectHeroLabel: 'Select Hero',
+  devLabButton: 'Dev Lab',
+  devLabHint: 'Animation & Camera Sandbox',
   controlsHint: 'F Fullscreen · P Pause · M Mute · L Language',
   howToPlay: {
     title: 'How to Play',
@@ -371,6 +373,16 @@ export const EN_TRANSLATIONS: TranslationPack = {
       name: 'Bile Spitter',
       classification: 'The Disrupter · Acid Artillery',
       bioNote: 'Pauses, then sprays **Acid** (+2 Corrode) and **Caustic Slag**.',
+    },
+    mutdog: {
+      name: 'Rabid MutDog',
+      classification: 'Feral Rush · Pounce Bruiser',
+      bioNote: 'Opens with **5 Pounce**, then **6 ×2 Overwhelm Maul**, then **Pause**.',
+    },
+    feral_nurse: {
+      name: 'Feral Nurse',
+      classification: 'Optical Stalker · Cloak & Pierce',
+      bioNote: '**Invisibility** (1T: takes **10% DMG**, 90% passes behind), **Prepare**, then **7 Pierce**.',
     },
     brute: {
       name: 'Carapace Brute',

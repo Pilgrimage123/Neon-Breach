@@ -4,9 +4,17 @@ import type { HeroAnimState } from '../../utils/heroAnimator';
 import type { FrameTransitionInput } from '../../utils/spriteSheetAnim';
 import type { BruteFrameSample } from '../../utils/bruteSpriteSheet';
 import type { BruteJuiceSample, BruteJuiceState } from '../../utils/bruteJuiceController';
+import type { FeralNurseAnimSample } from '../../utils/feralNurseSpriteSheet';
+import type {
+  FeralNurseJuiceSample,
+  FeralNurseJuiceState,
+} from '../../utils/feralNurseJuiceController';
+import type { MutdogFrameSample } from '../../utils/mutdogSpriteSheet';
+import type { MutdogJuiceSample, MutdogJuiceState } from '../../utils/mutdogJuiceController';
 import type { SpitterFrameSample } from '../../utils/spitterSpriteSheet';
 import type { SpitterJuiceSample, SpitterJuiceState } from '../../utils/spitterJuiceController';
 import type { StalkerFrameSample } from '../../utils/stalkerSpriteSheet';
+import type { StalkerJuiceSample, StalkerJuiceState } from '../../utils/stalkerJuiceController';
 import type { SpriteBounds } from '../../utils/spriteCutout';
 import type { CombatActionSequencer, SequencerFrameState } from './CombatActionSequencer';
 import type { ProjectileVisualProfile } from './combatStagingClassifier';
@@ -38,8 +46,10 @@ export const ENEMY_FOOT_DEFAULTS: Record<
   larva: { bottomRatio: 0.972, farFootOffsetRatio: 0.032, centerXRatio: 0.56 },
   skitter: { bottomRatio: 0.972, farFootOffsetRatio: 0.034, centerXRatio: 0.56 },
   stinger: { bottomRatio: 0.984, farFootOffsetRatio: 0.036, centerXRatio: 0.56 },
-  stalker: { bottomRatio: 0.96, farFootOffsetRatio: 0.042, centerXRatio: 0.51 },
+  stalker: { bottomRatio: 0.932, farFootOffsetRatio: 0.04, centerXRatio: 0.497 },
   spitter: { bottomRatio: 0.96, farFootOffsetRatio: 0.036, centerXRatio: 0.5 },
+  mutdog: { bottomRatio: 0.96, farFootOffsetRatio: 0.036, centerXRatio: 0.5 },
+  feral_nurse: { bottomRatio: 0.972, farFootOffsetRatio: 0.036, centerXRatio: 0.5 },
   brute: { bottomRatio: 0.96, farFootOffsetRatio: 0.044, centerXRatio: 0.5 },
   boss: { bottomRatio: 0.976, farFootOffsetRatio: 0.036, centerXRatio: 0.5 },
 };
@@ -251,6 +261,9 @@ export interface ActorAnim {
   attackAnimDuration: number;
   spitterAttackKind?: 'spit' | 'claw';
   bruteAttackKind?: 'heavy' | 'attack';
+  mutdogAttackKind?: 'maul' | 'pounce';
+  cloakCastTimer?: number;
+  cloakCastDuration?: number;
   bristleTimer: number;
   bristleDuration: number;
   bristleKind: 'armor' | 'retaliate' | 'pustule_rupture';
@@ -322,7 +335,9 @@ export interface CombatStageSim {
   crawlerFrames: Map<CrawlerVariant, HTMLCanvasElement[]>;
   stalkerFrames: HTMLCanvasElement[] | null;
   stalkerTransitions: Map<string, FrameTransitionInput>;
+  stalkerJuiceStates: Map<string, StalkerJuiceState>;
   stalkerSamples?: Map<string, StalkerFrameSample>;
+  stalkerJuiceSamples?: Map<string, StalkerJuiceSample>;
   spitterFrames: HTMLCanvasElement[] | null;
   spitterTransitions: Map<string, FrameTransitionInput>;
   spitterJuiceStates: Map<string, SpitterJuiceState>;
@@ -333,6 +348,16 @@ export interface CombatStageSim {
   bruteJuiceStates: Map<string, BruteJuiceState>;
   bruteSamples?: Map<string, BruteFrameSample>;
   bruteJuiceSamples?: Map<string, BruteJuiceSample>;
+  mutdogFrames: HTMLCanvasElement[] | null;
+  mutdogTransitions: Map<string, FrameTransitionInput>;
+  mutdogJuiceStates: Map<string, MutdogJuiceState>;
+  mutdogSamples?: Map<string, MutdogFrameSample>;
+  mutdogJuiceSamples?: Map<string, MutdogJuiceSample>;
+  feralNurseFrames: HTMLCanvasElement[] | null;
+  feralNurseTransitions: Map<string, FrameTransitionInput>;
+  feralNurseJuiceStates: Map<string, FeralNurseJuiceState>;
+  feralNurseSamples?: Map<string, FeralNurseAnimSample>;
+  feralNurseJuiceSamples?: Map<string, FeralNurseJuiceSample>;
   simElapsed?: number;
   lastFrameDt: number;
   size: { w: number; h: number };

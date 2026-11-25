@@ -18,6 +18,8 @@ export const ARCHETYPE_THREAT_COST: Record<Exclude<EnemyArchetype, 'boss'>, numb
   stinger: ARCHETYPE_THREAT_RATING.stinger,
   stalker: ARCHETYPE_THREAT_RATING.stalker,
   spitter: ARCHETYPE_THREAT_RATING.spitter,
+  mutdog: ARCHETYPE_THREAT_RATING.mutdog,
+  feral_nurse: ARCHETYPE_THREAT_RATING.feral_nurse,
   brute: ARCHETYPE_THREAT_RATING.brute,
 };
 
@@ -122,7 +124,7 @@ export function getEffectiveEnemyIntentValue(
       return 0;
     }
   }
-  if (intent.kind === 'pause') {
+  if (intent.kind === 'pause' || intent.kind === 'cloak') {
     return 0;
   }
   const bonus = Math.max(0, enemy.enrageAtkBonus ?? 0);

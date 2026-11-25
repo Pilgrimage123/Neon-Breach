@@ -5,6 +5,8 @@ export const CS_TRANSLATIONS: TranslationPack = {
   continueRun: 'Pokračovat ve výpravě',
   newRun: 'Nová výprava',
   selectHeroLabel: 'Výběr hrdinky',
+  devLabButton: 'Dev Lab',
+  devLabHint: 'Laboratoř animací a kamery',
   controlsHint: 'F Celá obrazovka · P Pauza · M Zvuk · L Jazyk',
   howToPlay: {
     title: 'Jak hrát',
@@ -370,6 +372,16 @@ export const CS_TRANSLATIONS: TranslationPack = {
       name: 'Žlučový plivač',
       classification: 'Sabotér · Kyselinové dělostřelectvo',
       bioNote: 'Pauza, pak **Kyselina** (+2 Koroze) a **Žíravá struska**.',
+    },
+    mutdog: {
+      name: 'Vzteký MutPes',
+      classification: 'Divoký útočník · Skokan a trhač',
+      bioNote: 'Začíná **5 Skokem**, pak **6 ×2 Přetlak Zákus**, poté **Pauza**.',
+    },
+    feral_nurse: {
+      name: 'Zdivočelá sestra',
+      classification: 'Optický lovec · Maskování a Průraz',
+      bioNote: '**Neviditelnost** (1T: bere **10 % DMG**, 90 % projde za ni), **Příprava**, pak **7 Průraz**.',
     },
     brute: {
       name: 'Krunýřový kolos',

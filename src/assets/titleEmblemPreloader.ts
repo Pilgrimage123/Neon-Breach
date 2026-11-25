@@ -22,7 +22,7 @@ export interface TitleEmblemPreloader {
 
 function defaultYieldMacrotask(): Promise<void> {
   return new Promise((resolve) => {
-    setTimeout(resolve, 0);
+    setTimeout(resolve, 45);
   });
 }
 

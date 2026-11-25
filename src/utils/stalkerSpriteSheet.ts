@@ -3,246 +3,158 @@ import type { SpriteRect } from './spriteCutout';
 import {
   type FrameTransitionInput,
   type FrameTransitionResult,
-  type SequenceKeyframe,
   computeFrameTransitionState,
-  sampleDeathCollapseFrame,
-  sampleSequence,
 } from './spriteSheetAnim';
 
-export const STALKER_SHEET_WIDTH = 1024;
-export const STALKER_SHEET_HEIGHT = 1024;
-export const STALKER_CANONICAL_HEIGHT = 227;
+/**
+ * Resized 512x512 native left-facing Chitin Stalker frames:
+ * - Frame 0 (`stalker_open.png`): Wide bulging bloodshot yellow eye
+ * - Frame 1 (`stalker_blink.png`): Narrowed squinting / blinking eye
+ */
+export const STALKER_SHEET_WIDTH = 512;
+export const STALKER_SHEET_HEIGHT = 512;
+/** Visible body height calibration so the crouching stalker sits proportionally on the deck */
+export const STALKER_CANONICAL_HEIGHT = 460;
+
+export type StalkerBoneWeight = 'head' | 'waist' | 'pelvis';
+
+export interface StalkerSlimeNozzleSpec {
+  id: string;
+  /** Relative offset from (anchorX, bottomY) in unscaled 512x512 pixels (negative dx = left/forward, negative dy = up) */
+  dx: number;
+  dy: number;
+  /** Spline bone that carries this hanging slime stalactite */
+  bone: StalkerBoneWeight;
+  /** Base radius of swelling slime bead in unscaled sprite pixels */
+  baseRadius: number;
+  /** Max hanging strand extension before pinch-off snap in unscaled sprite pixels */
+  maxStretchPx: number;
+  /** Base drip cycle interval in seconds */
+  baseIntervalSec: number;
+  /** Initial phase offset [0..1] so nozzles drip asynchronously */
+  phaseOffset: number;
+}
 
 export interface StalkerSpriteFrame extends SpriteRect {
   id: string;
   row: number;
   col: number;
-  /** Horizontal offset inside frame rect (before facing flip) centered on pelvis/stance */
+  /** Horizontal foot-center anchor in unscaled 512x512 sprite pixels (native left-facing) */
   anchorX: number;
-  /** Vertical offset inside frame rect where claws/body touch the bridge deck */
+  /** Vertical floor-contact baseline in unscaled 512x512 sprite pixels */
   bottomY: number;
-  /** Relative offset from (anchorX, bottomY) in unscaled pixels (after left-flip, +dx is right/back, -dx is left/forward) */
+  /** Relative offset from (anchorX, bottomY) to crimson dorsal spine crest */
   quillOriginRel: { dx: number; dy: number };
+  /** Relative offset from (anchorX, bottomY) to eye center for eyelid blink accent */
+  eyeOriginRel: { dx: number; dy: number };
+  /** Relative offset from (anchorX, bottomY) to dripping jaws/mouth */
+  jawOriginRel: { dx: number; dy: number };
+  /** Relative offset from (anchorX, bottomY) to front scythe blade arc origin */
+  clawOriginRel: { dx: number; dy: number };
 }
 
 /**
- * 4x4 Sprite Sheet (`1024x1024`) for the Chitin Stalker (Obsidian Carapace + Crimson-Magenta Quills):
- * - Row 0 (`0..3`): Idle breathing, stealth stalk & deep coiled Ambush Crouch (`if_no_shield`)
- * - Row 1 (`4..7`): Scythe Pounce Slash (windup -> lunge -> extended slash -> recovery)
- * - Row 2 (`8..11`): Spike Retaliation Harden & Quill Flare (hunker -> ignite -> peak spike flare -> bristled guard)
- * - Row 3 (`12..15`): Hit Pain Recoil, Buckling Stagger & Ichor Puddle Collapse
- *
- * Source figures face right and are mirrored (`scale(-1, 1)`) in the combat stage to face the hero on the left.
+ * 7 slime drip nozzles measured directly from the hanging lime-green slime stalactites
+ * on the uploaded 512x512 Chitin Stalker artwork (anchor = (255, 477), facingSign = +1).
  */
+export const STALKER_SLIME_NOZZLES: readonly StalkerSlimeNozzleSpec[] = [
+  {
+    id: 'front_scythe_tip',
+    dx: -179,
+    dy: -144,
+    bone: 'waist',
+    baseRadius: 5.2,
+    maxStretchPx: 30,
+    baseIntervalSec: 2.35,
+    phaseOffset: 0.12,
+  },
+  {
+    id: 'jaw_chin_drip',
+    dx: -135,
+    dy: -183,
+    bone: 'head',
+    baseRadius: 5.8,
+    maxStretchPx: 38,
+    baseIntervalSec: 1.75,
+    phaseOffset: 0.45,
+  },
+  {
+    id: 'throat_fang_drip',
+    dx: -113,
+    dy: -146,
+    bone: 'head',
+    baseRadius: 4.8,
+    maxStretchPx: 34,
+    baseIntervalSec: 2.55,
+    phaseOffset: 0.78,
+  },
+  {
+    id: 'second_claw_tip',
+    dx: -101,
+    dy: -42,
+    bone: 'pelvis',
+    baseRadius: 4.6,
+    maxStretchPx: 22,
+    baseIntervalSec: 2.85,
+    phaseOffset: 0.28,
+  },
+  {
+    id: 'chest_belly_drip',
+    dx: -31,
+    dy: -227,
+    bone: 'waist',
+    baseRadius: 5.0,
+    maxStretchPx: 36,
+    baseIntervalSec: 2.15,
+    phaseOffset: 0.62,
+  },
+  {
+    id: 'mid_claw_elbow',
+    dx: -29,
+    dy: -121,
+    bone: 'pelvis',
+    baseRadius: 4.5,
+    maxStretchPx: 28,
+    baseIntervalSec: 3.05,
+    phaseOffset: 0.91,
+  },
+  {
+    id: 'hind_knee_drip',
+    dx: 139,
+    dy: -104,
+    bone: 'pelvis',
+    baseRadius: 5.4,
+    maxStretchPx: 32,
+    baseIntervalSec: 2.45,
+    phaseOffset: 0.34,
+  },
+];
+
+const SHARED_LANDMARKS = {
+  x: 0,
+  y: 0,
+  w: STALKER_SHEET_WIDTH,
+  h: STALKER_SHEET_HEIGHT,
+  anchorX: 255,
+  bottomY: 477,
+  quillOriginRel: { dx: 15, dy: -372 },
+  eyeOriginRel: { dx: -120, dy: -306 },
+  jawOriginRel: { dx: -135, dy: -203 },
+  clawOriginRel: { dx: -179, dy: -137 },
+} as const;
+
 export const STALKER_SHEET_FRAMES: readonly StalkerSpriteFrame[] = [
-  // Row 0: Idle & Ambush Crouch
   {
-    id: 'stalker_idle_0',
+    id: 'stalker_open_0',
     row: 0,
     col: 0,
-    x: 9,
-    y: 25,
-    w: 225,
-    h: 227,
-    anchorX: 112,
-    bottomY: 226,
-    quillOriginRel: { dx: -8, dy: -162 },
+    ...SHARED_LANDMARKS,
   },
   {
-    id: 'stalker_idle_1',
+    id: 'stalker_blink_1',
     row: 0,
     col: 1,
-    x: 266,
-    y: 27,
-    w: 230,
-    h: 227,
-    anchorX: 112,
-    bottomY: 225,
-    quillOriginRel: { dx: -8, dy: -164 },
-  },
-  {
-    id: 'stalker_stalk_2',
-    row: 0,
-    col: 2,
-    x: 513,
-    y: 35,
-    w: 246,
-    h: 219,
-    anchorX: 112,
-    bottomY: 217,
-    quillOriginRel: { dx: -12, dy: -152 },
-  },
-  {
-    id: 'stalker_ambush_3',
-    row: 0,
-    col: 3,
-    x: 783,
-    y: 66,
-    w: 218,
-    h: 186,
-    anchorX: 110,
-    bottomY: 184,
-    quillOriginRel: { dx: -10, dy: -128 },
-  },
-
-  // Row 1: Scythe Pounce Slash
-  {
-    id: 'stalker_atk_windup_4',
-    row: 1,
-    col: 0,
-    x: 9,
-    y: 252,
-    w: 266,
-    h: 259,
-    anchorX: 102,
-    bottomY: 257,
-    excludeRects: [{ x: 231, y: 65, w: 35, h: 155 }],
-    quillOriginRel: { dx: -4, dy: -175 },
-  },
-  {
-    id: 'stalker_atk_lunge_5',
-    row: 1,
-    col: 1,
-    x: 242,
-    y: 284,
-    w: 256,
-    h: 225,
-    anchorX: 106,
-    bottomY: 223,
-    excludeRects: [{ x: 0, y: 0, w: 34, h: 25 }],
-    quillOriginRel: { dx: -12, dy: -154 },
-  },
-  {
-    id: 'stalker_atk_slash_6',
-    row: 1,
-    col: 2,
-    x: 506,
-    y: 284,
-    w: 289,
-    h: 227,
-    anchorX: 108,
-    bottomY: 225,
-    excludeRects: [{ x: 270, y: 112, w: 19, h: 68 }],
-    quillOriginRel: { dx: -18, dy: -152 },
-  },
-  {
-    id: 'stalker_atk_recover_7',
-    row: 1,
-    col: 3,
-    x: 776,
-    y: 280,
-    w: 235,
-    h: 231,
-    anchorX: 110,
-    bottomY: 228,
-    excludeRects: [{ x: 0, y: 55, w: 19, h: 58 }],
-    quillOriginRel: { dx: -10, dy: -158 },
-  },
-
-  // Row 2: Carapace Harden & Quill Retaliation
-  {
-    id: 'stalker_hunker_8',
-    row: 2,
-    col: 0,
-    x: 15,
-    y: 552,
-    w: 221,
-    h: 215,
-    anchorX: 106,
-    bottomY: 213,
-    quillOriginRel: { dx: -6, dy: -145 },
-  },
-  {
-    id: 'stalker_ignite_9',
-    row: 2,
-    col: 1,
-    x: 260,
-    y: 523,
-    w: 238,
-    h: 244,
-    anchorX: 116,
-    bottomY: 242,
-    quillOriginRel: { dx: -8, dy: -168 },
-  },
-  {
-    id: 'stalker_flare_10',
-    row: 2,
-    col: 2,
-    x: 528,
-    y: 512,
-    w: 225,
-    h: 255,
-    anchorX: 106,
-    bottomY: 253,
-    quillOriginRel: { dx: -12, dy: -182 },
-  },
-  {
-    id: 'stalker_guard_11',
-    row: 2,
-    col: 3,
-    x: 786,
-    y: 531,
-    w: 225,
-    h: 236,
-    anchorX: 103,
-    bottomY: 234,
-    quillOriginRel: { dx: -10, dy: -166 },
-  },
-
-  // Row 3: Hit Pain & Death Collapse
-  {
-    id: 'stalker_pain_12',
-    row: 3,
-    col: 0,
-    x: 8,
-    y: 791,
-    w: 244,
-    h: 232,
-    anchorX: 112,
-    bottomY: 230,
-    quillOriginRel: { dx: 4, dy: -164 },
-  },
-  {
-    id: 'stalker_stagger_13',
-    row: 3,
-    col: 1,
-    x: 267,
-    y: 790,
-    w: 232,
-    h: 233,
-    anchorX: 110,
-    bottomY: 231,
-    // Strip tiny comic knee shake lines floating near knees so stagger reads crisp
-    excludeRects: [
-      { x: 75, y: 180, w: 19, h: 6 },
-      { x: 102, y: 148, w: 21, h: 26 },
-      { x: 179, y: 142, w: 14, h: 31 },
-    ],
-    quillOriginRel: { dx: 2, dy: -158 },
-  },
-  {
-    id: 'stalker_collapse_14',
-    row: 3,
-    col: 2,
-    x: 520,
-    y: 821,
-    w: 242,
-    h: 200,
-    anchorX: 108,
-    bottomY: 198,
-    quillOriginRel: { dx: 0, dy: -124 },
-  },
-  {
-    id: 'stalker_dead_15',
-    row: 3,
-    col: 3,
-    x: 773,
-    y: 896,
-    w: 248,
-    h: 125,
-    anchorX: 124,
-    bottomY: 123,
-    quillOriginRel: { dx: 0, dy: -62 },
+    ...SHARED_LANDMARKS,
   },
 ];
 
@@ -270,6 +182,15 @@ export interface StalkerAnimInput {
   retaliateHover?: boolean;
 }
 
+export interface StalkerBlinkState {
+  /** 0 = wide open eye (`stalker_open.png`), 1 = narrowed/blinking eye (`stalker_blink.png`) */
+  frameIndex: 0 | 1;
+  /** Full eyelid shut peak [0..1] drawn over the narrowed eye during the crisp blink apex */
+  blinkClosure: number;
+  /** Whether the stalker is actively inside a blink pulse */
+  isBlinking: boolean;
+}
+
 export interface StalkerFrameSample {
   mode: StalkerAnimMode;
   frameIndex: number;
@@ -278,6 +199,8 @@ export interface StalkerFrameSample {
   prevFrame: StalkerSpriteFrame;
   frameBlendAlpha: number;
   transitionState: FrameTransitionResult;
+  /** Full eyelid shut accent [0..1] during blink apex or hit wince */
+  blinkClosure: number;
   /** Additional local horizontal dash/lunge ratio relative to size (negative = left toward hero) */
   xOffsetRatio: number;
   /** Additional vertical leap/hop in unscaled sprite pixels (negative = upward) */
@@ -287,25 +210,85 @@ export interface StalkerFrameSample {
   tiltRad: number;
   /** Bioluminescent crimson spine intensity [0..1] */
   spineGlowIntensity: number;
+  /** Twin scythe claw slash progress [0..1] during lunge strike */
+  clawSlashProgress: number;
   alpha: number;
 }
 
-const ATTACK_SEQ: readonly SequenceKeyframe[] = [
-  { frameIndex: 4, until: 0.24, xProgress: 0.06, yHopPx: 0 },
-  { frameIndex: 5, until: 0.50, xProgress: -0.22, yHopPx: -12, dashing: true },
-  { frameIndex: 6, until: 0.78, xProgress: -0.34, yHopPx: -4, dashing: true },
-  { frameIndex: 7, until: 1.00, xProgress: -0.06, yHopPx: 0 },
-];
+function evaluateSingleBlinkPulse(tInPulse: number): { frameIndex: 0 | 1; blinkClosure: number; active: boolean } {
+  // Total blink duration = 0.24s:
+  // 0.00..0.055s: open -> narrowed squint (frame 1)
+  // 0.055..0.145s: full shut eyelid apex peaking to 1.0 over frame 1
+  // 0.145..0.240s: narrowed squint -> reopen to frame 0
+  if (tInPulse < 0 || tInPulse >= 0.24) {
+    return { frameIndex: 0, blinkClosure: 0, active: false };
+  }
+  let blinkClosure = 0;
+  if (tInPulse >= 0.045 && tInPulse <= 0.165) {
+    const u = (tInPulse - 0.045) / 0.12;
+    blinkClosure = Math.sin(u * Math.PI);
+  }
+  return { frameIndex: 1, blinkClosure, active: true };
+}
 
-const BRISTLE_SEQ: readonly SequenceKeyframe[] = [
-  { frameIndex: 8, until: 0.20, xProgress: 0.02, yHopPx: 0 },
-  { frameIndex: 9, until: 0.44, xProgress: 0, yHopPx: -3 },
-  { frameIndex: 10, until: 0.74, xProgress: -0.03, yHopPx: -5 },
-  { frameIndex: 11, until: 1.00, xProgress: 0, yHopPx: 0 },
-];
+/**
+ * Deterministic natural organic blinking + expressive eye state for Chitin Stalker.
+ * - Idle / Guard: Wide bulging bloodshot eye (frame 0) punctuated by brisk single blinks
+ *   and occasional predatory double-blinks (frame 1 + eyelid apex closure).
+ * - Ambush / Attack / Bristle / Pain / Death: Narrowed predatory glare / grimace (frame 1).
+ */
+export function computeStalkerBlinkState(
+  elapsed: number,
+  instanceIndex: number,
+  mode: StalkerAnimMode,
+  modeProgress = 0,
+): StalkerBlinkState {
+  if (mode === 'death') {
+    return { frameIndex: 1, blinkClosure: Math.min(1, 0.35 + modeProgress * 0.85), isBlinking: false };
+  }
+  if (mode === 'pain') {
+    const wince = modeProgress < 0.42 ? Math.sin((modeProgress / 0.42) * Math.PI) * 0.92 : 0;
+    return { frameIndex: 1, blinkClosure: wince, isBlinking: wince > 0.1 };
+  }
+  if (mode === 'attack' || mode === 'ambush' || mode === 'bristle') {
+    // Aggressive narrowed squint throughout attack/ambush/bristle, with brief savage micro-blink at windup snap
+    const snapWince =
+      mode === 'attack' && modeProgress > 0.14 && modeProgress < 0.26
+        ? Math.sin(((modeProgress - 0.14) / 0.12) * Math.PI) * 0.65
+        : 0;
+    return { frameIndex: 1, blinkClosure: snapWince, isBlinking: false };
+  }
 
-const IDLE_CYCLE: readonly number[] = [0, 1, 2, 1];
-const AMBUSH_CYCLE: readonly number[] = [2, 3, 3, 2];
+  // Natural periodic single + double blink cadence in idle and guard modes
+  // Cycle period = 2.45s so a blink is always clearly seen within ~1-2 seconds!
+  const period = mode === 'guard' ? 2.15 : 2.45;
+  const shifted = Math.max(0, elapsed + instanceIndex * 0.83 + 1.55);
+  const cycleIndex = Math.floor(shifted / period);
+  const tCycle = shifted - cycleIndex * period;
+
+  const firstBlink = evaluateSingleBlinkPulse(tCycle);
+  if (firstBlink.active) {
+    return {
+      frameIndex: firstBlink.frameIndex,
+      blinkClosure: firstBlink.blinkClosure,
+      isBlinking: true,
+    };
+  }
+
+  // Every second cycle performs a quick predatory double-blink 0.30s after the first
+  if (cycleIndex % 2 === 1) {
+    const secondBlink = evaluateSingleBlinkPulse(tCycle - 0.30);
+    if (secondBlink.active) {
+      return {
+        frameIndex: secondBlink.frameIndex,
+        blinkClosure: secondBlink.blinkClosure,
+        isBlinking: true,
+      };
+    }
+  }
+
+  return { frameIndex: 0, blinkClosure: 0, isBlinking: false };
+}
 
 export function sampleStalkerFrame(
   anim: StalkerAnimInput | undefined,
@@ -316,99 +299,110 @@ export function sampleStalkerFrame(
   poseOverride: CutInPoseOverride = 'none',
 ): StalkerFrameSample {
   let mode: StalkerAnimMode = 'idle';
-  let frameIndex = 0;
+  let modeProgress = 0;
   let xOffsetRatio = 0;
   let yHopPx = 0;
   let alpha = 1;
-  let spineGlowIntensity = 0.22 + 0.1 * Math.sin(elapsed * 3.1 + instanceIndex);
+  let spineGlowIntensity = 0.24 + 0.1 * Math.sin(elapsed * 3.1 + instanceIndex);
   let breathScaleX = 1;
   let breathScaleY = 1;
   let tiltRad = 0;
+  let clawSlashProgress = 0;
 
   if (anim?.dead) {
     mode = 'death';
-    const death = sampleDeathCollapseFrame(anim.koProgress, 12, 4, 0.8);
-    frameIndex = death.frameIndex;
-    alpha = death.alpha;
-    spineGlowIntensity = Math.max(0, 0.55 * (1 - death.progress * 1.15));
+    modeProgress = Math.max(0, Math.min(1, anim.koProgress));
+    alpha = modeProgress < 0.72 ? 1 : Math.max(0, 1 - (modeProgress - 0.72) / 0.28);
+    spineGlowIntensity = Math.max(0, 0.52 * (1 - modeProgress * 1.2));
   } else if (poseOverride !== 'none') {
     if (poseOverride === 'attack_pose') {
       mode = 'attack';
-      frameIndex = 6;
+      modeProgress = 0.62;
       spineGlowIntensity = 0.92;
-      tiltRad = -0.06;
+      tiltRad = -0.065;
+      clawSlashProgress = 0.65;
     } else if (poseOverride === 'brace_pose') {
       mode = 'guard';
-      frameIndex = 11;
       spineGlowIntensity = 0.72;
     } else {
       mode = 'pain';
-      frameIndex = 12;
+      modeProgress = 0.22;
       spineGlowIntensity = 0.68;
-      tiltRad = 0.05;
+      tiltRad = 0.055;
     }
   } else if (anim && anim.staggerTimer > 0 && anim.staggerDuration > 0) {
     mode = 'pain';
-    const u = Math.max(0, Math.min(0.999, 1 - anim.staggerTimer / anim.staggerDuration));
-    frameIndex = u < 0.45 ? 12 : 13;
-    spineGlowIntensity = 0.65 * (1 - u * 0.4);
-    tiltRad = 0.04 * Math.sin(u * Math.PI);
+    modeProgress = Math.max(0, Math.min(0.999, 1 - anim.staggerTimer / anim.staggerDuration));
+    spineGlowIntensity = 0.65 * (1 - modeProgress * 0.4);
+    tiltRad = 0.048 * Math.sin(modeProgress * Math.PI);
   } else if (anim && (anim.bristleTimer ?? 0) > 0 && (anim.bristleDuration ?? 0) > 0) {
     mode = 'bristle';
     const dur = anim.bristleDuration ?? 0.5;
-    const u = Math.max(0, Math.min(0.999, 1 - (anim.bristleTimer ?? 0) / dur));
-    const seq = sampleSequence(BRISTLE_SEQ, u, 0);
-    frameIndex = seq.frameIndex;
-    xOffsetRatio = seq.xProgress;
-    yHopPx = seq.yHopPx;
+    modeProgress = Math.max(0, Math.min(0.999, 1 - (anim.bristleTimer ?? 0) / dur));
+    const swell = Math.sin(modeProgress * Math.PI);
+    xOffsetRatio = -0.02 * swell;
+    yHopPx = -10 * swell;
     spineGlowIntensity = anim.bristleKind === 'retaliate' ? 1.0 : 0.88;
-    const swell = Math.sin(u * Math.PI);
-    breathScaleX = 1 + swell * 0.045;
-    breathScaleY = 1 + swell * 0.05;
+    breathScaleX = 1 + swell * 0.055;
+    breathScaleY = 1 + swell * 0.062;
   } else if (anim && anim.attackAnimTimer > 0 && anim.attackAnimDuration > 0) {
     mode = 'attack';
-    const u = Math.max(0, Math.min(0.999, 1 - anim.attackAnimTimer / anim.attackAnimDuration));
-    const seq = sampleSequence(ATTACK_SEQ, u, 0);
-    frameIndex = seq.frameIndex;
-    xOffsetRatio = seq.xProgress;
-    yHopPx = seq.yHopPx;
-    spineGlowIntensity = u > 0.2 && u < 0.8 ? 0.85 : 0.45;
-    tiltRad = u < 0.24 ? 0.045 : u < 0.76 ? -0.07 : 0;
+    modeProgress = Math.max(0, Math.min(0.999, 1 - anim.attackAnimTimer / anim.attackAnimDuration));
+    if (modeProgress < 0.24) {
+      const k = modeProgress / 0.24;
+      xOffsetRatio = 0.06 * k;
+      yHopPx = 0;
+      tiltRad = 0.05 * k;
+    } else if (modeProgress < 0.54) {
+      const k = (modeProgress - 0.24) / 0.30;
+      xOffsetRatio = 0.06 - 0.36 * k;
+      yHopPx = -28 * Math.sin(k * Math.PI);
+      tiltRad = -0.075 * k;
+      clawSlashProgress = k * 0.55;
+    } else if (modeProgress < 0.78) {
+      const k = (modeProgress - 0.54) / 0.24;
+      xOffsetRatio = -0.30 - 0.04 * (1 - k);
+      yHopPx = -6 * (1 - k);
+      tiltRad = -0.075 * (1 - k * 0.45);
+      clawSlashProgress = 0.55 + k * 0.45;
+    } else {
+      const k = (modeProgress - 0.78) / 0.22;
+      xOffsetRatio = -0.30 * (1 - k);
+      yHopPx = 0;
+      tiltRad = -0.04 * (1 - k);
+    }
+    spineGlowIntensity = modeProgress > 0.18 && modeProgress < 0.82 ? 0.9 : 0.45;
   } else if (anim?.ambushPrimed) {
     mode = 'ambush';
-    const phase = Math.max(0, elapsed * 3.4 + instanceIndex * 1.1);
-    const slot = Math.floor(phase) % AMBUSH_CYCLE.length;
-    frameIndex = AMBUSH_CYCLE[slot];
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 6.5 + instanceIndex);
     spineGlowIntensity = 0.68 + 0.3 * pulse;
-    breathScaleX = 1 + pulse * 0.02;
-    breathScaleY = 1 - pulse * 0.015;
-    tiltRad = -0.028;
+    breathScaleX = 1.03 + pulse * 0.024;
+    breathScaleY = 0.96 - pulse * 0.018;
+    tiltRad = -0.032;
   } else if (anim?.retaliateHover) {
     mode = 'guard';
-    frameIndex = 10;
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 8.5 + instanceIndex);
-    spineGlowIntensity = 0.85 + 0.15 * pulse;
-    breathScaleX = 1 + pulse * 0.032;
-    breathScaleY = 1 + pulse * 0.024;
+    spineGlowIntensity = 0.86 + 0.14 * pulse;
+    breathScaleX = 1 + pulse * 0.035;
+    breathScaleY = 1 + pulse * 0.028;
   } else if (anim?.armoredGuard) {
     mode = 'guard';
-    frameIndex = 11;
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 4.8 + instanceIndex);
     spineGlowIntensity = 0.62 + 0.25 * pulse;
-    breathScaleX = 1 + pulse * 0.018;
-    breathScaleY = 1 + pulse * 0.012;
+    breathScaleX = 1 + pulse * 0.02;
+    breathScaleY = 1 + pulse * 0.014;
   } else {
     mode = 'idle';
-    const phase = Math.max(0, elapsed * 3.6 + instanceIndex * 1.45);
-    const slot = Math.floor(phase) % IDLE_CYCLE.length;
-    frameIndex = IDLE_CYCLE[slot];
-    const breath = Math.sin(elapsed * 2.6 + instanceIndex * 1.5);
-    breathScaleY = 1 + breath * 0.018;
-    breathScaleX = 1 - breath * 0.009;
+    const breath = Math.sin(elapsed * 2.8 + instanceIndex * 1.5);
+    breathScaleY = 1 + breath * 0.022;
+    breathScaleX = 1 - breath * 0.012;
   }
 
-  const blendDur = mode === 'attack' || mode === 'bristle' ? 0.065 : 0.085;
+  const blink = computeStalkerBlinkState(elapsed, instanceIndex, mode, modeProgress);
+  const frameIndex = blink.frameIndex;
+
+  // Fast crisp blink cross-dissolve so eye-shut snaps organically without blurry ghosting
+  const blendDur = blink.isBlinking ? 0.042 : mode === 'attack' || mode === 'bristle' ? 0.055 : 0.075;
   const transitionState = computeFrameTransitionState(
     prevTransition ?? {},
     frameIndex,
@@ -424,12 +418,14 @@ export function sampleStalkerFrame(
     prevFrame: STALKER_SHEET_FRAMES[transitionState.prevFrameIndex] ?? STALKER_SHEET_FRAMES[frameIndex],
     frameBlendAlpha: mode === 'death' || poseOverride !== 'none' ? 1 : transitionState.frameBlendAlpha,
     transitionState,
+    blinkClosure: blink.blinkClosure,
     xOffsetRatio,
     yHopPx,
     breathScaleX,
     breathScaleY,
     tiltRad,
     spineGlowIntensity,
+    clawSlashProgress,
     alpha,
   };
 }

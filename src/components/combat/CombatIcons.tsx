@@ -164,6 +164,29 @@ export function IntentIcon({ kind, size = 14, className = '' }: IntentIconProps)
     );
   }
 
+  if (kind === 'cloak') {
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 24 24"
+        fill="none"
+        aria-hidden="true"
+        className={className}
+      >
+        <path
+          d="M2.5 12C5.2 7.5 8.5 5.5 12 5.5C15.5 5.5 18.8 7.5 21.5 12C18.8 16.5 15.5 18.5 12 18.5C8.5 18.5 5.2 16.5 2.5 12Z"
+          fill="rgba(0,240,255,0.16)"
+          stroke="#22D3EE"
+          strokeWidth="1.8"
+          strokeDasharray="3 2"
+          strokeLinejoin="round"
+        />
+        <circle cx="12" cy="12" r="3" fill="#FF2E7E" stroke="#FBCFE8" strokeWidth="1.2" />
+      </svg>
+    );
+  }
+
   if (kind === 'acid') {
     return (
       <svg

@@ -319,7 +319,9 @@ export function createCombatStageSim(): CombatStageSim {
     crawlerFrames: new Map(),
     stalkerFrames: null,
     stalkerTransitions: new Map(),
+    stalkerJuiceStates: new Map(),
     stalkerSamples: new Map(),
+    stalkerJuiceSamples: new Map(),
     spitterFrames: null,
     spitterTransitions: new Map(),
     spitterJuiceStates: new Map(),
@@ -330,6 +332,16 @@ export function createCombatStageSim(): CombatStageSim {
     bruteJuiceStates: new Map(),
     bruteSamples: new Map(),
     bruteJuiceSamples: new Map(),
+    mutdogFrames: null,
+    mutdogTransitions: new Map(),
+    mutdogJuiceStates: new Map(),
+    mutdogSamples: new Map(),
+    mutdogJuiceSamples: new Map(),
+    feralNurseFrames: null,
+    feralNurseTransitions: new Map(),
+    feralNurseJuiceStates: new Map(),
+    feralNurseSamples: new Map(),
+    feralNurseJuiceSamples: new Map(),
     simElapsed: 0,
     lastFrameDt: 0.016,
     size: { w: 1200, h: 420 },
@@ -395,7 +407,9 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.prevEnemySlots.clear();
   sim.enemyInitialArmor.clear();
   sim.stalkerTransitions.clear();
+  sim.stalkerJuiceStates.clear();
   sim.stalkerSamples?.clear();
+  sim.stalkerJuiceSamples?.clear();
   sim.spitterTransitions.clear();
   sim.spitterJuiceStates.clear();
   sim.spitterSamples?.clear();
@@ -404,6 +418,14 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.bruteJuiceStates.clear();
   sim.bruteSamples?.clear();
   sim.bruteJuiceSamples?.clear();
+  sim.mutdogTransitions.clear();
+  sim.mutdogJuiceStates.clear();
+  sim.mutdogSamples?.clear();
+  sim.mutdogJuiceSamples?.clear();
+  sim.feralNurseTransitions.clear();
+  sim.feralNurseJuiceStates.clear();
+  sim.feralNurseSamples?.clear();
+  sim.feralNurseJuiceSamples?.clear();
   sim.simElapsed = 0;
   sim.lastFrameDt = 0.016;
   for (let i = 0; i < sim.particles.length; i++) sim.particles[i].active = false;
@@ -448,12 +470,15 @@ export function formatEnemyIntent(
     case 'attack':
     case 'heavy': {
       const extraParts: string[] = [];
+      if (intent.pierceShield) extraParts.push('PIERCE');
       if (intent.corrodeAmount) extraParts.push(`+${intent.corrodeAmount} ${t.corrodeShort}`);
       if (intent.armorOnHit) extraParts.push(`+${intent.armorOnHit} ${t.armorShort}`);
       return extraParts.length > 0
         ? `${val}${condTag} DMG · ${extraParts.join(' ')}`
         : `${val}${condTag} DMG`;
     }
+    case 'cloak':
+      return '◎ 10% DMG (1T)';
     case 'acid':
       return `${val} DMG +${intent.secondaryValue ?? 2} ${t.corrodeShort}`;
     case 'armor':
@@ -463,7 +488,9 @@ export function formatEnemyIntent(
     case 'bolster':
       return `+${val} ${t.armorShort} ${t.allShort}`;
     case 'charge':
-      return `0 DMG (${intent.secondaryValue ?? 1}T → ${val})`;
+      return intent.pierceShield
+        ? `0 DMG (${intent.secondaryValue ?? 1}T → ${val} PIERCE)`
+        : `0 DMG (${intent.secondaryValue ?? 1}T → ${val})`;
     case 'leech':
       return `${val} DMG +${intent.secondaryValue ?? 4} ${t.hpLabel}`;
     default:

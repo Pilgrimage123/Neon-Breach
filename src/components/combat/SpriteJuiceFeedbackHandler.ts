@@ -292,7 +292,7 @@ export class SpriteJuiceFeedbackHandler {
     tgt.scaleVelX = 0;
     tgt.scaleVelY = 0;
     tgt.whiteFlashFramesLeft = Math.max(2, Math.round(whiteFlashFrames));
-    tgt.crimsonFlashAlpha = isCrit ? 0.88 : 0.74;
+    tgt.crimsonFlashAlpha = isCrit ? 0.76 : 0.62;
   }
 
   /**
@@ -506,9 +506,9 @@ export class SpriteJuiceFeedbackHandler {
 
     let flashRgba: [number, number, number, number] | null = null;
     if (a.whiteFlashFramesLeft > 0) {
-      flashRgba = [1.0, 1.0, 1.0, 0.96];
+      flashRgba = [1.0, 1.0, 1.0, 0.88];
     } else if (a.crimsonFlashAlpha > 0.02) {
-      flashRgba = [1.0, 0.18, 0.49, Math.min(0.88, a.crimsonFlashAlpha)];
+      flashRgba = [1.0, 0.18, 0.49, Math.min(0.76, a.crimsonFlashAlpha)];
     }
 
     let tintRgba: [number, number, number, number] = NEUTRAL_TINT;

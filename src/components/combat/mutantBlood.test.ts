@@ -17,13 +17,15 @@ import {
   sampleWeatheredBloodColors,
 } from './mutantBlood';
 
-test('all 7 enemy archetypes map to distinct biologically grounded blood profiles', () => {
+test('all 9 enemy archetypes map to biologically grounded blood profiles', () => {
   const expected: Record<EnemyArchetype, { id: string; veins: boolean; minIri: number }> = {
     skitter: { id: 'hemocyanin', veins: false, minIri: 0 },
     larva: { id: 'chlorocruorin', veins: false, minIri: 0 },
     stinger: { id: 'sulfur_amber', veins: false, minIri: 0.8 },
     spitter: { id: 'sulfur_violet', veins: false, minIri: 0.9 },
     stalker: { id: 'chitinous_ichor_magenta', veins: true, minIri: 0.2 },
+    mutdog: { id: 'chlorocruorin', veins: false, minIri: 0 },
+    feral_nurse: { id: 'chitinous_ichor_magenta', veins: true, minIri: 0.2 },
     brute: { id: 'chitinous_ichor_orange', veins: true, minIri: 0.2 },
     boss: { id: 'chitinous_ichor_apex', veins: true, minIri: 0.5 },
   };

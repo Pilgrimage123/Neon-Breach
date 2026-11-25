@@ -5,38 +5,66 @@ import {
   STALKER_SHEET_FRAMES,
   STALKER_SHEET_HEIGHT,
   STALKER_SHEET_WIDTH,
+  STALKER_SLIME_NOZZLES,
+  computeStalkerBlinkState,
   sampleStalkerFrame,
 } from './stalkerSpriteSheet';
 
-test('STALKER_SHEET_FRAMES covers all 16 poses within sheet dimensions with valid anchors and excludeRects', () => {
-  assert.equal(STALKER_SHEET_FRAMES.length, 16);
+test('STALKER_SHEET_FRAMES defines both 512x512 native-left frames with valid landmarks and slime nozzles', () => {
+  assert.equal(STALKER_SHEET_FRAMES.length, 2);
+  assert.equal(STALKER_SHEET_WIDTH, 512);
+  assert.equal(STALKER_SHEET_HEIGHT, 512);
+  assert.equal(STALKER_CANONICAL_HEIGHT, 460);
+
   for (let i = 0; i < STALKER_SHEET_FRAMES.length; i++) {
     const f = STALKER_SHEET_FRAMES[i];
-    assert.ok(f.w > 0 && f.h > 0, `Frame ${i} must have positive size`);
-    assert.ok(f.x >= 0 && f.y >= 0, `Frame ${i} origin must be non-negative`);
-    assert.ok(f.x + f.w <= STALKER_SHEET_WIDTH, `Frame ${i} exceeds sheet width`);
-    assert.ok(f.y + f.h <= STALKER_SHEET_HEIGHT, `Frame ${i} exceeds sheet height`);
+    assert.equal(f.x, 0);
+    assert.equal(f.y, 0);
+    assert.equal(f.w, STALKER_SHEET_WIDTH);
+    assert.equal(f.h, STALKER_SHEET_HEIGHT);
     assert.ok(f.anchorX > 0 && f.anchorX < f.w, `Frame ${i} anchorX must sit inside rect`);
     assert.ok(f.bottomY > 0 && f.bottomY <= f.h, `Frame ${i} bottomY must sit inside rect`);
-    if (f.excludeRects) {
-      for (const er of f.excludeRects) {
-        assert.ok(er.x >= 0 && er.y >= 0 && er.w > 0 && er.h > 0);
-        assert.ok(er.x + er.w <= f.w && er.y + er.h <= f.h, `Frame ${i} excludeRect exceeds rect`);
-      }
-    }
+    assert.ok(f.eyeOriginRel.dx < 0 && f.eyeOriginRel.dy < 0, 'Native left-facing eye must be up-left of foot anchor');
+    assert.ok(f.jawOriginRel.dx < 0 && f.jawOriginRel.dy < 0);
+    assert.ok(f.clawOriginRel.dx < 0 && f.clawOriginRel.dy < 0);
   }
-  assert.equal(STALKER_CANONICAL_HEIGHT, 227);
+
+  assert.ok(STALKER_SLIME_NOZZLES.length >= 6, 'Stalker must expose multiple calibrated slime drip nozzles');
+  for (const n of STALKER_SLIME_NOZZLES) {
+    assert.ok(n.baseRadius > 0 && n.maxStretchPx > 10 && n.baseIntervalSec > 0.5);
+    assert.ok(n.dy < 0, `Nozzle ${n.id} must sit above the bridge deck`);
+  }
 });
 
-test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, armored guard, bristle flare, attack lunge, pain, and death collapse', () => {
-  const idleFrames = new Set<number>();
-  for (let t = 0; t < 1.2; t += 0.1) {
-    const s = sampleStalkerFrame(undefined, t, 0);
-    assert.equal(s.mode, 'idle');
-    idleFrames.add(s.frameIndex);
-  }
-  assert.deepEqual([...idleFrames].sort((a, b) => a - b), [0, 1, 2]);
+test('computeStalkerBlinkState performs natural periodic single & double blinks in idle and narrows eye in combat poses', () => {
+  let sawOpen = false;
+  let sawBlinkingFrame = false;
+  let maxBlinkClosure = 0;
+  let blinkEpisodes = 0;
+  let prevBlinking = false;
 
+  for (let t = 0; t < 6.5; t += 0.02) {
+    const b = computeStalkerBlinkState(t, 0, 'idle');
+    if (b.frameIndex === 0 && !b.isBlinking) sawOpen = true;
+    if (b.frameIndex === 1 && b.isBlinking) sawBlinkingFrame = true;
+    if (b.blinkClosure > maxBlinkClosure) maxBlinkClosure = b.blinkClosure;
+    if (b.isBlinking && !prevBlinking) blinkEpisodes++;
+    prevBlinking = b.isBlinking;
+  }
+
+  assert.equal(sawOpen, true, 'Idle must display open-eye frame 0 between blinks');
+  assert.equal(sawBlinkingFrame, true, 'Idle must switch to narrowed-eye frame 1 during blinks');
+  assert.ok(maxBlinkClosure > 0.85, `Blink apex closure must peak cleanly, got ${maxBlinkClosure}`);
+  assert.ok(blinkEpisodes >= 3, `Expected multiple blink pulses (including double-blink), got ${blinkEpisodes}`);
+
+  assert.equal(computeStalkerBlinkState(0.5, 0, 'ambush').frameIndex, 1);
+  assert.equal(computeStalkerBlinkState(0.5, 0, 'attack', 0.5).frameIndex, 1);
+  assert.equal(computeStalkerBlinkState(0.5, 0, 'bristle', 0.5).frameIndex, 1);
+  assert.equal(computeStalkerBlinkState(0.5, 0, 'pain', 0.2).frameIndex, 1);
+  assert.ok(computeStalkerBlinkState(0.5, 0, 'pain', 0.2).blinkClosure > 0.5);
+});
+
+test('sampleStalkerFrame drives distinct states for idle, ambush crouch, guard, bristle flare, attack lunge, pain, and death collapse', () => {
   const ambush = sampleStalkerFrame(
     {
       dead: false,
@@ -51,7 +79,7 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
     0,
   );
   assert.equal(ambush.mode, 'ambush');
-  assert.ok(ambush.frameIndex === 2 || ambush.frameIndex === 3);
+  assert.equal(ambush.frameIndex, 1);
   assert.ok(ambush.spineGlowIntensity >= 0.65);
 
   const guard = sampleStalkerFrame(
@@ -68,7 +96,6 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
     0,
   );
   assert.equal(guard.mode, 'guard');
-  assert.equal(guard.frameIndex, 11);
 
   const bristlePeak = sampleStalkerFrame(
     {
@@ -78,7 +105,7 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
       staggerDuration: 0.36,
       attackAnimTimer: 0,
       attackAnimDuration: 0.52,
-      bristleTimer: 0.22,
+      bristleTimer: 0.24,
       bristleDuration: 0.48,
       bristleKind: 'retaliate',
     },
@@ -86,7 +113,7 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
     0,
   );
   assert.equal(bristlePeak.mode, 'bristle');
-  assert.equal(bristlePeak.frameIndex, 10);
+  assert.equal(bristlePeak.frameIndex, 1);
   assert.equal(bristlePeak.spineGlowIntensity, 1.0);
 
   const atkMid = sampleStalkerFrame(
@@ -102,8 +129,9 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
     0,
   );
   assert.equal(atkMid.mode, 'attack');
-  assert.equal(atkMid.frameIndex, 6);
+  assert.equal(atkMid.frameIndex, 1);
   assert.ok(atkMid.xOffsetRatio < -0.1, 'Lunge slash must travel left toward hero');
+  assert.ok(atkMid.clawSlashProgress > 0.3);
 
   const pain = sampleStalkerFrame(
     {
@@ -118,7 +146,7 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
     0,
   );
   assert.equal(pain.mode, 'pain');
-  assert.equal(pain.frameIndex, 12);
+  assert.equal(pain.frameIndex, 1);
 
   const koEnd = sampleStalkerFrame(
     {
@@ -133,14 +161,14 @@ test('sampleStalkerFrame drives distinct fluent states for idle, ambush crouch, 
     0,
   );
   assert.equal(koEnd.mode, 'death');
-  assert.equal(koEnd.frameIndex, 15);
+  assert.equal(koEnd.frameIndex, 1);
   assert.ok(koEnd.alpha > 0 && koEnd.alpha < 1);
 });
 
-test('sampleStalkerFrame cross-dissolves smoothly across pose switches', () => {
-  const first = sampleStalkerFrame(undefined, 0.02, 0, undefined, 0.016);
-  assert.equal(first.frameIndex, 0);
-  assert.equal(first.frameBlendAlpha, 1);
+test('sampleStalkerFrame cross-dissolves smoothly across open -> narrowed eye transitions', () => {
+  const openSample = sampleStalkerFrame(undefined, 0.05, 0, undefined, 0.016);
+  assert.equal(openSample.frameIndex, 0);
+  assert.equal(openSample.frameBlendAlpha, 1);
 
   const switchFrame = sampleStalkerFrame(
     {
@@ -150,14 +178,14 @@ test('sampleStalkerFrame cross-dissolves smoothly across pose switches', () => {
       staggerDuration: 0.36,
       attackAnimTimer: 0,
       attackAnimDuration: 0.52,
-      armoredGuard: true,
+      ambushPrimed: true,
     },
-    0.04,
+    0.07,
     0,
-    first.transitionState,
+    openSample.transitionState,
     0.016,
   );
-  assert.equal(switchFrame.frameIndex, 11);
+  assert.equal(switchFrame.frameIndex, 1);
   assert.equal(switchFrame.prevFrameIndex, 0);
   assert.ok(switchFrame.frameBlendAlpha > 0 && switchFrame.frameBlendAlpha < 0.5);
 });

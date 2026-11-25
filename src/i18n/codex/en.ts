@@ -360,5 +360,15 @@ export const EN_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Absorb Acid Spit with Shield to prevent Caustic Slag, or purge it safely on your next TECH or Overdrive Turn.',
       keywords: ['slag', 'caustic slag', 'acid', 'purge', 'tech', 'overdrive'],
     },
+    overwhelm: {
+      term: 'Overwhelm (×2)',
+      shortTag: 'Unshielded Punish',
+      summary: 'Doubles any portion of an enemy strike that breaks through your Shield, heavily punishing unguarded turns.',
+      mechanics:
+        'Used by Rabid MutDog’s Savage Maul (6 ×2, up to 12 DMG unshielded after its opening 5 Pounce), Carapace Brute’s Heavy Smash (6 ×2), and Pyre Stinger’s charged blast (7 ×2). Every point of damage that exceeds your Shield is doubled before hitting Armor or HP.',
+      tacticalTip:
+        'Rabid MutDog has 0 Armor and 0 Aegis Pips: either burst its 20 HP down before Turn 2 Savage Maul, or hold enough Shield to absorb the full 6 DMG cleanly.',
+      keywords: ['overwhelm', 'x2', 'mutdog', 'rabid mutdog', 'maul', 'pounce', 'brute', 'stinger', 'shield'],
+    },
   },
 };

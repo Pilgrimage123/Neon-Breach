@@ -19,8 +19,16 @@ import {
   BRUTE_SHEET_FRAMES,
   BRUTE_SHEET_OPTIONS,
 } from '../utils/bruteSpriteSheet';
+import {
+  FERAL_NURSE_SHEET_A_FRAMES,
+  FERAL_NURSE_SHEET_B_FRAMES,
+  FERAL_NURSE_SHEET_OPTIONS,
+} from '../utils/feralNurseSpriteSheet';
+import {
+  MUTDOG_SHEET_FRAMES,
+  MUTDOG_SHEET_OPTIONS,
+} from '../utils/mutdogSpriteSheet';
 import { SPITTER_SHEET_FRAMES } from '../utils/spitterSpriteSheet';
-import { STALKER_SHEET_FRAMES } from '../utils/stalkerSpriteSheet';
 import {
   ZURI_COMBAT_FRAMES,
   ZURI_DRONES_OPTIONS,
@@ -91,17 +99,8 @@ const CRAWLER_SHEET_OPTIONS: SpriteCutoutOptions = {
   defringeStrength: 0.78,
 };
 
-const STALKER_SHEET_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.76,
-};
-
-const STALKER_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
-  removeInteriorWhite: true,
-  minPocketArea: 18,
-  defringeStrength: 0.76,
-  maxDimension: 512,
+const STALKER_CUTOUT_OPTIONS: SpriteCutoutOptions = {
+  preserveExistingAlpha: true,
 };
 
 const SPITTER_SHEET_OPTIONS: SpriteCutoutOptions = {
@@ -117,7 +116,21 @@ const SPITTER_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
   maxDimension: 512,
 };
 
+const MUTDOG_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
+  removeInteriorWhite: true,
+  minPocketArea: 18,
+  defringeStrength: 0.78,
+  unmixLightGlow: true,
+  maxDimension: 512,
+};
+
 const BRUTE_PORTRAIT_OPTIONS: SpriteCutoutOptions = {
+  maxDimension: 512,
+};
+
+const FERAL_NURSE_CUTOUT_OPTIONS: SpriteCutoutOptions = {
+  removeBottomFloorShadow: true,
+  defringeStrength: 0.78,
   maxDimension: 512,
 };
 
@@ -146,8 +159,10 @@ const SHEET_SPECS = {
   zuriEmote: { url: GAME_ASSETS.zuriEmote, frames: ZURI_EMOTE_FRAMES, options: ZURI_SHEET_OPTIONS },
   zuriDrones: { url: GAME_ASSETS.zuriDrones, frames: ZURI_DRONE_FRAMES, options: ZURI_DRONES_OPTIONS },
   nurse: { url: GAME_ASSETS.nurse, frames: NURSE_FRAMES, options: NURSE_SHEET_OPTIONS },
-  stalker: { url: GAME_ASSETS.stalkerSheet, frames: STALKER_SHEET_FRAMES, options: STALKER_SHEET_OPTIONS },
   spitter: { url: GAME_ASSETS.spitterSheet, frames: SPITTER_SHEET_FRAMES, options: SPITTER_SHEET_OPTIONS },
+  mutdog: { url: GAME_ASSETS.mutdogSheet, frames: MUTDOG_SHEET_FRAMES, options: MUTDOG_SHEET_OPTIONS },
+  feralNurseA: { url: GAME_ASSETS.feralNurseSheetA, frames: FERAL_NURSE_SHEET_A_FRAMES, options: FERAL_NURSE_SHEET_OPTIONS },
+  feralNurseB: { url: GAME_ASSETS.feralNurseSheetB, frames: FERAL_NURSE_SHEET_B_FRAMES, options: FERAL_NURSE_SHEET_OPTIONS },
   brute: { url: GAME_ASSETS.bruteSheet, frames: BRUTE_SHEET_FRAMES, options: BRUTE_SHEET_OPTIONS },
 } as const satisfies Record<string, SheetSpec>;
 
@@ -167,12 +182,6 @@ function getCutoutWithBounds(url: string, options: SpriteCutoutOptions): Preload
 function getFirstFrameCutout(frames: HTMLCanvasElement[] | null): PreloadedEnemyCutout | null {
   if (!frames || !frames[0]) return null;
   return { canvas: frames[0], bounds: measureSpriteBounds(frames[0]) };
-}
-
-function yieldTick(): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, 0);
-  });
 }
 
 export function getPreloadedTitleBg(): HTMLImageElement | null {
@@ -278,11 +287,34 @@ export function loadNurseFrames(): Promise<HTMLCanvasElement[]> {
 }
 
 export function getPreloadedStalkerFrames(): HTMLCanvasElement[] | null {
-  return getSheet(SHEET_SPECS.stalker);
+  const frames: HTMLCanvasElement[] = [];
+  for (let i = 0; i < GAME_ASSETS.stalkerFrames.length; i++) {
+    const canvas = getCachedSpriteCutout(GAME_ASSETS.stalkerFrames[i], STALKER_CUTOUT_OPTIONS);
+    if (!canvas) return null;
+    frames.push(canvas);
+  }
+  return frames;
+}
+
+function loadStalkerFrames(): Promise<HTMLCanvasElement[]> {
+  return Promise.all(
+    GAME_ASSETS.stalkerFrames.map((url) => loadSpriteCutout(url, STALKER_CUTOUT_OPTIONS)),
+  );
 }
 
 export function getPreloadedSpitterFrames(): HTMLCanvasElement[] | null {
   return getSheet(SHEET_SPECS.spitter);
+}
+
+export function getPreloadedMutdogFrames(): HTMLCanvasElement[] | null {
+  return getSheet(SHEET_SPECS.mutdog);
+}
+
+export function getPreloadedFeralNurseFrames(): HTMLCanvasElement[] | null {
+  const sheetA = getSheet(SHEET_SPECS.feralNurseA);
+  const sheetB = getSheet(SHEET_SPECS.feralNurseB);
+  if (!sheetA || !sheetB) return null;
+  return [...sheetA, ...sheetB];
 }
 
 export function getPreloadedBruteFrames(): HTMLCanvasElement[] | null {
@@ -291,8 +323,10 @@ export function getPreloadedBruteFrames(): HTMLCanvasElement[] | null {
 
 function getEnemyPortraitOptions(arch: EnemyArchetype): SpriteCutoutOptions {
   if (arch === 'brute') return BRUTE_PORTRAIT_OPTIONS;
+  if (arch === 'feral_nurse') return FERAL_NURSE_CUTOUT_OPTIONS;
+  if (arch === 'mutdog') return MUTDOG_PORTRAIT_OPTIONS;
   if (arch === 'spitter') return SPITTER_PORTRAIT_OPTIONS;
-  return STALKER_PORTRAIT_OPTIONS;
+  return STALKER_CUTOUT_OPTIONS;
 }
 
 export function getPreloadedEnemyPortrait(arch: EnemyArchetype): PreloadedEnemyCutout | null {
@@ -316,6 +350,8 @@ export function getPreloadedEnemyCutout(arch: EnemyArchetype): PreloadedEnemyCut
   if (isCrawlerArchetype(arch)) return getFirstFrameCutout(getPreloadedCrawlerFrames(arch));
   if (arch === 'stalker') return getFirstFrameCutout(getPreloadedStalkerFrames());
   if (arch === 'spitter') return getFirstFrameCutout(getPreloadedSpitterFrames());
+  if (arch === 'mutdog') return getFirstFrameCutout(getPreloadedMutdogFrames());
+  if (arch === 'feral_nurse') return getFirstFrameCutout(getPreloadedFeralNurseFrames());
   if (arch === 'brute') return getFirstFrameCutout(getPreloadedBruteFrames());
   return getCutoutWithBounds(GAME_ASSETS.bossPortrait, ENEMY_CUTOUT_OPTIONS);
 }
@@ -370,6 +406,10 @@ export function areCriticalCombatAssetsReady(
       if (!getPreloadedStalkerFrames()) return false;
     } else if (arch === 'spitter') {
       if (!getPreloadedSpitterFrames()) return false;
+    } else if (arch === 'mutdog') {
+      if (!getPreloadedMutdogFrames()) return false;
+    } else if (arch === 'feral_nurse') {
+      if (!getPreloadedFeralNurseFrames()) return false;
     } else if (arch === 'brute') {
       if (!getPreloadedBruteFrames()) return false;
     } else if (!getPreloadedEnemyCutout(arch)) {
@@ -401,8 +441,16 @@ function notifyPreloadListeners(): void {
 
 function loadEnemyAssets(arch: EnemyArchetype): Promise<unknown> {
   if (isCrawlerArchetype(arch)) return loadCrawlerVariantFrames(arch);
-  if (arch === 'stalker') return Promise.all([loadSheet(SHEET_SPECS.stalker), loadEnemyPortrait('stalker')]);
+  if (arch === 'stalker') return loadStalkerFrames();
   if (arch === 'spitter') return Promise.all([loadSheet(SHEET_SPECS.spitter), loadEnemyPortrait('spitter')]);
+  if (arch === 'mutdog') return Promise.all([loadSheet(SHEET_SPECS.mutdog), loadEnemyPortrait('mutdog')]);
+  if (arch === 'feral_nurse') {
+    return Promise.all([
+      loadSheet(SHEET_SPECS.feralNurseA),
+      loadSheet(SHEET_SPECS.feralNurseB),
+      loadEnemyPortrait('feral_nurse'),
+    ]);
+  }
   if (arch === 'brute') return Promise.all([loadSheet(SHEET_SPECS.brute), loadEnemyPortrait('brute')]);
   return loadSpriteCutout(GAME_ASSETS.bossPortrait, ENEMY_CUTOUT_OPTIONS);
 }
@@ -429,7 +477,17 @@ async function runBackgroundTask(taskId: string): Promise<void> {
   }
 }
 
-async function runTaskQueue(tasks: string[], epoch: number): Promise<void> {
+function yieldTick(delayMs = 0): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, delayMs);
+  });
+}
+
+async function runTaskQueue(
+  tasks: string[],
+  epoch: number,
+  interTaskDelayMs = 0,
+): Promise<void> {
   for (let i = 0; i < tasks.length; i++) {
     if (epoch !== activeBgEpoch) return;
     try {
@@ -441,7 +499,7 @@ async function runTaskQueue(tasks: string[], epoch: number): Promise<void> {
       // Ignore individual asset preload failures; live screen renders fallback cleanly
     }
     if (epoch !== activeBgEpoch) return;
-    await yieldTick();
+    await yieldTick(interTaskDelayMs);
   }
 }
 
@@ -465,8 +523,11 @@ export function preloadForTitleScreen(selectedChar: CharacterId): void {
       // Secondary logo frames degrade gracefully to frame 0
     }
     if (epoch !== activeBgEpoch) return;
+    // Allow initial Title Screen emblem animation frames to settle before decoding heavy combat sheets
+    await yieldTick(500);
+    if (epoch !== activeBgEpoch) return;
     const tasks = buildBackgroundTaskOrder(selectedChar);
-    void runTaskQueue(tasks, epoch);
+    void runTaskQueue(tasks, epoch, 180);
   });
 }
 

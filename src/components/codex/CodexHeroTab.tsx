@@ -4,6 +4,7 @@ import type { CharacterId, TileSpec } from '../../engine/types';
 import { CODEX_TRANSLATIONS } from '../../i18n/codexTranslations';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import { formatTileDetailText, formatTileShortLabel } from '../../utils/tileDisplay';
+import { FormattedText } from '../FormattedText';
 import { TileGlyph } from '../TileGlyph';
 
 function TileSpecRow({
@@ -210,7 +211,7 @@ export function CodexHeroTab({ selectedHero, lang }: CodexHeroTabProps) {
                     </span>
                   </div>
                   <p className="mt-0.5 text-[12.5px] leading-snug text-slate-200">
-                    {eqMeta?.desc ?? ''}
+                    <FormattedText text={eqMeta?.desc ?? ''} />
                   </p>
                   <div className="mt-2 grid grid-cols-1 gap-1 sm:grid-cols-2">
                     {def.tiles.map((spec, idx) => (

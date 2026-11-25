@@ -1,9 +1,16 @@
 import type { EnemyArchetype, TileType } from '../../engine/types';
+import type { Language } from '../../i18n/translations';
 import type { BruteJuiceConfig, BruteJuiceSample } from '../../utils/bruteJuiceController';
+import type {
+  FeralNurseJuiceConfig,
+  FeralNurseJuiceSample,
+} from '../../utils/feralNurseJuiceController';
+import type { MutdogJuiceConfig, MutdogJuiceSample } from '../../utils/mutdogJuiceController';
 import type {
   SpitterJuiceConfig,
   SpitterJuiceSample,
 } from '../../utils/spitterJuiceController';
+import type { StalkerJuiceSample } from '../../utils/stalkerJuiceController';
 import type { SequencerFrameState } from './CombatActionSequencer';
 import type { CombatPresentationConfig } from './combatPresentationConfig';
 import type { ActorAnim } from './combatStageTypes';
@@ -73,10 +80,15 @@ export interface StageRenderOptions {
   spitterLabActive?: boolean;
   bruteJuiceConfig?: BruteJuiceConfig;
   bruteLabActive?: boolean;
+  mutdogJuiceConfig?: MutdogJuiceConfig;
+  mutdogLabActive?: boolean;
+  feralNurseJuiceConfig?: FeralNurseJuiceConfig;
+  feralNurseLabActive?: boolean;
   presentationConfig?: CombatPresentationConfig;
   sequencerFrame?: SequencerFrameState;
   getActorJuice?: (actorId: string) => ActorJuiceSnapshot;
   reducedMotion?: boolean;
+  lang?: Language;
 }
 
 /**
@@ -281,7 +293,7 @@ export function deriveHeroDeformAndUniforms(params: {
     if (cutIn?.flashRgba) {
       uniforms.flashRgba = cutIn.flashRgba;
     } else if (flashTimer > 0) {
-      const flashIntensity = Math.min(0.75, Math.max(0.25, flashTimer * 3.2));
+      const flashIntensity = Math.min(0.58, Math.max(0.24, flashTimer * 2.8));
       uniforms.flashRgba = [1.0, 0.55, 0.72, flashIntensity];
     }
   }
@@ -339,8 +351,11 @@ export function deriveEnemyDeformAndUniforms(params: {
   tacticalViewActive: boolean;
   spitterJuice?: SpitterJuiceSample;
   bruteJuice?: BruteJuiceSample;
+  mutdogJuice?: MutdogJuiceSample;
+  feralNurseJuice?: FeralNurseJuiceSample;
+  stalkerJuice?: StalkerJuiceSample;
   cutIn?: ActorJuiceSnapshot;
-  /** Sprite facing sign (+1 for native left-facing Crawlers/Boss, -1 for mirrored right-facing Stalker/Spitter/Brute) */
+  /** Sprite facing sign (+1 for native left-facing Crawlers/Stalker/Boss, -1 for mirrored right-facing Spitter/MutDog/FeralNurse/Brute) */
   facingSign?: number;
 }): { deform: ControlPointDeform; uniforms: CharacterShaderUniforms } {
   const deform = createIdentityControlPoints();
@@ -364,6 +379,9 @@ export function deriveEnemyDeformAndUniforms(params: {
     tacticalViewActive,
     spitterJuice,
     bruteJuice,
+    mutdogJuice,
+    feralNurseJuice,
+    stalkerJuice,
     cutIn,
     facingSign,
   } = params;
@@ -376,9 +394,18 @@ export function deriveEnemyDeformAndUniforms(params: {
       ? spitterJuice.facingScale
       : bruteJuice
         ? bruteJuice.facingScale
-        : archetype === 'stalker' || archetype === 'spitter' || archetype === 'brute'
-          ? -1
-          : 1);
+        : mutdogJuice
+          ? mutdogJuice.facingScale
+          : feralNurseJuice
+            ? feralNurseJuice.facingScale
+            : stalkerJuice
+              ? stalkerJuice.facingScale
+              : archetype === 'spitter' ||
+                  archetype === 'mutdog' ||
+                  archetype === 'feral_nurse' ||
+                  archetype === 'brute'
+                ? -1
+                : 1);
   const fwdSign = effectiveFacing < 0 ? 1 : -1;
 
   const cutInScaleX = cutIn ? cutIn.scaleX : 1;
@@ -390,6 +417,74 @@ export function deriveEnemyDeformAndUniforms(params: {
   }
 
   if (tacticalViewActive || isDead) {
+    return { deform, uniforms };
+  }
+
+  // If this unit is driven by the 4-Layer Feral Nurse Juice Controller, compose all 4 layers directly
+  if (feralNurseJuice) {
+    uniforms.squashStretch = [
+      breathScaleX * feralNurseJuice.springScaleX * cutInScaleX,
+      breathScaleY * feralNurseJuice.springScaleY * cutInScaleY,
+    ];
+    uniforms.shearPx = [feralNurseJuice.shearXPx + staggerShearPx * 0.42, 0];
+    uniforms.swayAmpPx = 0;
+    uniforms.swayFreq = 0;
+    uniforms.swayPhase = 0;
+    uniforms.uvDistortAmp = feralNurseJuice.uvDistortAmp;
+    uniforms.uvDistortFreq = feralNurseJuice.uvDistortFreq;
+    uniforms.uvDistortPhase = elapsed * 6.5;
+    const ct = cutIn ? cutIn.tintRgba : [1, 1, 1, 1];
+    uniforms.tintRgba = [
+      feralNurseJuice.tintRgba[0] * ct[0],
+      feralNurseJuice.tintRgba[1] * ct[1],
+      feralNurseJuice.tintRgba[2] * ct[2],
+      feralNurseJuice.tintRgba[3] * ct[3],
+    ];
+
+    copyJuiceDeformToControlPoints(
+      deform,
+      {
+        feet: feralNurseJuice.deform.feet,
+        pelvis: feralNurseJuice.deform.hips,
+        waist: feralNurseJuice.deform.chest,
+        head: feralNurseJuice.deform.head,
+      },
+      staggerShearPx,
+      [0.2, 0.54, 0.9],
+    );
+
+    if (cutIn && cutIn.poseOverride === 'attack_pose') {
+      deform.pelvis.dx += 5.0 * fwdSign;
+      deform.waist.dx += 11.0 * fwdSign;
+      deform.waist.rotRad += 0.065 * fwdSign;
+      deform.head.dx += 16.5 * fwdSign;
+      deform.head.rotRad += 0.1 * fwdSign;
+    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+      deform.pelvis.dx -= 4.8 * fwdSign;
+      deform.waist.dx -= 11.5 * fwdSign;
+      deform.waist.dy += 2.5;
+      deform.waist.rotRad -= 0.1 * fwdSign;
+      deform.head.dx -= 17.0 * fwdSign;
+      deform.head.dy += 3.8;
+      deform.head.rotRad -= 0.14 * fwdSign;
+    }
+
+    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.7, ea.flashTimer * 3.6) : 0;
+    if (cutIn?.flashRgba) {
+      uniforms.flashRgba = cutIn.flashRgba;
+    } else if (whiteFlash > 0.05) {
+      uniforms.flashRgba = [1.0, 1.0, 1.0, whiteFlash];
+    } else if (feralNurseJuice.flashRgba) {
+      uniforms.flashRgba = feralNurseJuice.flashRgba;
+    } else if (staggerBioFlashAlpha > 0.03) {
+      uniforms.flashRgba = [
+        bioEmissiveRgb[0],
+        bioEmissiveRgb[1],
+        bioEmissiveRgb[2],
+        Math.min(0.6, staggerBioFlashAlpha * 1.15),
+      ];
+    }
+
     return { deform, uniforms };
   }
 
@@ -433,7 +528,7 @@ export function deriveEnemyDeformAndUniforms(params: {
     }
 
     // Layer 4: Synced hit-flash uniform (cut-in white->crimson takes precedence when flashing)
-    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.82, ea.flashTimer * 4.2) : 0;
+    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.68, ea.flashTimer * 3.6) : 0;
     if (cutIn?.flashRgba) {
       uniforms.flashRgba = cutIn.flashRgba;
     } else if (whiteFlash > 0.05) {
@@ -445,7 +540,7 @@ export function deriveEnemyDeformAndUniforms(params: {
         bioEmissiveRgb[0],
         bioEmissiveRgb[1],
         bioEmissiveRgb[2],
-        Math.min(0.75, staggerBioFlashAlpha * 1.25),
+        Math.min(0.6, staggerBioFlashAlpha * 1.15),
       ];
     }
 
@@ -492,7 +587,7 @@ export function deriveEnemyDeformAndUniforms(params: {
     }
 
     // Layer 4: Synced hit-flash uniform
-    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.84, ea.flashTimer * 4.2) : 0;
+    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.7, ea.flashTimer * 3.6) : 0;
     if (cutIn?.flashRgba) {
       uniforms.flashRgba = cutIn.flashRgba;
     } else if (whiteFlash > 0.05) {
@@ -504,7 +599,124 @@ export function deriveEnemyDeformAndUniforms(params: {
         bioEmissiveRgb[0],
         bioEmissiveRgb[1],
         bioEmissiveRgb[2],
-        Math.min(0.75, staggerBioFlashAlpha * 1.25),
+        Math.min(0.6, staggerBioFlashAlpha * 1.15),
+      ];
+    }
+
+    return { deform, uniforms };
+  }
+
+  // If this unit is driven by the 4-Layer Rabid MutDog Juice Controller, compose all 4 layers directly
+  if (mutdogJuice) {
+    uniforms.squashStretch = [
+      breathScaleX * mutdogJuice.springScaleX * cutInScaleX,
+      breathScaleY * mutdogJuice.springScaleY * cutInScaleY,
+    ];
+    uniforms.shearPx = [mutdogJuice.shearXPx + staggerShearPx * 0.42, 0];
+    uniforms.swayAmpPx = mutdogJuice.swayAmpPx;
+    uniforms.swayFreq = mutdogJuice.swayFreq;
+    uniforms.swayPhase = mutdogJuice.swayPhase;
+    uniforms.uvDistortAmp = mutdogJuice.uvDistortAmp;
+    uniforms.uvDistortFreq = mutdogJuice.uvDistortFreq;
+    uniforms.uvDistortPhase = mutdogJuice.uvDistortPhase;
+    const ct = cutIn ? cutIn.tintRgba : [1, 1, 1, 1];
+    uniforms.tintRgba = [
+      mutdogJuice.tintRgba[0] * ct[0],
+      mutdogJuice.tintRgba[1] * ct[1],
+      mutdogJuice.tintRgba[2] * ct[2],
+      mutdogJuice.tintRgba[3] * ct[3],
+    ];
+
+    copyJuiceDeformToControlPoints(deform, mutdogJuice.deform, staggerShearPx, [0.22, 0.56, 0.92]);
+
+    if (cutIn && cutIn.poseOverride === 'attack_pose') {
+      deform.pelvis.dx += 5.5 * fwdSign;
+      deform.waist.dx += 11.5 * fwdSign;
+      deform.waist.rotRad += 0.065 * fwdSign;
+      deform.head.dx += 17.5 * fwdSign;
+      deform.head.rotRad += 0.105 * fwdSign;
+    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+      deform.pelvis.dx -= 5.0 * fwdSign;
+      deform.waist.dx -= 12 * fwdSign;
+      deform.waist.dy += 2.6;
+      deform.waist.rotRad -= 0.1 * fwdSign;
+      deform.head.dx -= 17.5 * fwdSign;
+      deform.head.dy += 4.0;
+      deform.head.rotRad -= 0.15 * fwdSign;
+    }
+
+    // Layer 4: Synced hit-flash uniform
+    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.7, ea.flashTimer * 3.6) : 0;
+    if (cutIn?.flashRgba) {
+      uniforms.flashRgba = cutIn.flashRgba;
+    } else if (whiteFlash > 0.05) {
+      uniforms.flashRgba = [1.0, 1.0, 1.0, whiteFlash];
+    } else if (mutdogJuice.flashRgba) {
+      uniforms.flashRgba = mutdogJuice.flashRgba;
+    } else if (staggerBioFlashAlpha > 0.03) {
+      uniforms.flashRgba = [
+        bioEmissiveRgb[0],
+        bioEmissiveRgb[1],
+        bioEmissiveRgb[2],
+        Math.min(0.6, staggerBioFlashAlpha * 1.15),
+      ];
+    }
+
+    return { deform, uniforms };
+  }
+
+  // If this unit is driven by the 4-Layer Chitin Stalker Juice Controller, compose all 4 layers directly
+  if (stalkerJuice) {
+    uniforms.squashStretch = [
+      breathScaleX * stalkerJuice.springScaleX * cutInScaleX,
+      breathScaleY * stalkerJuice.springScaleY * cutInScaleY,
+    ];
+    uniforms.shearPx = [stalkerJuice.shearXPx + staggerShearPx * 0.42, 0];
+    uniforms.swayAmpPx = stalkerJuice.swayAmpPx;
+    uniforms.swayFreq = stalkerJuice.swayFreq;
+    uniforms.swayPhase = stalkerJuice.swayPhase;
+    uniforms.uvDistortAmp = stalkerJuice.uvDistortAmp;
+    uniforms.uvDistortFreq = stalkerJuice.uvDistortFreq;
+    uniforms.uvDistortPhase = stalkerJuice.uvDistortPhase;
+    const ct = cutIn ? cutIn.tintRgba : [1, 1, 1, 1];
+    uniforms.tintRgba = [
+      stalkerJuice.tintRgba[0] * ct[0],
+      stalkerJuice.tintRgba[1] * ct[1],
+      stalkerJuice.tintRgba[2] * ct[2],
+      stalkerJuice.tintRgba[3] * ct[3],
+    ];
+
+    copyJuiceDeformToControlPoints(deform, stalkerJuice.deform, -staggerShearPx, [0.2, 0.52, 0.88]);
+
+    if (cutIn && cutIn.poseOverride === 'attack_pose') {
+      deform.pelvis.dx += 5.5 * fwdSign;
+      deform.waist.dx += 11.5 * fwdSign;
+      deform.waist.rotRad += 0.065 * fwdSign;
+      deform.head.dx += 17.5 * fwdSign;
+      deform.head.rotRad += 0.105 * fwdSign;
+    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+      deform.pelvis.dx -= 5.0 * fwdSign;
+      deform.waist.dx -= 12 * fwdSign;
+      deform.waist.dy += 2.6;
+      deform.waist.rotRad -= 0.1 * fwdSign;
+      deform.head.dx -= 17.5 * fwdSign;
+      deform.head.dy += 4.0;
+      deform.head.rotRad -= 0.15 * fwdSign;
+    }
+
+    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.7, ea.flashTimer * 3.6) : 0;
+    if (cutIn?.flashRgba) {
+      uniforms.flashRgba = cutIn.flashRgba;
+    } else if (whiteFlash > 0.05) {
+      uniforms.flashRgba = [1.0, 1.0, 1.0, whiteFlash];
+    } else if (stalkerJuice.flashRgba) {
+      uniforms.flashRgba = stalkerJuice.flashRgba;
+    } else if (staggerBioFlashAlpha > 0.03) {
+      uniforms.flashRgba = [
+        bioEmissiveRgb[0],
+        bioEmissiveRgb[1],
+        bioEmissiveRgb[2],
+        Math.min(0.6, staggerBioFlashAlpha * 1.15),
       ];
     }
 
@@ -591,7 +803,7 @@ export function deriveEnemyDeformAndUniforms(params: {
   }
 
   // 5. Hit-flash & biological emissive stagger flash
-  const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.78, ea.flashTimer * 4.2) : 0;
+  const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.68, ea.flashTimer * 3.6) : 0;
   if (cutIn?.flashRgba) {
     uniforms.flashRgba = cutIn.flashRgba;
   } else if (whiteFlash > staggerBioFlashAlpha) {
@@ -601,7 +813,7 @@ export function deriveEnemyDeformAndUniforms(params: {
       bioEmissiveRgb[0],
       bioEmissiveRgb[1],
       bioEmissiveRgb[2],
-      Math.min(0.72, staggerBioFlashAlpha * 1.25),
+      Math.min(0.6, staggerBioFlashAlpha * 1.15),
     ];
   }
 

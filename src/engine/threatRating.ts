@@ -21,6 +21,7 @@ export function getIntentEffectiveDprValue(intent: EnemyIntent): number {
   if (
     intent.kind === 'pause' ||
     intent.kind === 'charge' ||
+    intent.kind === 'cloak' ||
     intent.kind === 'armor' ||
     intent.kind === 'bolster'
   ) {
@@ -40,6 +41,7 @@ function isZeroDamageOpeningIntent(intent: EnemyIntent): boolean {
   return (
     intent.kind === 'pause' ||
     intent.kind === 'charge' ||
+    intent.kind === 'cloak' ||
     intent.kind === 'armor' ||
     intent.kind === 'bolster'
   );
@@ -85,6 +87,8 @@ export function computeMutantThreatRating(template: EnemyTemplate): ThreatRating
   let traitModifier = 0;
   if (cycle.some((i) => i.kind === 'acid')) traitModifier += 2.0;
   if (cycle.some((i) => i.kind === 'bolster')) traitModifier += 1.5;
+  if (cycle.some((i) => i.kind === 'leech')) traitModifier += 2.0;
+  if (cycle.some((i) => i.kind === 'cloak')) traitModifier += 2.5;
   if (template.passive === 'volatile_burst') traitModifier -= 1.0;
 
   const rawScore =
@@ -127,6 +131,8 @@ export const ARCHETYPE_THREAT_RATING: Record<EnemyArchetype, number> = {
   stinger: computeMutantThreatRating(ENEMY_TEMPLATES.stinger).total,
   stalker: computeMutantThreatRating(ENEMY_TEMPLATES.stalker).total,
   spitter: computeMutantThreatRating(ENEMY_TEMPLATES.spitter).total,
+  mutdog: computeMutantThreatRating(ENEMY_TEMPLATES.mutdog).total,
+  feral_nurse: computeMutantThreatRating(ENEMY_TEMPLATES.feral_nurse).total,
   brute: computeMutantThreatRating(ENEMY_TEMPLATES.brute).total,
   boss: computeMutantThreatRating(ENEMY_TEMPLATES.boss).total,
 };
@@ -184,7 +190,7 @@ export function getEncounterBudgetForNode(
       maxBudget,
       maxUnits: difficultyTier === 1 || layer < 6 ? 2 : 3,
       maxCopiesPerArchetype: 1,
-      allowedArchetypes: ['brute', 'spitter', 'stinger', 'skitter', 'larva'],
+      allowedArchetypes: ['brute', 'spitter', 'mutdog', 'feral_nurse', 'stinger', 'skitter', 'larva'],
     };
   }
 
@@ -230,6 +236,6 @@ export function getEncounterBudgetForNode(
     maxBudget,
     maxUnits: difficultyTier === 1 ? 2 : 3,
     maxCopiesPerArchetype: 2,
-    allowedArchetypes: ['larva', 'skitter', 'stinger', 'stalker', 'spitter'],
+    allowedArchetypes: ['larva', 'skitter', 'stinger', 'stalker', 'spitter', 'mutdog', 'feral_nurse'],
   };
 }

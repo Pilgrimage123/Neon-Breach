@@ -5,6 +5,7 @@ import { executeOverdrive, getSurgeThreshold, previewColorResolution, resolvePla
 import { saveEncounterSnapshot } from '../engine/persistence';
 import type { RunState, TileType } from '../engine/types';
 import type { Language } from '../i18n/translations';
+import { isDevLabRunId } from '../utils/devLabMode';
 import { applyFailForwardBuff, canRepositionEnemies, computeContextualMicroPrompt, computeEncounterObjectives, computeOptimalTurnHint, repositionFrontEnemies } from '../utils/tacticalSandboxAndHints';
 
 export function applyBossObjectivesIfVictory(
@@ -503,7 +504,9 @@ export function useCombatSandbox({
         : encounterStartSnapshot.combat,
     };
     setEncounterStartSnapshot(restored);
-    saveEncounterSnapshot(restored);
+    if (!isDevLabRunId(restored.runId)) {
+      saveEncounterSnapshot(restored);
+    }
     setTurnHistory([]);
     setUndosUsedInNode((u) => u + 1);
     setCommittedUndosUsedInNode(0);
@@ -562,7 +565,9 @@ export function useCombatSandbox({
     defeatSoundPlayedOutcomeRef.current = null;
     const skipped = skipCombatEncounter(runRef.current);
     resetCombatSandboxForNewNode(null);
-    saveEncounterSnapshot(null);
+    if (!isDevLabRunId(runRef.current.runId)) {
+      saveEncounterSnapshot(null);
+    }
     setRun(skipped);
   }, [canSkipEncounter, defeatSoundPlayedOutcomeRef, resetCombatSandboxForNewNode, runRef, setRun]);
 

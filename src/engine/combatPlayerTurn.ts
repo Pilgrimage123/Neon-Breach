@@ -20,8 +20,10 @@ import {
   countRewardedKills,
   evaluateReactiveEnemyShifts,
   finalizeCombatVictory,
+  findNextLivingEnemyBehind,
   hasHostileLivingEnemies,
   simulatePlayerActionOnEnemies,
+  splitCloakedDamage,
   triggerVolatileBursts,
 } from './combatRules';
 import { previewColorResolution } from './combatPreview';
@@ -448,38 +450,57 @@ export function executeOverdrive(run: RunState): RunState {
 
   let nextEnemies = combat.enemies.map((enemy) => ({ ...enemy }));
 
+  const applyOverdriveHit = (
+    targetIdx: number,
+    dmg: number,
+    cuePrefix: string,
+  ): ReturnType<typeof applyDamageToEnemy> => {
+    const targetBefore = nextEnemies[targetIdx];
+    const isCloaked = (targetBefore.cloakedTurns ?? 0) > 0 && dmg > 0;
+    const { taken: directDmg, passed: passThroughDmg } = isCloaked
+      ? splitCloakedDamage(dmg)
+      : { taken: dmg, passed: 0 };
+    const res = applyDamageToEnemy(targetBefore, directDmg, 0, false);
+    nextEnemies[targetIdx] = res.enemy;
+    totalDamageDealt += res.effectiveDamageDealt;
+    if (res.phaseGateHit) {
+      cues.push({
+        id: `${cuePrefix}_phase_${targetBefore.id}`,
+        kind: 'enemy_phase_gate',
+        targetId: targetBefore.id,
+        value: PHASE_GATE_ARMOR_BONUS,
+      });
+    }
+    if (res.defeated) {
+      defeatedNow++;
+      newlyDefeatedIds.push(targetBefore.id);
+      cues.push({
+        id: `${cuePrefix}_ko_${targetBefore.id}`,
+        kind: 'enemy_ko',
+        targetId: targetBefore.id,
+      });
+    }
+    if (isCloaked && passThroughDmg > 0) {
+      const behindIdx = findNextLivingEnemyBehind(nextEnemies, targetIdx);
+      if (behindIdx !== -1) {
+        applyOverdriveHit(behindIdx, passThroughDmg, `${cuePrefix}_pass_${behindIdx}`);
+      }
+    }
+    return res;
+  };
+
   // Step 1: Frontline Dropkick Impact + Knockback Swap (Kira's Energy Dropkick)
   if ((odSpec.frontKickDamage ?? 0) > 0) {
     const frontIdx = nextEnemies.findIndex(
       (e) => e.hp > 0 && !e.escaped && !e.isMercyTarget,
     );
     if (frontIdx !== -1) {
-      const frontEnemy = nextEnemies[frontIdx];
-      const kickRes = applyDamageToEnemy(
-        frontEnemy,
+      const kickRes = applyOverdriveHit(
+        frontIdx,
         odSpec.frontKickDamage!,
-        0,
-        false,
+        `cue_${combat.turn}_od_kick`,
       );
-      nextEnemies[frontIdx] = kickRes.enemy;
-      totalDamageDealt += kickRes.effectiveDamageDealt;
-      if (kickRes.phaseGateHit) {
-        cues.push({
-          id: `cue_${combat.turn}_od_kick_phase_${frontEnemy.id}`,
-          kind: 'enemy_phase_gate',
-          targetId: frontEnemy.id,
-          value: PHASE_GATE_ARMOR_BONUS,
-        });
-      }
-      if (kickRes.defeated) {
-        defeatedNow++;
-        newlyDefeatedIds.push(frontEnemy.id);
-        cues.push({
-          id: `cue_${combat.turn}_od_kick_ko_${frontEnemy.id}`,
-          kind: 'enemy_ko',
-          targetId: frontEnemy.id,
-        });
-      } else if (odSpec.knockbackFront) {
+      if (!kickRes.defeated && odSpec.knockbackFront) {
         const livingIndices: number[] = [];
         nextEnemies.forEach((e, idx) => {
           if (e.hp > 0 && !e.escaped && !e.isMercyTarget) livingIndices.push(idx);
@@ -497,31 +518,14 @@ export function executeOverdrive(run: RunState): RunState {
 
   // Step 2: All-Enemy Shockwave / AoE Bombardment
   const armorShred = odSpec.armorShred ?? 0;
-  nextEnemies = nextEnemies.map((enemy) => {
-    if (enemy.hp <= 0 || enemy.escaped || enemy.isMercyTarget) return { ...enemy };
-    const preppedEnemy =
-      armorShred > 0 ? { ...enemy, armor: Math.max(0, enemy.armor - armorShred) } : enemy;
-    const res = applyDamageToEnemy(preppedEnemy, odSpec.damage, 0, false);
-    totalDamageDealt += res.effectiveDamageDealt;
-    if (res.phaseGateHit) {
-      cues.push({
-        id: `cue_${combat.turn}_od_phase_${enemy.id}`,
-        kind: 'enemy_phase_gate',
-        targetId: enemy.id,
-        value: PHASE_GATE_ARMOR_BONUS,
-      });
+  for (let i = 0; i < nextEnemies.length; i++) {
+    const enemy = nextEnemies[i];
+    if (enemy.hp <= 0 || enemy.escaped || enemy.isMercyTarget) continue;
+    if (armorShred > 0) {
+      nextEnemies[i] = { ...enemy, armor: Math.max(0, enemy.armor - armorShred) };
     }
-    if (res.defeated) {
-      defeatedNow++;
-      newlyDefeatedIds.push(enemy.id);
-      cues.push({
-        id: `cue_${combat.turn}_od_ko_${enemy.id}`,
-        kind: 'enemy_ko',
-        targetId: enemy.id,
-      });
-    }
-    return res.enemy;
-  });
+    applyOverdriveHit(i, odSpec.damage, `cue_${combat.turn}_od_${i}`);
+  }
 
   if (newlyDefeatedIds.length > 0) {
     const burstRes = triggerVolatileBursts(nextEnemies, newlyDefeatedIds, combat.turn, cues);

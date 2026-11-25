@@ -505,11 +505,16 @@ export function renderSpitterGroundPuddle(
 export function renderDecalPass(
   ctx: CanvasRenderingContext2D,
   sim: CombatStageSim,
+  deckBackY: number,
   deckFrontY: number,
   elapsed: number,
   tacticalViewActive: boolean,
 ): void {
   ctx.save();
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, deckBackY - 2, sim.size.w, Math.max(12, deckFrontY - deckBackY + 4));
+  ctx.clip();
 
   // Layer 0: Scorch rings & melee arcs (specialized weapon decals) + floor fissures
   for (let i = 0; i < FLOOR_BLOOD_POOL_SIZE; i++) {
@@ -695,6 +700,7 @@ export function renderDecalPass(
 
     ctx.restore();
   }
+  ctx.restore();
 
   for (let i = 0; i < COVER_BLOOD_POOL_SIZE; i++) {
     const cd = sim.coverBlood[i];

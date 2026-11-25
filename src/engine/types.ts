@@ -64,6 +64,8 @@ export type EnemyArchetype =
   | 'stinger'
   | 'stalker'
   | 'spitter'
+  | 'mutdog'
+  | 'feral_nurse'
   | 'brute'
   | 'boss';
 
@@ -73,6 +75,7 @@ export type IntentKind =
   | 'armor'
   | 'bolster'
   | 'charge'
+  | 'cloak'
   | 'leech'
   | 'heavy'
   | 'pause';
@@ -126,6 +129,7 @@ export interface EnemyUnit {
   enrageAtkBonus?: number;
   enragedAlone?: boolean;
   staggered?: boolean;
+  cloakedTurns?: number;
   weaponBroken?: boolean;
   desperationEnraged?: boolean;
   sleepCounter?: number;
@@ -352,6 +356,7 @@ export interface AnimationCue {
     | 'enemy_armor'
     | 'enemy_bolster'
     | 'enemy_charge'
+    | 'enemy_cloak'
     | 'enemy_phase_gate'
     | 'enemy_burst'
     | 'enemy_retaliate'
@@ -375,6 +380,8 @@ export interface AnimationCue {
   jammed?: boolean;
   clawRend?: boolean;
   heavySmash?: boolean;
+  leechStrike?: boolean;
+  passThrough?: boolean;
   secondaryHeal?: number;
 }
 

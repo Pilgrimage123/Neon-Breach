@@ -5,7 +5,10 @@ import {
   isCrawlerArchetype,
   sampleCrawlerFrame,
 } from '../../utils/crawlerSpriteSheet';
+import { FERAL_NURSE_CANONICAL_HEIGHT } from '../../utils/feralNurseSpriteSheet';
+import { MUTDOG_CANONICAL_HEIGHT } from '../../utils/mutdogSpriteSheet';
 import { SPITTER_CANONICAL_HEIGHT } from '../../utils/spitterSpriteSheet';
+import { STALKER_CANONICAL_HEIGHT } from '../../utils/stalkerSpriteSheet';
 import { getEnemyStaggerKinematics } from './combatEnemyAnimationSim';
 import {
   renderBruteEnemySprite,
@@ -14,9 +17,11 @@ import {
 import {
   type CoreEnemySpriteContext,
   renderCrawlerEnemySprite,
-  renderStalkerEnemySprite,
   renderStaticCutoutEnemySprite,
 } from './combatEnemyCoreSpritePass';
+import { renderFeralNurseEnemySprite } from './combatFeralNurseSpritePass';
+import { renderMutdogEnemySprite } from './combatMutdogSpritePass';
+import { renderStalkerEnemySprite } from './combatStalkerSpritePass';
 import { type CombatStageSim, ENEMY_FOOT_DEFAULTS } from './combatStageTypes';
 import { renderEnemySelectionAndUnderfootBar } from './combatTacticalOverlayRenderer';
 import {
@@ -92,12 +97,16 @@ export function renderEnemySpritePass(params: {
     const isCrawler = isCrawlerArchetype(arch);
     const isStalker = arch === 'stalker';
     const isSpitter = arch === 'spitter';
+    const isMutdog = arch === 'mutdog';
+    const isFeralNurse = arch === 'feral_nurse';
     const isBrute = arch === 'brute';
     const crawlerSample = isCrawler
       ? sampleCrawlerFrame(arch, ea, elapsed, idx, enemyCutIn.poseOverride)
       : null;
     const stalkerSample = isStalker ? sim.stalkerSamples?.get(enemy.id) : undefined;
     const spitterSample = isSpitter ? sim.spitterSamples?.get(enemy.id) : undefined;
+    const mutdogSample = isMutdog ? sim.mutdogSamples?.get(enemy.id) : undefined;
+    const feralNurseSample = isFeralNurse ? sim.feralNurseSamples?.get(enemy.id) : undefined;
     const bruteSample = isBrute ? sim.bruteSamples?.get(enemy.id) : undefined;
     const koAlpha = isDead
       ? ea
@@ -108,9 +117,13 @@ export function renderEnemySpritePass(params: {
               ? stalkerSample.alpha
               : spitterSample
                 ? spitterSample.alpha
-                : bruteSample
-                  ? bruteSample.alpha
-                  : Math.max(0, 1 - ea.koProgress)
+                : mutdogSample
+                  ? mutdogSample.alpha
+                  : feralNurseSample
+                    ? feralNurseSample.alpha
+                    : bruteSample
+                      ? bruteSample.alpha
+                      : Math.max(0, 1 - ea.koProgress)
           : 1
         : 0
       : 1;
@@ -125,21 +138,30 @@ export function renderEnemySpritePass(params: {
         ? 1.24
         : arch === 'brute'
           ? 1.32
-          : 0.94;
+          : arch === 'feral_nurse'
+            ? 1.02
+            : arch === 'stalker'
+              ? 0.98
+              : 0.94;
     const size = baseEnemySize * archScale;
     const hasSheetSample =
       (isCrawler && Boolean(crawlerSample)) ||
       (isStalker && Boolean(stalkerSample)) ||
       (isSpitter && Boolean(spitterSample)) ||
+      (isMutdog && Boolean(mutdogSample)) ||
+      (isFeralNurse && Boolean(feralNurseSample)) ||
       (isBrute && Boolean(bruteSample));
     const suppressNativeShift = enemyCutIn.isMeleeClash;
     const suppressStaggerDx =
-      enemyCutIn.isMeleeClash || (enemyCutIn.active && enemyCutIn.role === 'target');
+      enemyCutIn.isMeleeClash ||
+      (enemyCutIn.active && enemyCutIn.role === 'target');
     const lunge =
       ea &&
       !suppressNativeShift &&
       !(isStalker && stalkerSample) &&
       !(isSpitter && spitterSample) &&
+      !(isMutdog && mutdogSample) &&
+      !(isFeralNurse && feralNurseSample) &&
       !(isBrute && bruteSample)
         ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09)
         : 0;
@@ -153,31 +175,51 @@ export function renderEnemySpritePass(params: {
       (slotCenters[idx] ?? idx) * enemyStepX +
       lunge +
       (hasSheetSample && ea?.dead ? 0 : suppressStaggerDx ? 0 : stagger.dx);
+    const stalkerJuiceForPos = isStalker ? sim.stalkerJuiceSamples?.get(enemy.id) : undefined;
     const spitterJuiceForPos = isSpitter ? sim.spitterJuiceSamples?.get(enemy.id) : undefined;
+    const mutdogJuiceForPos = isMutdog ? sim.mutdogJuiceSamples?.get(enemy.id) : undefined;
+    const feralNurseJuiceForPos = isFeralNurse
+      ? sim.feralNurseJuiceSamples?.get(enemy.id)
+      : undefined;
     const bruteJuiceForPos = isBrute ? sim.bruteJuiceSamples?.get(enemy.id) : undefined;
     const spriteX =
       ex +
       cutInShiftX +
       (suppressNativeShift
         ? 0
-        : stalkerSample
-          ? stalkerSample.xOffsetRatio * size
-          : spitterJuiceForPos
-            ? spitterJuiceForPos.offsetX * (size / SPITTER_CANONICAL_HEIGHT)
-            : spitterSample
-              ? spitterSample.xOffsetRatio * size
-              : bruteJuiceForPos
-                ? bruteJuiceForPos.offsetX * (size / BRUTE_CANONICAL_HEIGHT)
-                : bruteSample
-                  ? bruteSample.xOffsetRatio * size
-                  : 0);
+        : stalkerJuiceForPos
+          ? stalkerJuiceForPos.offsetX * (size / STALKER_CANONICAL_HEIGHT)
+          : stalkerSample
+            ? stalkerSample.xOffsetRatio * size
+            : spitterJuiceForPos
+              ? spitterJuiceForPos.offsetX * (size / SPITTER_CANONICAL_HEIGHT)
+              : spitterSample
+                ? spitterSample.xOffsetRatio * size
+                : mutdogJuiceForPos
+                  ? mutdogJuiceForPos.offsetX * (size / MUTDOG_CANONICAL_HEIGHT)
+                  : mutdogSample
+                    ? mutdogSample.xOffsetRatio * size
+                    : feralNurseJuiceForPos
+                      ? feralNurseJuiceForPos.xShiftPx * (size / FERAL_NURSE_CANONICAL_HEIGHT)
+                      : feralNurseSample
+                        ? feralNurseSample.xShiftPx * (size / FERAL_NURSE_CANONICAL_HEIGHT)
+                        : bruteJuiceForPos
+                          ? bruteJuiceForPos.offsetX * (size / BRUTE_CANONICAL_HEIGHT)
+                          : bruteSample
+                            ? bruteSample.xOffsetRatio * size
+                            : 0);
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
     const breathScaleY =
-      hasSheetSample && ea?.dead ? 1 : (1 + breathPhase * 0.018) * stagger.scaleYMul;
+      hasSheetSample && ea?.dead
+        ? 1
+        : (1 + breathPhase * 0.018) * stagger.scaleYMul;
     const breathScaleX =
-      hasSheetSample && ea?.dead ? 1 : (1 - breathPhase * 0.009) * stagger.scaleXMul;
-    const koOffsetY = !hasSheetSample && isDead && ea?.dead ? (1 - koAlpha) * 24 : 0;
+      hasSheetSample && ea?.dead
+        ? 1
+        : (1 - breathPhase * 0.009) * stagger.scaleXMul;
+    const koOffsetY =
+      !hasSheetSample && isDead && ea?.dead ? (1 - koAlpha) * 24 : 0;
 
     const entry = sim.enemyCutouts.get(arch);
     const defaults = ENEMY_FOOT_DEFAULTS[arch];
@@ -185,8 +227,12 @@ export function renderEnemySpritePass(params: {
     const centerXRatio = entry ? entry.bounds.centerXRatio : defaults.centerXRatio;
     const farFootOffsetPx = defaults.farFootOffsetRatio * size;
 
+    const feralShadowMul =
+      isFeralNurse && !isDead
+        ? Math.max(0.28, feralNurseJuiceForPos?.alpha ?? feralNurseSample?.alpha ?? 1)
+        : 1;
     baseCtx.save();
-    baseCtx.globalAlpha = koAlpha;
+    baseCtx.globalAlpha = koAlpha * feralShadowMul;
 
     const shadowHalfW = isBrute ? size * 0.44 : size * 0.32;
     const ringHalfW = isBrute ? size * 0.46 : size * 0.34;
@@ -364,7 +410,11 @@ export function renderEnemySpritePass(params: {
       isPrimedOrCharging:
         !isDead &&
         !enemy.staggered &&
-        (activeIntent?.kind === 'heavy' || activeIntent?.kind === 'charge'),
+        (activeIntent?.kind === 'heavy' ||
+          activeIntent?.kind === 'charge' ||
+          activeIntent?.kind === 'leech' ||
+          Boolean(mutdogSample && mutdogSample.lureGlowIntensity > 0.72) ||
+          Boolean(feralNurseSample && feralNurseSample.headsetGlowIntensity > 0.78)),
       isAcidOrPustuleActive:
         !isDead &&
         (activeIntent?.kind === 'acid' ||
@@ -385,6 +435,10 @@ export function renderEnemySpritePass(params: {
         heroTargetHeight,
         baseScale,
       });
+    } else if (isMutdog && mutdogSample && sim.mutdogFrames) {
+      renderMutdogEnemySprite(spriteCtx, mutdogSample);
+    } else if (isFeralNurse && feralNurseSample && sim.feralNurseFrames) {
+      renderFeralNurseEnemySprite(spriteCtx, feralNurseSample);
     } else if (isBrute && bruteSample && sim.bruteFrames) {
       renderBruteEnemySprite(spriteCtx, bruteSample);
     } else if (entry) {

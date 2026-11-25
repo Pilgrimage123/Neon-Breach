@@ -254,9 +254,11 @@ export function pickReinforcementArchetype(
   const rawPool: Array<Exclude<EnemyArchetype, 'boss'>> =
     layer === 0
       ? ['larva', 'skitter']
-      : nodeType === 'BOSS' || layer === 1
-        ? ['larva', 'skitter', 'stinger', 'stalker']
-        : ['skitter', 'stinger', 'stalker', 'spitter', 'brute'];
+      : nodeType === 'BOSS'
+        ? ['larva', 'skitter', 'stinger', 'stalker', 'mutdog', 'feral_nurse']
+        : layer === 1
+          ? ['larva', 'skitter', 'stinger', 'stalker']
+          : ['skitter', 'stinger', 'stalker', 'spitter', 'mutdog', 'feral_nurse', 'brute'];
 
   const allowedPool = rawPool.filter((arch) => getEnemySlotSpan(arch) <= freeSlotCount);
   const allowedSet = new Set(allowedPool);
@@ -272,6 +274,12 @@ export function pickReinforcementArchetype(
     }
     if (defense >= attack + 1 && canAdaptive('stinger')) {
       return { archetype: 'stinger', reason: 'adaptive' };
+    }
+    if (attack >= 1 && defense >= attack + 1 && canAdaptive('feral_nurse')) {
+      return { archetype: 'feral_nurse', reason: 'adaptive' };
+    }
+    if (attack > defense + 1 && canAdaptive('mutdog')) {
+      return { archetype: 'mutdog', reason: 'adaptive' };
     }
     if (attack > defense && surges === 0 && canAdaptive('skitter')) {
       return { archetype: 'skitter', reason: 'adaptive' };

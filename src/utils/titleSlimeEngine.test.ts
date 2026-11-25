@@ -102,6 +102,57 @@ test('applyMetaballSmoothstepThreshold deterministically thresholds alpha in [0.
   assert.equal(buf[11], 255);
   // Acid interior RGB
   assert.ok(buf[9] > buf[8] && buf[9] > buf[10], 'Expected lime-green acid tint');
+
+  // Verify 4-stop core brightening: dense core (245) > rim-body boundary (148)
+  const ramp = new Uint8ClampedArray([255, 255, 255, 148, 255, 255, 255, 245]);
+  applyMetaballSmoothstepThreshold(ramp);
+  assert.equal(ramp[3], 255);
+  assert.equal(ramp[7], 255);
+  assert.ok(ramp[5] > ramp[1], 'Expected brighter green luminous core at high density');
+  assert.ok(ramp[5] > ramp[4] && ramp[5] > ramp[6], 'Expected lime hue dominance at core');
+});
+
+test('stepSlimeEngine syncs mesh offsets, emits splash rings & rebound splatters, and tracks elastic recoil', () => {
+  const vfx = createTitleEmblemVfxState();
+  const slime = createSlimeEngineState();
+  const offsets = XENO_SLIME_NOZZLES.map((_, idx) => ({
+    dxNorm: idx === 3 ? 0.01 : 0,
+    dyNorm: idx === 3 ? -0.02 : 0,
+  }));
+
+  stepSlimeEngine(slime, vfx, 0.02, false, false, offsets);
+  const jaw = slime.nozzles[3];
+  const expectedAnchorX = (jaw.nx + 0.01) * 960;
+  const expectedAnchorY = (jaw.ny - 0.02) * 541;
+  assert.ok(Math.abs(jaw.anchorX - expectedAnchorX) < 1e-4);
+  assert.ok(Math.abs(jaw.anchorY - expectedAnchorY) < 1e-4);
+
+  let sawForegroundSplash = false;
+  let sawSplatter = false;
+  let sawRecoilOscillation = false;
+  for (let i = 0; i < 140; i++) {
+    stepSlimeEngine(slime, vfx, 0.025, true, false);
+    for (const n of slime.nozzles) {
+      if (n.phase > SLIME_SNAP_PHASE && n.recoilOffset !== 0) {
+        sawRecoilOscillation = true;
+      }
+    }
+    for (const sp of slime.splashes) {
+      if (sp.active && sp.foreground) sawForegroundSplash = true;
+    }
+    for (const d of slime.droplets) {
+      if (d.active && d.isSplatter) {
+        sawSplatter = true;
+        assert.ok(
+          Math.abs(d.scaleX * d.scaleX * d.scaleY - 1) < 1e-5,
+          'Expected volume conservation on rebound splatter droplets',
+        );
+      }
+    }
+  }
+  assert.ok(sawRecoilOscillation, 'Expected post-snap elastic recoil motion');
+  assert.ok(sawForegroundSplash, 'Expected foreground splash ring for lower_jaw_saliva');
+  assert.ok(sawSplatter, 'Expected rebound crown splatter droplets on impact');
 });
 
 test('stepSlimeEngine freezes completely under prefers-reduced-motion', () => {
@@ -111,3 +162,4 @@ test('stepSlimeEngine freezes completely under prefers-reduced-motion', () => {
   stepSlimeEngine(slime, vfx, 0.05, true, true);
   assert.equal(slime.nozzles[0].phase, initPhase);
 });
+

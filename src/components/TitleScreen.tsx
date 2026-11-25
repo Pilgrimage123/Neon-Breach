@@ -34,6 +34,7 @@ interface TitleScreenProps {
   isFullscreen?: boolean;
   onToggleFullscreen?: () => void;
   onOpenCodex?: (tab: CodexTab, hero?: CharacterId) => void;
+  onOpenDevLab?: () => void;
 }
 
 export function TitleScreen({
@@ -57,6 +58,7 @@ export function TitleScreen({
   isFullscreen = false,
   onToggleFullscreen,
   onOpenCodex,
+  onOpenDevLab,
 }: TitleScreenProps) {
   const [bgReady, setBgReady] = useState<boolean>(() => Boolean(getPreloadedTitleBg()));
   const [bgFailed, setBgFailed] = useState(false);
@@ -299,7 +301,7 @@ export function TitleScreen({
       />
 
       <div
-        className={`relative z-10 flex items-center justify-end gap-2 ${
+        className={`relative z-10 flex flex-wrap items-center justify-end gap-2 ${
           isCompactLandscape ? 'px-4 pt-2' : 'px-4 pt-3 sm:px-6 sm:pt-4 md:px-10'
         }`}
       >
@@ -345,6 +347,33 @@ export function TitleScreen({
             className="chrome-pill rounded-full border-[#00F0FF]/55 px-3 py-1 text-xs font-bold tracking-wide text-[#00F0FF] transition-all hover:border-cyan-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             ↻ {isLandscapeRotated ? t.portraitToggle : t.landscapeToggle}
+          </button>
+        )}
+        {onOpenDevLab && (
+          <button
+            type="button"
+            data-testid="title-dev-lab-button"
+            onClick={onOpenDevLab}
+            title={t.devLabHint}
+            aria-label={`${t.devLabButton} — ${t.devLabHint}`}
+            className="chrome-pill flex items-center gap-1.5 rounded-full border-[#00F0FF]/45 px-3 py-1 text-xs font-bold tracking-wide text-[#00F0FF] transition-all hover:border-cyan-200 hover:text-white focus-visible:outline-2 focus-visible:outline-cyan-300 whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            <svg
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M9 3h6" />
+              <path d="M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3" />
+              <path d="M8.5 14h7" />
+            </svg>
+            <span>{t.devLabButton}</span>
           </button>
         )}
         <button
@@ -430,8 +459,8 @@ export function TitleScreen({
               <TitleEmblemStage
                 className={
                   isNarrowPortrait
-                    ? 'w-[104%] max-w-[392px] max-h-[32dvh]'
-                    : 'h-[clamp(230px,43dvh,420px)] w-auto max-w-[92vw]'
+                    ? 'w-[100%] max-w-[360px] max-h-[28dvh]'
+                    : 'h-[clamp(210px,38dvh,375px)] w-auto max-w-[92vw]'
                 }
               />
             </div>
@@ -439,8 +468,8 @@ export function TitleScreen({
             <div
               className={`chrome-glass relative z-10 w-full rounded-2xl ${
                 isNarrowPortrait
-                  ? '-mt-7 max-h-[calc(100dvh-230px)] overflow-y-auto px-3 pb-3 pt-8'
-                  : '-mt-7 sm:-mt-8 md:-mt-9 max-h-[calc(100dvh-290px)] overflow-y-auto px-5 pb-4 pt-7 sm:px-6 sm:pb-5 sm:pt-8'
+                  ? '-mt-2.5 max-h-[calc(100dvh-210px)] overflow-y-auto px-3 pb-3 pt-4.5'
+                  : '-mt-3 sm:-mt-4 max-h-[calc(100dvh-255px)] overflow-y-auto px-5 pb-4 pt-5 sm:px-6 sm:pb-5 sm:pt-6'
               }`}
             >
               <div
@@ -466,7 +495,7 @@ export function TitleScreen({
                     className={`relative z-30 flex justify-between gap-2 ${
                       isNarrowPortrait
                         ? 'mb-2 flex-wrap items-center'
-                        : 'mb-3 sm:mb-3.5 min-h-[42px] sm:min-h-[48px] items-end'
+                        : 'mb-2.5 sm:mb-3 items-center'
                     }`}
                   >
                     <span className="pb-0.5 text-[12px] sm:text-[12.5px] font-bold uppercase tracking-widest text-cyan-200/95 whitespace-nowrap">
@@ -535,12 +564,18 @@ export function TitleScreen({
 
       <footer
         className={`relative z-10 ${
-          isCompactLandscape ? 'px-4 pb-2' : 'px-4 pb-3 sm:px-6 sm:pb-4 md:px-12'
+          isNarrowPortrait
+            ? 'h-2'
+            : isCompactLandscape
+              ? 'px-4 pb-2'
+              : 'px-4 pb-3 sm:px-6 sm:pb-4 md:px-12'
         }`}
       >
-        <p className={`${isCompactLandscape ? 'text-[12px]' : 'text-[12.5px] sm:text-[13px]'} font-medium tracking-wide text-slate-200/90 drop-shadow`}>
-          {t.controlsHint}
-        </p>
+        {!isNarrowPortrait && (
+          <p className={`${isCompactLandscape ? 'text-[12px]' : 'text-[12.5px] sm:text-[13px]'} font-medium tracking-wide text-slate-200/90 drop-shadow`}>
+            {t.controlsHint}
+          </p>
+        )}
       </footer>
     </main>
   );

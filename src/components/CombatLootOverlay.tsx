@@ -4,6 +4,7 @@ import type { CombatState, HeroState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import type { EncounterObjectivesSummary } from '../utils/tacticalSandboxAndHints';
 import { formatTileShortLabel } from '../utils/tileDisplay';
+import { FormattedText } from './FormattedText';
 
 export interface CombatLootOverlayProps {
   combat: CombatState;
@@ -175,7 +176,7 @@ export function CombatLootOverlay({
                         </span>
                       </div>
                       <p className="mt-0.5 sm:mt-1 font-mono-tabular text-[10px] sm:text-xs text-slate-200">
-                        {meta?.desc ?? ''}
+                        <FormattedText text={meta?.desc ?? ''} />
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[10px] sm:text-[11px]">
                         {def.tiles.map((spec, tileIdx) => (

@@ -1,4 +1,5 @@
 import type { Dispatch, SetStateAction } from 'react';
+import type { CharacterId } from '../../engine/types';
 import type { CombatPresentationConfig } from './combatPresentationConfig';
 import type { CameraLabTriggerKind } from './combatDevLabsTypes';
 
@@ -11,6 +12,10 @@ export interface CombatCameraLabPanelProps {
   ) => void;
   onOpenSpitterLab: () => void;
   onOpenBruteLab: () => void;
+  onOpenMutdogLab: () => void;
+  onOpenFeralNurseLab: () => void;
+  activeHeroId?: CharacterId;
+  onSwitchHero?: (charId: CharacterId) => void;
   onReset: () => void;
   onClose: () => void;
 }
@@ -22,6 +27,10 @@ export function CombatCameraLabPanel({
   onFireTrigger,
   onOpenSpitterLab,
   onOpenBruteLab,
+  onOpenMutdogLab,
+  onOpenFeralNurseLab,
+  activeHeroId = 'kira',
+  onSwitchHero,
   onReset,
   onClose,
 }: CombatCameraLabPanelProps) {
@@ -33,7 +42,7 @@ export function CombatCameraLabPanel({
       onClick={(e) => e.stopPropagation()}
       className="aaa-charcoal-surface pointer-events-auto absolute left-2 bottom-2 z-30 w-[332px] max-w-[calc(100vw-16px)] max-h-[calc(100%-8px)] overflow-y-auto sm:w-[376px] rounded-xl border border-cyan-400/65 bg-[#0B121E]/95 p-2.5 text-[10px] font-mono-tabular text-slate-100 shadow-2xl"
     >
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-b border-white/10 pb-1.5">
         <div className="flex items-center gap-1.5">
           <span className="inline-flex h-4 w-4 items-center justify-center rounded bg-cyan-300 text-[9px] font-black text-slate-950">
             ◎
@@ -42,12 +51,12 @@ export function CombatCameraLabPanel({
             Action Camera Lab
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           <button
             type="button"
             data-testid="spitter-lab-tab-from-cam"
             onClick={onOpenSpitterLab}
-            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white cursor-pointer"
+            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             ⬡ Spitter
           </button>
@@ -55,9 +64,25 @@ export function CombatCameraLabPanel({
             type="button"
             data-testid="brute-lab-tab-from-cam"
             onClick={onOpenBruteLab}
-            className="rounded border border-amber-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 hover:text-white cursor-pointer"
+            className="rounded border border-amber-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-amber-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
           >
             ■ Brute
+          </button>
+          <button
+            type="button"
+            data-testid="mutdog-lab-tab-from-cam"
+            onClick={onOpenMutdogLab}
+            className="rounded border border-lime-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-lime-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ✦ Dog
+          </button>
+          <button
+            type="button"
+            data-testid="feral-nurse-lab-tab-from-cam"
+            onClick={onOpenFeralNurseLab}
+            className="rounded border border-fuchsia-400/40 bg-slate-900 px-1.5 py-0.5 text-[9px] font-bold text-fuchsia-300 hover:text-white whitespace-nowrap shrink-0 cursor-pointer"
+          >
+            ✚ Nurse
           </button>
           <button
             type="button"
@@ -77,6 +102,33 @@ export function CombatCameraLabPanel({
           </button>
         </div>
       </div>
+
+      {onSwitchHero && (
+        <div className="mt-2 flex items-center gap-1">
+          <span className="mr-1 text-[9px] font-bold uppercase tracking-wider text-slate-400">
+            Hero:
+          </span>
+          {(['kira', 'auraline', 'zuri'] as const).map((cid) => {
+            const selected = activeHeroId === cid;
+            return (
+              <button
+                key={cid}
+                type="button"
+                data-testid={`devlab-hero-switch-${cid}`}
+                aria-pressed={selected}
+                onClick={() => onSwitchHero(cid)}
+                className={`rounded px-2 py-0.5 text-[9px] font-extrabold uppercase tracking-wider transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  selected
+                    ? 'bg-cyan-300 text-slate-950 ring-1 ring-cyan-100'
+                    : 'bg-slate-900 text-slate-300 ring-1 ring-white/15 hover:text-white'
+                }`}
+              >
+                {cid}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className="mt-2 grid grid-cols-2 gap-1">
         {(

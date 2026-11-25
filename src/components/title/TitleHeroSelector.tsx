@@ -41,7 +41,7 @@ export function TitleHeroSelector({
             aria-checked={isSelected}
             data-testid={`select-character-${charId}`}
             onClick={() => onSelectCharacter(charId)}
-            className={`chrome-pill flex items-center overflow-hidden rounded-xl ${
+            className={`chrome-pill flex h-full items-center overflow-hidden rounded-xl ${
               compactCards ? 'gap-1.5 p-1.5' : 'gap-2.5 p-2.5 sm:p-3'
             } text-left transition-all cursor-pointer ${
               isSelected
@@ -76,7 +76,7 @@ export function TitleHeroSelector({
                 </span>
                 <span
                   className={`font-mono-tabular font-bold text-amber-200 whitespace-nowrap shrink-0 ${
-                    compactCards ? 'text-[10.5px]' : 'text-[12px] sm:text-[12.5px]'
+                    compactCards ? 'text-[10.5px]' : 'text-[11.5px] sm:text-[12px]'
                   }`}
                 >
                   {spec.maxHp} HP · {spec.memoryCapacity} {lang === 'cs' ? 'RAM' : 'MEM'}
@@ -84,23 +84,33 @@ export function TitleHeroSelector({
               </div>
               <div
                 className={`${
-                  compactCards ? 'text-[11.5px]' : 'text-[12.5px] sm:text-[13px]'
-                } font-bold leading-snug text-[#F4F4F6] truncate`}
+                  compactCards ? 'text-[11px]' : 'text-[12.5px] sm:text-[13px]'
+                } font-bold leading-tight text-[#F4F4F6]`}
               >
                 {meta.title}
               </div>
               <div
-                className={`${
-                  compactCards ? 'text-[11px]' : 'text-[12px] sm:text-[12.5px]'
-                } font-semibold leading-snug truncate ${
-                  isAuraline
-                    ? 'text-amber-300'
-                    : isZuri
-                      ? 'text-emerald-300'
-                      : 'text-cyan-300'
-                }`}
+                className={`flex flex-col gap-0.5 pt-0.5 ${
+                  compactCards ? 'text-[10px]' : 'text-[11.5px] sm:text-[12px]'
+                } font-semibold leading-tight`}
               >
-                ★ {passiveName} · ⚡ {meta.overdriveName}
+                <div
+                  className={
+                    isAuraline
+                      ? 'text-amber-300'
+                      : isZuri
+                        ? 'text-emerald-300'
+                        : 'text-cyan-300'
+                  }
+                >
+                  ★ {passiveName}
+                </div>
+                <div className="text-slate-200/95">
+                  <span aria-hidden="true" className="text-[#FFC700]">
+                    ⚡{' '}
+                  </span>
+                  {meta.overdriveName}
+                </div>
               </div>
             </div>
           </button>

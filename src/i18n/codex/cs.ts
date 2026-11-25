@@ -359,5 +359,15 @@ export const CS_CODEX_TRANSLATIONS: CodexTranslationPack = {
         'Vykryj kyselinu Štítem, nebo Žíravou strusku bezpečně spal příští sadou TECH či Overdrive.',
       keywords: ['struska', 'blight', 'kyselina', 'spálit', 'tech', 'overdrive'],
     },
+    overwhelm: {
+      term: 'Přetlak (×2)',
+      shortTag: 'Trest bez Štítu',
+      summary: 'Zdvojnásobí každou část nepřátelského úderu, která projde skrz Štít — tvrdě trestá nekryté tahy.',
+      mechanics:
+        'Využívá jej Zuřivý zákus Vztekého MutPsa (6 ×2, až 12 DMG bez Štítu hned po úvodním Skoku za 5), Těžký úder Krunýřového kolose (6 ×2) a nabitý výboj Žárového žahavce (7 ×2). Každý bod přesahující Štít se před zásahem do Brnění či HP násobí 2×.',
+      tacticalTip:
+        'Vzteký MutPes má 0 Brnění a 0 Aegis Pipů: buď mu rychle sraz 20 HP ještě před 2. tahem, nebo naber Štít alespoň 6 pro úplné vykrytí.',
+      keywords: ['přetlak', 'overwhelm', 'x2', 'mutpes', 'vzteký mutpes', 'mutdog', 'zákus', 'skok', 'kolos', 'žahavec'],
+    },
   },
 };

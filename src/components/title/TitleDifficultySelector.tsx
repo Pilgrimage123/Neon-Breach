@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { DIFFICULTY_TIERS } from '../../engine/difficulty';
 import type { DifficultyTier } from '../../engine/types';
 import type { Language } from '../../i18n/translations';
@@ -68,10 +69,13 @@ export function TitleDifficultySelector({
       const rect = trigger.getBoundingClientRect();
       const vw = window.innerWidth;
       const vh = window.innerHeight;
-      const spaceBelow = vh - rect.bottom - 44;
-      const spaceAbove = rect.top - 44;
-      const openUpward = spaceBelow < 200 && spaceAbove > spaceBelow;
-      const availableHeight = Math.max(150, Math.min(310, openUpward ? spaceAbove : spaceBelow));
+      const spaceBelow = vh - rect.bottom - 16;
+      const spaceAbove = rect.top - 16;
+      const openUpward = spaceBelow < 220 && spaceAbove > spaceBelow;
+      const availableHeight = Math.max(
+        160,
+        Math.min(350, openUpward ? spaceAbove - 6 : spaceBelow - 6),
+      );
       const desiredWidth = Math.min(vw - 24, Math.max(rect.width, 320));
       const clampedLeft = Math.max(12, Math.min(rect.left, vw - desiredWidth - 12));
       setDropdownRect({
@@ -116,6 +120,82 @@ export function TitleDifficultySelector({
       window.removeEventListener('keydown', handleKeyDown, true);
     };
   }, [difficultyOpen]);
+
+  const menuPortal =
+    difficultyOpen && dropdownRect && typeof document !== 'undefined'
+      ? createPortal(
+          <div
+            ref={difficultyMenuRef}
+            id="difficulty-dropdown-menu"
+            role="listbox"
+            aria-label={lang === 'cs' ? 'Obtížnost' : 'Difficulty'}
+            data-testid="difficulty-dropdown-menu"
+            data-title-overlay-open="true"
+            style={{
+              position: 'fixed',
+              left: `${dropdownRect.left}px`,
+              width: `${dropdownRect.width}px`,
+              maxHeight: `${dropdownRect.maxHeight}px`,
+              ...(dropdownRect.openUpward
+                ? { bottom: `${window.innerHeight - dropdownRect.top}px` }
+                : { top: `${dropdownRect.top}px` }),
+            }}
+            className="z-50 overflow-y-auto rounded-xl border border-cyan-300/55 bg-[#071028]/97 p-1.5 shadow-[0_20px_54px_rgba(2,6,23,0.92),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl"
+          >
+            <div className="space-y-1">
+              {([1, 2, 3, 4, 5] as const).map((tier) => {
+                const prof = DIFFICULTY_TIERS[tier];
+                const active = selectedDifficultyTier === tier;
+                const accent = getTierAccent(tier);
+                return (
+                  <button
+                    key={`diff_tier_${tier}`}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    data-testid={`select-difficulty-${tier}`}
+                    onClick={() => {
+                      onSelectDifficultyTier(tier);
+                      setDifficultyOpen(false);
+                      difficultyTriggerRef.current?.focus();
+                    }}
+                    className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-1.5 text-left transition-all cursor-pointer ${
+                      active
+                        ? accent.border
+                        : 'border-transparent hover:border-white/20 hover:bg-slate-900/80'
+                    }`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={`mt-1.5 h-2 w-2 shrink-0 rotate-45 rounded-[2px] ${accent.dot}`}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span
+                          className={`font-mono-tabular text-[12.5px] sm:text-[13px] font-extrabold ${
+                            active ? accent.badge : 'text-slate-100'
+                          }`}
+                        >
+                          {lang === 'cs' ? prof.labelCs : prof.labelEn}
+                        </span>
+                        {active && (
+                          <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-cyan-200">
+                            {lang === 'cs' ? 'Vybráno' : 'Active'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 text-[11.5px] sm:text-[12px] leading-snug text-slate-300/95">
+                        {lang === 'cs' ? prof.summaryCs : prof.summaryEn}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <>
@@ -180,77 +260,7 @@ export function TitleDifficultySelector({
         </button>
       </div>
 
-      {difficultyOpen && dropdownRect && (
-        <div
-          ref={difficultyMenuRef}
-          id="difficulty-dropdown-menu"
-          role="listbox"
-          aria-label={lang === 'cs' ? 'Obtížnost' : 'Difficulty'}
-          data-testid="difficulty-dropdown-menu"
-          data-title-overlay-open="true"
-          style={{
-            position: 'fixed',
-            left: `${dropdownRect.left}px`,
-            width: `${dropdownRect.width}px`,
-            maxHeight: `${dropdownRect.maxHeight}px`,
-            ...(dropdownRect.openUpward
-              ? { bottom: `${window.innerHeight - dropdownRect.top}px` }
-              : { top: `${dropdownRect.top}px` }),
-          }}
-          className="z-40 overflow-y-auto rounded-xl border border-cyan-300/45 bg-[#09132c]/96 p-1.5 shadow-[0_18px_48px_rgba(2,6,23,0.88),inset_0_1px_0_rgba(255,255,255,0.28)] backdrop-blur-xl"
-        >
-          <div className="space-y-1">
-            {([1, 2, 3, 4, 5] as const).map((tier) => {
-              const prof = DIFFICULTY_TIERS[tier];
-              const active = selectedDifficultyTier === tier;
-              const accent = getTierAccent(tier);
-              return (
-                <button
-                  key={`diff_tier_${tier}`}
-                  type="button"
-                  role="option"
-                  aria-selected={active}
-                  data-testid={`select-difficulty-${tier}`}
-                  onClick={() => {
-                    onSelectDifficultyTier(tier);
-                    setDifficultyOpen(false);
-                    difficultyTriggerRef.current?.focus();
-                  }}
-                  className={`flex w-full items-start gap-2.5 rounded-lg border px-3 py-1.5 text-left transition-all cursor-pointer ${
-                    active
-                      ? accent.border
-                      : 'border-transparent hover:border-white/20 hover:bg-slate-900/80'
-                  }`}
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`mt-1.5 h-2 w-2 shrink-0 rotate-45 rounded-[2px] ${accent.dot}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center justify-between gap-2">
-                      <span
-                        className={`font-mono-tabular text-[12.5px] sm:text-[13px] font-extrabold ${
-                          active ? accent.badge : 'text-slate-100'
-                        }`}
-                      >
-                        {lang === 'cs' ? prof.labelCs : prof.labelEn}
-                      </span>
-                      {active && (
-                        <span className="font-mono-tabular text-[11px] font-bold uppercase tracking-wider text-cyan-200">
-                          {lang === 'cs' ? 'Vybráno' : 'Active'}
-                        </span>
-                      )}
-                    </div>
-                    <p className="mt-0.5 text-[11.5px] sm:text-[12px] leading-snug text-slate-300/95">
-                      {lang === 'cs' ? prof.summaryCs : prof.summaryEn}
-                    </p>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
+      {menuPortal}
     </>
   );
 }

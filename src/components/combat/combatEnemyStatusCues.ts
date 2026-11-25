@@ -8,7 +8,10 @@ import {
   spawnBruteKineticShards,
   spawnBruteMutagenMist,
   spawnBurst,
+  spawnFeralNurseCloakShimmer,
+  spawnFeralNurseIchorSpray,
   spawnFloatingText,
+  spawnMutdogDroolSplatter,
   triggerEnemyHitStagger,
   triggerKiraDodgeVfx,
 } from './combatVfx';
@@ -79,10 +82,26 @@ export function dispatchEnemyStatusCue(
       spawnBurst(sim, pos.x, pos.y, 12, '#FACC15', 1, 0.85);
       spawnFloatingText(sim, pos.x, pos.y - 38, `+${bolsterVal} ARM`, '#FDE047', 1.0);
     }
+  } else if (cue.kind === 'enemy_cloak') {
+    const pos = getEnemyPos(cue.targetId);
+    if (cue.targetId) {
+      const ea = ensureEnemyAnim(sim, cue.targetId);
+      ea.cloakCastDuration = 0.72;
+      ea.cloakCastTimer = 0.72;
+    }
+    spawnFeralNurseCloakShimmer(sim, pos.x, pos.y - 12, 18);
+    spawnFloatingText(sim, pos.x, pos.y - 46, '◎ CLOAKED (10%)', '#67E8F9', 1.06);
   } else if (cue.kind === 'enemy_charge') {
     const pos = getEnemyPos(cue.targetId);
-    spawnBurst(sim, pos.x, pos.y, 16, '#FB923C', 1, 0.95);
-    spawnFloatingText(sim, pos.x, pos.y - 42, 'CHARGING!', '#FDBA74', 1.05);
+    const arch = getEnemyArch(cue.targetId);
+    if (arch === 'feral_nurse') {
+      spawnBurst(sim, pos.x, pos.y, 14, '#E879F9', 1, 0.92);
+      spawnBurst(sim, pos.x, pos.y - 6, 8, '#FB7185', 1, 0.85);
+      spawnFloatingText(sim, pos.x, pos.y - 44, 'PREPARE → 7 PIERCE', '#F472B6', 1.06);
+    } else {
+      spawnBurst(sim, pos.x, pos.y, 16, '#FB923C', 1, 0.95);
+      spawnFloatingText(sim, pos.x, pos.y - 42, 'CHARGING!', '#FDBA74', 1.05);
+    }
   } else if (cue.kind === 'enemy_burst') {
     const burstOrigin = getEnemyPos(cue.targetId);
     const burstDmg = cue.value ?? 6;
@@ -365,6 +384,10 @@ export function dispatchEnemyStatusCue(
           'chitin',
           1,
         );
+      } else if (arch === 'mutdog') {
+        spawnMutdogDroolSplatter(sim, pos.x - 8, pos.y - 14, pos.groundY + 2, 10, 1, 1.05);
+      } else if (arch === 'feral_nurse') {
+        spawnFeralNurseIchorSpray(sim, pos.x - 6, pos.y - 18, pos.groundY + 2, 10, 1, 1.05);
       }
       spawnFloatingText(
         sim,

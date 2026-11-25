@@ -100,7 +100,11 @@ export function EnemyBioScanPortrait({
               ? 'border-[#FF2E7E]/70 shadow-[inset_0_0_24px_rgba(255,46,126,0.24)]'
               : archetype === 'spitter'
                 ? 'border-[#A3E635]/70 shadow-[inset_0_0_24px_rgba(163,230,53,0.22)]'
-                : 'border-cyan-300/45 shadow-[inset_0_0_24px_rgba(0,240,255,0.16)]'
+                : archetype === 'mutdog'
+                  ? 'border-[#F59E0B]/75 shadow-[inset_0_0_24px_rgba(163,230,53,0.28)]'
+                  : archetype === 'feral_nurse'
+                    ? 'border-[#FF2E7E]/75 shadow-[inset_0_0_24px_rgba(255,46,126,0.26)]'
+                    : 'border-cyan-300/45 shadow-[inset_0_0_24px_rgba(0,240,255,0.16)]'
       }`}
       style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
     >

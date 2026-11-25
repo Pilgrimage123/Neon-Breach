@@ -341,46 +341,48 @@ export function CombatHeroHeaderPod({
               </div>
 
               {/* Live WebGL2 / Canvas2D Renderer Adapter Switch + DEV Lab Slot */}
-              <div
-                ref={setDevToolbarMountNode}
-                className="hidden sm:flex flex-wrap items-center gap-1 border-l border-white/15 pl-1.5"
-              >
-                <button
-                  type="button"
-                  data-testid="renderer-mode-toggle"
-                  onClick={() =>
-                    setRendererMode((prev) => (prev === 'webgl2' ? 'canvas2d' : 'webgl2'))
-                  }
-                  title={
-                    rendererMode === 'webgl2'
-                      ? 'Active: Raw WebGL2 Deformable MeshSprite + Unified GLSL 300 es Shader (Click to switch to Canvas2D fallback)'
-                      : 'Active: Legacy Canvas2D Flat Quad Renderer (Click to switch to WebGL2 MeshSprite)'
-                  }
-                  className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-                    rendererMode === 'webgl2'
-                      ? 'bg-[#00F0FF]/20 text-[#00F0FF] ring-1 ring-[#00F0FF]/50 hover:bg-[#00F0FF]/30'
-                      : 'bg-slate-800 text-slate-300 ring-1 ring-white/20 hover:bg-slate-700'
-                  }`}
+              {setDevToolbarMountNode && (
+                <div
+                  ref={setDevToolbarMountNode}
+                  className="flex flex-wrap items-center justify-center gap-1 sm:border-l sm:border-white/15 sm:pl-1.5"
                 >
-                  {rendererMode === 'webgl2' ? 'GL2 MESH' : '2D QUAD'}
-                </button>
-                {rendererMode === 'webgl2' && (
                   <button
                     type="button"
-                    data-testid="mesh-debug-toggle"
-                    aria-pressed={debugMeshWireframe}
-                    onClick={() => setDebugMeshWireframe((prev) => !prev)}
-                    title="Toggle 4×6 subdivided mesh wireframe & 4 anatomical control points (Feet, Pelvis, Waist, Head)"
+                    data-testid="renderer-mode-toggle"
+                    onClick={() =>
+                      setRendererMode((prev) => (prev === 'webgl2' ? 'canvas2d' : 'webgl2'))
+                    }
+                    title={
+                      rendererMode === 'webgl2'
+                        ? 'Active: Raw WebGL2 Deformable MeshSprite + Unified GLSL 300 es Shader (Click to switch to Canvas2D fallback)'
+                        : 'Active: Legacy Canvas2D Flat Quad Renderer (Click to switch to WebGL2 MeshSprite)'
+                    }
                     className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
-                      debugMeshWireframe
-                        ? 'bg-[#FFC700] text-slate-950 ring-1 ring-[#FFC700]'
-                        : 'bg-slate-900/90 text-cyan-200/80 ring-1 ring-cyan-300/30 hover:text-white'
+                      rendererMode === 'webgl2'
+                        ? 'bg-[#00F0FF]/20 text-[#00F0FF] ring-1 ring-[#00F0FF]/50 hover:bg-[#00F0FF]/30'
+                        : 'bg-slate-800 text-slate-300 ring-1 ring-white/20 hover:bg-slate-700'
                     }`}
                   >
-                    4×6 WIRE
+                    {rendererMode === 'webgl2' ? 'GL2 MESH' : '2D QUAD'}
                   </button>
-                )}
-              </div>
+                  {rendererMode === 'webgl2' && (
+                    <button
+                      type="button"
+                      data-testid="mesh-debug-toggle"
+                      aria-pressed={debugMeshWireframe}
+                      onClick={() => setDebugMeshWireframe((prev) => !prev)}
+                      title="Toggle 4×6 subdivided mesh wireframe & 4 anatomical control points (Feet, Pelvis, Waist, Head)"
+                      className={`rounded px-1.5 py-0.5 text-[11px] font-extrabold tracking-wider uppercase whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                        debugMeshWireframe
+                          ? 'bg-[#FFC700] text-slate-950 ring-1 ring-[#FFC700]'
+                          : 'bg-slate-900/90 text-cyan-200/80 ring-1 ring-cyan-300/30 hover:text-white'
+                      }`}
+                    >
+                      4×6 WIRE
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="relative h-1 w-full overflow-hidden rounded-full bg-slate-950/90">

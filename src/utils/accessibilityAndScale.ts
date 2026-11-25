@@ -245,6 +245,24 @@ export function getEnemyRolePip(archetype: EnemyArchetype): CornerPipSpec {
         labelCs: 'Žíravý rušič (⬡)',
         accentHex: '#C084FC',
       };
+    case 'mutdog':
+      return {
+        symbol: '✦',
+        shapeId: 'star',
+        shortCode: 'MAUL',
+        labelEn: 'Feral Rush Bruiser (✦)',
+        labelCs: 'Divoký skokan (✦)',
+        accentHex: '#A3E635',
+      };
+    case 'feral_nurse':
+      return {
+        symbol: '✚',
+        shapeId: 'cross',
+        shortCode: 'LEECH',
+        labelEn: 'Infected Triage (✚)',
+        labelCs: 'Infikovaná sestra (✚)',
+        accentHex: '#FF2E7E',
+      };
     case 'brute':
       return {
         symbol: '■',

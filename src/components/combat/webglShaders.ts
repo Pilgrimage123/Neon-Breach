@@ -110,16 +110,41 @@ void main() {
   vec3 rgb = texColor.rgb * u_tintColor.rgb;
   float alpha = texColor.a * u_tintColor.a * v_alpha;
 
-  // Hit-flash / biological emissive highlight
+  // Hit-flash / biological emissive highlight (luminance-preserving so sprite detail stays sharp)
   if (u_flashColor.a > 0.005) {
     float flashAmt = clamp(u_flashColor.a, 0.0, 1.0);
-    rgb = mix(rgb, u_flashColor.rgb, flashAmt * 0.72) + u_flashColor.rgb * (flashAmt * 0.38);
+    float luma = dot(rgb, vec3(0.299, 0.587, 0.114));
+    rgb = clamp(
+      mix(rgb, u_flashColor.rgb, flashAmt * 0.44) + u_flashColor.rgb * (flashAmt * (0.08 + 0.16 * luma)),
+      0.0,
+      1.0
+    );
   }
 
   // Output premultiplied alpha for clean compositing over transparent canvas
   outColor = vec4(rgb * alpha, alpha);
 }
 `;
+
+/**
+ * Pure TypeScript reference matching UNIFIED_CHARACTER_FRAGMENT_SHADER hit-flash blending.
+ */
+export function computeHitFlashRgb(
+  rgb: readonly [number, number, number],
+  flashRgb: readonly [number, number, number],
+  flashAlpha: number,
+): [number, number, number] {
+  if (flashAlpha <= 0.005) return [rgb[0], rgb[1], rgb[2]];
+  const flashAmt = Math.max(0, Math.min(1, flashAlpha));
+  const luma = rgb[0] * 0.299 + rgb[1] * 0.587 + rgb[2] * 0.114;
+  const mixW = flashAmt * 0.44;
+  const addW = flashAmt * (0.08 + 0.16 * luma);
+  return [
+    Math.max(0, Math.min(1, rgb[0] * (1 - mixW) + flashRgb[0] * (mixW + addW))),
+    Math.max(0, Math.min(1, rgb[1] * (1 - mixW) + flashRgb[1] * (mixW + addW))),
+    Math.max(0, Math.min(1, rgb[2] * (1 - mixW) + flashRgb[2] * (mixW + addW))),
+  ];
+}
 
 export interface UniformLocations {
   u_viewProjMatrix: WebGLUniformLocation | null;

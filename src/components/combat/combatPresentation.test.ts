@@ -622,9 +622,14 @@ test('Crawler and Stalker sheets expose crisp static cut-in pose overrides', () 
   const stalkerAtk = sampleStalkerFrame(undefined, 0.5, 0, undefined, 0.016, 'attack_pose');
   const stalkerBrace = sampleStalkerFrame(undefined, 0.5, 0, undefined, 0.016, 'brace_pose');
   const stalkerRecoil = sampleStalkerFrame(undefined, 0.5, 0, undefined, 0.016, 'recoil_pose');
-  assert.equal(stalkerAtk.frameIndex, 6);
-  assert.equal(stalkerBrace.frameIndex, 11);
-  assert.equal(stalkerRecoil.frameIndex, 12);
+  assert.equal(stalkerAtk.mode, 'attack');
+  assert.equal(stalkerAtk.frameIndex, 1);
+  assert.equal(stalkerAtk.frameBlendAlpha, 1);
+  assert.equal(stalkerBrace.mode, 'guard');
+  assert.equal(stalkerBrace.frameBlendAlpha, 1);
+  assert.equal(stalkerRecoil.mode, 'pain');
+  assert.equal(stalkerRecoil.frameIndex, 1);
+  assert.equal(stalkerRecoil.frameBlendAlpha, 1);
 });
 
 test('CombatActionSequencer isolates throwing callbacks and still completes Phase D cleanup', async () => {

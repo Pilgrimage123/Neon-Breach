@@ -105,8 +105,8 @@ export function emitBloodDroplets(
     d.vy = Math.sin(angle) * speed - (55 + Math.random() * 85);
     d.size =
       weaponKind === 'plasma'
-        ? 1.6 + Math.random() * 2.2
-        : 2.4 + Math.random() * (3.6 + intensity * 1.3);
+        ? 1.2 + Math.random() * 1.5
+        : 1.45 + Math.random() * (2.15 + intensity * 0.85);
     d.color = palette[(sim.bloodDropCursor + i) % palette.length];
     d.highlightColor = profile.freshHighlight;
     d.owner = owner;

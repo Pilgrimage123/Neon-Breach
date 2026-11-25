@@ -13,6 +13,7 @@ export interface PauseSettingsProps {
   isLandscapeRotated?: boolean;
   showFullscreenButton?: boolean;
   isFullscreen?: boolean;
+  devLabsEnabled?: boolean;
   onToggleTacticalView: () => void;
   onCycleSemanticZoom: () => void;
   onToggleAutoFocusCamera: () => void;
@@ -23,6 +24,7 @@ export interface PauseSettingsProps {
   onToggleLang: () => void;
   onToggleLandscape?: () => void;
   onToggleFullscreen?: () => void;
+  onToggleDevLabs?: () => void;
 }
 
 export interface PauseModalProps {
@@ -192,6 +194,28 @@ export function PauseModal({
                   className="chrome-pill rounded-lg px-2.5 py-1.5 text-left font-bold text-cyan-200 transition cursor-pointer"
                 >
                   {settings.isFullscreen ? `🗗 ${t.fullscreenExit}` : `⛶ ${t.fullscreenEnter}`}
+                </button>
+              )}
+              {settings.onToggleDevLabs && (
+                <button
+                  type="button"
+                  data-testid="dev-labs-toggle"
+                  onClick={settings.onToggleDevLabs}
+                  aria-pressed={Boolean(settings.devLabsEnabled)}
+                  className={`chrome-pill rounded-lg px-2.5 py-1.5 text-left font-bold transition cursor-pointer ${
+                    settings.devLabsEnabled
+                      ? 'border-cyan-300 bg-cyan-500/20 text-white'
+                      : 'text-slate-200'
+                  }`}
+                >
+                  🧪 Dev Labs:{' '}
+                  {settings.devLabsEnabled
+                    ? lang === 'cs'
+                      ? 'ZAP'
+                      : 'ON'
+                    : lang === 'cs'
+                      ? 'VYP'
+                      : 'OFF'}
                 </button>
               )}
             </div>

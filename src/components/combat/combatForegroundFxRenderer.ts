@@ -464,29 +464,46 @@ export function renderForegroundWorldFxPass(params: {
   const { ctx, sim, w, h, heroBaseX, groundY, tacticalViewActive } = params;
 
   ctx.save();
+  ctx.lineCap = 'round';
   for (let i = 0; i < BLOOD_DROP_POOL_SIZE; i++) {
     const d = sim.bloodDrops[i];
     if (!d.active) continue;
     const lifeRatio = d.life / d.maxLife;
-    const alpha = Math.max(0, 1 - lifeRatio * 0.45);
+    const alpha = Math.max(0, 1 - lifeRatio * 0.48);
     const speed = Math.hypot(d.vx, d.vy);
     const angle = Math.atan2(d.vy, d.vx);
-    const stretch = 1 + Math.min(2.8, speed / 165);
+    const headR = Math.max(1.05, d.size * 0.78);
+    const bodyHalfH = headR * 0.64;
+    const tailLen = headR * (1.45 + Math.min(2.6, speed / 160));
 
     ctx.save();
-    ctx.globalAlpha = alpha;
     ctx.translate(d.x, d.y);
     ctx.rotate(angle);
 
+    if (speed > 165) {
+      ctx.globalAlpha = alpha * 0.24;
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = Math.max(0.8, bodyHalfH * 0.72);
+      ctx.beginPath();
+      ctx.moveTo(-tailLen * 1.35, 0);
+      ctx.lineTo(-tailLen * 0.25, 0);
+      ctx.stroke();
+    }
+
+    ctx.globalAlpha = alpha * 0.92;
     ctx.fillStyle = d.color;
     ctx.beginPath();
-    ctx.ellipse(0, 0, d.size * stretch, d.size * 0.62, 0, 0, Math.PI * 2);
+    ctx.moveTo(-tailLen, 0);
+    ctx.quadraticCurveTo(-tailLen * 0.18, -bodyHalfH * 1.08, headR * 0.35, -bodyHalfH);
+    ctx.arc(headR * 0.35, 0, bodyHalfH, -Math.PI * 0.5, Math.PI * 0.5);
+    ctx.quadraticCurveTo(-tailLen * 0.18, bodyHalfH * 1.08, -tailLen, 0);
+    ctx.closePath();
     ctx.fill();
 
     ctx.fillStyle = d.highlightColor;
-    ctx.globalAlpha = alpha * 0.65;
+    ctx.globalAlpha = alpha * 0.68;
     ctx.beginPath();
-    ctx.ellipse(d.size * 0.2, -d.size * 0.12, d.size * stretch * 0.42, d.size * 0.25, 0, 0, Math.PI * 2);
+    ctx.arc(headR * 0.28, -bodyHalfH * 0.28, Math.max(0.55, headR * 0.32), 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }

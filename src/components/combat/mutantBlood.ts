@@ -290,6 +290,8 @@ export const ARCHETYPE_BIOLOGY_MAP: Record<EnemyArchetype, BloodBiologyId> = {
   stinger: 'sulfur_amber',
   spitter: 'sulfur_violet',
   stalker: 'chitinous_ichor_magenta',
+  mutdog: 'chlorocruorin',
+  feral_nurse: 'chitinous_ichor_magenta',
   brute: 'chitinous_ichor_orange',
   boss: 'chitinous_ichor_apex',
 };

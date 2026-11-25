@@ -21,6 +21,7 @@ import type {
   TileType,
   TurnPreview,
 } from '../../engine/types';
+import type { Language } from '../../i18n/translations';
 import type { CombatDevLabsRuntimeState } from './CombatDevLabsPanel';
 import { hydrateSimFromPreload } from './combatAssetHydration';
 import { stepAndDispatchHeroFrame } from './combatFrameStepper';
@@ -56,6 +57,7 @@ export interface UseCombatStageRuntimeParams {
   onCueSequenceComplete?: (batchKey: string) => void;
   setInspectedTarget: Dispatch<SetStateAction<'hero' | string | null>>;
   setHoveredEnemyId: Dispatch<SetStateAction<string | null>>;
+  lang: Language;
 }
 
 export interface UseCombatStageRuntimeResult {
@@ -99,6 +101,7 @@ export function useCombatStageRuntime(
     onCueSequenceComplete,
     setInspectedTarget,
     setHoveredEnemyId,
+    lang,
   } = params;
 
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -139,6 +142,7 @@ export function useCombatStageRuntime(
   const debugMeshWireframeRef = useRef<boolean>(debugMeshWireframe);
   const reducedMotionRef = useRef<boolean>(reducedMotion);
   const onCueSequenceCompleteRef = useRef(onCueSequenceComplete);
+  const langRef = useRef<Language>(lang);
 
   combatRef.current = combat;
   heroRef.current = hero;
@@ -157,6 +161,7 @@ export function useCombatStageRuntime(
   debugMeshWireframeRef.current = debugMeshWireframe;
   reducedMotionRef.current = reducedMotion;
   onCueSequenceCompleteRef.current = onCueSequenceComplete;
+  langRef.current = lang;
 
   const simRef = useRef<CombatStageSim | null>(null);
   if (!simRef.current) {
@@ -220,6 +225,7 @@ export function useCombatStageRuntime(
     rendererMode,
     debugMeshWireframe,
     reducedMotion,
+    lang,
   ]);
 
   useEffect(() => {
@@ -335,6 +341,10 @@ export function useCombatStageRuntime(
           spitterLabActive: labRuntime.spitterLabActive,
           bruteJuiceConfig: labRuntime.bruteJuiceConfig,
           bruteLabActive: labRuntime.bruteLabActive,
+          mutdogJuiceConfig: labRuntime.mutdogJuiceConfig,
+          mutdogLabActive: labRuntime.mutdogLabActive,
+          feralNurseJuiceConfig: labRuntime.feralNurseJuiceConfig,
+          feralNurseLabActive: labRuntime.feralNurseLabActive,
         });
         elapsed += simDt;
       }
@@ -388,10 +398,15 @@ export function useCombatStageRuntime(
           spitterLabActive: labRuntime.spitterLabActive,
           bruteJuiceConfig: labRuntime.bruteJuiceConfig,
           bruteLabActive: labRuntime.bruteLabActive,
+          mutdogJuiceConfig: labRuntime.mutdogJuiceConfig,
+          mutdogLabActive: labRuntime.mutdogLabActive,
+          feralNurseJuiceConfig: labRuntime.feralNurseJuiceConfig,
+          feralNurseLabActive: labRuntime.feralNurseLabActive,
           presentationConfig: labRuntime.presentationConfig,
           sequencerFrame: activeSim.lastSeqFrame ?? undefined,
           getActorJuice: (id) => activeSim.actionSequencer.getActorJuice(id),
           reducedMotion: reducedMotionRef.current,
+          lang: langRef.current,
           devLabRenderer: labRuntime.devLabRenderer,
         },
       );

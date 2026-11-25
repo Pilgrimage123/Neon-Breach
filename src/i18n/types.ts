@@ -68,6 +68,8 @@ export interface TranslationPack {
   continueRun: string;
   newRun: string;
   selectHeroLabel: string;
+  devLabButton: string;
+  devLabHint: string;
   controlsHint: string;
   howToPlay: HowToPlayTranslations;
   hpLabel: string;
@@ -246,6 +248,8 @@ export interface TranslationPack {
     stinger: EnemyArchetypeTranslation;
     stalker: EnemyArchetypeTranslation;
     spitter: EnemyArchetypeTranslation;
+    mutdog: EnemyArchetypeTranslation;
+    feral_nurse: EnemyArchetypeTranslation;
     brute: EnemyArchetypeTranslation;
     boss: EnemyArchetypeTranslation;
   };

@@ -7,6 +7,7 @@ import type {
   TileType,
   TurnPreview,
 } from '../../engine/types';
+import type { Language } from '../../i18n/translations';
 import { AURALINE_SHEET_FRAMES } from '../../utils/auralineSpriteSheet';
 import {
   KIRA_SHEET_FRAMES,
@@ -194,6 +195,7 @@ export function renderHeroSpritePass(params: {
   tacticalViewActive: boolean;
   activePreview: TurnPreview | null;
   precomputedThreat?: HeroThreatPreview;
+  lang?: Language;
 }): void {
   const {
     baseCtx,
@@ -229,6 +231,7 @@ export function renderHeroSpritePass(params: {
     tacticalViewActive,
     activePreview,
     precomputedThreat,
+    lang = 'cs',
   } = params;
 
   const { w, h } = sim.size;
@@ -708,13 +711,13 @@ export function renderHeroSpritePass(params: {
       let label = '';
       let labelColor = '#FDA4AF';
       if (kiraThreat.willDie) {
-        label = `☠ LETHAL (-${kiraThreat.hpDamageTaken})`;
+        label = `☠ ${lang === 'cs' ? 'ZABITÍ' : 'LETHAL'} (-${kiraThreat.hpDamageTaken})`;
         labelColor = '#FFC700';
       } else if (kiraThreat.hpDamageTaken > 0) {
         label = `-${kiraThreat.hpDamageTaken} HP`;
         labelColor = '#FDA4AF';
       } else if (kiraThreat.rawIncomingDamage > 0 && kiraThreat.blockedDamage > 0) {
-        label = `BLOCKED (${kiraThreat.blockedDamage})`;
+        label = `${lang === 'cs' ? 'BLOK' : 'BLOCKED'} (${kiraThreat.blockedDamage})`;
         labelColor = '#67E8F9';
       } else if (kiraThreat.healGained > 0) {
         label = `+${kiraThreat.healGained} HP`;

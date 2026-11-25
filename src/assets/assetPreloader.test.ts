@@ -5,7 +5,15 @@ import { buildBackgroundTaskOrder, buildEnemyPreloadOrder } from './preloadPlan'
 test('buildEnemyPreloadOrder deduplicates critical encounter enemies and defers remaining archetypes', () => {
   const plan = buildEnemyPreloadOrder(['stalker', 'stalker', 'larva']);
   assert.deepEqual(plan.critical, ['stalker', 'larva']);
-  assert.deepEqual(plan.deferred, ['skitter', 'stinger', 'spitter', 'brute', 'boss']);
+  assert.deepEqual(plan.deferred, [
+    'skitter',
+    'stinger',
+    'spitter',
+    'mutdog',
+    'feral_nurse',
+    'brute',
+    'boss',
+  ]);
 });
 
 test('buildEnemyPreloadOrder returns all enemies in deferred when encounter list is empty', () => {
@@ -17,6 +25,8 @@ test('buildEnemyPreloadOrder returns all enemies in deferred when encounter list
     'stinger',
     'stalker',
     'spitter',
+    'mutdog',
+    'feral_nurse',
     'brute',
     'boss',
   ]);

@@ -16,7 +16,11 @@ import {
   ensureEnemyAnim,
   spawnBruteKineticShards,
   spawnBurst,
+  spawnFeralNurseIchorSpray,
+  spawnFeralNurseLeapDust,
   spawnFloatingText,
+  spawnMutdogDroolSplatter,
+  spawnMutdogLeapDust,
   spawnStyledProjectileVolley,
   triggerEnemyHitStagger,
   triggerKiraDodgeVfx,
@@ -58,6 +62,9 @@ export function dispatchEnemyAttackCue(
   const isAcid = cue.kind === 'enemy_acid';
   const isSpitterClawRend = attackerArch === 'spitter' && !isAcid && Boolean(cue.clawRend);
   const isBruteHeavy = attackerArch === 'brute' && !isAcid && Boolean(cue.heavySmash);
+  const isMutdogPounce = attackerArch === 'mutdog' && !isAcid && Boolean(cue.clawRend);
+  const isMutdogMaul = attackerArch === 'mutdog' && !isAcid && !isMutdogPounce;
+  const isFeralNursePierce = attackerArch === 'feral_nurse' && !isAcid;
 
   if (cue.targetId) {
     const ea = ensureEnemyAnim(sim, cue.targetId);
@@ -72,13 +79,21 @@ export function dispatchEnemyAttackCue(
           ? isBruteHeavy
             ? 0.74
             : 0.58
-          : 0.52;
+          : attackerArch === 'mutdog'
+            ? isMutdogMaul
+              ? 0.72
+              : 0.58
+            : attackerArch === 'feral_nurse'
+              ? 0.86
+              : 0.52;
     ea.attackAnimDuration = animDur;
     ea.attackAnimTimer = animDur;
     if (attackerArch === 'spitter') {
       ea.spitterAttackKind = isAcid ? 'spit' : 'claw';
     } else if (attackerArch === 'brute') {
       ea.bruteAttackKind = isBruteHeavy ? 'heavy' : 'attack';
+    } else if (attackerArch === 'mutdog') {
+      ea.mutdogAttackKind = isMutdogMaul ? 'maul' : 'pounce';
     }
     if (attacker) {
       const status = getEnemyStatusVisualFlags(attacker, sim.enemyInitialArmor.get(attacker.id));
@@ -168,6 +183,7 @@ export function dispatchEnemyAttackCue(
     const isCritEnemy =
       !willKiraDodge &&
       (Boolean(cue.heavySmash) ||
+        (isMutdogMaul && hpDamage >= 10) ||
         attackerArch === 'boss' ||
         isStalkerAmbush ||
         isLethal ||
@@ -244,6 +260,37 @@ export function dispatchEnemyAttackCue(
         spawnBurst(sim, liveHeroX + 18, groundY - 92, 18, '#FB923C', 1, 1.18);
         spawnBurst(sim, liveHeroX + 14, groundY - 88, 12, '#FDBA74', 0, 0.95);
       }
+      if (isMutdogPounce || isMutdogMaul) {
+        spawnBurst(sim, liveHeroX + 18, groundY - 88, isMutdogMaul ? 16 : 12, '#A3E635', 1, 1.08);
+        spawnBurst(sim, liveHeroX + 14, groundY - 84, isMutdogMaul ? 14 : 9, '#FB923C', 1, 1.02);
+        spawnMutdogDroolSplatter(
+          sim,
+          liveAttackerX - 30,
+          attackerPos.groundY - 88,
+          attackerPos.groundY + 2,
+          isMutdogMaul ? 12 : 8,
+          -1,
+          isMutdogMaul ? 1.15 : 0.9,
+        );
+        if (isMutdogMaul) {
+          spawnMutdogLeapDust(sim, liveHeroX + 26, groundY, 14, 1.12);
+        }
+      }
+      if (isFeralNursePierce) {
+        spawnBurst(sim, liveHeroX + 18, groundY - 90, 16, '#F43F5E', 1, 1.08);
+        spawnBurst(sim, liveHeroX + 14, groundY - 86, 12, '#E879F9', 1, 1.02);
+        spawnBurst(sim, liveHeroX + 12, groundY - 88, 8, '#ECFEFF', 1, 0.94);
+        spawnFeralNurseIchorSpray(
+          sim,
+          liveAttackerX - 28,
+          attackerPos.groundY - 92,
+          attackerPos.groundY + 2,
+          10,
+          -1,
+          1.06,
+        );
+        spawnFeralNurseLeapDust(sim, liveHeroX + 24, groundY, 10, 0.95);
+      }
       if (isSpitterClawRend) {
         spawnBurst(sim, liveHeroX + 18, groundY - 92, 12, '#A3E635', 2, 0.95);
         spawnBurst(sim, liveHeroX + 14, groundY - 88, 10, '#C026D3', 1, 1.0);
@@ -290,22 +337,31 @@ export function dispatchEnemyAttackCue(
           sim.heroAnim.flashTimer = 0.085;
           sim.trauma = Math.min(
             1,
-            sim.trauma + (isBruteHeavy ? 0.54 : isStalkerAmbush ? 0.48 : 0.35),
+            sim.trauma +
+              (isBruteHeavy
+                ? 0.54
+                : isStalkerAmbush
+                  ? 0.48
+                  : isMutdogMaul
+                    ? 0.46
+                    : 0.35),
           );
           spawnBurst(
             sim,
             liveHeroX + (isAcid ? 14 : 0),
             groundY - 85,
-            isBruteHeavy || isStalkerAmbush || isAcid || isStingerDart ? 22 : 14,
+            isBruteHeavy || isStalkerAmbush || isMutdogMaul || isAcid || isStingerDart ? 22 : 14,
             isAcid
               ? '#FACC15'
               : isBruteHeavy || isStingerDart
                 ? '#FB923C'
-                : isStalkerAmbush
-                  ? '#FF2E7E'
-                  : '#FB7185',
+                : isMutdogMaul
+                  ? '#A3E635'
+                  : isStalkerAmbush
+                    ? '#FF2E7E'
+                    : '#FB7185',
             isAcid ? 2 : 0,
-            isBruteHeavy || isAcid || isStingerDart ? 1.08 : 0.9,
+            isBruteHeavy || isMutdogMaul || isAcid || isStingerDart ? 1.08 : 0.9,
           );
           if (isAcid) {
             spawnBurst(sim, liveHeroX + 18, groundY - 88, 16, '#A3E635', 2, 0.98);
@@ -332,10 +388,20 @@ export function dispatchEnemyAttackCue(
             groundY,
             isAcid ? 'spitter' : 'hero_blood',
             isAcid || isStingerDart ? 'plasma' : 'melee',
-            isBruteHeavy ? 1.05 : isStalkerAmbush || isAcid || isStingerDart ? 0.95 : 0.75,
+            isBruteHeavy
+              ? 1.05
+              : isStalkerAmbush || isMutdogMaul || isAcid || isStingerDart
+                ? 0.95
+                : 0.75,
             false,
             -1,
-            isAcid ? '#FACC15' : isStingerDart ? '#FB923C' : '#FB7185',
+            isAcid
+              ? '#FACC15'
+              : isStingerDart
+                ? '#FB923C'
+                : isMutdogMaul
+                  ? '#A3E635'
+                  : '#FB7185',
           );
           spawnFloatingText(
             sim,
@@ -345,15 +411,25 @@ export function dispatchEnemyAttackCue(
               ? `AMBUSH -${hpDamage}`
               : isStingerDart
                 ? `STING -${hpDamage}`
-                : `-${hpDamage}`,
+                : isFeralNursePierce
+                  ? `PIERCE -${hpDamage}`
+                  : isMutdogMaul && hpDamage >= 10
+                    ? `MAUL -${hpDamage}`
+                    : `-${hpDamage}`,
             isAcid
               ? '#FACC15'
               : isBruteHeavy || isStingerDart
                 ? '#FB923C'
-                : isStalkerAmbush
-                  ? '#FF2E7E'
-                  : '#FDA4AF',
-            isBruteHeavy || isStalkerAmbush || isStingerDart ? 1.15 : 1.0,
+                : isFeralNursePierce
+                  ? '#F472B6'
+                  : isMutdogMaul
+                    ? '#BEF264'
+                    : isStalkerAmbush
+                      ? '#FF2E7E'
+                      : '#FDA4AF',
+            isBruteHeavy || isStalkerAmbush || isMutdogMaul || isStingerDart || isFeralNursePierce
+              ? 1.15
+              : 1.0,
           );
         }
       } else {

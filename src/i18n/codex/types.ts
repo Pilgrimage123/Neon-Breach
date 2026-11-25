@@ -23,7 +23,8 @@ export type GlossaryTermId =
   | 'thermal_charge'
   | 'stagger'
   | 'tile_hex'
-  | 'caustic_slag';
+  | 'caustic_slag'
+  | 'overwhelm';
 
 export interface GlossaryEntryText {
   term: string;

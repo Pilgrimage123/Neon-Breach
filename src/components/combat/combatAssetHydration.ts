@@ -3,7 +3,9 @@ import {
   getPreloadedBruteFrames,
   getPreloadedCrawlerFrames,
   getPreloadedEnemyCutout,
+  getPreloadedFeralNurseFrames,
   getPreloadedHeroFrames,
+  getPreloadedMutdogFrames,
   getPreloadedSpitterFrames,
   getPreloadedStalkerFrames,
   getPreloadedZuriDroneFrames,
@@ -70,7 +72,17 @@ export function hydrateSimFromPreload(sim: CombatStageSim): boolean {
     sim.bruteFrames = cachedBrute;
     addedNewCutout = true;
   }
-  for (const arch of ['stalker', 'spitter', 'brute', 'boss'] as const) {
+  const cachedMutdog = getPreloadedMutdogFrames();
+  if (cachedMutdog && !sim.mutdogFrames) {
+    sim.mutdogFrames = cachedMutdog;
+    addedNewCutout = true;
+  }
+  const cachedFeralNurse = getPreloadedFeralNurseFrames();
+  if (cachedFeralNurse && !sim.feralNurseFrames) {
+    sim.feralNurseFrames = cachedFeralNurse;
+    addedNewCutout = true;
+  }
+  for (const arch of ['stalker', 'spitter', 'mutdog', 'feral_nurse', 'brute', 'boss'] as const) {
     const cachedEnemy = getPreloadedEnemyCutout(arch);
     if (cachedEnemy && !sim.enemyCutouts.has(arch)) {
       sim.enemyCutouts.set(arch, cachedEnemy);

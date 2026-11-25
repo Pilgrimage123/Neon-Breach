@@ -9,6 +9,7 @@ import { getEquippedChipMemory } from '../engine/poolBuilder';
 import type { NannyBotId, RunState } from '../engine/types';
 import { TRANSLATIONS, type Language } from '../i18n/translations';
 import { formatTileShortLabel } from '../utils/tileDisplay';
+import { FormattedText } from './FormattedText';
 
 interface ChipDealerViewProps {
   run: RunState;
@@ -142,7 +143,7 @@ export function ChipDealerView({
               </span>
             )}
             <p className="text-[12.5px] sm:text-sm text-slate-200 truncate min-w-0">
-              {t.chipDealerSubtitle.replace('{name}', charCode)}
+              <FormattedText text={t.chipDealerSubtitle.replace('{name}', charCode)} />
             </p>
           </div>
           <div className="flex items-center gap-1.5 font-mono-tabular text-[12.5px] sm:text-sm shrink-0">
@@ -248,7 +249,7 @@ export function ChipDealerView({
                           isCompactLandscape ? 'line-clamp-1' : ''
                         }`}
                       >
-                        {meta?.desc ?? ''}
+                        <FormattedText text={meta?.desc ?? ''} />
                       </p>
                       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 font-mono-tabular text-[12px] sm:text-[13px]">
                         {def.tiles.map((spec, tileIdx) => (

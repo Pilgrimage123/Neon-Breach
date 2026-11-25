@@ -8,11 +8,13 @@ import type {
 } from '../../engine/types';
 import { AURALINE_CANONICAL_HEIGHT, AURALINE_SHEET_FRAMES } from '../../utils/auralineSpriteSheet';
 import { DEFAULT_BRUTE_JUICE_CONFIG } from '../../utils/bruteJuiceController';
+import { DEFAULT_FERAL_NURSE_JUICE_CONFIG } from '../../utils/feralNurseJuiceController';
 import {
   KIRA_CANONICAL_HEIGHT,
   KIRA_SHEET_FRAMES,
   type HeroFrameSample,
 } from '../../utils/kiraSpriteSheet';
+import { DEFAULT_MUTDOG_JUICE_CONFIG } from '../../utils/mutdogJuiceController';
 import { DEFAULT_SPITTER_JUICE_CONFIG } from '../../utils/spitterJuiceController';
 import {
   ZURI_CANONICAL_HEIGHT,
@@ -77,6 +79,10 @@ export interface DevLabRenderPassContext {
   spitterJuiceConfig?: StageRenderOptions['spitterJuiceConfig'];
   bruteLabActive: boolean;
   bruteJuiceConfig?: StageRenderOptions['bruteJuiceConfig'];
+  mutdogLabActive: boolean;
+  mutdogJuiceConfig?: StageRenderOptions['mutdogJuiceConfig'];
+  feralNurseLabActive: boolean;
+  feralNurseJuiceConfig?: StageRenderOptions['feralNurseJuiceConfig'];
 }
 
 export type CombatStageRenderOptions = StageRenderOptions & {
@@ -194,6 +200,11 @@ export function renderCombatStage(
   const spitterLabActive = Boolean(renderOptions?.spitterLabActive);
   const bruteJuiceConfig = renderOptions?.bruteJuiceConfig ?? DEFAULT_BRUTE_JUICE_CONFIG;
   const bruteLabActive = Boolean(renderOptions?.bruteLabActive);
+  const mutdogJuiceConfig = renderOptions?.mutdogJuiceConfig ?? DEFAULT_MUTDOG_JUICE_CONFIG;
+  const mutdogLabActive = Boolean(renderOptions?.mutdogLabActive);
+  const feralNurseJuiceConfig =
+    renderOptions?.feralNurseJuiceConfig ?? DEFAULT_FERAL_NURSE_JUICE_CONFIG;
+  const feralNurseLabActive = Boolean(renderOptions?.feralNurseLabActive);
   const reducedMotion = Boolean(renderOptions?.reducedMotion);
   const seqFrame: SequencerFrameState | null =
     renderOptions?.sequencerFrame ?? sim.lastSeqFrame ?? null;
@@ -277,6 +288,14 @@ export function renderCombatStage(
     (sim.bruteFrames &&
       (enemies.some((e) => e.archetype === 'brute' && e.hp > 0 && !sim.bruteSamples?.has(e.id)) ||
         (bruteLabActive && !sim.bruteJuiceSamples?.has('brute_lab_specimen')))) ||
+    (sim.mutdogFrames &&
+      (enemies.some((e) => e.archetype === 'mutdog' && e.hp > 0 && !sim.mutdogSamples?.has(e.id)) ||
+        (mutdogLabActive && !sim.mutdogJuiceSamples?.has('mutdog_lab_specimen')))) ||
+    (sim.feralNurseFrames &&
+      (enemies.some(
+        (e) => e.archetype === 'feral_nurse' && e.hp > 0 && !sim.feralNurseSamples?.has(e.id),
+      ) ||
+        (feralNurseLabActive && !sim.feralNurseJuiceSamples?.has('feral_nurse_lab_specimen')))) ||
     sim.lastFrameDt === 0;
   if (needsLazySample) {
     stepEnemyAnimationSamples(sim, 0, {
@@ -291,6 +310,10 @@ export function renderCombatStage(
       spitterLabActive,
       bruteJuiceConfig,
       bruteLabActive,
+      mutdogJuiceConfig,
+      mutdogLabActive,
+      feralNurseJuiceConfig,
+      feralNurseLabActive,
       getActorJuice,
       emitSideEffects: false,
     });
@@ -489,7 +512,7 @@ export function renderCombatStage(
   baseCtx.restore();
 
   // Pass 2.5: Persistent floor blood pools, fissures, front curb splatters & edge drips
-  renderDecalPass(baseCtx, sim, deckFrontY, elapsed, tacticalViewActive);
+  renderDecalPass(baseCtx, sim, deckBackY, deckFrontY, elapsed, tacticalViewActive);
 
   // Darkest Dungeon Cut-In Spotlight Stage Dimmer Veil
   const dimmerAlpha = tacticalViewActive ? 0 : seqFrame?.dimmerAlpha ?? 0;
@@ -535,6 +558,7 @@ export function renderCombatStage(
     tacticalViewActive,
     activePreview,
     precomputedThreat,
+    lang: renderOptions?.lang ?? 'cs',
   });
 
   // Pass 4: Enemy Sprites, Stagger Recoil, Contact Shadows & Tactical Under-Foot Lifebars
@@ -566,7 +590,10 @@ export function renderCombatStage(
   });
 
   // Pass 4.05: Optional DEV-only Lab Specimens (passed via renderOptions callback for tree-shaking)
-  if (renderOptions?.devLabRenderer && (spitterLabActive || bruteLabActive)) {
+  if (
+    renderOptions?.devLabRenderer &&
+    (spitterLabActive || bruteLabActive || mutdogLabActive || feralNurseLabActive)
+  ) {
     renderOptions.devLabRenderer({
       baseCtx,
       fgCtx,
@@ -586,6 +613,10 @@ export function renderCombatStage(
       spitterJuiceConfig,
       bruteLabActive,
       bruteJuiceConfig,
+      mutdogLabActive,
+      mutdogJuiceConfig,
+      feralNurseLabActive,
+      feralNurseJuiceConfig,
     });
   }
 

@@ -31,6 +31,27 @@ export interface SimulatedPlayerEnemiesResult {
   barrelPoppedCount: number;
 }
 
+export function splitCloakedDamage(rawDamage: number): { taken: number; passed: number } {
+  const safeDmg = Math.max(0, Math.floor(rawDamage));
+  if (safeDmg <= 0) return { taken: 0, passed: 0 };
+  const taken = Math.max(1, Math.floor(safeDmg * 0.1));
+  const passed = Math.max(0, safeDmg - taken);
+  return { taken, passed };
+}
+
+export function findNextLivingEnemyBehind(
+  enemies: readonly EnemyUnit[],
+  fromIdx: number,
+): number {
+  for (let i = fromIdx + 1; i < enemies.length; i++) {
+    const unit = enemies[i];
+    if (unit && unit.hp > 0 && !unit.escaped) {
+      return i;
+    }
+  }
+  return -1;
+}
+
 export function simulatePlayerActionOnEnemies(
   enemies: readonly EnemyUnit[],
   turn: number,
@@ -52,12 +73,19 @@ export function simulatePlayerActionOnEnemies(
     cueId: string,
     surgeFlag: boolean,
     wakeSleepwalker = false,
-  ) => {
-    const res = applyDamageToEnemy(nextEnemies[targetIdx], dmg, pierceRatio, breakArmorFirst);
+    isPassThrough = false,
+  ): ReturnType<typeof applyDamageToEnemy> => {
+    const targetBefore = nextEnemies[targetIdx];
+    const isCloaked = (targetBefore.cloakedTurns ?? 0) > 0 && dmg > 0;
+    const { taken: directDmg, passed: passThroughDmg } = isCloaked
+      ? splitCloakedDamage(dmg)
+      : { taken: dmg, passed: 0 };
+
+    const res = applyDamageToEnemy(targetBefore, directDmg, pierceRatio, breakArmorFirst);
     let updatedTarget = res.enemy;
     if (
       wakeSleepwalker &&
-      dmg > 0 &&
+      directDmg > 0 &&
       updatedTarget.sleepCounter !== undefined &&
       updatedTarget.sleepCounter > 0
     ) {
@@ -72,9 +100,16 @@ export function simulatePlayerActionOnEnemies(
       id: cueId,
       kind: 'hero_slash',
       targetId: updatedTarget.id,
-      value: dmg,
-      textLabel: res.pipCracked ? 'PIP CRACKED' : undefined,
+      value: directDmg,
+      textLabel: res.pipCracked
+        ? 'PIP CRACKED'
+        : isCloaked
+          ? 'CLOAK 10%'
+          : isPassThrough
+            ? 'PASS-THROUGH'
+            : undefined,
       surge: surgeFlag,
+      ...(isPassThrough ? { passThrough: true } : {}),
     });
     if (res.phaseGateHit) {
       cues?.push({
@@ -92,6 +127,21 @@ export function simulatePlayerActionOnEnemies(
         kind: 'enemy_ko',
         targetId: updatedTarget.id,
       });
+    }
+    if (isCloaked && passThroughDmg > 0) {
+      const behindIdx = findNextLivingEnemyBehind(nextEnemies, targetIdx);
+      if (behindIdx !== -1) {
+        applyHit(
+          behindIdx,
+          passThroughDmg,
+          pierceRatio,
+          breakArmorFirst,
+          `${cueId}_pass_${behindIdx}`,
+          surgeFlag,
+          wakeSleepwalker,
+          true,
+        );
+      }
     }
     return res;
   };
