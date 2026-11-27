@@ -16,16 +16,17 @@ All real-time character and emblem animation in Neon Breach follows one of **two
 
 | Domain | Paradigm | Renderer | Transition Policy | Authority |
 | :--- | :--- | :--- | :--- | :--- |
-| **Title Emblem** | **Paradigm 1 — Anatomical Mesh-Warped Keyframes** | Canvas2D (`TitleEmblemStage.tsx`, `titleMeshWarp.ts`) | `42`-triangle affine warp across `9` keyframes + C2 quintic solidity blend (`alphaA + alphaB >= 1`) | `titleEmblemVfx.ts` |
+| **Title Emblem** | **Paradigm 1 — Frozen Legacy** *(Mesh-Warped Keyframes; do not replicate for new features)* | Canvas2D (`TitleEmblemStage.tsx`, `titleMeshWarp.ts`) | `42`-triangle affine warp across `9` keyframes + C2 quintic solidity blend (`alphaA + alphaB >= 1`) | `titleEmblemVfx.ts` |
 | **Heroes** (`Kira`, `Auraline`, `Zuri`) | **Paradigm 2 — Crisp-Cut Multi-Frame Sheets + Rig Physics** | WebGL2 `4×6` Hermite `MeshSprite` (`combatHeroSpritePass.ts`) | Instant `blendDuration = 0` pose cuts + spline/hover physics | `HeroAnimator` (`characterAnimator.ts`) |
 | **Mutants** (9 `EnemyArchetype`s) | **Paradigm 2 — Crisp-Cut Multi-Frame Sheets + Rig Physics** | WebGL2 `4×6` Hermite `MeshSprite` (`combatEnemyMainSpritePass.ts`) | Instant `blendDuration = 0` cuts *(2-item spectral/eyelid allowlist only)* + 4-Layer `proceduralJuiceCore` | `*JuiceController` + `MUTANT_ANIMATION_REGISTRY` |
 | **Portraits** (`HeroPortraitCanvas`, `EnemyBioScanPortrait`) | Static cropped frame / portrait | Canvas2D | Static (`BAKED_ENEMY_PORTRAIT_BOUNDS`) | `assetPreloader.ts` |
-| **Clinic Nurse** (`NurseStageCanvas`) | **Deprecated Legacy** | Canvas2D | *Banned anti-pattern* (`4.2 fps` unwarped cross-dissolve + `trajectoryWarp`) — slated for future rework | Legacy `nurseSpriteSheet.ts` |
+| **Clinic Nurse** (`NurseStageCanvas`) | **Deprecated Legacy** | Canvas2D | *Banned anti-pattern* (`4.2 fps` unwarped cross-dissolve + `trajectoryWarp`) — slated for Tier A (`proceduralJuiceCore`) rework | Legacy `nurseSpriteSheet.ts` |
 
 ---
 
 ## Domain Playbooks
 
+0. [Animation Do's & Don'ts (Canonical Lessons)](./animation/dos-and-donts.md) — Production benchmarks (`Rabid MutDog` gold standard vs. `HeroAnimator` legacy and deprecated `NurseStageCanvas` / low-ROI `Title Emblem` morphing), end-to-end Do/Don't rules, and Pre-Flight Checklist.
 1. [Shared Invariants, Baking & Transition Laws](./animation/shared-invariants-and-baking.md) — `60 FPS` zero-GC budgets, `npm run bake:sprites` (`assets-src/` → `src/assets/sprites/baked/`), zero-readback decoding, pelvis-centroid `anchorX`, and the Two-Paradigm Transition Law.
 2. [Combat Stage & Action Camera v2](./animation/combat-stage-and-camera.md) — Three-layer Canvas2D + WebGL2 `#version 300 es` compositor, `4×6` Hermite `MeshSprite`, `ActionCameraController`, and Unified `DEV` Animation Lab.
 3. [Title Emblem Pipeline](./animation/title-emblem-pipeline.md) — `960 × 541` `9`-keyframe (`K0–K4` + in-betweens) arc, `Static Lockup Plane`, `3.16 s` continuous `Choreography Beat` arc, `24 × 9` `Visor Matrix`, `312 × 440` `6`-nozzle + jaw-strand `Xeno Slime`, and `42`-triangle `Anatomical Warp Lattice`.

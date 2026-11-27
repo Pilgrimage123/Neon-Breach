@@ -2,6 +2,9 @@
 
 > **Related**: [GLOSSARY.md](../../../GLOSSARY.md) (`Hero`, `Kira`, `Auraline`, `Zuri`, `Evasive Dodge`, `Tri-Drone Sync`), [Shared Invariants](./shared-invariants-and-baking.md), [Combat Stage & Camera](./combat-stage-and-camera.md).
 
+> [!NOTE]
+> **Early-Phase Legacy Architecture**: `HeroAnimator` is maintained for the existing `Kira`, `Auraline`, and `Zuri` rigs. For any new Hero or full Hero rework, converge on the Tier A `proceduralJuiceCore` standard rather than copying `HeroAnimator` multi-sheet `rowScale` workarounds (see [Animation Do's & Don'ts](./dos-and-donts.md)).
+
 ---
 
 ## 1. Why Heroes Use `HeroAnimator`

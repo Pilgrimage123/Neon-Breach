@@ -19,13 +19,13 @@ Every animation loop (`TitleEmblemStage`, `CombatStageCanvas`) obeys:
 
 ### 2.1 Directory Layout & AI Studio Purity
 - **Raw Sources (`assets-src/`)**:
-  - `assets-src/title/` — `title_logo_0.png`..`title_logo_4.png`
+  - `assets-src/title/` — `title_logo_0.png`..`title_logo_4.png` plus 4 calibrated in-betweens (`title_logo_1_5.jpg`, `title_logo_2_3.jpg`, `title_logo_2_7.jpg`, `title_logo_3_5.jpg`)
   - `assets-src/heroes/` — `kira_spritesheet.png`, `kira_emote_sheet.png`, `kira_dodge_0..3.png`, `auraline_spritesheet.png`, `zuri_spritesheet.png`, `zuri_emote_sheet.png`, `zuri_drones_sheet.png`
   - `assets-src/mutants/` — `crawler_spritesheet.png`, `stalker_open.png`, `stalker_blink.png`, `spitter_spritesheet.jpg`, `mutdog_spritesheet.jpg`, `feral_nurse_sheet_a.png`, `feral_nurse_sheet_b.png`, `brute_spritesheet.jpg`, `matriarch_intact.png`, `matriarch_exploded.png`
   - `assets-src/clinic/` — `nurse_spritesheet.png`
   - `assets-src/portraits/` — `spitter_portrait.jpg`, `mutdog_portrait.png`, `feral_nurse_portrait.png`, `brute_portrait.jpg`, `boss_portrait.jpg`
 - **Committed Baked Outputs (`src/assets/sprites/baked/`)**:
-  - Whole-sheet lossless RGBA PNGs (`1:1` dimensions preserved so calibrated `SpriteRect` coordinates stay exact; `640px` max for 2-phase `matriarch_intact.png`/`matriarch_exploded.png`; `512px` max for dedicated portraits; `960×541` for Title Emblem `k0..k4.png` + `lockup_plane0.png`).
+  - Whole-sheet lossless RGBA PNGs (`1:1` dimensions preserved so calibrated `SpriteRect` coordinates stay exact; `640px` max for 2-phase `matriarch_intact.png`/`matriarch_exploded.png`; `512px` max for dedicated portraits; `960×541` for Title Emblem `k0.png`..`k4.png`, `k1_5.png`, `k2_3.png`, `k2_7.png`, `k3_5.png` + `lockup_plane0.png`).
   - `bake-manifest.json` (version `2`, SHA-256 input/output hashes, dimensions, parameters, bounds).
   - `bakedBounds.ts` (`BAKED_ENEMY_CUTOUT_BOUNDS` and `BAKED_ENEMY_PORTRAIT_BOUNDS` for `HeroPortraitCanvas` / `EnemyBioScanPortrait` / `combatEnemyUi`).
 - **Build Isolation**: `vite build` never invokes `sharp` and never copies `assets-src/` or unbaked `public/assets/` originals into `dist/`. Run `npm run bake:sprites` (or `npm run bake:title` for Title Emblem only) whenever `assets-src/` changes.
@@ -52,4 +52,4 @@ Every animation loop (`TitleEmblemStage`, `CombatStageCanvas`) obeys:
   - **2-Item Combat Allowlist** *(the only permitted `blendDuration > 0` combat cases)*:
     1. **Feral Nurse `Optical Cloak`** (`frames 12..15`, `0.04s`) — intentional holographic phase afterimage.
     2. **Chitin Stalker transitional 2-frame eye blink** (`0.04–0.065s`) — identical body silhouette where only the eyelid moves.
-- **Deprecated Anti-Pattern (`NurseStageCanvas`)**: Looping disparate arm/head poses at `4.2 fps` under a continuous `100%`-duty-cycle unwarped cross-dissolve + `trajectoryWarp` (`src/components/medbay/NurseStageCanvas.tsx`, `src/utils/nurseSpriteSheet.ts`) produces persistent double-exposure ghosting. **Do not use `NurseStageCanvas` as a model for any future facility or NPC stage**; future reworks must use Paradigm 1 (mesh-warped bust) or Paradigm 2 (crisp-cut rig).
+- **Deprecated Anti-Pattern (`NurseStageCanvas`)**: Looping disparate arm/head poses at `4.2 fps` under a continuous `100%`-duty-cycle unwarped cross-dissolve + `trajectoryWarp` (`src/components/medbay/NurseStageCanvas.tsx`, `src/utils/nurseSpriteSheet.ts`) produces persistent double-exposure ghosting. **Do not use `NurseStageCanvas` as a model for any future facility or NPC stage**; future reworks must use Tier A (Paradigm 2 crisp-cut rig + `proceduralJuiceCore`).
