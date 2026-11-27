@@ -296,6 +296,8 @@ export function renderCombatStage(
         (e) => e.archetype === 'feral_nurse' && e.hp > 0 && !sim.feralNurseSamples?.has(e.id),
       ) ||
         (feralNurseLabActive && !sim.feralNurseJuiceSamples?.has('feral_nurse_lab_specimen')))) ||
+    (sim.matriarchFrames &&
+      enemies.some((e) => e.archetype === 'boss' && e.hp > 0 && !sim.matriarchSamples?.has(e.id))) ||
     sim.lastFrameDt === 0;
   if (needsLazySample) {
     stepEnemyAnimationSamples(sim, 0, {

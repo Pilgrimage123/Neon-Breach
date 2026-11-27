@@ -222,6 +222,22 @@ function loadStalkerFrames(): Promise<HTMLCanvasElement[]> {
   );
 }
 
+export function getPreloadedMatriarchFrames(): HTMLCanvasElement[] | null {
+  const frames: HTMLCanvasElement[] = [];
+  for (let i = 0; i < GAME_ASSETS.matriarchFrames.length; i++) {
+    const canvas = getCachedSpriteCutout(GAME_ASSETS.matriarchFrames[i]);
+    if (!canvas) return null;
+    frames.push(canvas);
+  }
+  return frames;
+}
+
+function loadMatriarchFrames(): Promise<HTMLCanvasElement[]> {
+  return Promise.all(
+    GAME_ASSETS.matriarchFrames.map((url) => loadSpriteCutout(url)),
+  );
+}
+
 export function getPreloadedSpitterFrames(): HTMLCanvasElement[] | null {
   return getSheet(SHEET_SPECS.spitter);
 }
@@ -266,6 +282,12 @@ export function getPreloadedEnemyCutout(arch: EnemyArchetype): PreloadedEnemyCut
   if (arch === 'mutdog') return getFirstFrameCutout(getPreloadedMutdogFrames(), bounds);
   if (arch === 'feral_nurse') return getFirstFrameCutout(getPreloadedFeralNurseFrames(), bounds);
   if (arch === 'brute') return getFirstFrameCutout(getPreloadedBruteFrames(), bounds);
+  if (arch === 'boss') {
+    return (
+      getFirstFrameCutout(getPreloadedMatriarchFrames(), bounds) ??
+      getCutoutWithBounds(GAME_ASSETS.bossPortrait, bounds)
+    );
+  }
   return getCutoutWithBounds(GAME_ASSETS.bossPortrait, bounds);
 }
 
@@ -325,6 +347,8 @@ export function areCriticalCombatAssetsReady(
       if (!getPreloadedFeralNurseFrames()) return false;
     } else if (arch === 'brute') {
       if (!getPreloadedBruteFrames()) return false;
+    } else if (arch === 'boss') {
+      if (!getPreloadedMatriarchFrames()) return false;
     } else if (!getPreloadedEnemyCutout(arch)) {
       return false;
     }
@@ -365,6 +389,7 @@ function loadEnemyAssets(arch: EnemyArchetype): Promise<unknown> {
     ]);
   }
   if (arch === 'brute') return Promise.all([loadSheet(SHEET_SPECS.brute), loadEnemyPortrait('brute')]);
+  if (arch === 'boss') return Promise.all([loadMatriarchFrames(), loadEnemyPortrait('boss')]);
   return loadSpriteCutout(GAME_ASSETS.bossPortrait);
 }
 

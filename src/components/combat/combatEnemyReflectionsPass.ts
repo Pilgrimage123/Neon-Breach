@@ -7,6 +7,7 @@ import {
 } from '../../utils/crawlerSpriteSheet';
 import { getMutantArchScale } from '../../utils/mutantAnimationRegistry';
 import { FERAL_NURSE_CANONICAL_HEIGHT } from '../../utils/feralNurseSpriteSheet';
+import { MATRIARCH_CANONICAL_HEIGHT } from '../../utils/matriarchSpriteSheet';
 import { MUTDOG_CANONICAL_HEIGHT } from '../../utils/mutdogSpriteSheet';
 import { SPITTER_CANONICAL_HEIGHT } from '../../utils/spitterSpriteSheet';
 import { STALKER_CANONICAL_HEIGHT } from '../../utils/stalkerSpriteSheet';
@@ -71,6 +72,7 @@ export function renderEnemyReflectionsPass(params: {
     const feralNurseSample =
       arch === 'feral_nurse' ? sim.feralNurseSamples?.get(enemy.id) : undefined;
     const bruteSample = arch === 'brute' ? sim.bruteSamples?.get(enemy.id) : undefined;
+    const matriarchSample = arch === 'boss' ? sim.matriarchSamples?.get(enemy.id) : undefined;
     const koAlpha = isDead
       ? ea
         ? ea.dead
@@ -86,7 +88,9 @@ export function renderEnemyReflectionsPass(params: {
                     ? feralNurseSample.alpha
                     : bruteSample
                       ? bruteSample.alpha
-                      : Math.max(0, 1 - ea.koProgress)
+                      : matriarchSample
+                        ? matriarchSample.alpha
+                        : Math.max(0, 1 - ea.koProgress)
           : 1
         : 0
       : 1;
@@ -102,7 +106,8 @@ export function renderEnemyReflectionsPass(params: {
       (arch === 'spitter' && Boolean(spitterSample)) ||
       (arch === 'mutdog' && Boolean(mutdogSample)) ||
       (arch === 'feral_nurse' && Boolean(feralNurseSample)) ||
-      (arch === 'brute' && Boolean(bruteSample));
+      (arch === 'brute' && Boolean(bruteSample)) ||
+      (arch === 'boss' && Boolean(matriarchSample));
     const suppressNativeShift = enemyCutIn.isMeleeClash;
     const suppressStaggerDx =
       enemyCutIn.isMeleeClash ||
@@ -460,6 +465,62 @@ export function renderEnemyReflectionsPass(params: {
           -ff.bottomY * drawScale,
           ff.w * drawScale,
           ff.h * drawScale,
+        );
+        ctx.restore();
+      }
+      continue;
+    }
+
+    if (arch === 'boss' && matriarchSample && sim.matriarchFrames) {
+      const matriarchJuice = sim.matriarchJuiceSamples?.get(enemy.id);
+      const mCanvas = sim.matriarchFrames[matriarchSample.frameIndex] ?? sim.matriarchFrames[0];
+      if (!mCanvas) continue;
+      const mf = matriarchSample.frame;
+      const drawScale = size / MATRIARCH_CANONICAL_HEIGHT;
+      const rx =
+        ex +
+        (suppressNativeShift
+          ? 0
+          : matriarchJuice
+            ? matriarchJuice.offsetX * drawScale
+            : matriarchSample.xOffsetRatio * size);
+      const sx =
+        (matriarchJuice
+          ? stagger.scaleXMul * matriarchJuice.springScaleX
+          : breathScaleX * matriarchSample.breathScaleX) * enemyCutIn.scaleX;
+      const sy =
+        (matriarchJuice
+          ? stagger.scaleYMul * matriarchJuice.springScaleY
+          : breathScaleY * matriarchSample.breathScaleY) * enemyCutIn.scaleY;
+      if (webglRenderer) {
+        webglRenderer.drawSprite({
+          id: `refl:enemy:${enemy.id}`,
+          primarySource: mCanvas,
+          worldX: rx,
+          worldY: enemyGroundY + 1,
+          widthPx: mf.w * drawScale * sx,
+          heightPx: mf.h * drawScale,
+          anchorOffsetXPx: mf.anchorX * drawScale * sx,
+          anchorOffsetYPx: mf.bottomY * drawScale,
+          facingSign: 1,
+          verticalScaleSign: -0.3 * sy,
+          rotationRad: 0,
+          alpha: 0.12 * koAlpha * reflDimMul,
+          isReflection: true,
+          deform: createIdentityControlPoints(),
+          uniforms: createDefaultShaderUniforms(),
+        });
+      } else {
+        ctx.save();
+        ctx.globalAlpha = 0.12 * koAlpha * reflDimMul;
+        ctx.translate(rx, enemyGroundY + 1);
+        ctx.scale(sx, -0.3 * sy);
+        ctx.drawImage(
+          mCanvas,
+          -mf.anchorX * drawScale,
+          -mf.bottomY * drawScale,
+          mf.w * drawScale,
+          mf.h * drawScale,
         );
         ctx.restore();
       }

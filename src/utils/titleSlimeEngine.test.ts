@@ -8,12 +8,14 @@ import {
   SLIME_DROP_MIN_R,
   SLIME_SNAP_PHASE,
   stepSlimeEngine,
+  XENO_JAW_STRANDS,
   XENO_SLIME_NOZZLES,
 } from './titleSlimeEngine';
 import { createTitleEmblemVfxState } from './titleEmblemVfx';
 
-test('Xeno Slime engine configures 4 staggered nozzles with periods in [2.1s, 3.4s] and jaw saliva inside bounds', () => {
-  assert.equal(XENO_SLIME_NOZZLES.length, 4);
+test('Xeno Slime engine configures 6 staggered nozzles and 2 elastic intra-mouth jaw strands', () => {
+  assert.equal(XENO_SLIME_NOZZLES.length, 6);
+  assert.equal(XENO_JAW_STRANDS.length, 2);
   for (const n of XENO_SLIME_NOZZLES) {
     assert.ok(n.periodSec >= 2.1 && n.periodSec <= 3.4);
   }
@@ -120,16 +122,18 @@ test('stepSlimeEngine syncs mesh offsets, emits splash rings & rebound splatters
     dyNorm: idx === 3 ? -0.02 : 0,
   }));
 
-  stepSlimeEngine(slime, vfx, 0.02, false, false, offsets);
+  stepSlimeEngine(slime, vfx, 0.02, false, false, offsets, 8.5);
   const jaw = slime.nozzles[3];
   const expectedAnchorX = (jaw.nx + 0.01) * 960;
   const expectedAnchorY = (jaw.ny - 0.02) * 541;
   assert.ok(Math.abs(jaw.anchorX - expectedAnchorX) < 1e-4);
   assert.ok(Math.abs(jaw.anchorY - expectedAnchorY) < 1e-4);
+  assert.ok(jaw.whipLagX > 0.2, 'Expected lateral whip inertia response on click/shock');
 
   let sawForegroundSplash = false;
   let sawSplatter = false;
   let sawRecoilOscillation = false;
+  let sawTrickle = false;
   for (let i = 0; i < 140; i++) {
     stepSlimeEngine(slime, vfx, 0.025, true, false);
     for (const n of slime.nozzles) {
@@ -139,6 +143,9 @@ test('stepSlimeEngine syncs mesh offsets, emits splash rings & rebound splatters
     }
     for (const sp of slime.splashes) {
       if (sp.active && sp.foreground) sawForegroundSplash = true;
+    }
+    for (const tr of slime.trickles) {
+      if (tr.active && tr.lengthPx > 4) sawTrickle = true;
     }
     for (const d of slime.droplets) {
       if (d.active && d.isSplatter) {
@@ -151,7 +158,8 @@ test('stepSlimeEngine syncs mesh offsets, emits splash rings & rebound splatters
     }
   }
   assert.ok(sawRecoilOscillation, 'Expected post-snap elastic recoil motion');
-  assert.ok(sawForegroundSplash, 'Expected foreground splash ring for lower_jaw_saliva');
+  assert.ok(sawForegroundSplash, 'Expected foreground splash ring for jaw/fang nozzles');
+  assert.ok(sawTrickle, 'Expected oozing foreground chrome-bevel trickle on jaw splash');
   assert.ok(sawSplatter, 'Expected rebound crown splatter droplets on impact');
 });
 

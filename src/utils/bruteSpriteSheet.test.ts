@@ -28,8 +28,14 @@ test('stepBruteJuice covers idle, Mutagen Brace, Seismic Heavy Smash, Maw Claw, 
     instanceIndex: 0,
   });
   assert.equal(idleSample.mode, 'idle');
-  assert.ok([0, 1, 2, 3].includes(idleSample.frameIndex));
+  assert.ok([1, 2, 3].includes(idleSample.frameIndex), 'Idle must use planted-leg frames 1, 2, or 3');
   assert.equal(idleSample.frameBlendAlpha, 1);
+
+  const idleHeights = [1, 2, 3].map((i) => BRUTE_SHEET_FRAMES[i].h);
+  assert.ok(
+    Math.max(...idleHeights) - Math.min(...idleHeights) <= 4,
+    'Planted-leg Idle frames 1..3 must have matching heights within 4px',
+  );
 
   const braceSample = stepBruteJuice(createBruteJuiceState(), 0.016, 1.2, DEFAULT_BRUTE_JUICE_CONFIG, {
     bristleTimer: 0.42,
@@ -97,7 +103,7 @@ test('stepBruteJuice covers idle, Mutagen Brace, Seismic Heavy Smash, Maw Claw, 
     instanceIndex: 0,
   });
   assert.equal(pauseRecoverSample.mode, 'pauseRecover');
-  assert.ok([0, 1].includes(pauseRecoverSample.frameIndex));
+  assert.ok([1, 3].includes(pauseRecoverSample.frameIndex));
 
   const staggeredSample = stepBruteJuice(createBruteJuiceState(), 0.016, 4.0, DEFAULT_BRUTE_JUICE_CONFIG, {
     staggeredStatus: true,

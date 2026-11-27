@@ -3,19 +3,19 @@ import { spawnSlimeSplashSpores, type TitleEmblemVfxState } from './titleEmblemV
 export const SLIME_REF_WIDTH = 960;
 export const SLIME_REF_HEIGHT = 541;
 export const SLIME_STAGE_X = 0;
-export const SLIME_STAGE_Y = 54;
-export const SLIME_STAGE_W = 264;
-export const SLIME_STAGE_H = 420;
-export const SLIME_SCRATCH_W = 264;
-export const SLIME_SCRATCH_H = 420;
+export const SLIME_STAGE_Y = 48;
+export const SLIME_STAGE_W = 312;
+export const SLIME_STAGE_H = 440;
+export const SLIME_SCRATCH_W = 312;
+export const SLIME_SCRATCH_H = 440;
 export const SLIME_SPLASH_NY = 0.58;
-export const SLIME_GRAVITY_PX_S2 = 420;
+export const SLIME_GRAVITY_PX_S2 = 430;
 export const SLIME_SHOCK_SPEED_MULT = 2.2;
-export const SLIME_SNAP_PHASE = 0.62;
-export const SLIME_DROP_MIN_R = 2.2;
-export const SLIME_DROP_MAX_R = 5.4;
-export const SLIME_SATELLITE_R = 1.3;
-export const SLIME_SPLATTER_R = 1.9;
+export const SLIME_SNAP_PHASE = 0.64;
+export const SLIME_DROP_MIN_R = 2.8;
+export const SLIME_DROP_MAX_R = 6.8;
+export const SLIME_SATELLITE_R = 1.8;
+export const SLIME_SPLATTER_R = 2.4;
 
 export interface SlimeNozzleConfig {
   id: string;
@@ -24,20 +24,26 @@ export interface SlimeNozzleConfig {
   splashNy: number;
   hangPx: number;
   swayAmpPx: number;
+  radiusScale: number;
   periodSec: number;
   initialPhase: number;
   meshVertexIdx: number;
   foregroundSplash: boolean;
 }
 
+/**
+ * 6 anatomically calibrated Xeno Slime drip nozzles:
+ * 3 left tentacle bulbs + 3 jaw/fang emitters (spawning foreground splashes & chrome oozing trickles).
+ */
 export const XENO_SLIME_NOZZLES: readonly SlimeNozzleConfig[] = [
   {
     id: 'lower_left_tentacle',
     nx: 0.029,
-    ny: 0.519,
-    splashNy: 0.695,
-    hangPx: 22,
-    swayAmpPx: 1.4,
+    ny: 0.514,
+    splashNy: 0.78,
+    hangPx: 42,
+    swayAmpPx: 2.2,
+    radiusScale: 1.12,
     periodSec: 2.35,
     initialPhase: 0.12,
     meshVertexIdx: 2,
@@ -45,11 +51,12 @@ export const XENO_SLIME_NOZZLES: readonly SlimeNozzleConfig[] = [
   },
   {
     id: 'mid_left_tentacle',
-    nx: 0.032,
-    ny: 0.331,
-    splashNy: 0.482,
-    hangPx: 20,
-    swayAmpPx: 1.2,
+    nx: 0.033,
+    ny: 0.326,
+    splashNy: 0.54,
+    hangPx: 38,
+    swayAmpPx: 2.0,
+    radiusScale: 1.04,
     periodSec: 2.85,
     initialPhase: 0.48,
     meshVertexIdx: 1,
@@ -57,12 +64,13 @@ export const XENO_SLIME_NOZZLES: readonly SlimeNozzleConfig[] = [
   },
   {
     id: 'upper_left_tentacle',
-    nx: 0.079,
-    ny: 0.131,
-    splashNy: 0.246,
-    hangPx: 18,
-    swayAmpPx: 1.1,
-    periodSec: 3.4,
+    nx: 0.080,
+    ny: 0.136,
+    splashNy: 0.285,
+    hangPx: 30,
+    swayAmpPx: 1.7,
+    radiusScale: 0.94,
+    periodSec: 3.35,
     initialPhase: 0.76,
     meshVertexIdx: 0,
     foregroundSplash: false,
@@ -70,14 +78,75 @@ export const XENO_SLIME_NOZZLES: readonly SlimeNozzleConfig[] = [
   {
     id: 'lower_jaw_saliva',
     nx: 0.208,
-    ny: 0.362,
-    splashNy: 0.443,
-    hangPx: 20,
-    swayAmpPx: 0.9,
-    periodSec: 2.1,
+    ny: 0.360,
+    splashNy: 0.448,
+    hangPx: 31,
+    swayAmpPx: 1.4,
+    radiusScale: 1.04,
+    periodSec: 2.15,
     initialPhase: 0.31,
     meshVertexIdx: 6,
     foregroundSplash: true,
+  },
+  {
+    id: 'left_fang_drool',
+    nx: 0.146,
+    ny: 0.342,
+    splashNy: 0.512,
+    hangPx: 33,
+    swayAmpPx: 1.5,
+    radiusScale: 0.94,
+    periodSec: 2.65,
+    initialPhase: 0.62,
+    meshVertexIdx: 7,
+    foregroundSplash: true,
+  },
+  {
+    id: 'right_fang_drool',
+    nx: 0.264,
+    ny: 0.336,
+    splashNy: 0.452,
+    hangPx: 29,
+    swayAmpPx: 1.3,
+    radiusScale: 0.92,
+    periodSec: 3.1,
+    initialPhase: 0.88,
+    meshVertexIdx: 6,
+    foregroundSplash: true,
+  },
+] as const;
+
+export interface SlimeJawStrandConfig {
+  id: string;
+  topNx: number;
+  topNy: number;
+  botNx: number;
+  botNy: number;
+  baseThicknessPx: number;
+  phaseOffset: number;
+}
+
+/**
+ * Elastic intra-mouth drool filaments bridging Xeno's upper & lower fangs.
+ */
+export const XENO_JAW_STRANDS: readonly SlimeJawStrandConfig[] = [
+  {
+    id: 'jaw_strand_left',
+    topNx: 0.175,
+    topNy: 0.284,
+    botNx: 0.183,
+    botNy: 0.356,
+    baseThicknessPx: 2.1,
+    phaseOffset: 0.4,
+  },
+  {
+    id: 'jaw_strand_right',
+    topNx: 0.242,
+    topNy: 0.278,
+    botNx: 0.248,
+    botNy: 0.354,
+    baseThicknessPx: 1.85,
+    phaseOffset: 2.1,
   },
 ] as const;
 
@@ -92,6 +161,7 @@ export interface SlimeNozzle {
   splashNy: number;
   hangPx: number;
   swayAmpPx: number;
+  radiusScale: number;
   meshVertexIdx: number;
   foregroundSplash: boolean;
   periodSec: number;
@@ -104,6 +174,7 @@ export interface SlimeNozzle {
   bulbR: number;
   neckWaist: number;
   recoilOffset: number;
+  whipLagX: number;
 }
 
 export interface SlimeDroplet {
@@ -131,16 +202,34 @@ export interface SlimeSplashRing {
   foreground: boolean;
 }
 
-export const SLIME_DROPLET_POOL_SIZE = 32;
-export const SLIME_SPLASH_POOL_SIZE = 12;
+export interface SlimeTrickle {
+  active: boolean;
+  x: number;
+  startY: number;
+  lengthPx: number;
+  maxLengthPx: number;
+  widthPx: number;
+  age: number;
+  maxLife: number;
+  driftX: number;
+}
+
+export const SLIME_DROPLET_POOL_SIZE = 48;
+export const SLIME_SPLASH_POOL_SIZE = 16;
+export const SLIME_TRICKLE_POOL_SIZE = 10;
 
 export interface SlimeEngineState {
   timeSec: number;
+  shockIntensity: number;
+  jawOffsetDxPx: number;
+  jawOffsetDyPx: number;
   nozzles: SlimeNozzle[];
   droplets: SlimeDroplet[];
   splashes: SlimeSplashRing[];
+  trickles: SlimeTrickle[];
   nextDropletCursor: number;
   nextSplashCursor: number;
+  nextTrickleCursor: number;
   scratchCanvas: HTMLCanvasElement | null;
   scratchCtx: CanvasRenderingContext2D | null;
   scratchImageData: ImageData | null;
@@ -148,7 +237,8 @@ export interface SlimeEngineState {
   auraCanvas: HTMLCanvasElement | null;
 }
 
-// Precompute deterministic 256-entry metaball smoothstep + 4-stop bioluminescent LUT
+// Precomputed 256-entry 5-stop comic-neon bio-acid LUT:
+// Crisp dark emerald ink outline (#14532d -> #225418) -> saturated lime (#65a30d -> #a3e635) -> hot chartreuse core (#f7fee7)
 const METABALL_RGBA_LUT = (() => {
   const lut = new Uint8ClampedArray(256 * 4);
   const low = 0.42 * 255; // 107.1
@@ -169,9 +259,10 @@ const METABALL_RGBA_LUT = (() => {
     if (a < high) {
       const t = (a - low) * invSpan;
       const smooth = t * t * (3 - 2 * t);
-      lut[o] = Math.round(54 + (77 - 54) * smooth); // #365314 -> #4d7c0f crisp meniscus
-      lut[o + 1] = Math.round(83 + (124 - 83) * smooth);
-      lut[o + 2] = Math.round(20 + (15 - 20) * smooth);
+      // Dark emerald cartoon-ink meniscus for crisp contrast on dark & neon backdrops
+      lut[o] = Math.round(20 + (34 - 20) * smooth); // #14532d -> #225418
+      lut[o + 1] = Math.round(83 + (108 - 83) * smooth);
+      lut[o + 2] = Math.round(45 + (20 - 45) * smooth);
       lut[o + 3] = Math.round(smooth * 255);
       continue;
     }
@@ -180,24 +271,30 @@ const METABALL_RGBA_LUT = (() => {
     let r: number;
     let g: number;
     let b: number;
-    if (u < 0.26) {
-      // #4d7c0f -> #84cc16
-      const k = u / 0.26;
-      r = 77 + (132 - 77) * k;
-      g = 124 + (204 - 124) * k;
-      b = 15 + (22 - 15) * k;
-    } else if (u < 0.72) {
-      // #84cc16 -> #bef264
-      const k = (u - 0.26) / 0.46;
-      r = 132 + (190 - 132) * k;
-      g = 204 + (242 - 204) * k;
-      b = 22 + (100 - 22) * k;
+    if (u < 0.16) {
+      // Crisp dark emerald rim -> rich toxic green (#226c14 -> #65a30d)
+      const k = u / 0.16;
+      r = 34 + (101 - 34) * k;
+      g = 108 + (163 - 108) * k;
+      b = 20 + (13 - 20) * k;
+    } else if (u < 0.48) {
+      // #65a30d -> #a3e635 vibrant neon lime
+      const k = (u - 0.16) / 0.32;
+      r = 101 + (163 - 101) * k;
+      g = 163 + (230 - 163) * k;
+      b = 13 + (53 - 13) * k;
+    } else if (u < 0.80) {
+      // #a3e635 -> #d9f99d luminous acid glow
+      const k = (u - 0.48) / 0.32;
+      r = 163 + (217 - 163) * k;
+      g = 230 + (249 - 230) * k;
+      b = 53 + (157 - 53) * k;
     } else {
-      // #bef264 -> #ecfccb hot luminous acid core
-      const k = (u - 0.72) / 0.28;
-      r = 190 + (236 - 190) * k;
-      g = 242 + (252 - 242) * k;
-      b = 100 + (203 - 100) * k;
+      // #d9f99d -> #f7fee7 hot radioactive chartreuse core
+      const k = (u - 0.80) / 0.20;
+      r = 217 + (247 - 217) * k;
+      g = 249 + (254 - 249) * k;
+      b = 157 + (231 - 157) * k;
     }
 
     lut[o] = Math.round(r);
@@ -232,9 +329,23 @@ function createEmptySplash(): SlimeSplashRing {
     x: 0,
     y: 0,
     age: 0,
-    maxLife: 0.3,
-    maxR: 12,
+    maxLife: 0.35,
+    maxR: 16,
     foreground: false,
+  };
+}
+
+function createEmptyTrickle(): SlimeTrickle {
+  return {
+    active: false,
+    x: 0,
+    startY: 0,
+    lengthPx: 0,
+    maxLengthPx: 20,
+    widthPx: 3.4,
+    age: 0,
+    maxLife: 1.7,
+    driftX: 0,
   };
 }
 
@@ -248,6 +359,7 @@ export function createSlimeEngineState(): SlimeEngineState {
       splashNy: cfg.splashNy,
       hangPx: cfg.hangPx,
       swayAmpPx: cfg.swayAmpPx,
+      radiusScale: cfg.radiusScale,
       meshVertexIdx: cfg.meshVertexIdx,
       foregroundSplash: cfg.foregroundSplash,
       periodSec: cfg.periodSec,
@@ -257,9 +369,10 @@ export function createSlimeEngineState(): SlimeEngineState {
       anchorY: y0,
       bulbX: x0,
       bulbY: y0,
-      bulbR: SLIME_DROP_MIN_R,
-      neckWaist: SLIME_DROP_MIN_R,
+      bulbR: SLIME_DROP_MIN_R * cfg.radiusScale,
+      neckWaist: SLIME_DROP_MIN_R * cfg.radiusScale,
       recoilOffset: 0,
+      whipLagX: 0,
     };
   });
 
@@ -273,13 +386,33 @@ export function createSlimeEngineState(): SlimeEngineState {
     splashes[i] = createEmptySplash();
   }
 
+  const trickles: SlimeTrickle[] = new Array(SLIME_TRICKLE_POOL_SIZE);
+  for (let i = 0; i < SLIME_TRICKLE_POOL_SIZE; i++) {
+    trickles[i] = createEmptyTrickle();
+  }
+  // Seed one active slow ooze trickle on the upper chrome bevel of NEON so foreground slime reads immediately
+  trickles[0].active = true;
+  trickles[0].x = 202;
+  trickles[0].startY = 242;
+  trickles[0].lengthPx = 15;
+  trickles[0].maxLengthPx = 28;
+  trickles[0].widthPx = 4.1;
+  trickles[0].age = 0.55;
+  trickles[0].maxLife = 2.6;
+  trickles[0].driftX = -0.9;
+
   return {
     timeSec: 0,
+    shockIntensity: 0,
+    jawOffsetDxPx: 0,
+    jawOffsetDyPx: 0,
     nozzles,
     droplets,
     splashes,
+    trickles,
     nextDropletCursor: 0,
     nextSplashCursor: 0,
+    nextTrickleCursor: 0,
     scratchCanvas: null,
     scratchCtx: null,
     scratchImageData: null,
@@ -314,6 +447,19 @@ function claimSplashSlot(state: SlimeEngineState): SlimeSplashRing {
   return slot;
 }
 
+function claimTrickleSlot(state: SlimeEngineState): SlimeTrickle {
+  for (let i = 0; i < SLIME_TRICKLE_POOL_SIZE; i++) {
+    const idx = (state.nextTrickleCursor + i) % SLIME_TRICKLE_POOL_SIZE;
+    if (!state.trickles[idx].active) {
+      state.nextTrickleCursor = (idx + 1) % SLIME_TRICKLE_POOL_SIZE;
+      return state.trickles[idx];
+    }
+  }
+  const slot = state.trickles[state.nextTrickleCursor];
+  state.nextTrickleCursor = (state.nextTrickleCursor + 1) % SLIME_TRICKLE_POOL_SIZE;
+  return slot;
+}
+
 /**
  * Computes axisymmetric volume-preserving stretch factors for a falling droplet.
  * Guarantees scaleX^2 * scaleY === 1.
@@ -329,8 +475,9 @@ export function computeDropletStretch(velocityY: number): {
 }
 
 /**
- * Advances all four staggered Xeno Slime nozzles, elastic snap recoil, capillary satellites,
- * gravity teardrop freefall, splash rebound splatters, and bio_left spore emission.
+ * Advances all 6 staggered Xeno Slime nozzles, elastic snap recoil, Plateau-Rayleigh
+ * capillary satellites, gravity teardrop freefall, lateral whip inertia, foreground
+ * splash crowns + chrome-bevel oozing trickles, and bio_left spore emission.
  */
 export function stepSlimeEngine(
   state: SlimeEngineState,
@@ -339,6 +486,7 @@ export function stepSlimeEngine(
   isXenoShocked: boolean,
   reducedMotion = false,
   nozzleOffsets?: readonly SlimeNozzleOffset[],
+  lateralWhipPx = 0,
 ): void {
   if (reducedMotion) return;
 
@@ -347,6 +495,17 @@ export function stepSlimeEngine(
 
   const effDt = dt * (isXenoShocked ? SLIME_SHOCK_SPEED_MULT : 1);
   state.timeSec += effDt;
+
+  const targetShock = isXenoShocked ? 1 : 0;
+  state.shockIntensity += (targetShock - state.shockIntensity) * Math.min(1, dt * 8);
+
+  // Track jaw offset (nozzle index 3 = lower_jaw_saliva) for elastic intra-mouth strands
+  const jawOff = nozzleOffsets?.[3];
+  state.jawOffsetDxPx = jawOff ? jawOff.dxNorm * SLIME_REF_WIDTH : 0;
+  state.jawOffsetDyPx = jawOff ? jawOff.dyNorm * SLIME_REF_HEIGHT : 0;
+
+  const clampedWhip = Math.max(-14, Math.min(14, Number.isFinite(lateralWhipPx) ? lateralWhipPx : 0));
+  const whipDamp = Math.exp(-6.5 * dt);
 
   for (let i = 0; i < state.nozzles.length; i++) {
     const n = state.nozzles[i];
@@ -365,18 +524,26 @@ export function stepSlimeEngine(
     n.anchorX = x0;
     n.anchorY = y0;
 
-    const swayX = Math.sin(state.timeSec * 2.4 + i * 1.7) * n.swayAmpPx;
+    // Smooth inertial whip lag on hanging strands when user clicks or Xeno shakes
+    n.whipLagX = n.whipLagX * whipDamp + clampedWhip * (1 - whipDamp) * (0.75 + (i % 3) * 0.18);
+
+    const swayX =
+      Math.sin(state.timeSec * 2.35 + i * 1.65) * n.swayAmpPx +
+      n.whipLagX;
     const targetSplashY =
       (n.splashNy + (offset ? offset.dyNorm * 0.35 : 0)) * SLIME_REF_HEIGHT;
+    const minR = SLIME_DROP_MIN_R * n.radiusScale;
+    const maxR = SLIME_DROP_MAX_R * n.radiusScale;
 
     if (n.phase <= SLIME_SNAP_PHASE) {
       const u = n.phase / SLIME_SNAP_PHASE;
-      const dy = n.hangPx * (0.18 * u + 0.82 * Math.pow(u, 2.35));
-      const r = SLIME_DROP_MIN_R + (SLIME_DROP_MAX_R - SLIME_DROP_MIN_R) * Math.pow(u, 0.88);
+      // Realistic viscous gravity creep accelerating sharply into pinch-off
+      const dy = n.hangPx * (0.16 * u + 0.84 * Math.pow(u, 2.25));
+      const r = minR + (maxR - minR) * Math.pow(u, 0.82);
       n.bulbX = x0 + swayX * u;
       n.bulbY = y0 + dy;
       n.bulbR = r;
-      n.neckWaist = r * Math.max(0.11, 1 - Math.pow(u, 2.2));
+      n.neckWaist = r * Math.max(0.10, 1 - Math.pow(u, 2.05));
       n.recoilOffset = 0;
     } else {
       if (!n.snappedThisCycle && prevPhase <= SLIME_SNAP_PHASE) {
@@ -386,9 +553,9 @@ export function stepSlimeEngine(
         mainDrop.active = true;
         mainDrop.x = x0 + swayX;
         mainDrop.y = y0 + n.hangPx;
-        mainDrop.vx = swayX * 1.4;
-        mainDrop.vy = 36;
-        mainDrop.radius = SLIME_DROP_MAX_R;
+        mainDrop.vx = swayX * 1.65 + n.whipLagX * 4.5;
+        mainDrop.vy = 42;
+        mainDrop.radius = maxR;
         mainDrop.scaleX = 1;
         mainDrop.scaleY = 1;
         mainDrop.isSatellite = false;
@@ -396,16 +563,16 @@ export function stepSlimeEngine(
         mainDrop.splashY = targetSplashY;
         mainDrop.foregroundSplash = n.foregroundSplash;
 
-        // 1-2 micro-satellite beads along the snapped capillary filament
-        const satCount = (i & 1) === 0 ? 2 : 1;
+        // 2 micro-satellite beads along the snapped Plateau-Rayleigh filament
+        const satCount = 2;
         for (let s = 0; s < satCount; s++) {
           const sat = claimDropletSlot(state);
           sat.active = true;
-          sat.x = x0 + swayX * 0.55 + (s === 0 ? -1.1 : 1.1);
-          sat.y = y0 + n.hangPx * (0.44 + s * 0.18);
-          sat.vx = s === 0 ? -5.5 : 5.5;
-          sat.vy = 16 + s * 11;
-          sat.radius = SLIME_SATELLITE_R;
+          sat.x = x0 + swayX * (0.45 + s * 0.25) + (s === 0 ? -1.4 : 1.4);
+          sat.y = y0 + n.hangPx * (0.38 + s * 0.24);
+          sat.vx = (s === 0 ? -7.5 : 7.5) + n.whipLagX * 2.8;
+          sat.vy = 18 + s * 14;
+          sat.radius = SLIME_SATELLITE_R * (s === 0 ? 1.0 : 0.82);
           sat.scaleX = 1;
           sat.scaleY = 1;
           sat.isSatellite = true;
@@ -415,16 +582,16 @@ export function stepSlimeEngine(
         }
       }
 
-      // Elastic meniscus recoil with damped oscillation after snap
+      // Elastic meniscus recoil with juicy damped oscillation after snap
       const recU = Math.min(1, (n.phase - SLIME_SNAP_PHASE) / (1 - SLIME_SNAP_PHASE));
-      const spring = Math.exp(-5.8 * recU) * Math.cos(recU * Math.PI * 3.4);
-      const recoilY = (1 - recU) * 4.2 * spring;
+      const spring = Math.exp(-5.4 * recU) * Math.cos(recU * Math.PI * 3.6);
+      const recoilY = (1 - recU) * 6.2 * spring;
       n.recoilOffset = recoilY;
-      n.bulbX = x0 + swayX * (1 - recU) * 0.35;
-      n.bulbY = y0 + Math.max(-0.8, recoilY);
+      n.bulbX = x0 + swayX * (1 - recU) * 0.4;
+      n.bulbY = y0 + Math.max(-1.2, recoilY);
       n.bulbR =
-        SLIME_DROP_MIN_R * (0.68 + 0.32 * recU + Math.max(0, -spring) * 0.18 * (1 - recU));
-      n.neckWaist = n.bulbR * 0.88;
+        minR * (0.72 + 0.28 * recU + Math.max(0, -spring) * 0.22 * (1 - recU));
+      n.neckWaist = n.bulbR * 0.86;
     }
   }
 
@@ -453,25 +620,40 @@ export function stepSlimeEngine(
         splash.x = d.x;
         splash.y = d.splashY;
         splash.age = 0;
-        splash.maxLife = d.foregroundSplash ? 0.38 : 0.3;
-        splash.maxR = d.foregroundSplash ? 17 : 13;
+        splash.maxLife = d.foregroundSplash ? 0.46 : 0.36;
+        splash.maxR = d.foregroundSplash ? 22 : 16;
         splash.foreground = d.foregroundSplash;
 
-        // Rebound crown micro-splatter droplets arcing sideways & upward
-        for (let k = 0; k < 2; k++) {
-          const dir = k === 0 ? -1 : 1;
+        // Spawn a slow glossy ooze trickle crawling down the top chrome bevel of NEON
+        if (d.foregroundSplash) {
+          const trickle = claimTrickleSlot(state);
+          trickle.active = true;
+          trickle.x = d.x;
+          trickle.startY = d.splashY;
+          trickle.lengthPx = 3.2;
+          trickle.maxLengthPx = 22 + (i % 4) * 4.0;
+          trickle.widthPx = 3.6 + (i % 2) * 1.0;
+          trickle.age = 0;
+          trickle.maxLife = 2.25 + (i % 3) * 0.3;
+          trickle.driftX = ((i % 3) - 1) * 1.5;
+        }
+
+        // 3 rebound crown micro-splatter droplets arcing sideways & upward
+        const splatCount = d.foregroundSplash ? 3 : 2;
+        for (let k = 0; k < splatCount; k++) {
+          const dir = k === 0 ? -1 : k === 1 ? 1 : (i & 1) === 0 ? -0.45 : 0.45;
           const splat = claimDropletSlot(state);
           splat.active = true;
-          splat.x = d.x + dir * 2.2;
-          splat.y = d.splashY - 1.5;
-          splat.vx = dir * (32 + (i % 3) * 10);
-          splat.vy = -82 - k * 18;
-          splat.radius = SLIME_SPLATTER_R;
+          splat.x = d.x + dir * 2.8;
+          splat.y = d.splashY - 2.0;
+          splat.vx = dir * (38 + (i % 3) * 12);
+          splat.vy = -96 - k * 20;
+          splat.radius = SLIME_SPLATTER_R * (k === 2 ? 0.78 : 1.0);
           splat.scaleX = 1;
           splat.scaleY = 1;
           splat.isSatellite = false;
           splat.isSplatter = true;
-          splat.splashY = d.splashY + 3.5;
+          splat.splashY = d.splashY + 4.5;
           splat.foregroundSplash = d.foregroundSplash;
         }
       }
@@ -486,11 +668,25 @@ export function stepSlimeEngine(
       sp.active = false;
     }
   }
+
+  for (let i = 0; i < state.trickles.length; i++) {
+    const tr = state.trickles[i];
+    if (!tr.active) continue;
+    tr.age += dt;
+    if (tr.age >= tr.maxLife) {
+      tr.active = false;
+      continue;
+    }
+    const u = tr.age / tr.maxLife;
+    // Fast initial ooze creep that slows as surface tension wins
+    const creep = 1 - Math.pow(1 - Math.min(1, u * 1.25), 2.4);
+    tr.lengthPx = 2.5 + (tr.maxLengthPx - 2.5) * creep;
+  }
 }
 
 /**
  * Deterministic in-place smoothstep alpha thresholding (alpha in [0.42, 0.54])
- * and 4-stop bioluminescent acid shading via a precomputed 256-entry RGBA LUT.
+ * and 5-stop comic-neon bio-acid shading via a precomputed 256-entry RGBA LUT.
  */
 export function applyMetaballSmoothstepThreshold(data: Uint8ClampedArray): void {
   const lut = METABALL_RGBA_LUT;
@@ -527,7 +723,6 @@ function buildDensityStampCanvas(): HTMLCanvasElement | null {
         d[o + 2] = 0;
         d[o + 3] = 0;
       } else {
-        // C1-smooth cubic-squared falloff (zero center spike & zero outer ring)
         const f = 1 - r2;
         d[o] = 255;
         d[o + 1] = 255;
@@ -551,8 +746,8 @@ function buildAuraStampCanvas(): HTMLCanvasElement | null {
 
   const half = size * 0.5;
   const grad = ctx.createRadialGradient(half, half, 2, half, half, half);
-  grad.addColorStop(0, 'rgba(190, 242, 100, 0.72)');
-  grad.addColorStop(0.42, 'rgba(132, 204, 22, 0.34)');
+  grad.addColorStop(0, 'rgba(217, 249, 157, 0.82)');
+  grad.addColorStop(0.38, 'rgba(132, 204, 22, 0.42)');
   grad.addColorStop(1, 'rgba(132, 204, 22, 0)');
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, size, size);
@@ -609,9 +804,10 @@ function ensureSlimeScratch(state: SlimeEngineState): {
 }
 
 /**
- * Renders the crisp 1x metaball Xeno Slime layer onto the 264x420 scratch buffer,
- * runs deterministic LUT smoothstep thresholding + 4-stop bioluminescent shading,
- * adds clipped glossy specular highlights, and composites behind Plane 0.
+ * Renders the crisp 1x metaball Xeno Slime layer onto the 312x440 scratch buffer,
+ * including 6 nozzles, 2 elastic intra-mouth drool filaments, Plateau-Rayleigh necks,
+ * 5-stop comic-neon LUT shading, glossy wet specular crescents + internal micro-bubbles,
+ * and composites onto the unified offscreen logo buffer behind Plane 0.
  */
 export function renderSlimeEngine(
   ctx: CanvasRenderingContext2D,
@@ -629,13 +825,40 @@ export function renderSlimeEngine(
   const toScratchX = (refX: number) => ((refX - SLIME_STAGE_X) / SLIME_STAGE_W) * SLIME_SCRATCH_W;
   const toScratchY = (refY: number) => ((refY - SLIME_STAGE_Y) / SLIME_STAGE_H) * SLIME_SCRATCH_H;
   const scaleR = SLIME_SCRATCH_W / SLIME_STAGE_W; // 1.0x
-  // With (1 - r^2)^2 stamp, alpha=0.54 contour sits at d=0.515 -> draw radius = visualRadius / 0.54
   const fieldMult = 1.85;
 
   sctx.globalCompositeOperation = 'source-over';
   sctx.clearRect(0, 0, SLIME_SCRATCH_W, SLIME_SCRATCH_H);
 
-  // 1. Soft density accumulation pass using pre-baked C1 stamp
+  // 1a. Elastic intra-mouth drool strands stretched between Xeno's upper & lower fangs
+  for (let i = 0; i < XENO_JAW_STRANDS.length; i++) {
+    const st = XENO_JAW_STRANDS[i];
+    const tx = toScratchX(st.topNx * SLIME_REF_WIDTH + state.jawOffsetDxPx * 0.45);
+    const ty = toScratchY(st.topNy * SLIME_REF_HEIGHT + state.jawOffsetDyPx * 0.45);
+    const bx = toScratchX(st.botNx * SLIME_REF_WIDTH + state.jawOffsetDxPx);
+    const by = toScratchY(st.botNy * SLIME_REF_HEIGHT + state.jawOffsetDyPx);
+    const sway =
+      Math.sin(state.timeSec * 3.1 + st.phaseOffset) *
+      (1.6 + state.shockIntensity * 1.4);
+    const steps = 10;
+    for (let k = 0; k <= steps; k++) {
+      const u = k / steps;
+      const arch = 4 * u * (1 - u);
+      const sx = tx + (bx - tx) * u + sway * arch;
+      const sy = ty + (by - ty) * u;
+      // Thick at tooth anchors, taut narrow hourglass waist in middle
+      const waist = 1 - 0.56 * arch;
+      const r =
+        st.baseThicknessPx *
+        (0.92 + 0.14 * Math.sin(state.timeSec * 2.2 + st.phaseOffset)) *
+        waist *
+        scaleR *
+        fieldMult;
+      drawSoftRadialBlob(sctx, stamp, sx, sy, r, r * 1.15);
+    }
+  }
+
+  // 1b. Six nozzle menisci, Plateau-Rayleigh catenary necks, and swollen heavy bulbs
   for (let i = 0; i < state.nozzles.length; i++) {
     const n = state.nozzles[i];
     const sx0 = toScratchX(n.anchorX);
@@ -644,33 +867,42 @@ export function renderSlimeEngine(
     const sby = toScratchY(n.bulbY);
     const sbr = n.bulbR * scaleR * fieldMult;
 
-    // Wide anchor meniscus hugging tentacle / tooth tip
-    drawSoftRadialBlob(sctx, stamp, sx0, sy0, 5.0 * scaleR * fieldMult, 3.5 * scaleR * fieldMult);
+    // Wide sticky anchor meniscus hugging tentacle bulb / fang tip
+    const rootR = 5.6 * n.radiusScale * scaleR * fieldMult;
+    drawSoftRadialBlob(sctx, stamp, sx0, sy0, rootR, rootR * 0.72);
 
-    // Smooth catenary tapered filament during Phase A
+    // Smooth catenary tapered filament + Plateau-Rayleigh mid-strand bead bulge during Phase A
     if (n.phase <= SLIME_SNAP_PHASE) {
-      const steps = 9;
+      const phaseU = n.phase / SLIME_SNAP_PHASE;
+      const steps = 12;
       for (let k = 1; k < steps; k++) {
         const u = k / steps;
         const cx = sx0 + (sbx - sx0) * (u * u);
         const cy = sy0 + (sby - sy0) * u;
-        // Concave neck pinching sharpest near u ~ 0.72 just above the heavy bulb
-        const pinchEnv = Math.exp(-Math.pow((u - 0.72) / 0.26, 2));
-        const rootFlare = (1 - u) * (1 - u) * 1.4;
+        const pinchEnv = Math.exp(-Math.pow((u - 0.74) / 0.22, 2));
+        const rootFlare = (1 - u) * (1 - u) * 1.55;
+        // Subtle Plateau-Rayleigh satellite bead forming mid-strand just before snap
+        const satBulge =
+          phaseU > 0.58
+            ? Math.exp(-Math.pow((u - 0.44) / 0.11, 2)) * ((phaseU - 0.58) / 0.42) * 1.45
+            : 0;
         const waistPx = Math.max(
-          0.9,
-          n.neckWaist * (1 - 0.32 * pinchEnv) + (n.bulbR - n.neckWaist) * 0.35 * rootFlare,
+          1.05,
+          n.neckWaist * (1 - 0.36 * pinchEnv) +
+            (n.bulbR - n.neckWaist) * 0.36 * rootFlare +
+            satBulge,
         );
         const wsr = waistPx * scaleR * fieldMult;
-        drawSoftRadialBlob(sctx, stamp, cx, cy, wsr, wsr * 1.18);
+        drawSoftRadialBlob(sctx, stamp, cx, cy, wsr, wsr * 1.2);
       }
     }
 
-    // Pear-shaped heavy bulb (upper shoulder + lower sag lobe)
-    drawSoftRadialBlob(sctx, stamp, sbx, sby - sbr * 0.24, sbr * 0.72, sbr * 0.78);
-    drawSoftRadialBlob(sctx, stamp, sbx, sby, sbr, sbr * 1.12);
+    // Plump pear-shaped hanging bulb (upper tapered shoulder + heavy gravity-sagged lobe)
+    drawSoftRadialBlob(sctx, stamp, sbx, sby - sbr * 0.26, sbr * 0.74, sbr * 0.82);
+    drawSoftRadialBlob(sctx, stamp, sbx, sby, sbr, sbr * 1.16);
   }
 
+  // 1c. Freefalling aerodynamic teardrops & capillary satellites
   for (let i = 0; i < state.droplets.length; i++) {
     const d = state.droplets[i];
     if (!d.active || (d.isSplatter && d.foregroundSplash)) continue;
@@ -679,17 +911,17 @@ export function renderSlimeEngine(
     const sr = d.radius * scaleR * fieldMult;
 
     if (!d.isSatellite && !d.isSplatter) {
-      // Aerodynamic teardrop tail + plump leading drop head merged in metaball field
       const rx = sr * d.scaleX;
       const ry = sr * d.scaleY;
-      drawSoftRadialBlob(sctx, stamp, sdx, sdy - ry * 0.48, rx * 0.56, ry * 0.78);
-      drawSoftRadialBlob(sctx, stamp, sdx, sdy, rx, ry);
+      // Tapered upper teardrop wake + bulbous lower drop head
+      drawSoftRadialBlob(sctx, stamp, sdx, sdy - ry * 0.56, rx * 0.48, ry * 0.82);
+      drawSoftRadialBlob(sctx, stamp, sdx, sdy, rx, ry * 1.05);
     } else {
       drawSoftRadialBlob(sctx, stamp, sdx, sdy, sr * d.scaleX, sr * d.scaleY);
     }
   }
 
-  // Background impact splatter puddles on tentacle ridges
+  // 1d. Background impact splatter puddles on tentacle ridges
   for (let i = 0; i < state.splashes.length; i++) {
     const sp = state.splashes[i];
     if (!sp.active || sp.foreground) continue;
@@ -703,58 +935,93 @@ export function renderSlimeEngine(
       stamp,
       sx,
       sy,
-      Math.max(1.5, sp.maxR * 0.55 * ease * fade * scaleR * fieldMult),
-      Math.max(1.2, 2.2 * fade * scaleR * fieldMult),
+      Math.max(1.8, sp.maxR * 0.62 * ease * fade * scaleR * fieldMult),
+      Math.max(1.4, 2.8 * fade * scaleR * fieldMult),
     );
   }
 
-  // 2. Deterministic smoothstep LUT thresholding & 4-stop bioluminescent acid shading
+  // 2. Deterministic smoothstep LUT thresholding & 5-stop comic-neon acid shading
   const readData = sctx.getImageData(0, 0, SLIME_SCRATCH_W, SLIME_SCRATCH_H);
   imageData.data.set(readData.data);
   applyMetaballSmoothstepThreshold(imageData.data);
   sctx.putImageData(imageData, 0, 0);
 
-  // 3. Clipped glossy wet specular highlights inside the metaball silhouette
+  // 3. Clipped glossy wet specular crescents, filament glints & rising internal micro-bubbles
   sctx.save();
   sctx.globalCompositeOperation = 'source-atop';
+
   for (let i = 0; i < state.nozzles.length; i++) {
     const n = state.nozzles[i];
+    const sx0 = toScratchX(n.anchorX);
+    const sy0 = toScratchY(n.anchorY);
     const sbx = toScratchX(n.bulbX);
     const sby = toScratchY(n.bulbY);
     const sr = n.bulbR * scaleR;
-    if (sr >= 1.5) {
-      sctx.fillStyle = 'rgba(247, 254, 231, 0.92)';
+
+    // Wet sheen line tracing down the left sunlit side of stretching catenary neck
+    if (n.phase <= SLIME_SNAP_PHASE && sby - sy0 > 6) {
+      sctx.strokeStyle = 'rgba(247, 254, 231, 0.72)';
+      sctx.lineWidth = Math.max(0.9, n.neckWaist * 0.28);
+      sctx.lineCap = 'round';
+      sctx.beginPath();
+      sctx.moveTo(sx0 - 1.1, sy0 + 3);
+      sctx.quadraticCurveTo(
+        (sx0 + sbx) * 0.5 - 1.2,
+        (sy0 + sby) * 0.5,
+        sbx - sr * 0.36,
+        sby - sr * 0.48,
+      );
+      sctx.stroke();
+    }
+
+    if (sr >= 1.8) {
+      // Primary crisp white-lime wet specular highlight on upper-left shoulder
+      sctx.fillStyle = 'rgba(255, 255, 255, 0.94)';
       sctx.beginPath();
       sctx.ellipse(
         sbx - 0.34 * sr,
-        sby - 0.32 * sr,
-        Math.max(0.7, sr * 0.24),
-        Math.max(1.0, sr * 0.42),
-        -0.32,
+        sby - 0.30 * sr,
+        Math.max(0.85, sr * 0.25),
+        Math.max(1.2, sr * 0.46),
+        -0.3,
         0,
         Math.PI * 2,
       );
       sctx.fill();
 
-      sctx.fillStyle = 'rgba(217, 249, 157, 0.45)';
+      // Secondary lower-right rim bounce reflection
+      sctx.fillStyle = 'rgba(217, 249, 157, 0.55)';
       sctx.beginPath();
-      sctx.arc(sbx + 0.28 * sr, sby + 0.36 * sr, Math.max(0.5, sr * 0.16), 0, Math.PI * 2);
+      sctx.arc(sbx + 0.3 * sr, sby + 0.38 * sr, Math.max(0.65, sr * 0.18), 0, Math.PI * 2);
       sctx.fill();
+
+      // Tiny translucent micro-bubble slowly rising inside swollen drop
+      if (n.phase <= SLIME_SNAP_PHASE && sr > 4.2) {
+        const bubU = (state.timeSec * 0.85 + i * 0.37) % 1;
+        const bx = sbx + Math.sin(state.timeSec * 4 + i) * sr * 0.18;
+        const by = sby + (0.35 - bubU * 0.72) * sr;
+        sctx.strokeStyle = 'rgba(247, 254, 231, 0.65)';
+        sctx.lineWidth = 0.75;
+        sctx.beginPath();
+        sctx.arc(bx, by, Math.max(0.7, sr * 0.15), 0, Math.PI * 2);
+        sctx.stroke();
+      }
     }
   }
+
   for (let i = 0; i < state.droplets.length; i++) {
     const d = state.droplets[i];
     if (!d.active || d.isSatellite || (d.isSplatter && d.foregroundSplash)) continue;
     const sdx = toScratchX(d.x);
     const sdy = toScratchY(d.y);
     const sr = d.radius * scaleR;
-    sctx.fillStyle = 'rgba(247, 254, 231, 0.94)';
+    sctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
     sctx.beginPath();
     sctx.ellipse(
       sdx - 0.32 * sr * d.scaleX,
-      sdy - 0.34 * sr * d.scaleY,
-      Math.max(0.65, sr * 0.22 * d.scaleX),
-      Math.max(0.95, sr * 0.44 * d.scaleY),
+      sdy - 0.32 * sr * d.scaleY,
+      Math.max(0.8, sr * 0.24 * d.scaleX),
+      Math.max(1.15, sr * 0.46 * d.scaleY),
       -0.2,
       0,
       Math.PI * 2,
@@ -763,21 +1030,21 @@ export function renderSlimeEngine(
   }
   sctx.restore();
 
-  // 4. Composite onto unified offscreen buffer behind Plane 0 with soft additive lime aura
+  // 4. Composite soft bioluminescent lime aura + crisp metaball slime silhouette behind Plane 0
   const scaleX = targetW / SLIME_REF_WIDTH;
   const scaleY = targetH / SLIME_REF_HEIGHT;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
-  ctx.globalAlpha = 0.34;
+  ctx.globalAlpha = 0.42 + state.shockIntensity * 0.16;
   for (let i = 0; i < state.nozzles.length; i++) {
     const n = state.nozzles[i];
-    const r = Math.max(6, n.bulbR * 2.5) * scaleX;
+    const r = Math.max(8, n.bulbR * 2.75) * scaleX;
     ctx.drawImage(aura, n.bulbX * scaleX - r, n.bulbY * scaleY - r, r * 2, r * 2);
   }
   for (let i = 0; i < state.droplets.length; i++) {
     const d = state.droplets[i];
     if (!d.active || (d.isSplatter && d.foregroundSplash)) continue;
-    const r = d.radius * 2.45 * scaleX;
+    const r = d.radius * 2.65 * scaleX;
     ctx.drawImage(aura, d.x * scaleX - r, d.y * scaleY - r, r * 2, r * 2);
   }
   ctx.restore();
@@ -796,8 +1063,8 @@ export function renderSlimeEngine(
 }
 
 /**
- * Renders foreground slime impact crowns & rebound splatter beads on top of Plane 0
- * (e.g. Xeno jaw saliva splashing visibly off the top chrome bevel of NEON).
+ * Renders foreground slime impact crowns, rebound splatter beads, and brief glossy oozing
+ * trickles sliding down the top chrome bevel of NEON on top of Plane 0.
  */
 export function renderSlimeForegroundSplashes(
   ctx: CanvasRenderingContext2D,
@@ -812,6 +1079,80 @@ export function renderSlimeForegroundSplashes(
   const scaleY = targetH / SLIME_REF_HEIGHT;
   const aura = state.auraCanvas ?? (state.auraCanvas = buildAuraStampCanvas());
 
+  // 1. Oozing chrome-bevel trickles sliding down the top metallic edge of NEON
+  for (let i = 0; i < state.trickles.length; i++) {
+    const tr = state.trickles[i];
+    if (!tr.active) continue;
+    const u = tr.age / Math.max(0.01, tr.maxLife);
+    const fadeOut = u < 0.65 ? 1 : Math.max(0, 1 - (u - 0.65) / 0.35);
+    if (fadeOut <= 0.02) continue;
+
+    const x0 = tr.x * scaleX;
+    const y0 = tr.startY * scaleY;
+    const x1 = (tr.x + tr.driftX * u) * scaleX;
+    const y1 = (tr.startY + tr.lengthPx) * scaleY;
+    const wPx = tr.widthPx * scaleX * (0.75 + 0.25 * fadeOut);
+    const tipR = wPx * 0.72;
+
+    if (aura) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = fadeOut * 0.36;
+      const ar = tipR * 3.0;
+      ctx.drawImage(aura, x1 - ar, y1 - ar, ar * 2, ar * 2);
+      ctx.restore();
+    }
+
+    ctx.save();
+    ctx.globalAlpha = fadeOut * 0.94;
+    ctx.lineCap = 'round';
+    // Dark emerald cartoon outline
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = wPx + 1.8 * scaleX;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.quadraticCurveTo((x0 + x1) * 0.5, (y0 + y1) * 0.55, x1, y1);
+    ctx.stroke();
+
+    // Vibrant lime body
+    ctx.strokeStyle = '#a3e635';
+    ctx.lineWidth = wPx;
+    ctx.beginPath();
+    ctx.moveTo(x0, y0);
+    ctx.quadraticCurveTo((x0 + x1) * 0.5, (y0 + y1) * 0.55, x1, y1);
+    ctx.stroke();
+
+    // Wet chartreuse specular ridge down the trickle spine
+    ctx.strokeStyle = 'rgba(236, 252, 203, 0.82)';
+    ctx.lineWidth = Math.max(0.8, wPx * 0.34);
+    ctx.beginPath();
+    ctx.moveTo(x0 - wPx * 0.16, y0 + 0.8 * scaleY);
+    ctx.quadraticCurveTo(
+      (x0 + x1) * 0.5 - wPx * 0.16,
+      (y0 + y1) * 0.55,
+      x1 - wPx * 0.16,
+      y1,
+    );
+    ctx.stroke();
+
+    // Bulbous leading bead at trickle tip
+    ctx.fillStyle = '#bef264';
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = Math.max(0.95, 1.15 * scaleX);
+    ctx.beginPath();
+    ctx.ellipse(x1, y1 + tipR * 0.22, tipR * 1.08, tipR * 1.24, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // Glossy specular dot on trickle tip
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(x1 - tipR * 0.3, y1 - tipR * 0.15, Math.max(0.7, tipR * 0.36), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  // 2. Impact splash crowns
   for (let i = 0; i < state.splashes.length; i++) {
     const sp = state.splashes[i];
     if (!sp.active || !sp.foreground) continue;
@@ -820,41 +1161,42 @@ export function renderSlimeForegroundSplashes(
     const alpha = Math.max(0, 1 - u * u);
     const px = sp.x * scaleX;
     const py = sp.y * scaleY;
-    const rx = (2.5 + sp.maxR * ease) * scaleX;
-    const ry = Math.max(1.5, rx * 0.34);
+    const rx = (3.2 + sp.maxR * ease) * scaleX;
+    const ry = Math.max(2.0, rx * 0.36);
 
     if (aura) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = alpha * 0.55;
-      const ar = rx * 1.45;
+      ctx.globalAlpha = alpha * 0.62;
+      const ar = rx * 1.55;
       ctx.drawImage(aura, px - ar, py - ar, ar * 2, ar * 2);
       ctx.restore();
     }
 
     ctx.save();
-    ctx.globalAlpha = alpha * 0.92;
+    ctx.globalAlpha = alpha * 0.94;
     ctx.fillStyle = '#a3e635';
-    ctx.strokeStyle = '#365314';
-    ctx.lineWidth = Math.max(1, 1.1 * scaleX);
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = Math.max(1.1, 1.3 * scaleX);
     ctx.beginPath();
-    ctx.ellipse(px, py, rx * 0.65, ry * 0.65, 0, 0, Math.PI * 2);
+    ctx.ellipse(px, py, rx * 0.68, ry * 0.68, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.strokeStyle = '#bef264';
-    ctx.lineWidth = Math.max(1, 1.4 * scaleX);
+    ctx.strokeStyle = '#d9f99d';
+    ctx.lineWidth = Math.max(1.2, 1.65 * scaleX);
     ctx.beginPath();
     ctx.ellipse(px, py, rx, ry, 0, Math.PI * 1.05, Math.PI * 1.95);
     ctx.stroke();
 
-    ctx.fillStyle = '#f7fee7';
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.ellipse(px - rx * 0.18, py - ry * 0.15, rx * 0.25, ry * 0.25, 0, 0, Math.PI * 2);
+    ctx.ellipse(px - rx * 0.2, py - ry * 0.16, rx * 0.26, ry * 0.26, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }
 
+  // 3. Rebound splatter beads arcing off NEON chrome bevel
   for (let i = 0; i < state.droplets.length; i++) {
     const d = state.droplets[i];
     if (!d.active || !d.isSplatter || !d.foregroundSplash) continue;
@@ -866,24 +1208,24 @@ export function renderSlimeForegroundSplashes(
     if (aura) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.globalAlpha = 0.42;
-      const ar = Math.max(rx, ry) * 2.4;
+      ctx.globalAlpha = 0.48;
+      const ar = Math.max(rx, ry) * 2.5;
       ctx.drawImage(aura, px - ar, py - ar, ar * 2, ar * 2);
       ctx.restore();
     }
 
     ctx.save();
     ctx.fillStyle = '#a3e635';
-    ctx.strokeStyle = '#365314';
-    ctx.lineWidth = Math.max(0.8, 0.9 * scaleX);
+    ctx.strokeStyle = '#14532d';
+    ctx.lineWidth = Math.max(0.9, 1.05 * scaleX);
     ctx.beginPath();
     ctx.ellipse(px, py, rx, ry, 0, 0, Math.PI * 2);
     ctx.fill();
     ctx.stroke();
 
-    ctx.fillStyle = '#f7fee7';
+    ctx.fillStyle = '#ffffff';
     ctx.beginPath();
-    ctx.arc(px - rx * 0.3, py - ry * 0.3, Math.max(0.55, rx * 0.35), 0, Math.PI * 2);
+    ctx.arc(px - rx * 0.3, py - ry * 0.3, Math.max(0.65, rx * 0.36), 0, Math.PI * 2);
     ctx.fill();
     ctx.restore();
   }

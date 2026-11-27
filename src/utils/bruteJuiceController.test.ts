@@ -7,6 +7,11 @@ import {
   stepBruteJuice,
   triggerBruteJuiceState,
 } from './bruteJuiceController';
+import { BRUTE_SHEET_FRAMES } from './bruteSpriteSheet';
+import {
+  createIdentityControlPoints,
+  projectSpriteLandmarkToStage,
+} from '../components/combat/stageMeshMath';
 
 test('Layer 2: Heavy damped harmonic spring settles squash-and-stretch impulse back to (1, 1)', () => {
   const state = createBruteJuiceState();
@@ -45,7 +50,7 @@ test('Layer 1 & 3: All 6 combat triggers keep foot knot (h=0) strictly pinned at
   }
 });
 
-test('Layer 2: Stomp Walk drives hop, tilt, velocity shear, and footPlantTriggered edges', () => {
+test('Layer 2: Stomp Walk drives phase-locked hop (Rule 6), tilt, velocity shear, and footPlantTriggered edges', () => {
   const state = createBruteJuiceState();
   triggerBruteJuiceState(state, 'stomp_walk', DEFAULT_BRUTE_JUICE_CONFIG);
 
@@ -53,15 +58,26 @@ test('Layer 2: Stomp Walk drives hop, tilt, velocity shear, and footPlantTrigger
   let minHopY = 0;
   let maxAbsRot = 0;
   let footPlants = 0;
+  let sawGrounded = false;
+  let sawAirborne = false;
   for (let i = 0; i < 40; i++) {
     const s = stepBruteJuice(state, 0.02, i * 0.02, DEFAULT_BRUTE_JUICE_CONFIG);
     maxAbsShear = Math.max(maxAbsShear, Math.abs(s.shearXPx));
     minHopY = Math.min(minHopY, s.hopYPx);
     maxAbsRot = Math.max(maxAbsRot, Math.abs(s.rotationRad));
     if (s.footPlantTriggered) footPlants += 1;
+    if (s.frameIndex === 1) {
+      sawGrounded = true;
+      assert.equal(s.hopYPx, 0, 'Rule 6: planted stomp stance (Frame 1) must stay grounded (hopYPx === 0)');
+    }
+    if (s.hopYPx < -0.01) {
+      sawAirborne = true;
+      assert.equal(s.frameIndex, 0, 'Rule 6: airborne stomp phase must display wide stride Frame 0');
+    }
     assert.equal(s.uvDistortAmp[0], 0, 'Walk must not apply UV jelly distortion');
   }
 
+  assert.ok(sawGrounded && sawAirborne, 'Stomp stride must alternate grounded Frame 1 and airborne Frame 0');
   assert.ok(maxAbsShear > 0.5, 'Stomp stride should generate velocity skew/shear');
   assert.ok(minHopY < -2, 'Stomp stride should hop upward (negative Y)');
   assert.ok(maxAbsRot > 0.01, 'Stomp stride should oscillate tilt rotation');
@@ -107,8 +123,9 @@ test('5-Posture Intent & Hover Cadence: Idle, armorPrimed, heavyPrimed, pauseRec
     assert.equal(s.mode, 'idle');
     idleSeen.add(s.frameIndex);
   }
-  assert.ok(idleSeen.has(0) && idleSeen.has(1), 'Default idle must cycle respiratory frames 0 and 1');
-  assert.ok(idleSeen.has(2) || idleSeen.has(3), 'Default idle must periodically trigger snarl frames 2/3');
+  assert.ok(idleSeen.has(1) && idleSeen.has(3), 'Default idle must cycle planted respiratory frames 1 and 3');
+  assert.ok(idleSeen.has(2), 'Default idle must periodically trigger planted snarl frame 2');
+  assert.ok(!idleSeen.has(0), 'Default idle must never snap legs to wide-stride Frame 0');
   assert.ok(!idleSeen.has(7), 'Default idle must never lock to Frame 7');
 
   const armorState = createBruteJuiceState();
@@ -143,7 +160,8 @@ test('5-Posture Intent & Hover Cadence: Idle, armorPrimed, heavyPrimed, pauseRec
     pauseSeen.add(s.frameIndex);
     assert.ok(s.deform.head.dy > 1.0, 'pauseRecover breather should droop head forward');
   }
-  assert.ok(pauseSeen.has(0) && pauseSeen.has(1), 'pauseRecover must cycle heavy panting frames 0 and 1');
+  assert.ok(pauseSeen.has(1) && pauseSeen.has(3), 'pauseRecover must cycle planted panting frames 1 and 3');
+  assert.ok(!pauseSeen.has(0), 'pauseRecover must never snap legs to wide-stride Frame 0');
 
   const clawState = createBruteJuiceState();
   const clawSample = stepBruteJuice(clawState, 0.02, 0.5, DEFAULT_BRUTE_JUICE_CONFIG, {
@@ -225,4 +243,53 @@ test('Layer 2: Turn Around smoothly flips facingScale from -1 through +1 and bac
   assert.ok(sawPositiveFacing, '2.5D flip should reach positive facingScale (+1)');
   assert.ok(sawMidFlipHop, '2.5D flip should include a heavyweight vertical hop');
   assert.equal(state.baseFacingSign, -1, 'Auto-return flip should restore -1 combat facing');
+});
+
+test('VFX Landmark Projection: Brute vial and dorsal shell positions track deform, squash/stretch, and facing flips', () => {
+  const frame = BRUTE_SHEET_FRAMES[1];
+  const baseDeform = createIdentityControlPoints();
+  const leftVial = projectSpriteLandmarkToStage(frame.vialOriginRel, {
+    frame,
+    worldX: 500,
+    worldY: 400,
+    drawScale: 1,
+    facingSign: -1,
+    deform: baseDeform,
+  });
+  const rightVial = projectSpriteLandmarkToStage(frame.vialOriginRel, {
+    frame,
+    worldX: 500,
+    worldY: 400,
+    drawScale: 1,
+    facingSign: 1,
+    deform: baseDeform,
+  });
+  assert.ok(
+    Math.abs((leftVial.x - 500) + (rightVial.x - 500)) < 1e-6,
+    'Horizontal facing flip must mirror Brute landmark X cleanly around worldX',
+  );
+
+  const bentDeform = createIdentityControlPoints();
+  bentDeform.waist.dx = 8;
+  bentDeform.head.dx = 12;
+  const squashedShell = projectSpriteLandmarkToStage(frame.shellOriginRel, {
+    frame,
+    worldX: 500,
+    worldY: 400,
+    drawScale: 1,
+    facingSign: -1,
+    deform: bentDeform,
+    squashStretch: [1.15, 0.85],
+    shearPx: [-10, 0],
+  });
+  const neutralShell = projectSpriteLandmarkToStage(frame.shellOriginRel, {
+    frame,
+    worldX: 500,
+    worldY: 400,
+    drawScale: 1,
+    facingSign: -1,
+    deform: baseDeform,
+  });
+  assert.ok(squashedShell.y > neutralShell.y, 'Vertical squash (0.85) must lower dorsal shell landmark toward ground');
+  assert.ok(squashedShell.x < neutralShell.x, 'Forward deform + negative shear must shift shell landmark left');
 });

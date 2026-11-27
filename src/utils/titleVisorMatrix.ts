@@ -1,8 +1,12 @@
 import type { LogoSequenceSample } from './titleEmblemVfx';
 import {
+  BEAT1_END_SEC,
   SEQUENCE_FORWARD_END_SEC,
   SEQUENCE_HOLD_END_SEC,
+  SEQUENCE_REVERSE_HEART_END_SEC,
+  SEQUENCE_REVERSE_WINK_START_SEC,
   SEQUENCE_TOTAL_SEC,
+  SHOCK_BURST_SEC,
 } from './titleEmblemRenderer';
 
 export const VISOR_COLS = 24;
@@ -11,7 +15,7 @@ export const VISOR_CELL_COUNT = VISOR_COLS * VISOR_ROWS;
 export const VISOR_BARREL_CURVATURE = -0.014;
 
 export const VISOR_OFF_COLOR = '#0b132b';
-export const VISOR_SCANLINE_DURATION_SEC = 0.18;
+export const VISOR_SCANLINE_DURATION_SEC = 0.16;
 export const VISOR_OVERDRIVE_DURATION_SEC = 0.09;
 export const VISOR_TRAIL_DURATION_SEC = 0.06;
 export const VISOR_RADIAL_SPEED_CELLS_PER_SEC = 45;
@@ -29,7 +33,7 @@ export interface VisorQuad {
 }
 
 export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
-  // K0: Idle / Base Aim (-1.0° goggle axis)
+  // K0 (0): Idle / Base Aim (-1.0° goggle axis)
   {
     p00x: 0.805,
     p00y: 0.098,
@@ -41,7 +45,7 @@ export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
     p11y: 0.146,
     curvature: -0.010,
   },
-  // K1: Beat 1 (Wink, -0.8° goggle axis)
+  // K1 (1): Beat 1 (Wink, -0.8° goggle axis)
   {
     p00x: 0.806,
     p00y: 0.098,
@@ -53,7 +57,19 @@ export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
     p11y: 0.154,
     curvature: -0.011,
   },
-  // K2: Beat 2 (Shared Grin, -17.5° up-right head tilt)
+  // K1_5 (2): Beat 1.5 (Playful Smirk & Mid-Raise, v2 calibrated)
+  {
+    p00x: 0.772,
+    p00y: 0.081,
+    p10x: 0.838,
+    p10y: 0.044,
+    p01x: 0.790,
+    p01y: 0.140,
+    p11x: 0.852,
+    p11y: 0.104,
+    curvature: -0.013,
+  },
+  // K2 (3): Beat 2 (Shared Grin, -17.5° up-right head tilt)
   {
     p00x: 0.765,
     p00y: 0.096,
@@ -65,26 +81,62 @@ export const VISOR_KEYFRAME_QUADS: readonly VisorQuad[] = [
     p11y: 0.111,
     curvature: -0.014,
   },
-  // K3: Beat 3 (Blown Kiss, +14.6° down-right head lean)
+  // K2_3 (4): Beat 2.3 (Left hand lifts off gun, v2 calibrated)
+  {
+    p00x: 0.770,
+    p00y: 0.081,
+    p10x: 0.834,
+    p10y: 0.044,
+    p01x: 0.786,
+    p01y: 0.140,
+    p11x: 0.849,
+    p11y: 0.104,
+    curvature: -0.013,
+  },
+  // K2_7 (5): Beat 2.7 (Palm tucked near lips + nascent spark, v2 calibrated)
+  {
+    p00x: 0.771,
+    p00y: 0.048,
+    p10x: 0.836,
+    p10y: 0.085,
+    p01x: 0.758,
+    p01y: 0.111,
+    p11x: 0.824,
+    p11y: 0.148,
+    curvature: -0.015,
+  },
+  // K3 (6): Beat 3 (Blown Kiss, +14.6° down-right head lean — canonical synced quad)
   {
     p00x: 0.772,
-    p00y: 0.071,
+    p00y: 0.068,
     p10x: 0.838,
-    p10y: 0.092,
+    p10y: 0.090,
     p01x: 0.763,
-    p01y: 0.123,
+    p01y: 0.124,
     p11x: 0.828,
     p11y: 0.153,
     curvature: -0.015,
   },
-  // K4: Beat 4 (Climax !!, +16.6° down-right head lean)
+  // K3_5 (7): Beat 3.5 (Heart surging left + dawning shock without !!, v2 calibrated)
+  {
+    p00x: 0.765,
+    p00y: 0.044,
+    p10x: 0.831,
+    p10y: 0.085,
+    p01x: 0.751,
+    p01y: 0.107,
+    p11x: 0.819,
+    p11y: 0.152,
+    curvature: -0.014,
+  },
+  // K4 (8): Beat 4 (Climax !!, +16.6° down-right head lean — canonical synced quad)
   {
     p00x: 0.761,
-    p00y: 0.063,
+    p00y: 0.060,
     p10x: 0.834,
-    p10y: 0.095,
+    p10y: 0.092,
     p01x: 0.754,
-    p01y: 0.127,
+    p01y: 0.126,
     p11x: 0.823,
     p11y: 0.158,
     curvature: -0.014,
@@ -103,39 +155,40 @@ function compileBitmap24x9(rows: readonly string[]): Uint8Array {
   return out;
 }
 
+// High-contrast bold angry cyber-cat face matching the hand-painted K0 arcade visor
 export const ANGRY_CAT_24x9: Uint8Array = compileBitmap24x9([
-  '........11....11........',
+  '.....11..........11.....',
+  '.....121........121.....',
+  '......1221....1221......',
   '.......1221..1221.......',
-  '......121111111121......',
-  '.....1.12......21.1.....',
-  '.....1...12..21...1.....',
-  '.....1.12......21.1.....',
-  '......1..11..11..1......',
-  '.......1..1111..1.......',
   '........11....11........',
+  '.......11..11..11.......',
+  '......121.1221.121......',
+  '......11..1111..11......',
+  '........................',
 ]);
 
 export const HAPPY_CAT_24x9: Uint8Array = compileBitmap24x9([
-  '........11....11........',
-  '.......1221..1221.......',
-  '......121111111121......',
-  '.....1..121..121..1.....',
-  '.....1.12.1..1.21.1.....',
-  '.....1............1.....',
-  '......1..1.11.1..1......',
-  '.......1..1..1..1.......',
-  '........11111111........',
+  '.......11......11.......',
+  '......1221....1221......',
+  '.....12111111111121.....',
+  '....1...121..121...1....',
+  '....1..12.1..1.21..1....',
+  '....1..............1....',
+  '.....1...1.11.1...1.....',
+  '......1...1..1...1......',
+  '.......1111111111.......',
 ]);
 
 export const HEART_CLIMAX_24x9: Uint8Array = compileBitmap24x9([
-  '.........11..11.........',
-  '........12211221........',
-  '..1..1..12222221..1..1..',
-  '.121121.12222221.121121.',
-  '.122221..122221..122221.',
-  '..1221....1221....1221..',
-  '...11......11......11...',
-  '........................',
+  '........111..111........',
+  '.......1222112221.......',
+  '...1...1222222221...1...',
+  '..121..1222222221..121..',
+  '...1....12222221....1...',
+  '.........122221.........',
+  '..........1221..........',
+  '...........11...........',
   '........................',
 ]);
 
@@ -383,21 +436,21 @@ export function stepVisorMatrix(
     state.activeCells.set(ANGRY_CAT_24x9);
   } else {
     const t = Math.max(0, Math.min(SEQUENCE_TOTAL_SEC, seqSample.elapsed));
-    if (t < 0.36) {
+    if (t < BEAT1_END_SEC) {
       // Beat 1 Forward (K0 -> K1)
       state.mode = 'beat1_forward';
       const scanU = Math.min(1, t / VISOR_SCANLINE_DURATION_SEC);
       const scanRow = Math.floor(scanU * (VISOR_ROWS - 1));
       state.scanlineRow = scanU < 1 ? scanRow : -1;
-      applyBeat1DiscreteWalk(state.activeCells, t / 0.36, scanRow, false);
-    } else if (t < 1.24) {
-      // Continuous HAPPY_CAT_24x9 continuity across K1 -> K2 -> K3
+      applyBeat1DiscreteWalk(state.activeCells, t / BEAT1_END_SEC, scanRow, false);
+    } else if (t < SHOCK_BURST_SEC) {
+      // Continuous HAPPY_CAT_24x9 continuity across K1 -> K1_5 -> K2 -> K2_3 -> K2_7 -> K3
       state.mode = 'happy';
       state.activeCells.set(HAPPY_CAT_24x9);
     } else if (t < SEQUENCE_FORWARD_END_SEC) {
-      // Beat 4 Forward (K3 -> K4): Manhattan radial pulse from (12, 4) at 45 cells/sec
+      // Beat 4 Forward (K3 -> K3_5 -> K4): Manhattan radial pulse from (12, 4) at 45 cells/sec
       state.mode = 'beat4_forward';
-      const radius = (t - 1.24) * VISOR_RADIAL_SPEED_CELLS_PER_SEC;
+      const radius = (t - SHOCK_BURST_SEC) * VISOR_RADIAL_SPEED_CELLS_PER_SEC;
       for (let r = 0; r < VISOR_ROWS; r++) {
         for (let c = 0; c < VISOR_COLS; c++) {
           const idx = r * VISOR_COLS + c;
@@ -407,17 +460,19 @@ export function stepVisorMatrix(
         }
       }
     } else if (t <= SEQUENCE_HOLD_END_SEC) {
-      // Climax Hold (1.66 - 2.06 s): HEART_CLIMAX_24x9 + 2 Hz heartbeat throb
+      // Climax Hold: HEART_CLIMAX_24x9 + 2 Hz heartbeat throb
       state.mode = 'climax_hold';
       state.activeCells.set(HEART_CLIMAX_24x9);
       if (!reducedMotion) {
         const wave = Math.max(0, Math.sin(2 * Math.PI * 2 * (t - SEQUENCE_FORWARD_END_SEC)));
         state.climaxThrobScale = 1 + 0.16 * wave * wave;
       }
-    } else if (t < 2.26) {
-      // Reverse K4 -> K3: radial collapse from outer cells back to (12, 4)
+    } else if (t < SEQUENCE_REVERSE_HEART_END_SEC) {
+      // Reverse K4 -> K3_5 -> K3: radial collapse from outer cells back to (12, 4)
       state.mode = 'beat4_reverse';
-      const collapseProgress = (t - SEQUENCE_HOLD_END_SEC) / 0.2;
+      const collapseProgress =
+        (t - SEQUENCE_HOLD_END_SEC) /
+        Math.max(0.001, SEQUENCE_REVERSE_HEART_END_SEC - SEQUENCE_HOLD_END_SEC);
       const maxManhattan = 16;
       const radius = maxManhattan * (1 - collapseProgress);
       for (let r = 0; r < VISOR_ROWS; r++) {
@@ -428,14 +483,18 @@ export function stepVisorMatrix(
             dist <= radius ? HEART_CLIMAX_24x9[idx] : HAPPY_CAT_24x9[idx];
         }
       }
-    } else if (t < 2.66) {
-      // Reverse K3 -> K2 -> K1: hold HAPPY_CAT_24x9
+    } else if (t < SEQUENCE_REVERSE_WINK_START_SEC) {
+      // Reverse K3 -> ... -> K1: hold HAPPY_CAT_24x9
       state.mode = 'happy';
       state.activeCells.set(HAPPY_CAT_24x9);
     } else {
       // Reverse K1 -> K0: upward cathode scanline wipe (r = 8..0)
       state.mode = 'beat1_reverse';
-      const revU = Math.min(1, (t - 2.66) / 0.2);
+      const revU = Math.min(
+        1,
+        (t - SEQUENCE_REVERSE_WINK_START_SEC) /
+          Math.max(0.001, SEQUENCE_TOTAL_SEC - SEQUENCE_REVERSE_WINK_START_SEC),
+      );
       const scanRow = Math.max(0, Math.round((1 - revU) * (VISOR_ROWS - 1)));
       state.scanlineRow = revU < 1 ? scanRow : -1;
       applyBeat1DiscreteWalk(state.activeCells, 1 - revU, scanRow, true);

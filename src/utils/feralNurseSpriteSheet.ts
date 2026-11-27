@@ -249,10 +249,10 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 823,
     w: 170,
     h: 197,
-    anchorX: 76,
+    anchorX: 94,
     bottomY: 195,
-    headsetOriginRel: { dx: -75, dy: -156 },
-    clawOriginRel: { dx: -91, dy: -155 },
+    headsetOriginRel: { dx: -57, dy: -156 },
+    clawOriginRel: { dx: -73, dy: -155 },
   },
   {
     id: 'feral_nurse_cloak_phantom_14',
@@ -263,10 +263,10 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 827,
     w: 135,
     h: 180,
-    anchorX: 48,
+    anchorX: 65,
     bottomY: 178,
-    headsetOriginRel: { dx: -62, dy: -140 },
-    clawOriginRel: { dx: -84, dy: -133 },
+    headsetOriginRel: { dx: -45, dy: -140 },
+    clawOriginRel: { dx: -67, dy: -133 },
   },
   {
     id: 'feral_nurse_cloak_decloak_15',
@@ -309,10 +309,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 35,
     w: 205,
     h: 218,
-    anchorX: 93,
+    anchorX: 110,
     bottomY: 216,
-    headsetOriginRel: { dx: -59, dy: -175 },
-    clawOriginRel: { dx: -110, dy: -110 },
+    headsetOriginRel: { dx: -42, dy: -175 },
+    clawOriginRel: { dx: -93, dy: -110 },
   },
   {
     id: 'feral_nurse_prepare_apex_18',
@@ -323,10 +323,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 28,
     w: 184,
     h: 225,
-    anchorX: 80,
+    anchorX: 92,
     bottomY: 223,
-    headsetOriginRel: { dx: -56, dy: -180 },
-    clawOriginRel: { dx: -102, dy: -111 },
+    headsetOriginRel: { dx: -44, dy: -180 },
+    clawOriginRel: { dx: -90, dy: -111 },
   },
   {
     id: 'feral_nurse_prepare_launch_19',
@@ -353,10 +353,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 256,
     w: 203,
     h: 253,
-    anchorX: 81,
+    anchorX: 97,
     bottomY: 251,
-    headsetOriginRel: { dx: -19, dy: -188 },
-    clawOriginRel: { dx: -119, dy: -228 },
+    headsetOriginRel: { dx: -3, dy: -188 },
+    clawOriginRel: { dx: -103, dy: -228 },
   },
   {
     id: 'feral_nurse_pierce_pounce_21',
@@ -381,10 +381,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 284,
     w: 275,
     h: 207,
-    anchorX: 139,
+    anchorX: 104,
     bottomY: 205,
-    headsetOriginRel: { dx: -52, dy: -164 },
-    clawOriginRel: { dx: -134, dy: -144 },
+    headsetOriginRel: { dx: -87, dy: -164 },
+    clawOriginRel: { dx: -169, dy: -144 },
   },
   {
     id: 'feral_nurse_pierce_rend_23',
@@ -395,10 +395,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 280,
     w: 193,
     h: 229,
-    anchorX: 84,
+    anchorX: 112,
     bottomY: 227,
-    headsetOriginRel: { dx: -67, dy: -182 },
-    clawOriginRel: { dx: -107, dy: -165 },
+    headsetOriginRel: { dx: -39, dy: -182 },
+    clawOriginRel: { dx: -79, dy: -165 },
   },
 
   // Row 2 (`24..27`): Cross-Slash & Recovery
@@ -411,10 +411,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 523,
     w: 207,
     h: 243,
-    anchorX: 102,
+    anchorX: 127,
     bottomY: 241,
-    headsetOriginRel: { dx: -38, dy: -195 },
-    clawOriginRel: { dx: -103, dy: -78 },
+    headsetOriginRel: { dx: -13, dy: -195 },
+    clawOriginRel: { dx: -78, dy: -78 },
   },
   {
     id: 'feral_nurse_pierce_brake_25',
@@ -425,10 +425,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 552,
     w: 240,
     h: 212,
-    anchorX: 99,
+    anchorX: 130,
     bottomY: 210,
-    headsetOriginRel: { dx: -74, dy: -169 },
-    clawOriginRel: { dx: -139, dy: -84 },
+    headsetOriginRel: { dx: -43, dy: -169 },
+    clawOriginRel: { dx: -108, dy: -84 },
   },
   {
     id: 'feral_nurse_recover_spring_26',
@@ -453,10 +453,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 521,
     w: 169,
     h: 244,
-    anchorX: 56,
+    anchorX: 79,
     bottomY: 242,
-    headsetOriginRel: { dx: -65, dy: -202 },
-    clawOriginRel: { dx: -111, dy: -137 },
+    headsetOriginRel: { dx: -42, dy: -202 },
+    clawOriginRel: { dx: -88, dy: -137 },
   },
 
   // Row 3 (`28..31`): Hit, Stagger & KO
@@ -469,10 +469,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 782,
     w: 212,
     h: 239,
-    anchorX: 131,
+    anchorX: 120,
     bottomY: 237,
-    headsetOriginRel: { dx: 48, dy: -208 },
-    clawOriginRel: { dx: -78, dy: -217 },
+    headsetOriginRel: { dx: 37, dy: -208 },
+    clawOriginRel: { dx: -89, dy: -217 },
   },
   {
     id: 'feral_nurse_stagger_29',
@@ -511,10 +511,10 @@ export const FERAL_NURSE_SHEET_B_FRAMES: readonly FeralNurseSpriteFrame[] = [
     y: 924,
     w: 254,
     h: 94,
-    anchorX: 158,
+    anchorX: 139,
     bottomY: 92,
-    headsetOriginRel: { dx: -48, dy: -39 },
-    clawOriginRel: { dx: -89, dy: -19 },
+    headsetOriginRel: { dx: -67, dy: -39 },
+    clawOriginRel: { dx: -108, dy: -19 },
   },
 ];
 
@@ -721,8 +721,8 @@ export function sampleFeralNurseFrame(
         0,
         0,
         0,
-        18,
-        clamp01(t * 2.2),
+        19,
+        1,
       );
     }
     if (p < 0.26) {
@@ -740,8 +740,8 @@ export function sampleFeralNurseFrame(
         0,
         0,
         0,
-        19,
-        clamp01(t * 2.4),
+        20,
+        1,
       );
     }
     if (p < 0.40) {
@@ -759,8 +759,8 @@ export function sampleFeralNurseFrame(
         0,
         t * 0.18,
         0,
-        20,
-        clamp01(t * 2.5),
+        21,
+        1,
       );
     }
     if (p < 0.54) {
@@ -778,8 +778,8 @@ export function sampleFeralNurseFrame(
         0,
         0.18 + t * 0.34,
         t * 0.65,
-        21,
-        clamp01(t * 2.5),
+        22,
+        1,
       );
     }
     if (p < 0.68) {
@@ -797,8 +797,8 @@ export function sampleFeralNurseFrame(
         0,
         0.52 + t * 0.36,
         0.65 + Math.sin(t * Math.PI) * 0.35,
-        22,
-        clamp01(t * 2.5),
+        23,
+        1,
       );
     }
     if (p < 0.80) {
@@ -816,8 +816,8 @@ export function sampleFeralNurseFrame(
         0,
         0.88 + t * 0.12,
         0.55 * (1 - t),
-        23,
-        clamp01(t * 2.5),
+        24,
+        1,
       );
     }
     if (p < 0.90) {
@@ -835,13 +835,14 @@ export function sampleFeralNurseFrame(
         0,
         0,
         0,
-        24,
-        clamp01(t * 2.5),
+        25,
+        1,
       );
     }
     const t = (p - 0.90) / 0.10;
+    const recIdx = t < 0.5 ? 26 : 27;
     return build(
-      t < 0.5 ? 26 : 27,
+      recIdx,
       'pierceStrike',
       -8 * (1 - t),
       0,
@@ -853,8 +854,8 @@ export function sampleFeralNurseFrame(
       0,
       0,
       0,
-      t < 0.5 ? 25 : 26,
-      clamp01((t < 0.5 ? t * 2 : (t - 0.5) * 2) * 1.6),
+      recIdx,
+      1,
     );
   }
 
@@ -965,7 +966,7 @@ export function sampleFeralNurseFrame(
 
   if (state?.guardHover || state?.feralGuard) {
     const mode: FeralNurseAnimMode = state.guardHover ? 'guardHover' : 'feralGuard';
-    const seq = sampleLoopedFrames(GUARD_KEYFRAMES, nowSec + phaseOffset * 0.3);
+    const seq = sampleLoopedFrames(GUARD_KEYFRAMES, nowSec + phaseOffset * 0.3, 0);
     const breathe = Math.sin(nowSec * 4.2 + phaseOffset);
     return build(
       seq.frame,
@@ -980,14 +981,14 @@ export function sampleFeralNurseFrame(
       0,
       0,
       0,
-      seq.prevFrame,
-      seq.blendAlpha,
+      seq.frame,
+      1,
     );
   }
 
   // Prepare Coil / 7-Pierce Primed tension loop (frames 16 -> 17 -> 18 -> 19)
   if (state?.preparePrimed || state?.piercePrimed) {
-    const seq = sampleLoopedFrames(PREPARE_COIL_KEYFRAMES, nowSec + phaseOffset * 0.35, 0.04);
+    const seq = sampleLoopedFrames(PREPARE_COIL_KEYFRAMES, nowSec + phaseOffset * 0.35, 0);
     const pulse = Math.sin(nowSec * 7.4 + phaseOffset);
     return build(
       seq.frame,
@@ -1002,8 +1003,8 @@ export function sampleFeralNurseFrame(
       0,
       0,
       0,
-      seq.prevFrame,
-      seq.blendAlpha,
+      seq.frame,
+      1,
     );
   }
 

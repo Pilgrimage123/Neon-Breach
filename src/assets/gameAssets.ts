@@ -14,6 +14,8 @@ import kiraDodge2Url from './sprites/baked/kira_dodge_2_spin.png';
 import kiraDodge3Url from './sprites/baked/kira_dodge_3_land.png';
 import kiraEmoteSheetUrl from './sprites/baked/kira_emote_sheet.png';
 import kiraSheetUrl from './sprites/baked/kira_spritesheet.png';
+import matriarchExplodedUrl from './sprites/baked/matriarch_exploded.png';
+import matriarchIntactUrl from './sprites/baked/matriarch_intact.png';
 import mutdogPortraitUrl from './sprites/baked/mutdog_portrait.png';
 import mutdogSheetUrl from './sprites/baked/mutdog_spritesheet.png';
 import nurseSheetUrl from './sprites/baked/nurse_spritesheet.png';
@@ -23,8 +25,12 @@ import stalkerBlinkUrl from './sprites/baked/stalker_blink.png';
 import stalkerOpenUrl from './sprites/baked/stalker_open.png';
 import titleLogo0Url from './sprites/baked/k0.png';
 import titleLogo1Url from './sprites/baked/k1.png';
+import titleLogo1_5Url from './sprites/baked/k1_5.png';
 import titleLogo2Url from './sprites/baked/k2.png';
+import titleLogo2_3Url from './sprites/baked/k2_3.png';
+import titleLogo2_7Url from './sprites/baked/k2_7.png';
 import titleLogo3Url from './sprites/baked/k3.png';
+import titleLogo3_5Url from './sprites/baked/k3_5.png';
 import titleLogo4Url from './sprites/baked/k4.png';
 import titleLockupUrl from './sprites/baked/lockup_plane0.png';
 import zuriDronesSheetUrl from './sprites/baked/zuri_drones_sheet.png';
@@ -44,11 +50,20 @@ const STALKER_FRAME_URLS = [
   stalkerBlinkUrl,
 ] as const;
 
+const MATRIARCH_FRAME_URLS = [
+  matriarchIntactUrl,
+  matriarchExplodedUrl,
+] as const;
+
 const TITLE_LOGO_FRAME_URLS = [
   titleLogo0Url,
   titleLogo1Url,
+  titleLogo1_5Url,
   titleLogo2Url,
+  titleLogo2_3Url,
+  titleLogo2_7Url,
   titleLogo3Url,
+  titleLogo3_5Url,
   titleLogo4Url,
 ] as const;
 
@@ -73,6 +88,7 @@ export const GAME_ASSETS = {
   feralNurseSheetA: feralNurseSheetAUrl,
   feralNurseSheetB: feralNurseSheetBUrl,
   bruteSheet: bruteSheetUrl,
+  matriarchFrames: MATRIARCH_FRAME_URLS,
   bossPortrait: bossPortraitUrl,
   enemyPortraits: {
     stalker: stalkerOpenUrl,
@@ -80,5 +96,6 @@ export const GAME_ASSETS = {
     mutdog: mutdogPortraitUrl,
     feral_nurse: feralNursePortraitUrl,
     brute: brutePortraitUrl,
+    boss: bossPortraitUrl,
   } as Partial<Record<EnemyArchetype, string>>,
 } as const;

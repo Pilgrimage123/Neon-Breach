@@ -1,8 +1,11 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import {
+  createDevBossSandboxRun,
   createDevLabSandboxRun,
+  getDevBossInitialHpRatio,
   getInitialDevLabTab,
+  isDevBossEncounterRequested,
   isDevLabRunId,
   isDevLabsQueryEnabled,
 } from './devLabMode';
@@ -38,5 +41,20 @@ describe('devLabMode helpers', () => {
     }
     assert.equal(isDevLabRunId('run_104729_123'), false);
     assert.equal(isDevLabRunId(null), false);
+  });
+
+  it('creates an isolated devlab_ boss sandbox run with optional initial HP ratio', () => {
+    assert.equal(isDevBossEncounterRequested('?autostart=1&devEncounter=boss'), true);
+    assert.equal(isDevBossEncounterRequested('?autostart=1'), false);
+    assert.equal(getDevBossInitialHpRatio('?devBossHpRatio=0.52'), 0.52);
+    assert.equal(getDevBossInitialHpRatio('?devBossHpRatio=invalid'), null);
+
+    const bossRun = createDevBossSandboxRun('kira', 3, 104729, 0.52);
+    assert.equal(isDevLabRunId(bossRun.runId), true);
+    assert.equal(bossRun.screen, 'combat');
+    const boss = bossRun.combat?.enemies.find((e) => e.archetype === 'boss');
+    assert.ok(boss, 'expected boss enemy in devBossSandboxRun');
+    assert.equal(boss.hp, Math.round(boss.maxHp * 0.52));
+    assert.equal(boss.armor, 0);
   });
 });

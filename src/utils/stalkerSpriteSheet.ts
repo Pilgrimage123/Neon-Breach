@@ -133,7 +133,7 @@ const SHARED_LANDMARKS = {
   anchorX: 255,
   bottomY: 477,
   quillOriginRel: { dx: 15, dy: -372 },
-  eyeOriginRel: { dx: -120, dy: -306 },
+  eyeOriginRel: { dx: -119, dy: -300 },
   jawOriginRel: { dx: -135, dy: -203 },
   clawOriginRel: { dx: -179, dy: -137 },
 } as const;

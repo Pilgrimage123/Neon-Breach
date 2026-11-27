@@ -14,9 +14,18 @@ import {
   VISOR_TRAIL_DURATION_SEC,
   type VisorQuad,
 } from './titleVisorMatrix';
-import { createTitleEmblemVfxState, stepTitleEmblemVfx, triggerEmblemClickBurst } from './titleEmblemVfx';
+import {
+  BEAT1_END_SEC,
+  SEQUENCE_FORWARD_END_SEC,
+  SEQUENCE_HOLD_END_SEC,
+  SHOCK_BURST_SEC,
+  createTitleEmblemVfxState,
+  stepTitleEmblemVfx,
+  triggerEmblemClickBurst,
+} from './titleEmblemVfx';
 
-test('Canonical 24x9 Visor Matrix bitmaps have 216 cells with valid 0/1/2 values', () => {
+test('Canonical 24x9 Visor Matrix bitmaps have 216 cells with valid 0/1/2 values and 9 calibrated quads', () => {
+  assert.equal(VISOR_KEYFRAME_QUADS.length, 9);
   for (const bmp of [ANGRY_CAT_24x9, HAPPY_CAT_24x9, HEART_CLIMAX_24x9]) {
     assert.equal(bmp.length, VISOR_CELL_COUNT);
     let lit = 0;
@@ -52,7 +61,7 @@ test('interpolateVisorQuad linearly interpolates corners and projectVisorCell ap
   const ptMid = { x: 0, y: 0 };
   projectVisorCell(VISOR_KEYFRAME_QUADS[0], 0, 4, 960, 541, 0, ptEdge);
   projectVisorCell(VISOR_KEYFRAME_QUADS[0], 12, 4, 960, 541, 0, ptMid);
-  // Center column bows upward due to negative barrel curvature (-0.014)
+  // Center column bows upward due to negative barrel curvature
   const expectedFlatMidY =
     (VISOR_KEYFRAME_QUADS[0].p00y + VISOR_KEYFRAME_QUADS[0].p01y) * 0.5 * 541;
   assert.ok(ptMid.y < expectedFlatMidY - 4, 'Expected upward barrel bow at visor center');
@@ -69,7 +78,7 @@ test('Visor Matrix enforces Beat 1 scanline/cell-walk/overdrive, K1-K3 happy con
   assert.equal(visor.mode, 'angry');
   assert.deepEqual(visor.activeCells, ANGRY_CAT_24x9);
 
-  // Trigger click -> Beat 1 (0..0.36 s): cathode scanline active before 180ms + overdrive/trail populated
+  // Trigger click -> Beat 1 (0..BEAT1_END_SEC): cathode scanline active + overdrive populated
   triggerEmblemClickBurst(vfx, 0.5, 0.5);
   for (let i = 0; i < 3; i++) {
     const b1Sample = stepTitleEmblemVfx(vfx, 0.04);
@@ -86,31 +95,31 @@ test('Visor Matrix enforces Beat 1 scanline/cell-walk/overdrive, K1-K3 happy con
   }
   assert.ok(flashCount > 0, 'Expected phosphor overdrive flash on switching cells');
 
-  // Step through K1 -> K2 -> K3 (0.36..1.24 s): continuous HAPPY_CAT_24x9 continuity
-  for (let t = 0.09; t < 0.55; t += 0.05) {
-    const s = stepTitleEmblemVfx(vfx, 0.05);
-    stepVisorMatrix(visor, s.sequence, 0.05, false);
+  // Step past BEAT1_END_SEC into continuous HAPPY_CAT_24x9 across K1..K3
+  while (vfx.sequenceElapsed < BEAT1_END_SEC + 0.15) {
+    const s = stepTitleEmblemVfx(vfx, 0.04);
+    stepVisorMatrix(visor, s.sequence, 0.04, false);
   }
   assert.equal(visor.mode, 'happy');
   assert.deepEqual(visor.activeCells, HAPPY_CAT_24x9);
 
-  // Advance to K2->K3 (~0.95 s) and verify still HAPPY_CAT_24x9 (never reverts to angry)
-  for (let i = 0; i < 8; i++) {
-    const s = stepTitleEmblemVfx(vfx, 0.05);
-    stepVisorMatrix(visor, s.sequence, 0.05, false);
+  // Advance across K2 -> K2_3 -> K2_7 -> K3 and verify still HAPPY_CAT_24x9
+  while (vfx.sequenceElapsed < SHOCK_BURST_SEC - 0.08) {
+    const s = stepTitleEmblemVfx(vfx, 0.04);
+    stepVisorMatrix(visor, s.sequence, 0.04, false);
   }
   assert.equal(visor.mode, 'happy');
   assert.deepEqual(visor.activeCells, HAPPY_CAT_24x9);
 
-  // Advance into Beat 4 (1.24..1.66 s): radial expansion from (12,4)
-  for (let i = 0; i < 8; i++) {
-    const s = stepTitleEmblemVfx(vfx, 0.05);
-    stepVisorMatrix(visor, s.sequence, 0.05, false);
+  // Advance into Beat 4 (SHOCK_BURST_SEC..SEQUENCE_FORWARD_END_SEC): radial expansion from (12,4)
+  while (vfx.sequenceElapsed < SHOCK_BURST_SEC + 0.12) {
+    const s = stepTitleEmblemVfx(vfx, 0.04);
+    stepVisorMatrix(visor, s.sequence, 0.04, false);
   }
   assert.equal(visor.mode, 'beat4_forward');
 
-  // Advance into Climax Hold (1.66..2.06 s): HEART_CLIMAX_24x9 + 2 Hz throb
-  while (vfx.sequenceElapsed < 1.78) {
+  // Advance into Climax Hold: HEART_CLIMAX_24x9 + 2 Hz throb
+  while (vfx.sequenceElapsed < SEQUENCE_FORWARD_END_SEC + 0.12) {
     const s = stepTitleEmblemVfx(vfx, 0.02);
     stepVisorMatrix(visor, s.sequence, 0.02, false);
   }
@@ -118,15 +127,15 @@ test('Visor Matrix enforces Beat 1 scanline/cell-walk/overdrive, K1-K3 happy con
   assert.deepEqual(visor.activeCells, HEART_CLIMAX_24x9);
   assert.ok(visor.climaxThrobScale > 1.0, `Expected >1.0 2 Hz throb scale, got ${visor.climaxThrobScale}`);
 
-  // Advance into reverse (2.06..2.86 s) and verify mid-reverse click recovery
-  while (vfx.sequenceElapsed < 2.45) {
-    const s = stepTitleEmblemVfx(vfx, 0.05);
-    stepVisorMatrix(visor, s.sequence, 0.05, false);
+  // Advance into reverse happy band and verify mid-reverse click recovery
+  while (vfx.sequenceElapsed < SEQUENCE_HOLD_END_SEC + 0.35) {
+    const s = stepTitleEmblemVfx(vfx, 0.04);
+    stepVisorMatrix(visor, s.sequence, 0.04, false);
   }
   assert.equal(visor.mode, 'happy');
 
   triggerEmblemClickBurst(vfx, 0.5, 0.5);
-  assert.ok(vfx.sequenceElapsed < 1.66, 'Expected mid-reverse click to map back to forward arc');
+  assert.ok(vfx.sequenceElapsed < SEQUENCE_FORWARD_END_SEC, 'Expected mid-reverse click to map back to forward arc');
 });
 
 test('Visor Matrix honors prefers-reduced-motion by freezing overdrive flashes and 2 Hz climax throb while preserving buffer identity', () => {
@@ -137,7 +146,7 @@ test('Visor Matrix honors prefers-reduced-motion by freezing overdrive flashes a
   const trailRef = visor.cellTrailRemaining;
 
   triggerEmblemClickBurst(vfx, 0.5, 0.5);
-  while (vfx.sequenceElapsed < 1.78) {
+  while (vfx.sequenceElapsed < SEQUENCE_FORWARD_END_SEC + 0.12) {
     const s = stepTitleEmblemVfx(vfx, 0.04, { reducedMotion: true });
     stepVisorMatrix(visor, s.sequence, 0.04, true);
   }

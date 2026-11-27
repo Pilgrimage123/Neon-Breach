@@ -277,7 +277,7 @@ export function stepStalkerJuice(
   let slashImpactTriggered = false;
   let flashRgba: [number, number, number, number] | null = null;
   let tintRgba: [number, number, number, number] = [1, 1, 1, 1];
-  let uvDistortAmp: [number, number] = [0.0012, 0.0014];
+  let uvDistortAmp: [number, number] = [0, 0];
   let uvDistortFreq = 11;
   let uvDistortPhase = elapsed * 3.4 + idx;
 

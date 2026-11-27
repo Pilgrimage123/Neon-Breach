@@ -337,6 +337,10 @@ export function createCombatStageSim(): CombatStageSim {
     feralNurseJuiceStates: new Map(),
     feralNurseSamples: new Map(),
     feralNurseJuiceSamples: new Map(),
+    matriarchFrames: null,
+    matriarchJuiceStates: new Map(),
+    matriarchSamples: new Map(),
+    matriarchJuiceSamples: new Map(),
     simElapsed: 0,
     lastFrameDt: 0.016,
     size: { w: 1200, h: 420 },
@@ -416,6 +420,9 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.feralNurseJuiceStates.clear();
   sim.feralNurseSamples?.clear();
   sim.feralNurseJuiceSamples?.clear();
+  sim.matriarchJuiceStates.clear();
+  sim.matriarchSamples?.clear();
+  sim.matriarchJuiceSamples?.clear();
   sim.simElapsed = 0;
   sim.lastFrameDt = 0.016;
   for (let i = 0; i < sim.particles.length; i++) sim.particles[i].active = false;

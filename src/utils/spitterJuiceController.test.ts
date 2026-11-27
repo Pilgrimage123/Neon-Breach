@@ -57,6 +57,9 @@ test('Layer 2: Advance/Retreat drives Walk Waddle hop, tilt, and velocity shear'
     maxAbsShear = Math.max(maxAbsShear, Math.abs(s.shearXPx));
     minHopY = Math.min(minHopY, s.hopYPx);
     maxAbsRot = Math.max(maxAbsRot, Math.abs(s.rotationRad));
+    if (s.frameIndex === 1) {
+      assert.equal(s.hopYPx, 0, 'Grounded contact frame F1 must remain at hopYPx === 0');
+    }
   }
 
   assert.ok(maxAbsShear > 0.5, 'Walk advance should generate velocity skew/shear');

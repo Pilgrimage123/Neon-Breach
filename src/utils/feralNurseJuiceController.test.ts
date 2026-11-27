@@ -125,11 +125,16 @@ test('Layer 2 & VFX: Prepare + 7-Pierce Strike executes coiled frames 16..27, to
   let maxSlash = 0;
   let impactTriggered = 0;
 
+  let maxLungeHeadDx = -Infinity;
   for (let i = 0; i < 90; i++) {
     const s = stepFeralNurseJuice(state, 1 / 60, i / 60, DEFAULT_FERAL_NURSE_JUICE_CONFIG);
     visitedFrames.add(s.frameIndex);
+    assert.equal(s.blendAlpha, 1, '7-Pierce Strike frame swaps must be crisp with zero double-exposure');
     minHop = Math.min(minHop, s.hopYPx);
     maxSlash = Math.max(maxSlash, s.clawSlashProgress);
+    if (s.frameIndex >= 21 && s.frameIndex <= 25) {
+      maxLungeHeadDx = Math.max(maxLungeHeadDx, s.deform.head.dx);
+    }
     if (s.pierceImpactTriggered) impactTriggered++;
   }
 
@@ -139,6 +144,7 @@ test('Layer 2 & VFX: Prepare + 7-Pierce Strike executes coiled frames 16..27, to
   assert.equal(impactTriggered, 1);
   assert.ok(minHop < -20, `Expected airborne lunge arc, got ${minHop}`);
   assert.ok(maxSlash > 0.85, `Expected full triple-talon slash arc, got ${maxSlash}`);
+  assert.ok(maxLungeHeadDx > 8, `Expected forward lunge lean (+dx toward Hero), got ${maxLungeHeadDx}`);
 });
 
 test('Layer 2 & 4: Take Hit triggers flashRgba + ichorBurst, and Turn Around executes non-degenerate 2.5D flip', () => {
@@ -146,19 +152,24 @@ test('Layer 2 & 4: Take Hit triggers flashRgba + ichorBurst, and Turn Around exe
   triggerFeralNurseJuiceState(state, 'take_hit', DEFAULT_FERAL_NURSE_JUICE_CONFIG);
   let sawFlash = false;
   let ichorCount = 0;
+  let minPainHeadDx = Infinity;
   for (let i = 0; i < 40; i++) {
     const s = stepFeralNurseJuice(state, 1 / 60, i / 60, DEFAULT_FERAL_NURSE_JUICE_CONFIG);
+    assert.equal(s.blendAlpha, 1, 'Take Hit frame swaps must be crisp with zero double-exposure');
+    minPainHeadDx = Math.min(minPainHeadDx, s.deform.head.dx);
     if (s.flashRgba && s.flashRgba[3] > 0.1) sawFlash = true;
     if (s.ichorBurstTriggered) ichorCount++;
   }
   assert.ok(sawFlash);
   assert.equal(ichorCount, 1);
+  assert.ok(minPainHeadDx < -10, `Expected backward recoil (-dx away from Hero), got ${minPainHeadDx}`);
 
   triggerFeralNurseJuiceState(state, 'turn_around', DEFAULT_FERAL_NURSE_JUICE_CONFIG);
   let sawPositiveFacing = false;
   let sawNegativeFacing = false;
   for (let i = 0; i < 65; i++) {
     const s = stepFeralNurseJuice(state, 1 / 60, i / 60, DEFAULT_FERAL_NURSE_JUICE_CONFIG);
+    assert.equal(s.blendAlpha, 1, 'Turn Around frame swaps must be crisp with zero double-exposure');
     assert.ok(Math.abs(s.facingScale) >= 0.04, '2.5D flip must never collapse to 0 determinant');
     if (s.facingScale > 0.5) sawPositiveFacing = true;
     if (s.facingScale < -0.5) sawNegativeFacing = true;

@@ -13,6 +13,10 @@ export interface SpriteCutoutOptions {
   crimsonDampen?: number;
   /** Optional unmixing of dark glass inside forward holographic screens */
   unmixDarkHoloGlass?: boolean;
+  /** Optional removal of neutral gray drop-shadow beneath feet in the bottom floor zone */
+  removeNeutralFloorShadow?: boolean;
+  /** Optional removal of subtle light-gray/white interior checkerboard pockets (e.g. 246/254) */
+  removeSubtleCheckerboard?: boolean;
 }
 
 export interface SpriteRect {

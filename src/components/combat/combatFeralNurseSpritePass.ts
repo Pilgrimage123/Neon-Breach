@@ -8,6 +8,12 @@ import {
 import type { CoreEnemySpriteContext } from './combatEnemyCoreSpritePass';
 import { drawCanvas2DCutInFlash } from './combatHeroSpritePass';
 import { hexToRgba } from './mutantBlood';
+import {
+  type ControlPointDeform,
+  type SpriteLandmarkProjectionParams,
+  createIdentityControlPoints,
+  projectSpriteLandmarkToStage,
+} from './stageMeshMath';
 import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter';
 
 export interface FeralNurseBioVfxParams {
@@ -18,17 +24,20 @@ export interface FeralNurseBioVfxParams {
   spriteX: number;
   enemyGroundY: number;
   hopY: number;
+  staggerDy?: number;
   size: number;
   drawScale: number;
   facingSign: number;
+  rotationRad?: number;
   headsetGlowIntensity: number;
   cloakIntensity: number;
   clawSlashProgress: number;
   pierceImpactIntensity: number;
-  chestDeformDx: number;
-  chestDeformDy: number;
-  headDeformDx: number;
-  headDeformDy: number;
+  deform?: ControlPointDeform;
+  squashStretch?: readonly [number, number];
+  shearPx?: readonly [number, number];
+  swayAmpPx?: number;
+  swayPhase?: number;
   elapsed: number;
   seed: number;
 }
@@ -48,27 +57,45 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
     spriteX,
     enemyGroundY,
     hopY,
+    staggerDy = 0,
     size,
     drawScale,
     facingSign,
+    rotationRad = 0,
     headsetGlowIntensity,
     cloakIntensity,
     clawSlashProgress,
     pierceImpactIntensity,
-    headDeformDx,
-    headDeformDy,
+    deform,
+    squashStretch = [1, 1],
+    shearPx = [0, 0],
+    swayAmpPx = 0,
+    swayPhase = 0,
     elapsed,
     seed,
   } = p;
 
-  const fwdDir = -facingSign;
+  const projParams: SpriteLandmarkProjectionParams = {
+    frame,
+    worldX: spriteX,
+    worldY: enemyGroundY + hopY + staggerDy,
+    drawScale,
+    facingSign,
+    rotationRad,
+    deform,
+    squashStretch,
+    shearPx,
+    swayAmpPx,
+    swayPhase,
+  };
 
   // 1. Optical-Camo Shimmer Veil, Holographic Scanlines & Ground Stealth Ring
   if (cloakIntensity > 0.04) {
     const ci = Math.max(0, Math.min(1, cloakIntensity));
     const shimmerWave = 0.8 + 0.2 * Math.sin(elapsed * 11.5 + seed * 1.9);
-    const bodyCx = spriteX + headDeformDx * 0.35;
-    const bodyCy = enemyGroundY + hopY - size * 0.46 + headDeformDy * 0.25;
+    const bodyPos = projectSpriteLandmarkToStage({ dx: 0, dy: -frame.h * 0.46 }, projParams);
+    const bodyCx = bodyPos.x;
+    const bodyCy = bodyPos.y;
     const capsuleRx = size * 0.28;
     const capsuleRy = size * 0.44;
 
@@ -179,11 +206,17 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
   const effectiveGlow = Math.max(headsetGlowIntensity, cloakIntensity * 1.15);
   if (effectiveGlow > 0.08) {
     // headsetOriginRel is centered on her face/eyes right beneath the nurse cap cross
-    const faceX = spriteX + frame.headsetOriginRel.dx * drawScale * fwdDir + headDeformDx;
-    const faceY = enemyGroundY + hopY + frame.headsetOriginRel.dy * drawScale + headDeformDy;
+    const facePos = projectSpriteLandmarkToStage(frame.headsetOriginRel, projParams);
+    const faceX = facePos.x;
+    const faceY = facePos.y;
+    const faceRot = facePos.knotRotRad;
+    const cosF = Math.cos(faceRot);
+    const sinF = Math.sin(faceRot);
     // Cyber-headset sits slightly behind the eyes on the ear/temple
-    const headsetX = faceX - facingSign * 8.5 * drawScale;
-    const headsetY = faceY - 1.5 * drawScale;
+    const hsOffX = -facingSign * 8.5 * drawScale;
+    const hsOffY = -1.5 * drawScale;
+    const headsetX = faceX + hsOffX * cosF - hsOffY * sinF;
+    const headsetY = faceY + hsOffX * sinF + hsOffY * cosF;
     const pulse = 0.88 + 0.12 * Math.sin(elapsed * 8.6 + seed * 1.6);
     const flare =
       mode === 'opticalCloak' ||
@@ -216,7 +249,7 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
       headsetY,
       (2.2 + g * 1.1) * drawScale,
       (1.5 + g * 0.8) * drawScale,
-      facingSign < 0 ? -0.25 : 0.25,
+      faceRot + (facingSign < 0 ? -0.25 : 0.25),
       0,
       Math.PI * 2,
     );
@@ -229,10 +262,14 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
     );
     if (eyeBoost > 0.2) {
       // facingSign < 0 means facing LEFT, so +facingSign moves forward toward her nose/eyes
-      const eye1X = faceX + facingSign * 2.0 * drawScale;
-      const eye1Y = faceY + 2.0 * drawScale;
-      const eye2X = faceX + facingSign * 8.2 * drawScale;
-      const eye2Y = faceY + 2.6 * drawScale;
+      const e1OffX = facingSign * 2.0 * drawScale;
+      const e1OffY = 2.0 * drawScale;
+      const e2OffX = facingSign * 8.2 * drawScale;
+      const e2OffY = 2.6 * drawScale;
+      const eye1X = faceX + e1OffX * cosF - e1OffY * sinF;
+      const eye1Y = faceY + e1OffX * sinF + e1OffY * cosF;
+      const eye2X = faceX + e2OffX * cosF - e2OffY * sinF;
+      const eye2Y = faceY + e2OffX * sinF + e2OffY * cosF;
 
       const drawEyeGlint = (ex: number, ey: number, radiusMul: number) => {
         const er = (3.8 + eyeBoost * 5.0) * drawScale * radiusMul;
@@ -254,7 +291,7 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
           ey,
           2.15 * radiusMul * drawScale,
           1.2 * radiusMul * drawScale,
-          facingSign < 0 ? -0.16 : 0.16,
+          faceRot + (facingSign < 0 ? -0.16 : 0.16),
           0,
           Math.PI * 2,
         );
@@ -269,7 +306,11 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
         const streakLen = (15 + eyeBoost * 16) * drawScale;
         const midX = (eye1X + eye2X) * 0.5;
         const midY = (eye1Y + eye2Y) * 0.5;
-        const streakGrad = fgCtx.createLinearGradient(midX - streakLen, midY, midX + streakLen, midY);
+        const sx0 = midX - streakLen * cosF;
+        const sy0 = midY - streakLen * sinF;
+        const sx1 = midX + streakLen * cosF;
+        const sy1 = midY + streakLen * sinF;
+        const streakGrad = fgCtx.createLinearGradient(sx0, sy0, sx1, sy1);
         streakGrad.addColorStop(0, 'rgba(232, 121, 249, 0)');
         streakGrad.addColorStop(0.32, `rgba(244, 63, 94, ${0.46 * eyeBoost})`);
         streakGrad.addColorStop(0.5, `rgba(255, 245, 250, ${0.92 * eyeBoost})`);
@@ -278,8 +319,8 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
         fgCtx.strokeStyle = streakGrad;
         fgCtx.lineWidth = Math.max(1.2, 1.85 * drawScale);
         fgCtx.beginPath();
-        fgCtx.moveTo(midX - streakLen, midY);
-        fgCtx.lineTo(midX + streakLen, midY);
+        fgCtx.moveTo(sx0, sy0);
+        fgCtx.lineTo(sx1, sy1);
         fgCtx.stroke();
       }
     }
@@ -314,7 +355,8 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
   if (pierceImpactIntensity > 0.06) {
     const sw = Math.min(1.2, pierceImpactIntensity);
     const prog = Math.max(0, Math.min(1, 1 - sw * 0.65));
-    const ix = spriteX + frame.clawOriginRel.dx * drawScale * fwdDir * 0.55;
+    const clawPos = projectSpriteLandmarkToStage(frame.clawOriginRel, projParams);
+    const ix = spriteX + (clawPos.x - spriteX) * 0.55;
     const iy = enemyGroundY + 2;
     const outerRx = size * (0.20 + prog * 0.36);
     const outerRy = (5.8 + prog * 9.5) * Math.max(0.75, drawScale);
@@ -367,12 +409,9 @@ export function renderFeralNurseBioVfxOverlay(p: FeralNurseBioVfxParams): void {
     const cp = Math.max(0, Math.min(1, clawSlashProgress));
     const slashAlpha = Math.sin(cp * Math.PI);
     if (slashAlpha > 0.04) {
-      const cx = spriteX + frame.clawOriginRel.dx * drawScale * fwdDir + headDeformDx * 0.6;
-      const cy =
-        enemyGroundY +
-        hopY +
-        Math.min(-size * 0.30, frame.clawOriginRel.dy * drawScale) +
-        headDeformDy * 0.5;
+      const clawPos = projectSpriteLandmarkToStage(frame.clawOriginRel, projParams);
+      const cx = clawPos.x;
+      const cy = Math.min(enemyGroundY + hopY - size * 0.30, clawPos.y);
       const arcR = size * (0.28 + cp * 0.14);
       const sweepSpan = 0.76 + cp * 0.44;
       const startAng = facingSign < 0 ? Math.PI * 0.62 : -Math.PI * 0.38;
@@ -444,6 +483,38 @@ export function renderFeralNurseEnemySprite(
       : feralNurseSample.alpha;
   const finalAlpha = c.koAlpha * cloakAlpha;
 
+  const staggerDy = c.ea?.dead ? 0 : c.stagger.dy * 0.45;
+  const rotationRad = !c.ea?.dead ? c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad : 0;
+  const blendA = feralNurseSample.blendAlpha;
+  const canCrossBlend =
+    !c.ea?.dead && blendA < 0.99 && feralNurseSample.prevFrameIndex !== feralNurseSample.frameIndex;
+  const prevCanvas = canCrossBlend ? frames[feralNurseSample.prevFrameIndex] : null;
+
+  const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+    archetype: c.enemy.archetype,
+    idx: c.idx,
+    ea: c.ea,
+    isDead: c.isDead,
+    staggerShearPx: c.stagger.shearPx,
+    staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
+    breathScaleX: feralNurseJuice
+      ? c.stagger.scaleXMul
+      : c.breathScaleX * feralNurseSample.scaleX,
+    breathScaleY: feralNurseJuice
+      ? c.stagger.scaleYMul
+      : c.breathScaleY * feralNurseSample.scaleY,
+    frameBlendAlpha: canCrossBlend ? blendA : 1,
+    bioEmissiveRgb: c.bioEmissiveRgb,
+    isPrimedOrCharging: c.isPrimedOrCharging || feralNurseSample.headsetGlowIntensity > 0.78,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: Boolean(c.enemy.staggered),
+    elapsed: c.elapsed,
+    tacticalViewActive: c.tacticalViewActive,
+    feralNurseJuice,
+    cutIn: c.enemyCutIn,
+    facingSign: juiceFacing,
+  });
+
   if (!c.ea?.dead && !c.tacticalViewActive) {
     renderFeralNurseBioVfxOverlay({
       fgCtx: c.fgCtx,
@@ -453,9 +524,11 @@ export function renderFeralNurseEnemySprite(
       spriteX: c.spriteX,
       enemyGroundY: c.enemyGroundY,
       hopY,
+      staggerDy,
       size: c.size,
       drawScale,
       facingSign: juiceFacing,
+      rotationRad,
       headsetGlowIntensity: feralNurseJuice
         ? feralNurseJuice.headsetGlowIntensity
         : feralNurseSample.headsetGlowIntensity,
@@ -468,51 +541,23 @@ export function renderFeralNurseEnemySprite(
       pierceImpactIntensity: feralNurseJuice
         ? feralNurseJuice.pierceImpactIntensity
         : feralNurseSample.pierceImpactIntensity,
-      chestDeformDx: feralNurseJuice ? feralNurseJuice.deform.chest.dx * drawScale * juiceFacing : 0,
-      chestDeformDy: feralNurseJuice ? feralNurseJuice.deform.chest.dy * drawScale : 0,
-      headDeformDx: feralNurseJuice ? feralNurseJuice.deform.head.dx * drawScale * juiceFacing : 0,
-      headDeformDy: feralNurseJuice ? feralNurseJuice.deform.head.dy * drawScale : 0,
+      deform: c.webglRenderer ? deform : createIdentityControlPoints(),
+      squashStretch: uniforms.squashStretch,
+      shearPx: c.webglRenderer ? uniforms.shearPx : [0, 0],
+      swayAmpPx: c.webglRenderer ? uniforms.swayAmpPx : 0,
+      swayPhase: c.webglRenderer ? uniforms.swayPhase : 0,
       elapsed: c.elapsed,
       seed: c.idx,
     });
   }
 
-  const blendA = feralNurseSample.blendAlpha;
-  const canCrossBlend =
-    !c.ea?.dead && blendA < 0.99 && feralNurseSample.prevFrameIndex !== feralNurseSample.frameIndex;
-  const prevCanvas = canCrossBlend ? frames[feralNurseSample.prevFrameIndex] : null;
-
   if (c.webglRenderer) {
-    const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-      archetype: c.enemy.archetype,
-      idx: c.idx,
-      ea: c.ea,
-      isDead: c.isDead,
-      staggerShearPx: c.stagger.shearPx,
-      staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
-      breathScaleX: feralNurseJuice
-        ? c.stagger.scaleXMul
-        : c.breathScaleX * feralNurseSample.scaleX,
-      breathScaleY: feralNurseJuice
-        ? c.stagger.scaleYMul
-        : c.breathScaleY * feralNurseSample.scaleY,
-      frameBlendAlpha: canCrossBlend ? blendA : 1,
-      bioEmissiveRgb: c.bioEmissiveRgb,
-      isPrimedOrCharging: c.isPrimedOrCharging || feralNurseSample.headsetGlowIntensity > 0.78,
-      isAcidOrPustuleActive: false,
-      isStaggeredStatus: Boolean(c.enemy.staggered),
-      elapsed: c.elapsed,
-      tacticalViewActive: c.tacticalViewActive,
-      feralNurseJuice,
-      cutIn: c.enemyCutIn,
-      facingSign: juiceFacing,
-    });
     c.webglRenderer.drawSprite({
       id: `enemy:${c.enemy.id}`,
       primarySource: fCanvas,
       secondarySource: prevCanvas,
       worldX: c.spriteX,
-      worldY: c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.45),
+      worldY: c.enemyGroundY + hopY + staggerDy,
       widthPx: ff.w * drawScale,
       heightPx: ff.h * drawScale,
       anchorOffsetXPx: ff.anchorX * drawScale,
@@ -522,7 +567,7 @@ export function renderFeralNurseEnemySprite(
       secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
       secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
       facingSign: juiceFacing,
-      rotationRad: !c.ea?.dead ? c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad : 0,
+      rotationRad,
       alpha: finalAlpha,
       drawPriority: c.enemyCutIn.drawPriority,
       deform,
@@ -534,18 +579,12 @@ export function renderFeralNurseEnemySprite(
   const { baseCtx } = c;
   baseCtx.save();
   baseCtx.globalAlpha = finalAlpha * c.canvasBystanderMul;
-  baseCtx.translate(c.spriteX, c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.45));
+  baseCtx.translate(c.spriteX, c.enemyGroundY + hopY + staggerDy);
   if (!c.ea?.dead) {
-    baseCtx.rotate(c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad);
+    baseCtx.rotate(rotationRad);
   }
-  const scaleX =
-    (feralNurseJuice
-      ? c.stagger.scaleXMul * feralNurseJuice.springScaleX
-      : c.breathScaleX * feralNurseSample.scaleX) * c.enemyCutIn.scaleX;
-  const scaleY =
-    (feralNurseJuice
-      ? c.stagger.scaleYMul * feralNurseJuice.springScaleY
-      : c.breathScaleY * feralNurseSample.scaleY) * c.enemyCutIn.scaleY;
+  const scaleX = uniforms.squashStretch[0];
+  const scaleY = uniforms.squashStretch[1];
   baseCtx.scale(juiceFacing * scaleX, scaleY);
 
   if (prevCanvas) {

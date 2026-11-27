@@ -11,7 +11,7 @@ import {
   stepMutdogJuice,
 } from './mutdogJuiceController';
 
-test('MUTDOG_SHEET_FRAMES contains 16 valid frames within 1024x1024 bounds with valid anchors and VFX origins', () => {
+test('MUTDOG_SHEET_FRAMES contains 16 valid frames within 1024x1024 bounds with valid anchors, twin antenna bulbs, eye, and jaw origins', () => {
   assert.equal(MUTDOG_SHEET_FRAMES.length, 16);
   for (let i = 0; i < MUTDOG_SHEET_FRAMES.length; i++) {
     const f = MUTDOG_SHEET_FRAMES[i];
@@ -21,17 +21,34 @@ test('MUTDOG_SHEET_FRAMES contains 16 valid frames within 1024x1024 bounds with 
     assert.ok(f.anchorX > 0 && f.anchorX < f.w);
     assert.ok(f.bottomY > 0 && f.bottomY <= f.h);
     assert.ok(f.lureOriginRel.dy < 0, `Frame ${f.id} lureOriginRel should be above ground`);
-    assert.ok(f.mawOriginRel.dy < 0, `Frame ${f.id} mawOriginRel should be above ground`);
+    assert.equal(f.lureBulbsRel.length, 2, `Frame ${f.id} must define front and rear antenna bulbs`);
+    const [frontBulb, rearBulb] = f.lureBulbsRel;
+    assert.ok(
+      frontBulb.dx < rearBulb.dx && rearBulb.dx < 0,
+      `Frame ${f.id} front antenna bulb (${frontBulb.dx}) must sit forward of rear bulb (${rearBulb.dx})`,
+    );
+    assert.ok(frontBulb.dy < 0 && rearBulb.dy < 0, `Frame ${f.id} antenna bulbs must sit above ground`);
+    assert.ok(f.eyeOriginRel.dy < 0, `Frame ${f.id} eyeOriginRel should be above ground`);
+    assert.ok(
+      f.mawOriginRel.dy < 0 && f.mawOriginRel.dy > f.eyeOriginRel.dy,
+      `Frame ${f.id} mawOriginRel (${f.mawOriginRel.dy}) should sit below eye (${f.eyeOriginRel.dy}) and above ground`,
+    );
   }
 });
 
-test('stepMutdogJuice covers idle panting, Frenzy Howl, Savage Maul, Feral Pounce, primed postures, stagger, and death collapse with crisp cuts', () => {
-  const idleSample = stepMutdogJuice(createMutdogJuiceState(), 0.016, 0.35, DEFAULT_MUTDOG_JUICE_CONFIG, {
-    instanceIndex: 0,
-  });
-  assert.equal(idleSample.mode, 'idle');
-  assert.ok([0, 1, 2, 3].includes(idleSample.frameIndex));
-  assert.equal(idleSample.frameBlendAlpha, 1);
+test('stepMutdogJuice covers idle panting, Frenzy Howl, Savage Maul, Feral Pounce, primed postures, stagger, and death collapse with crisp cuts and Rule 3 compatible heights', () => {
+  const idleState = createMutdogJuiceState();
+  for (let i = 0; i < 180; i++) {
+    const s = stepMutdogJuice(idleState, 0.02, i * 0.02, DEFAULT_MUTDOG_JUICE_CONFIG, {
+      instanceIndex: 0,
+    });
+    assert.equal(s.mode, 'idle');
+    assert.ok(
+      [0, 1, 2].includes(s.frameIndex),
+      `Idle loop must stay on compatible upright frames [0, 1, 2] (saw ${s.frameIndex})`,
+    );
+    assert.equal(s.frameBlendAlpha, 1);
+  }
 
   const howlSample = stepMutdogJuice(createMutdogJuiceState(), 0.016, 1.2, DEFAULT_MUTDOG_JUICE_CONFIG, {
     bristleTimer: 0.44,
@@ -79,21 +96,21 @@ test('stepMutdogJuice covers idle panting, Frenzy Howl, Savage Maul, Feral Pounc
     instanceIndex: 0,
   });
   assert.equal(maulPrimedSample.mode, 'maulPrimed');
-  assert.ok([5, 6, 8].includes(maulPrimedSample.frameIndex));
+  assert.ok([2, 5, 6].includes(maulPrimedSample.frameIndex));
 
   const pouncePrimedSample = stepMutdogJuice(createMutdogJuiceState(), 0.016, 0.4, DEFAULT_MUTDOG_JUICE_CONFIG, {
     pouncePrimed: true,
     instanceIndex: 0,
   });
   assert.equal(pouncePrimedSample.mode, 'pouncePrimed');
-  assert.ok([2, 3, 5].includes(pouncePrimedSample.frameIndex));
+  assert.ok([1, 2, 5].includes(pouncePrimedSample.frameIndex));
 
   const pauseRecoverSample = stepMutdogJuice(createMutdogJuiceState(), 0.016, 0.5, DEFAULT_MUTDOG_JUICE_CONFIG, {
     pauseRecover: true,
     instanceIndex: 0,
   });
   assert.equal(pauseRecoverSample.mode, 'pauseRecover');
-  assert.ok([0, 3].includes(pauseRecoverSample.frameIndex));
+  assert.ok([0, 1].includes(pauseRecoverSample.frameIndex));
 
   const staggeredSample = stepMutdogJuice(createMutdogJuiceState(), 0.016, 4.0, DEFAULT_MUTDOG_JUICE_CONFIG, {
     staggeredStatus: true,

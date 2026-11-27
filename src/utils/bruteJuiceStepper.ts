@@ -107,20 +107,21 @@ export function stepBruteJuice(
     state.stompTime += safeDt * config.stompSpeed;
     const stompSin = Math.sin(state.stompTime);
     const liftAbs = Math.abs(stompSin);
-    ctx.frameIndex = liftAbs > 0.42 ? 0 : 1;
-    const isAirborne = liftAbs > 0.25;
+    const isAirborne = liftAbs > 0.34;
+    ctx.frameIndex = isAirborne ? 0 : 1;
     if (state.wasAirborne && !isAirborne && safeDt > 0) {
       applyBruteSquash(state, 1.13, 0.88, 0.8, -0.9);
       ctx.footPlantTriggered = true;
     }
     state.wasAirborne = isAirborne;
-    ctx.rotationRad += stompSin * config.stompMaxAngleRad;
-    ctx.hopYPx -= liftAbs * config.stompHopHeightPx;
+    const airborneLift = isAirborne ? (liftAbs - 0.34) / 0.66 : 0;
+    ctx.rotationRad += stompSin * config.stompMaxAngleRad * (isAirborne ? 1 : 0.45);
+    ctx.hopYPx -= airborneLift * config.stompHopHeightPx;
 
     const leanDir = isAdvancing ? 1 : -0.6;
     ctx.deform.pelvis.dx = leanDir * 2.5;
     ctx.deform.waist.dx = leanDir * 5.2;
-    ctx.deform.waist.dy = -liftAbs * 1.5;
+    ctx.deform.waist.dy = -airborneLift * 1.5;
     ctx.deform.head.dx = leanDir * 8.0;
     ctx.deform.head.rotRad = stompSin * 0.038;
     ctx.vialGlowIntensity = 0.44 + 0.14 * liftAbs;
@@ -211,7 +212,7 @@ export function stepBruteJuice(
     ctx.deform.head.dy = -pulse * 2.0;
   } else if (combatSync?.pauseRecover) {
     ctx.mode = 'pauseRecover';
-    const pauseCycle = [0, 1] as const;
+    const pauseCycle = [1, 3] as const;
     const slot = Math.floor(Math.max(0, elapsed * 1.35 + idx * 0.75)) % pauseCycle.length;
     ctx.frameIndex = pauseCycle[slot];
     const heave = Math.sin(elapsed * 2.1 + idx);
@@ -229,26 +230,21 @@ export function stepBruteJuice(
     state.snarlTimer -= safeDt;
     if (state.snarlTimer <= 0) {
       state.snarlHoldTimer = 0.48;
-      state.snarlVariant = state.snarlVariant === 2 ? 3 : 2;
+      state.snarlVariant = 2;
       state.snarlTimer = 2.2 + ((idx * 0.79) % 1.1);
     }
     if (state.snarlHoldTimer > 0) {
       state.snarlHoldTimer = Math.max(0, state.snarlHoldTimer - safeDt);
-      const snarlProgress = 1 - state.snarlHoldTimer / 0.48;
-      ctx.frameIndex =
-        snarlProgress < 0.28
-          ? 2
-          : snarlProgress < 0.72
-            ? state.snarlVariant
-            : 2;
+      ctx.frameIndex = 2;
       ctx.vialGlowIntensity = 0.36;
       ctx.shellGlowIntensity = 0.28;
     } else {
-      const respSlot = Math.floor(Math.max(0, elapsed * 1.85 + idx * 0.9)) % 2;
-      ctx.frameIndex = state.flipActive ? 0 : respSlot;
+      const idleBreathFrames = [1, 3] as const;
+      const respSlot = Math.floor(Math.max(0, elapsed * 1.65 + idx * 0.9)) % idleBreathFrames.length;
+      ctx.frameIndex = state.flipActive ? 0 : idleBreathFrames[respSlot];
     }
     const breath = Math.sin(ctx.swayPhase);
-    ctx.deform.pelvis.dx = breath * 0.45;
+    ctx.deform.pelvis.dx = breath * 0.35;
     ctx.deform.waist.dx = breath * 1.05;
     ctx.deform.waist.dy = -breath * 1.35;
     ctx.deform.waist.scaleX = 1 + breath * 0.022;

@@ -23,6 +23,7 @@ import {
   MESH_VERTEX_COUNT,
   WARP_TRIANGLES,
   computeVertexIdleBreathNormY,
+  computeVertexIdleSwayNormX,
   createMeshWarpScratch,
   renderWarpedFramePair,
 } from '../utils/titleMeshWarp';
@@ -342,9 +343,10 @@ export function TitleEmblemStage({
       const frameACanvas = frames[seq.frameA] ?? baseLogo;
       const frameBCanvas = frames[seq.frameB] ?? frameACanvas;
       const lockupSource = lockupRef.current;
-      const idleBreathingActive = !seq.active && !reducedMotion;
+      // Keep gentle anatomical breathing & tentacle/hair sway alive even through climax turnaround
+      const idleBreathingActive = !reducedMotion;
 
-      // Sync Xeno slime nozzle anchors with live mesh vertex displacement (idle breathing + K0..K4 warp)
+      // Sync all 6 Xeno slime nozzle anchors with live mesh vertex displacement (idle breathing/sway + K0..K4 warp)
       const baseVerts = KEYFRAME_LATTICE_VERTICES[0];
       const vertsA =
         KEYFRAME_LATTICE_VERTICES[
@@ -359,11 +361,12 @@ export function TitleEmblemStage({
       const nozzleOffsets = slimeOffsetsRef.current;
       for (let i = 0; i < XENO_SLIME_NOZZLES.length; i++) {
         const vIdx = XENO_SLIME_NOZZLES[i].meshVertexIdx;
-        const dxNorm =
+        let dxNorm =
           vertsA[vIdx].nx * omU + vertsB[vIdx].nx * blendU - baseVerts[vIdx].nx;
         let dyNorm =
           vertsA[vIdx].ny * omU + vertsB[vIdx].ny * blendU - baseVerts[vIdx].ny;
         if (idleBreathingActive) {
+          dxNorm += computeVertexIdleSwayNormX(vIdx, vfx.timeSec);
           dyNorm += computeVertexIdleBreathNormY(vIdx, vfx.timeSec);
         }
         nozzleOffsets[i].dxNorm = dxNorm;
@@ -371,7 +374,10 @@ export function TitleEmblemStage({
       }
 
       stepVisorMatrix(visorRef.current, seq, dt, reducedMotion);
-      const isXenoShocked = seq.active && (seq.frameA >= 3 || seq.frameB >= 3);
+      // Frames 6 (K3), 7 (K3_5), 8 (K4) represent the blown-kiss -> shock climax escalation
+      const isXenoShocked = seq.active && (seq.frameA >= 6 || seq.frameB >= 6);
+      const lateralWhipPx =
+        seq.shakeNormX * SLIME_REF_WIDTH * 1.65 + vfx.recoilVel * 2.1;
       stepSlimeEngine(
         slimeRef.current,
         vfx,
@@ -379,6 +385,7 @@ export function TitleEmblemStage({
         isXenoShocked,
         reducedMotion,
         nozzleOffsets,
+        lateralWhipPx,
       );
 
       // Build unified 960x541 offscreen composite in strict Z-order:
@@ -490,7 +497,7 @@ export function TitleEmblemStage({
 
       ctx.save();
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'low';
+      ctx.imageSmoothingQuality = 'high';
       ctx.drawImage(activeLogoSource, drawX, drawY, drawW, drawH);
       ctx.restore();
 
@@ -507,15 +514,15 @@ export function TitleEmblemStage({
           const bandW = sw * 0.24;
           const grad = sctx.createLinearGradient(cx - bandW, 0, cx + bandW, sh * 0.45);
           grad.addColorStop(0, 'rgba(0, 240, 255, 0)');
-          grad.addColorStop(0.28, 'rgba(0, 240, 255, 0.24)');
-          grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.56)');
-          grad.addColorStop(0.72, 'rgba(255, 46, 126, 0.24)');
+          grad.addColorStop(0.28, 'rgba(0, 240, 255, 0.20)');
+          grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.44)');
+          grad.addColorStop(0.72, 'rgba(255, 46, 126, 0.20)');
           grad.addColorStop(1, 'rgba(255, 46, 126, 0)');
           sctx.fillStyle = grad;
           sctx.fillRect(0, 0, sw, sh);
 
           sctx.globalCompositeOperation = 'destination-in';
-          sctx.drawImage(activeLogoSource, 0, 0, sw, sh);
+          sctx.drawImage(lockupSource ?? activeLogoSource, 0, 0, sw, sh);
 
           ctx.save();
           ctx.globalCompositeOperation = 'screen';

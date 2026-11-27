@@ -21,19 +21,23 @@
     "visorCurvature": -0.014,
     "slimeTips": [
       {
-        "x": 30,
-        "y": 294
+        "x": 32,
+        "y": 196
       },
       {
         "x": 32,
-        "y": 192
+        "y": 207
       },
       {
-        "x": 28,
-        "y": 304
+        "x": 27,
+        "y": 297
+      },
+      {
+        "x": 25,
+        "y": 309
       }
     ],
-    "slimeEraseRadiusPx": 14
+    "slimeEraseRadiusPx": 15
   },
   "keyframes": [
     {
@@ -46,7 +50,7 @@
       "downscaled": false,
       "sourceSha256": "e221db3947f5aeadf6ce204847803d037fff03a7a31c0460d0ec7eed986274b7",
       "output": "src/assets/sprites/baked/k0.png",
-      "outputSha256": "c378f11cbe2f995cbc3bc797d4540396bc67147ccd89013349f9d3201142a284"
+      "outputSha256": "71c4ba77bb60e4a24f38a190da6c02530488c2b4a5ddd6063bb6e793f9e39354"
     },
     {
       "id": "k1",
@@ -58,7 +62,19 @@
       "downscaled": false,
       "sourceSha256": "015db511f87c98910c1b280638ee400e72098e84c06b86217480e466d93b2f35",
       "output": "src/assets/sprites/baked/k1.png",
-      "outputSha256": "5c6249eb372d0501422153ba8178de12aa1201bb271fae8b154b30c9710d977e"
+      "outputSha256": "b22dce6c1c571d3f9d6e6c60abe296fa9e176c54732765c75740e48d5baecc9a"
+    },
+    {
+      "id": "k1_5",
+      "source": "assets-src/title/title_logo_1_5.jpg",
+      "sourceDimensions": {
+        "width": 1376,
+        "height": 768
+      },
+      "downscaled": true,
+      "sourceSha256": "cca2f5f5297b81f15656bb7f89bebb0e94b143afb808c3f8becd899f6449a42a",
+      "output": "src/assets/sprites/baked/k1_5.png",
+      "outputSha256": "a7e051883cb0a76c3aaa5deeb348c0d6d6e2f9807765a989f36ed5913873d772"
     },
     {
       "id": "k2",
@@ -70,7 +86,31 @@
       "downscaled": false,
       "sourceSha256": "75c0e1da850e19d5e2af26fe2cc4717bde0a01f7923516d093939e7c2cf83b71",
       "output": "src/assets/sprites/baked/k2.png",
-      "outputSha256": "ad4ee80a5a66ffbe625e7bc1ffaf206b3dffef58382834470207aeeb9b44c9cf"
+      "outputSha256": "7605a5c54e05a01a5382cec0f275ecdba0ddae5b5520f87f58678cfdc44fe761"
+    },
+    {
+      "id": "k2_3",
+      "source": "assets-src/title/title_logo_2_3.jpg",
+      "sourceDimensions": {
+        "width": 1376,
+        "height": 768
+      },
+      "downscaled": true,
+      "sourceSha256": "0cbeeb46aa2190968e37687c0749d3921fd2db7e4fa0ceffbfdc6470c582245a",
+      "output": "src/assets/sprites/baked/k2_3.png",
+      "outputSha256": "f7fefbc1e7b45bc2235df47dfab2bf83646d4c7e80abf256286527ce2a046f33"
+    },
+    {
+      "id": "k2_7",
+      "source": "assets-src/title/title_logo_2_7.jpg",
+      "sourceDimensions": {
+        "width": 1376,
+        "height": 768
+      },
+      "downscaled": true,
+      "sourceSha256": "134f6d74811af1dd438a337a9351be195bac22595554006653b235bf570dea4d",
+      "output": "src/assets/sprites/baked/k2_7.png",
+      "outputSha256": "5a6d7516b680ca1ef9cd31fe0161192fa1ef5818598444a9ec4aaf648d2ace70"
     },
     {
       "id": "k3",
@@ -82,7 +122,19 @@
       "downscaled": false,
       "sourceSha256": "17fc46d269f864b778ba81e97cba5bafbd97474a3232157174a3ce85fcaab6e4",
       "output": "src/assets/sprites/baked/k3.png",
-      "outputSha256": "2dcd84b0fefe4007984a71b25a4c6fb238b2de87b423ed1ee6dfdf9f1ebdd88d"
+      "outputSha256": "3272bf12b66400700ab9e565f2d038c795f7049bbd3ddbb41d352fa028a82ad4"
+    },
+    {
+      "id": "k3_5",
+      "source": "assets-src/title/title_logo_3_5.jpg",
+      "sourceDimensions": {
+        "width": 1376,
+        "height": 768
+      },
+      "downscaled": true,
+      "sourceSha256": "72a56a0941a18115add41412ef31c1987507d4f1ece4877177106e80c8b24cc6",
+      "output": "src/assets/sprites/baked/k3_5.png",
+      "outputSha256": "7a3959bbcc6da651dc1966046d7ef981ed60afcc8a2a4029dbab835bb7e29acb"
     },
     {
       "id": "k4",
@@ -94,13 +146,13 @@
       "downscaled": false,
       "sourceSha256": "96b918f2baaef2052510125f118a317393a945d7915885d0672a70e4bdfb79d2",
       "output": "src/assets/sprites/baked/k4.png",
-      "outputSha256": "51d4071eae929d113dd1bea58fbf9d27667f6c7f92e56d4fcce088256e3e76d7"
+      "outputSha256": "4314ca873e6c098fbe0d32849bc08747161adc4b1079d8f5eca5c6018523d1c8"
     }
   ],
   "lockup": {
     "sourceKeyframe": "k0",
     "output": "src/assets/sprites/baked/lockup_plane0.png",
-    "outputSha256": "0364962c3915b77666bde5a3a0c35d14e2d2cfd588a88becbd777af6517b6b28"
+    "outputSha256": "a55983e4f4c2b2a88f18a5165ccce6b8204dbd76765ef77b70aa3aeb503d94e5"
   },
   "sheets": [
     {
@@ -182,7 +234,7 @@
       "width": 1024,
       "height": 1024,
       "sourceSha256": "e3b57fccdb6c5e48e49bd9e425149f8049667dcb20d1bca33747c1096cbe78df",
-      "outputSha256": "70d807e4505b7620484741cb2c1d636c6fae4a35434a1489b221acd1f4de7ada"
+      "outputSha256": "b21d13fe20f9547dc1641848fe3022cfcaebb3d8c4c413660f8b8bc2796ac95b"
     },
     {
       "id": "mutdog",
@@ -191,7 +243,7 @@
       "width": 1024,
       "height": 1024,
       "sourceSha256": "0ea5d19f309916a58ec15a21c96fcd3745480934f46ee794ea2b628bfc9991d3",
-      "outputSha256": "a40d8974bdeff532d86f300f333a07547120bad5912b7e97193b5845ea359a38"
+      "outputSha256": "5f1f497cbdbec4ed79112606ffd7af872aa1b8ce7d619b7b227cc6c7f0d210e0"
     },
     {
       "id": "feralNurseA",
@@ -313,13 +365,31 @@
       "outputSha256": "b0dd308201519940ec8fd825b3b1b23637a7798f6976fac6aaa1670a4173ebd8"
     },
     {
+      "id": "matriarchIntact",
+      "source": "assets-src/mutants/matriarch_intact.png",
+      "output": "src/assets/sprites/baked/matriarch_intact.png",
+      "width": 585,
+      "height": 640,
+      "sourceSha256": "79f0aab77a2c15509703c803d416ee36053e5d6a3e86ee747300a83020615b07",
+      "outputSha256": "a60bba0d8275942ad4135d6ac5b14b5c6827a00e8a7bce683404cc5f73a8313f"
+    },
+    {
+      "id": "matriarchExploded",
+      "source": "assets-src/mutants/matriarch_exploded.png",
+      "output": "src/assets/sprites/baked/matriarch_exploded.png",
+      "width": 640,
+      "height": 427,
+      "sourceSha256": "8f2078b8738d56d3685a0e6be2ead9bc4f9cc3d442954268064a2043e2b42344",
+      "outputSha256": "c93a2cb288ff8359f9bbf77fe1be0f5a3d73b2e5733cdec674a2b0a68556cb6e"
+    },
+    {
       "id": "bossPortrait",
-      "source": "assets-src/portraits/boss_portrait.jpg",
+      "source": "assets-src/mutants/matriarch_intact.png",
       "output": "src/assets/sprites/baked/boss_portrait.png",
-      "width": 512,
+      "width": 468,
       "height": 512,
-      "sourceSha256": "8963b5d41805943c8dae627dd32310d14d1ad93272f9ea057be310026f71c639",
-      "outputSha256": "821b71843874e36c48d6ad100121f34c56481b3db82a684dbb9c37a8c2b0b9ec"
+      "sourceSha256": "79f0aab77a2c15509703c803d416ee36053e5d6a3e86ee747300a83020615b07",
+      "outputSha256": "425273ab7ff2ac24a40f52645ea53e9c720980d74aed61e6d216b44edf0d76ce"
     }
   ],
   "bounds": {
@@ -381,11 +451,11 @@
         "centerXRatio": 0.4980237154150198
       },
       "boss": {
-        "topRatio": 0.0234375,
-        "bottomRatio": 0.98828125,
-        "leftRatio": 0.083984375,
-        "rightRatio": 0.943359375,
-        "centerXRatio": 0.5126953125
+        "topRatio": 0,
+        "bottomRatio": 0.9859375,
+        "leftRatio": 0.003418803418803419,
+        "rightRatio": 0.9982905982905983,
+        "centerXRatio": 0.5
       }
     },
     "enemyPortraits": {
@@ -446,11 +516,11 @@
         "centerXRatio": 0.4990234375
       },
       "boss": {
-        "topRatio": 0.0234375,
-        "bottomRatio": 0.98828125,
-        "leftRatio": 0.083984375,
-        "rightRatio": 0.943359375,
-        "centerXRatio": 0.5126953125
+        "topRatio": 0,
+        "bottomRatio": 0.986328125,
+        "leftRatio": 0.002136752136752137,
+        "rightRatio": 0.9978632478632479,
+        "centerXRatio": 0.49893162393162394
       }
     }
   }

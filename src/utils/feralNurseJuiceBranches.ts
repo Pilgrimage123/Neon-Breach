@@ -55,17 +55,19 @@ export function stepFeralNurseCombatSyncBranch(
     const dur = Math.max(0.28, combatSync.attackAnimDuration || 0.84);
     const p = clamp01(1 - combatSync.attackAnimTimer / dur);
     if (p < 0.26) {
-      out.deform.chest = { dx: 5 * deformScale, dy: -2.6 * deformScale, rotRad: 0.075 * deformScale, scaleX: 0.97 };
-      out.deform.head = { dx: 7 * deformScale, dy: -3.2 * deformScale, rotRad: 0.09 * deformScale, scaleX: 0.98 };
+      // Windup pull-back: negative local dx bends spine RIGHT (away from Hero) under facingSign = -1
+      out.deform.chest = { dx: -5 * deformScale, dy: -2.6 * deformScale, rotRad: -0.075 * deformScale, scaleX: 0.97 };
+      out.deform.head = { dx: -7 * deformScale, dy: -3.2 * deformScale, rotRad: -0.09 * deformScale, scaleX: 0.98 };
     } else if (p < 0.80) {
       if (p >= 0.44 && !state.impactFired) {
         state.impactFired = true;
         out.pierceImpactTriggered = true;
         applyFeralNurseSquash(state, 1.28, 0.75, 1.3, -1.4);
       }
-      out.deform.hips = { dx: -3.8 * deformScale, dy: 1.8 * deformScale, rotRad: -0.045 * deformScale, scaleX: 1.05 };
-      out.deform.chest = { dx: -10.0 * deformScale, dy: 2.2 * deformScale, rotRad: -0.105 * deformScale, scaleX: 1.06 };
-      out.deform.head = { dx: -12.0 * deformScale, dy: 1.4 * deformScale, rotRad: -0.105 * deformScale, scaleX: 1.03 };
+      // Forward surgical lunge: positive local dx bends spine LEFT (toward Hero) under facingSign = -1
+      out.deform.hips = { dx: 3.8 * deformScale, dy: 1.8 * deformScale, rotRad: 0.045 * deformScale, scaleX: 1.05 };
+      out.deform.chest = { dx: 10.0 * deformScale, dy: 2.2 * deformScale, rotRad: 0.105 * deformScale, scaleX: 1.06 };
+      out.deform.head = { dx: 12.0 * deformScale, dy: 1.4 * deformScale, rotRad: 0.105 * deformScale, scaleX: 1.03 };
     }
   } else if (sample.mode === 'cloakCast' || sample.mode === 'opticalCloak') {
     const ci = out.cloakIntensity;
@@ -75,9 +77,9 @@ export function stepFeralNurseCombatSyncBranch(
       applyFeralNurseSquash(state, 1.08, 0.92, 0.4, -0.5);
     }
     const wave = Math.sin(nowSec * 7.2);
-    out.deform.hips = { dx: wave * 1.4 * deformScale, dy: 1.2 * ci * deformScale, rotRad: -0.02 * ci * deformScale, scaleX: 1.02 };
-    out.deform.chest = { dx: (-2.4 + wave * 2.2) * deformScale, dy: 1.8 * ci * deformScale, rotRad: (-0.04 + wave * 0.025) * deformScale, scaleX: 1.02 };
-    out.deform.head = { dx: (-3.2 + wave * 2.6) * deformScale, dy: 1.4 * ci * deformScale, rotRad: (-0.03 + wave * 0.03) * deformScale, scaleX: 1.01 };
+    out.deform.hips = { dx: wave * 1.4 * deformScale, dy: 1.2 * ci * deformScale, rotRad: 0.02 * ci * deformScale, scaleX: 1.02 };
+    out.deform.chest = { dx: (2.4 + wave * 2.2) * deformScale, dy: 1.8 * ci * deformScale, rotRad: (0.04 + wave * 0.025) * deformScale, scaleX: 1.02 };
+    out.deform.head = { dx: (3.2 + wave * 2.6) * deformScale, dy: 1.4 * ci * deformScale, rotRad: (0.03 + wave * 0.03) * deformScale, scaleX: 1.01 };
     // Optical-camo cyan-magenta holographic tint & refraction wobble
     out.tintRgba = [0.74, 1.06, 1.24, 1];
     out.uvDistortAmp = [0.0068 * ci, 0.0034 * ci];
@@ -88,9 +90,10 @@ export function stepFeralNurseCombatSyncBranch(
       out.ichorBurstTriggered = true;
     }
     const whip = Math.sin(clamp01(1 - combatSync.staggerTimer / Math.max(0.18, combatSync.staggerDuration || 0.44)) * Math.PI);
-    out.deform.hips = { dx: whip * 3.5 * deformScale, dy: whip * 1.4 * deformScale, rotRad: whip * 0.05 * deformScale, scaleX: 0.98 };
-    out.deform.chest = { dx: whip * 8.5 * deformScale, dy: whip * 2.2 * deformScale, rotRad: whip * 0.11 * deformScale, scaleX: 0.96 };
-    out.deform.head = { dx: whip * 13.5 * deformScale, dy: whip * 1.2 * deformScale, rotRad: whip * 0.16 * deformScale, scaleX: 0.96 };
+    // Pain whip recoil: negative local dx whips spine BACKWARD (right) away from Hero
+    out.deform.hips = { dx: -whip * 3.5 * deformScale, dy: whip * 1.4 * deformScale, rotRad: -whip * 0.05 * deformScale, scaleX: 0.98 };
+    out.deform.chest = { dx: -whip * 8.5 * deformScale, dy: whip * 2.2 * deformScale, rotRad: -whip * 0.11 * deformScale, scaleX: 0.96 };
+    out.deform.head = { dx: -whip * 13.5 * deformScale, dy: whip * 1.2 * deformScale, rotRad: -whip * 0.16 * deformScale, scaleX: 0.96 };
     if (combatSync.cloaked) {
       out.tintRgba = [0.82, 1.04, 1.24, 1];
       out.uvDistortAmp = [0.008 * whip + 0.004, 0.004 * whip + 0.002];
@@ -100,9 +103,9 @@ export function stepFeralNurseCombatSyncBranch(
     }
   } else if (sample.mode === 'prepareCoil') {
     const pulse = Math.sin(nowSec * 7.4);
-    out.deform.hips = { dx: -2.2 * deformScale, dy: 1.6 * deformScale, rotRad: -0.025 * deformScale, scaleX: 1.03 };
-    out.deform.chest = { dx: (-4.8 + pulse * 2.2) * deformScale, dy: 2.2 * deformScale, rotRad: (-0.06 + pulse * 0.03) * deformScale, scaleX: 1.04 };
-    out.deform.head = { dx: (-6.2 + pulse * 2.8) * deformScale, dy: 1.6 * deformScale, rotRad: (-0.055 + pulse * 0.035) * deformScale, scaleX: 1.02 };
+    out.deform.hips = { dx: 2.2 * deformScale, dy: 1.6 * deformScale, rotRad: 0.025 * deformScale, scaleX: 1.03 };
+    out.deform.chest = { dx: (4.8 + pulse * 2.2) * deformScale, dy: 2.2 * deformScale, rotRad: (0.06 + pulse * 0.03) * deformScale, scaleX: 1.04 };
+    out.deform.head = { dx: (6.2 + pulse * 2.8) * deformScale, dy: 1.6 * deformScale, rotRad: (0.055 + pulse * 0.035) * deformScale, scaleX: 1.02 };
     out.tintRgba = [1.08 + 0.05 * Math.abs(pulse), 0.94, 1.04, 1];
   } else if (sample.mode === 'staggered' || sample.mode === 'staggerHover') {
     const sway = Math.sin(nowSec * 4.6);
@@ -110,8 +113,8 @@ export function stepFeralNurseCombatSyncBranch(
     out.deform.head = { dx: sway * 7.0 * deformScale, dy: 3.2 * deformScale, rotRad: sway * 0.095 * deformScale, scaleX: 0.97 };
   } else if (sample.mode === 'feralGuard' || sample.mode === 'guardHover') {
     const brace = Math.sin(nowSec * 4.2);
-    out.deform.chest = { dx: -2.2 * deformScale, dy: 1.6 * deformScale, rotRad: -0.03 * deformScale, scaleX: 1.03 + brace * 0.015 };
-    out.deform.head = { dx: -1.8 * deformScale, dy: 1.0 * deformScale, rotRad: -0.02 * deformScale, scaleX: 1.01 };
+    out.deform.chest = { dx: 2.2 * deformScale, dy: 1.6 * deformScale, rotRad: 0.03 * deformScale, scaleX: 1.03 + brace * 0.015 };
+    out.deform.head = { dx: 1.8 * deformScale, dy: 1.0 * deformScale, rotRad: 0.02 * deformScale, scaleX: 1.01 };
   } else if (!combatSync.dead) {
     const breath = Math.sin(nowSec * 2.6);
     const chestHeave = Math.sin(nowSec * 2.6 - 0.35);
@@ -172,21 +175,21 @@ export function stepFeralNurseLabTriggerBranch(
     out.rotationRad = -0.022 - boundArc * 0.024 + strideSway * 0.014;
     out.headsetGlowIntensity = 0.72 + boundArc * 0.16;
     out.deform.hips = {
-      dx: (-1.4 - boundArc * 1.2) * deformScale,
+      dx: (1.4 + boundArc * 1.2) * deformScale,
       dy: (0.8 - boundArc * 1.4) * deformScale,
       rotRad: strideSway * 0.014 * deformScale,
       scaleX: 1.01,
     };
     out.deform.chest = {
-      dx: (-3.2 - boundArc * 2.2 + strideSway * 1.4) * deformScale,
+      dx: (3.2 + boundArc * 2.2 + strideSway * 1.4) * deformScale,
       dy: -boundArc * 1.6 * deformScale,
-      rotRad: (-0.03 + strideSway * 0.018) * deformScale,
+      rotRad: (0.03 + strideSway * 0.018) * deformScale,
       scaleX: 1.025,
     };
     out.deform.head = {
-      dx: (-4.2 - boundArc * 2.6 + strideSway * 1.8) * deformScale,
+      dx: (4.2 + boundArc * 2.6 + strideSway * 1.8) * deformScale,
       dy: -boundArc * 1.8 * deformScale,
-      rotRad: (-0.032 + strideSway * 0.022) * deformScale,
+      rotRad: (0.032 + strideSway * 0.022) * deformScale,
       scaleX: 1.01,
     };
     out.phaseLabel = 'Prowl Stalk · 5-Frame Feline Stride';
@@ -232,8 +235,8 @@ export function stepFeralNurseLabTriggerBranch(
       out.tintRgba = [0.72, 1.08, 1.26, 1];
       out.uvDistortAmp = [0.0072, 0.0036];
       out.uvDistortFreq = 16;
-      out.deform.chest = { dx: (-2.5 + shimmerWave * 2.0) * deformScale, dy: 1.6 * deformScale, rotRad: -0.04 * deformScale, scaleX: 1.02 };
-      out.deform.head = { dx: (-3.2 + shimmerWave * 2.5) * deformScale, dy: 1.2 * deformScale, rotRad: -0.03 * deformScale, scaleX: 1.01 };
+      out.deform.chest = { dx: (2.5 + shimmerWave * 2.0) * deformScale, dy: 1.6 * deformScale, rotRad: 0.04 * deformScale, scaleX: 1.02 };
+      out.deform.head = { dx: (3.2 + shimmerWave * 2.5) * deformScale, dy: 1.2 * deformScale, rotRad: 0.03 * deformScale, scaleX: 1.01 };
       out.phaseLabel = 'Optical Cloak · Beat 3 Camo Shimmer (10% DMG)';
     } else {
       const t = (p - 0.82) / 0.18;
@@ -259,44 +262,44 @@ export function stepFeralNurseLabTriggerBranch(
   if (trigger === 'pierce_strike') {
     const p = clamp01(state.triggerElapsed / Math.max(0.4, state.triggerDuration));
     if (p < 0.28) {
-      // Prepare Coil build-up
+      // Prepare Coil build-up (pull back right: negative local dx under facingSign = -1)
       const t = p / 0.28;
       const coilFrame = t < 0.34 ? 16 : t < 0.68 ? 17 : 18;
-      setFeralNurseFrame(state, coilFrame, 0.010);
+      setFeralNurseFrame(state, coilFrame, 0);
       const quiver = Math.sin(t * Math.PI * 8) * 1.8;
       out.xShiftPx = 7 * t + quiver;
       out.rotationRad = 0.06 * t;
       out.headsetGlowIntensity = 0.86 + 0.14 * t;
-      out.deform.chest = { dx: 4.5 * t * deformScale, dy: 2.0 * t * deformScale, rotRad: 0.05 * t * deformScale, scaleX: 1.03 };
-      out.deform.head = { dx: 6.0 * t * deformScale, dy: 1.4 * t * deformScale, rotRad: 0.06 * t * deformScale, scaleX: 1.02 };
+      out.deform.chest = { dx: -4.5 * t * deformScale, dy: 2.0 * t * deformScale, rotRad: -0.05 * t * deformScale, scaleX: 1.03 };
+      out.deform.head = { dx: -6.0 * t * deformScale, dy: 1.4 * t * deformScale, rotRad: -0.06 * t * deformScale, scaleX: 1.02 };
       out.tintRgba = [1.08, 0.94, 1.04, 1];
       out.phaseLabel = 'Prepare → 7 Pierce · Beat 1 Hunter Coil';
     } else if (p < 0.44) {
       const t = (p - 0.28) / 0.16;
-      setFeralNurseFrame(state, t < 0.45 ? 19 : 20, 0.006);
+      setFeralNurseFrame(state, t < 0.45 ? 19 : 20, 0);
       out.xShiftPx = 7 - 12 * t;
       out.hopYPx = -12 * t;
       out.rotationRad = 0.04 - 0.10 * t;
       out.headsetGlowIntensity = 1.0;
-      out.deform.chest = { dx: -3.5 * t * deformScale, dy: -2.4 * deformScale, rotRad: -0.05 * t * deformScale, scaleX: 0.96 };
-      out.deform.head = { dx: -5.0 * t * deformScale, dy: -3.0 * deformScale, rotRad: -0.06 * t * deformScale, scaleX: 0.98 };
+      out.deform.chest = { dx: 3.5 * t * deformScale, dy: -2.4 * deformScale, rotRad: 0.05 * t * deformScale, scaleX: 0.96 };
+      out.deform.head = { dx: 5.0 * t * deformScale, dy: -3.0 * deformScale, rotRad: 0.06 * t * deformScale, scaleX: 0.98 };
       out.phaseLabel = 'Prepare → 7 Pierce · Beat 2 High Launch';
     } else if (p < 0.62) {
       const t = (p - 0.44) / 0.18;
-      setFeralNurseFrame(state, t < 0.48 ? 21 : 22, 0.005);
+      setFeralNurseFrame(state, t < 0.48 ? 21 : 22, 0);
       out.xShiftPx = -5 - 33 * t;
       out.hopYPx = -12 - Math.sin(t * Math.PI) * 24;
       out.rotationRad = -0.105;
       out.headsetGlowIntensity = 1.0;
       out.clawSlashProgress = t * 0.42;
       out.pierceImpactIntensity = t * 0.55;
-      out.deform.hips = { dx: -4.8 * deformScale, dy: -1.4 * deformScale, rotRad: -0.05 * deformScale, scaleX: 1.05 };
-      out.deform.chest = { dx: -10.5 * deformScale, dy: -2.0 * deformScale, rotRad: -0.11 * deformScale, scaleX: 1.07 };
-      out.deform.head = { dx: -12.5 * deformScale, dy: -2.4 * deformScale, rotRad: -0.115 * deformScale, scaleX: 1.03 };
+      out.deform.hips = { dx: 4.8 * deformScale, dy: -1.4 * deformScale, rotRad: 0.05 * deformScale, scaleX: 1.05 };
+      out.deform.chest = { dx: 10.5 * deformScale, dy: -2.0 * deformScale, rotRad: 0.11 * deformScale, scaleX: 1.07 };
+      out.deform.head = { dx: 12.5 * deformScale, dy: -2.4 * deformScale, rotRad: 0.115 * deformScale, scaleX: 1.03 };
       out.phaseLabel = 'Prepare → 7 Pierce · Beat 3 Torpedo Spear Thrust';
     } else if (p < 0.80) {
       const t = (p - 0.62) / 0.18;
-      setFeralNurseFrame(state, t < 0.52 ? 23 : 24, 0.005);
+      setFeralNurseFrame(state, t < 0.52 ? 23 : 24, 0);
       if (!state.impactFired) {
         state.impactFired = true;
         out.pierceImpactTriggered = true;
@@ -308,14 +311,14 @@ export function stepFeralNurseLabTriggerBranch(
       out.headsetGlowIntensity = 1.0;
       out.clawSlashProgress = clamp01(0.42 + t * 0.58);
       out.pierceImpactIntensity = 0.6 + Math.sin(t * Math.PI) * 0.4;
-      out.deform.hips = { dx: -3.4 * deformScale, dy: 2.2 * deformScale, rotRad: -0.04 * deformScale, scaleX: 1.05 };
-      out.deform.chest = { dx: -9.8 * deformScale, dy: 2.6 * deformScale, rotRad: -0.105 * deformScale, scaleX: 1.06 };
-      out.deform.head = { dx: -11.5 * deformScale, dy: 1.6 * deformScale, rotRad: -0.095 * deformScale, scaleX: 1.03 };
+      out.deform.hips = { dx: 3.4 * deformScale, dy: 2.2 * deformScale, rotRad: 0.04 * deformScale, scaleX: 1.05 };
+      out.deform.chest = { dx: 9.8 * deformScale, dy: 2.6 * deformScale, rotRad: 0.105 * deformScale, scaleX: 1.06 };
+      out.deform.head = { dx: 11.5 * deformScale, dy: 1.6 * deformScale, rotRad: 0.095 * deformScale, scaleX: 1.03 };
       out.phaseLabel = 'Prepare → 7 Pierce · Beat 4 Shield-Piercing X-Slash';
     } else {
       const t = (p - 0.80) / 0.20;
       const recFrame = t < 0.35 ? 25 : t < 0.70 ? 26 : 27;
-      setFeralNurseFrame(state, recFrame, 0.008);
+      setFeralNurseFrame(state, recFrame, 0);
       out.xShiftPx = -22 * (1 - t);
       out.hopYPx = 0;
       out.rotationRad = 0;
@@ -336,15 +339,16 @@ export function stepFeralNurseLabTriggerBranch(
       state.ichorBurstFired = true;
       out.ichorBurstTriggered = true;
     }
-    setFeralNurseFrame(state, p < 0.56 ? 28 : 29, 0.015);
+    setFeralNurseFrame(state, p < 0.56 ? 28 : 29, 0);
     const whip = Math.sin(p * Math.PI);
     out.xShiftPx = whip * 16;
     out.hopYPx = -whip * 6;
     out.rotationRad = whip * 0.12;
     out.headsetGlowIntensity = 0.28 + 0.5 * (1 - p);
-    out.deform.hips = { dx: whip * 3.8 * deformScale, dy: whip * 1.5 * deformScale, rotRad: whip * 0.055 * deformScale, scaleX: 0.98 };
-    out.deform.chest = { dx: whip * 9.0 * deformScale, dy: whip * 2.4 * deformScale, rotRad: whip * 0.115 * deformScale, scaleX: 0.96 };
-    out.deform.head = { dx: whip * 14.0 * deformScale, dy: whip * 1.5 * deformScale, rotRad: whip * 0.17 * deformScale, scaleX: 0.95 };
+    // Negative local dx whips spine BACKWARD (right) away from Hero under facingSign = -1
+    out.deform.hips = { dx: -whip * 3.8 * deformScale, dy: whip * 1.5 * deformScale, rotRad: -whip * 0.055 * deformScale, scaleX: 0.98 };
+    out.deform.chest = { dx: -whip * 9.0 * deformScale, dy: whip * 2.4 * deformScale, rotRad: -whip * 0.115 * deformScale, scaleX: 0.96 };
+    out.deform.head = { dx: -whip * 14.0 * deformScale, dy: whip * 1.5 * deformScale, rotRad: -whip * 0.17 * deformScale, scaleX: 0.95 };
     out.tintRgba = [1.14, 0.86, 1.04, 1];
     out.phaseLabel = p < 0.56 ? 'Take Hit · Whip Recoil' : 'Take Hit · Stagger Recover';
     if (p >= 1) {
@@ -358,12 +362,12 @@ export function stepFeralNurseLabTriggerBranch(
   if (trigger === 'turn_around') {
     const p = clamp01(state.triggerElapsed / Math.max(0.24, state.triggerDuration));
     const midHop = state.flipProgress >= 0 ? Math.sin(state.flipProgress * Math.PI) : 0;
-    setFeralNurseFrame(state, midHop > 0.3 ? 7 : 10, 0.04);
+    setFeralNurseFrame(state, midHop > 0.3 ? 7 : 10, 0);
     out.hopYPx = -midHop * 16;
     out.rotationRad = (midHop - 0.5) * 0.06;
     out.headsetGlowIntensity = 0.72;
-    out.deform.chest = { dx: -midHop * 3.5 * deformScale, dy: -midHop * 2.2 * deformScale, rotRad: -midHop * 0.04 * deformScale, scaleX: 1.02 };
-    out.deform.head = { dx: -midHop * 4.5 * deformScale, dy: -midHop * 2.6 * deformScale, rotRad: -midHop * 0.05 * deformScale, scaleX: 1.01 };
+    out.deform.chest = { dx: midHop * 3.5 * deformScale, dy: -midHop * 2.2 * deformScale, rotRad: midHop * 0.04 * deformScale, scaleX: 1.02 };
+    out.deform.head = { dx: midHop * 4.5 * deformScale, dy: -midHop * 2.6 * deformScale, rotRad: midHop * 0.05 * deformScale, scaleX: 1.01 };
     out.phaseLabel = '2.5D Flip · Heel Pivot Turn';
     if (p >= 1 && state.flipProgress < 0) {
       state.activeTrigger = 'idle';
@@ -392,15 +396,15 @@ export function stepFeralNurseLabTriggerBranch(
     scaleX: 1 + breath * 0.008,
   };
   out.deform.chest = {
-    dx: (chestHeave * 1.45 - hissBoost * 2.4) * deformScale,
+    dx: (chestHeave * 1.45 + hissBoost * 2.4) * deformScale,
     dy: -chestHeave * 1.75 * deformScale,
-    rotRad: (chestHeave * 0.016 - hissBoost * 0.024) * deformScale,
+    rotRad: (chestHeave * 0.016 + hissBoost * 0.024) * deformScale,
     scaleX: 1 + chestHeave * 0.018 + hissBoost * 0.02,
   };
   out.deform.head = {
-    dx: (headNod * 1.95 - hissBoost * 3.2) * deformScale,
+    dx: (headNod * 1.95 + hissBoost * 3.2) * deformScale,
     dy: (-headNod * 2.05 - hissBoost * 0.8) * deformScale,
-    rotRad: (headNod * 0.022 - hissBoost * 0.03) * deformScale,
+    rotRad: (headNod * 0.022 + hissBoost * 0.03) * deformScale,
     scaleX: 1,
   };
   out.phaseLabel = isHissWindow ? 'Idle · Feral Hiss' : 'Idle · Grounded Breathing';

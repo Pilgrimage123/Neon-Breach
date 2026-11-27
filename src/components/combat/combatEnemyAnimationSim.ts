@@ -62,6 +62,17 @@ import {
   createStalkerJuiceState,
   stepStalkerJuice,
 } from '../../utils/stalkerJuiceController';
+import {
+  MATRIARCH_CANONICAL_HEIGHT,
+  MATRIARCH_SHEET_FRAMES,
+  type MatriarchFrameSample,
+} from '../../utils/matriarchSpriteSheet';
+import {
+  type MatriarchJuiceSample,
+  createMatriarchJuiceState,
+  stepMatriarchJuice,
+} from '../../utils/matriarchJuiceController';
+import { getMutantArchScale } from '../../utils/mutantAnimationRegistry';
 import { computeEnemyArmorPreview, computeEnemySlotLayout } from './combatEnemyUi';
 import {
   type ActorAnim,
@@ -82,6 +93,7 @@ import {
   spawnMutdogDroolSplatter,
   spawnMutdogLeapDust,
 } from './combatVfx';
+import { projectSpriteLandmarkToStage } from './stageMeshMath';
 import {
   type ActorJuiceSnapshot,
   NEUTRAL_ACTOR_JUICE_SNAPSHOT,
@@ -208,6 +220,10 @@ export function stepEnemyAnimationSamples(
   }
   if (!sim.bruteSamples) sim.bruteSamples = new Map<string, BruteFrameSample>();
   if (!sim.bruteJuiceSamples) sim.bruteJuiceSamples = new Map<string, BruteJuiceSample>();
+  if (!sim.matriarchSamples) sim.matriarchSamples = new Map<string, MatriarchFrameSample>();
+  if (!sim.matriarchJuiceSamples) {
+    sim.matriarchJuiceSamples = new Map<string, MatriarchJuiceSample>();
+  }
 
   sim.stalkerSamples.clear();
   sim.stalkerJuiceSamples.clear();
@@ -219,6 +235,8 @@ export function stepEnemyAnimationSamples(
   sim.mutdogJuiceSamples.clear();
   sim.feralNurseSamples.clear();
   sim.feralNurseJuiceSamples.clear();
+  sim.matriarchSamples.clear();
+  sim.matriarchJuiceSamples.clear();
 
   if (sim.stalkerFrames) {
     for (let idx = 0; idx < enemies.length; idx++) {
@@ -443,16 +461,28 @@ export function stepEnemyAnimationSamples(
           const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
           const hopY = juiceSample.hopYPx * drawScale;
           const sf = sample.frame;
-          const headDeformDx = juiceSample.deform.head.dx * drawScale * juiceSample.facingScale;
-          const headDeformDy = juiceSample.deform.head.dy * drawScale;
-          const mouthX = spitterWorldX + sf.mouthOriginRel.dx * drawScale * (-juiceSample.facingScale) + headDeformDx;
-          const mouthY = enemyGroundY + hopY + sf.mouthOriginRel.dy * drawScale + headDeformDy;
+          const mouthPos = projectSpriteLandmarkToStage(sf.mouthOriginRel, {
+            frame: sf,
+            worldX: spitterWorldX,
+            worldY: enemyGroundY + hopY + stagger.dy * 0.45,
+            drawScale,
+            facingSign: juiceSample.facingScale,
+            rotationRad: stagger.rot * 0.32 + juiceSample.rotationRad + spitterCutIn.leanRad,
+            deform: juiceSample.deform,
+            squashStretch: [
+              stagger.scaleXMul * juiceSample.springScaleX * spitterCutIn.scaleX,
+              stagger.scaleYMul * juiceSample.springScaleY * spitterCutIn.scaleY,
+            ],
+            shearPx: [juiceSample.shearXPx + stagger.shearPx * 0.45, 0],
+            swayAmpPx: juiceSample.swayAmpPx,
+            swayPhase: juiceSample.swayPhase,
+          });
           const heroCutIn = getActorJuice('hero');
           const heroImpactX = heroX + (heroCutIn.active ? heroCutIn.clashSlideX + heroCutIn.knockbackX : 0) + 18;
           const heroImpactY = groundY - heroTargetHeight * 0.48;
           emitSpitterStreamParticles(sim, {
-            mouthX,
-            mouthY,
+            mouthX: mouthPos.x,
+            mouthY: mouthPos.y,
             targetX: heroImpactX,
             targetY: heroImpactY,
             groundY,
@@ -1135,6 +1165,134 @@ export function stepEnemyAnimationSamples(
         }
         if (labJuice.heelPlantTriggered) {
           spawnFeralNurseLeapDust(sim, labWorldX - 8, labGroundY, 5, 0.68);
+        }
+      }
+    }
+  }
+
+  if (sim.matriarchFrames) {
+    for (let idx = 0; idx < enemies.length; idx++) {
+      const enemy = enemies[idx];
+      if (enemy.archetype !== 'boss') continue;
+      const ea = sim.enemyAnims.get(enemy.id);
+      const isDead = enemy.hp <= 0;
+      if (isDead && (!ea || !ea.dead || ea.koProgress >= 1)) continue;
+      const activeIntent = enemy.intentCycle[enemy.currentIntentIndex];
+      const heavyOrAcidPrimed =
+        !isDead &&
+        !enemy.staggered &&
+        !(enemy.sleepCounter && enemy.sleepCounter > 0) &&
+        (activeIntent?.kind === 'heavy' ||
+          activeIntent?.kind === 'acid' ||
+          activeIntent?.kind === 'charge');
+      const armoredGuard = !isDead && enemy.armor > 0;
+      const matriarchCutIn = getActorJuice(enemy.id);
+
+      let juiceState = sim.matriarchJuiceStates.get(enemy.id);
+      if (!juiceState) {
+        juiceState = createMatriarchJuiceState(2099 + idx * 131);
+        sim.matriarchJuiceStates.set(enemy.id, juiceState);
+      }
+
+      const juiceSample = stepMatriarchJuice(
+        juiceState,
+        tacticalViewActive ? 0 : dtStep,
+        tacticalViewActive ? 0 : elapsed,
+        {
+          hp: enemy.hp,
+          maxHp: enemy.maxHp,
+          dead: ea?.dead,
+          koProgress: ea?.koProgress,
+          attackAnimTimer: ea?.attackAnimTimer,
+          attackAnimDuration: ea?.attackAnimDuration,
+          staggerTimer: ea?.staggerTimer,
+          staggerDuration: ea?.staggerDuration,
+          bristleTimer: ea?.bristleTimer,
+          bristleDuration: ea?.bristleDuration,
+          heavyOrAcidPrimed,
+          armoredGuard,
+          staggeredStatus: Boolean(enemy.staggered),
+          instanceIndex: idx,
+        },
+      );
+
+      if (!ea?.dead && matriarchCutIn.active && matriarchCutIn.poseOverride !== 'none') {
+        if (matriarchCutIn.poseOverride === 'attack_pose') {
+          juiceSample.clawSlashProgress = Math.max(juiceSample.clawSlashProgress, 0.65);
+        }
+        if (matriarchCutIn.isMeleeClash) {
+          juiceSample.offsetX = 0;
+        }
+      }
+
+      const sample: MatriarchFrameSample = {
+        mode: juiceSample.mode,
+        frameIndex: juiceSample.frameIndex,
+        frame: MATRIARCH_SHEET_FRAMES[juiceSample.frameIndex] ?? MATRIARCH_SHEET_FRAMES[0],
+        prevFrameIndex: juiceSample.prevFrameIndex,
+        prevFrame: MATRIARCH_SHEET_FRAMES[juiceSample.prevFrameIndex] ?? MATRIARCH_SHEET_FRAMES[0],
+        frameBlendAlpha: juiceSample.frameBlendAlpha,
+        isBackExploded: juiceSample.isBackExploded,
+        ruptureProgress: juiceSample.ruptureProgress,
+        xOffsetRatio: 0,
+        yHopPx: juiceSample.hopYPx,
+        breathScaleX: juiceSample.springScaleX,
+        breathScaleY: juiceSample.springScaleY,
+        tiltRad: juiceSample.rotationRad,
+        backGlowIntensity: juiceSample.backGlowIntensity,
+        eyeGlowIntensity: juiceSample.eyeGlowIntensity,
+        clawSlashProgress: juiceSample.clawSlashProgress,
+        alpha: juiceSample.alpha,
+      };
+
+      sim.matriarchSamples.set(enemy.id, sample);
+      sim.matriarchJuiceSamples.set(enemy.id, juiceSample);
+
+      if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
+        if (
+          juiceSample.backExplosionTriggered ||
+          juiceSample.slimeBurstTriggered ||
+          juiceSample.slashImpactTriggered
+        ) {
+          const size = baseEnemySize * getMutantArchScale('boss');
+          const drawScale = size / MATRIARCH_CANONICAL_HEIGHT;
+          const stagger = getEnemyStaggerKinematics(ea);
+          const cutInShiftX = matriarchCutIn.active
+            ? matriarchCutIn.clashSlideX + matriarchCutIn.knockbackX
+            : 0;
+          const suppressStaggerDx =
+            matriarchCutIn.isMeleeClash ||
+            (matriarchCutIn.active && matriarchCutIn.role === 'target');
+          const ex =
+            enemyBaseX +
+            (slotCenters[idx] ?? idx) * enemyStepX +
+            (suppressStaggerDx ? 0 : stagger.dx);
+          const spriteX =
+            ex +
+            cutInShiftX +
+            (matriarchCutIn.isMeleeClash ? 0 : juiceSample.offsetX * drawScale);
+          const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
+          const hopY = juiceSample.hopYPx * drawScale;
+
+          if (juiceSample.backExplosionTriggered) {
+            const backX = spriteX + sample.frame.backOriginRel.dx * drawScale;
+            const backY = enemyGroundY + hopY + sample.frame.backOriginRel.dy * drawScale;
+            sim.trauma = Math.min(1, sim.trauma + 0.58);
+            sim.hitstop = Math.max(sim.hitstop, 0.08);
+            spawnBurst(sim, backX, backY, 18, '#BEF264', 0, 1.35, 195, 0.56, 0.34, 3.0, 4.2);
+            spawnBurst(sim, backX, backY - 6, 14, '#FB923C', 0, 1.25, 165, 0.48, 0.28, 2.8, 3.8);
+            spawnBurst(sim, backX, backY, 10, '#EC4899', 0, 1.15, 145, 0.42, 0.24, 2.4, 3.4);
+            spawnBruteKineticShards(sim, backX, backY, enemyGroundY + 2, 18, 'chitin', 1);
+          }
+
+          if (juiceSample.slimeBurstTriggered || juiceSample.slashImpactTriggered) {
+            const jawX = spriteX + sample.frame.jawOriginRel.dx * drawScale;
+            const jawY = enemyGroundY + hopY + sample.frame.jawOriginRel.dy * drawScale;
+            spawnBurst(sim, jawX, jawY, 10, '#A3E635', -0.45, 0.95, 110, 0.38, 0.26, 2.4, 3.0);
+            if (juiceSample.slashImpactTriggered) {
+              sim.trauma = Math.min(1, sim.trauma + 0.26);
+            }
+          }
         }
       }
     }

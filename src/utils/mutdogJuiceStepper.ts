@@ -116,20 +116,21 @@ export function stepMutdogJuice(
     state.prowlTime += safeDt * config.prowlSpeed;
     const prowlSin = Math.sin(state.prowlTime);
     const liftAbs = Math.abs(prowlSin);
-    ctx.frameIndex = liftAbs > 0.46 ? 7 : 3;
-    const isAirborne = liftAbs > 0.28;
+    const isAirborne = liftAbs > 0.36;
+    ctx.frameIndex = isAirborne ? 7 : liftAbs > 0.16 ? 5 : 3;
     if (state.wasAirborne && !isAirborne && safeDt > 0) {
       applyMutdogSquash(state, 1.14, 0.87, 0.9, -1.0);
       ctx.pawPlantTriggered = true;
     }
     state.wasAirborne = isAirborne;
-    ctx.rotationRad += prowlSin * config.prowlMaxAngleRad;
-    ctx.hopYPx -= liftAbs * config.prowlHopHeightPx;
+    const airborneLift = isAirborne ? (liftAbs - 0.36) / 0.64 : 0;
+    ctx.rotationRad += prowlSin * config.prowlMaxAngleRad * (isAirborne ? 1 : 0.45);
+    ctx.hopYPx -= airborneLift * config.prowlHopHeightPx;
 
     const leanDir = isAdvancing ? 1 : -0.65;
     ctx.deform.pelvis.dx = leanDir * 3.0;
     ctx.deform.waist.dx = leanDir * 6.5;
-    ctx.deform.waist.dy = -liftAbs * 2.2;
+    ctx.deform.waist.dy = -airborneLift * 2.2;
     ctx.deform.head.dx = leanDir * 10.0;
     ctx.deform.head.rotRad = prowlSin * 0.048;
     ctx.lureGlowIntensity = 0.64 + 0.18 * liftAbs;
@@ -197,7 +198,7 @@ export function stepMutdogJuice(
     ctx.deform.head.dy = -pulse * 2.0;
   } else if (combatSync?.maulPrimed) {
     ctx.mode = 'maulPrimed';
-    const maulCycle = [5, 8, 5, 6] as const;
+    const maulCycle = [5, 6, 5, 2] as const;
     const slot = Math.floor(Math.max(0, elapsed * 2.8 + idx * 1.1)) % maulCycle.length;
     ctx.frameIndex = maulCycle[slot];
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 6.8 + idx);
@@ -217,7 +218,7 @@ export function stepMutdogJuice(
     ctx.uvDistortPhase = elapsed * 4.8 + idx;
   } else if (combatSync?.pouncePrimed) {
     ctx.mode = 'pouncePrimed';
-    const pounceCycle = [3, 5, 3, 2] as const;
+    const pounceCycle = [5, 2, 5, 1] as const;
     const slot = Math.floor(Math.max(0, elapsed * 2.25 + idx * 0.95)) % pounceCycle.length;
     ctx.frameIndex = pounceCycle[slot];
     const pulse = 0.5 + 0.5 * Math.sin(elapsed * 5.2 + idx);
@@ -229,7 +230,7 @@ export function stepMutdogJuice(
     ctx.deform.head.dy = -pulse * 1.8;
   } else if (combatSync?.pauseRecover) {
     ctx.mode = 'pauseRecover';
-    const pauseCycle = [0, 3] as const;
+    const pauseCycle = [0, 1] as const;
     const slot = Math.floor(Math.max(0, elapsed * 1.5 + idx * 0.75)) % pauseCycle.length;
     ctx.frameIndex = pauseCycle[slot];
     const heave = Math.sin(elapsed * 2.7 + idx);
@@ -247,18 +248,12 @@ export function stepMutdogJuice(
     state.snarlTimer -= safeDt;
     if (state.snarlTimer <= 0) {
       state.snarlHoldTimer = 0.44;
-      state.snarlVariant = state.snarlVariant === 2 ? 3 : 2;
+      state.snarlVariant = 2;
       state.snarlTimer = 1.85 + ((idx * 0.73) % 1.05);
     }
     if (state.snarlHoldTimer > 0) {
       state.snarlHoldTimer = Math.max(0, state.snarlHoldTimer - safeDt);
-      const snarlProgress = 1 - state.snarlHoldTimer / 0.44;
-      ctx.frameIndex =
-        snarlProgress < 0.28
-          ? 2
-          : snarlProgress < 0.72
-            ? state.snarlVariant
-            : 2;
+      ctx.frameIndex = 2;
       ctx.lureGlowIntensity = 0.70;
       ctx.droolIntensity = 0.68;
     } else {

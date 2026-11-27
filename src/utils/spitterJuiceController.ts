@@ -438,18 +438,25 @@ export function stepSpitterJuice(
     const u = state.triggerElapsed / Math.max(0.01, state.triggerDuration);
     ctx.targetPosX = -Math.sin(u * Math.PI) * 84;
     const isAdvancing = u < 0.5;
-    ctx.frameIndex = isAdvancing ? 2 : 1;
     state.waddleTime += safeDt * config.waddleSpeed;
     const waddleSin = Math.sin(state.waddleTime);
+    const liftAbs = Math.abs(waddleSin);
+    const isAirborneStride = liftAbs > 0.34;
+    if (state.wasAirborne && !isAirborneStride) {
+      applySpitterSquash(state, 1.07, 0.93, 0.25, -0.25);
+    }
+    state.wasAirborne = isAirborneStride;
+    ctx.frameIndex = isAirborneStride ? 2 : 1;
+    const strideArc = isAirborneStride ? (liftAbs - 0.34) / 0.66 : 0;
     ctx.rotationRad += waddleSin * config.waddleMaxAngleRad;
-    ctx.hopYPx -= Math.abs(waddleSin) * config.waddleHopHeightPx;
+    ctx.hopYPx -= strideArc * config.waddleHopHeightPx;
     const leanDir = isAdvancing ? 1 : -0.65;
     ctx.deform.pelvis.dx = leanDir * 2.2;
     ctx.deform.waist.dx = leanDir * 5.0;
-    ctx.deform.waist.dy = -Math.abs(waddleSin) * 1.8;
+    ctx.deform.waist.dy = -strideArc * 1.8;
     ctx.deform.head.dx = leanDir * 8.2;
     ctx.deform.head.rotRad = waddleSin * 0.04;
-    ctx.pustuleGlowIntensity = 0.52 + 0.18 * Math.abs(waddleSin);
+    ctx.pustuleGlowIntensity = 0.52 + 0.18 * liftAbs;
   } else if (state.activeTrigger === 'attack_lunge' || hasCombatAttack) {
     applySpitterAttackBranch(ctx, state, safeDt, hasCombatAttack, combatSync, prevTriggerElapsed);
   } else if (state.activeTrigger === 'cast_charge' || combatSync?.blightPrimed || hasCombatRupture) {

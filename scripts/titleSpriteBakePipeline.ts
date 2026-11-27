@@ -2,6 +2,7 @@ import {
   cleanWhiteBackgroundData,
   type SpriteCutoutOptions,
 } from '../src/utils/spriteCutoutAlgorithms';
+import { VISOR_KEYFRAME_QUADS } from '../src/utils/titleVisorMatrix';
 
 export const TITLE_TARGET_WIDTH = 960;
 export const TITLE_TARGET_HEIGHT = 541;
@@ -27,81 +28,27 @@ export interface VisorQuadNormalized {
 
 export const DEFAULT_VISOR_CURVATURE = -0.014;
 
-export const KEYFRAME_VISOR_QUADS: readonly VisorQuadNormalized[] = [
-  // K0: Idle / Base Aim (calibrated between flanking blue bars inside bezel)
-  {
-    p00x: 0.805,
-    p00y: 0.098,
-    p10x: 0.884,
-    p10y: 0.091,
-    p01x: 0.807,
-    p01y: 0.157,
-    p11x: 0.885,
-    p11y: 0.146,
-    curvature: -0.010,
-  },
-  // K1: Beat 1 (Wink)
-  {
-    p00x: 0.806,
-    p00y: 0.098,
-    p10x: 0.884,
-    p10y: 0.092,
-    p01x: 0.807,
-    p01y: 0.164,
-    p11x: 0.885,
-    p11y: 0.154,
-    curvature: -0.011,
-  },
-  // K2: Beat 2 (Shared Grin, -17.5° up-right head tilt)
-  {
-    p00x: 0.765,
-    p00y: 0.096,
-    p10x: 0.829,
-    p10y: 0.054,
-    p01x: 0.783,
-    p01y: 0.159,
-    p11x: 0.846,
-    p11y: 0.111,
-    curvature: -0.014,
-  },
-  // K3: Beat 3 (Blown Kiss, +14.6° down-right head lean)
-  {
-    p00x: 0.772,
-    p00y: 0.067,
-    p10x: 0.838,
-    p10y: 0.088,
-    p01x: 0.763,
-    p01y: 0.123,
-    p11x: 0.828,
-    p11y: 0.153,
-    curvature: -0.015,
-  },
-  // K4: Beat 4 (Climax !!, +16.6° down-right head lean)
-  {
-    p00x: 0.761,
-    p00y: 0.059,
-    p10x: 0.834,
-    p10y: 0.091,
-    p01x: 0.754,
-    p01y: 0.127,
-    p11x: 0.823,
-    p11y: 0.158,
-    curvature: -0.014,
-  },
-];
+/**
+ * Canonical 9-keyframe Visor Matrix quads imported directly from titleVisorMatrix.ts
+ * so build-time glass inpainting and runtime LED projection never drift apart.
+ */
+export const KEYFRAME_VISOR_QUADS: readonly VisorQuadNormalized[] = VISOR_KEYFRAME_QUADS;
 
 export interface SlimeTipAnchor {
   x: number;
   y: number;
 }
 
+// Calibrated dual-circle tip masks cleanly removing frozen mid-left teardrop (including k1 ring)
+// and bottom-left hanging icicle across all 9 keyframes while preserving rounded tentacle bulbs.
 export const DEFAULT_SLIME_TIPS: readonly SlimeTipAnchor[] = [
-  { x: 30, y: 294 },
-  { x: 32, y: 192 },
-  { x: 28, y: 304 },
+  { x: 32, y: 196 },
+  { x: 32, y: 207 },
+  { x: 27, y: 297 },
+  { x: 25, y: 309 },
 ] as const;
 
-export const DEFAULT_SLIME_ERASE_RADIUS_PX = 14;
+export const DEFAULT_SLIME_ERASE_RADIUS_PX = 15;
 
 export interface StaticLockupBounds {
   minNx: number;
@@ -136,15 +83,248 @@ export function shouldDownscaleToTarget(width: number, height: number): boolean 
 }
 
 /**
+ * Removes enclosed pure-white and neutral light-grey background pockets trapped inside
+ * Kira's hair curls, the neon ring arch, tentacle crevices, and the right arm-torso gap
+ * across both solid-white generated frames and checkerboard PNGs, while strictly protecting
+ * faces, eyes, teeth, neon light cores, and NEON BREACH lettering.
+ * Applies 2-ring neutral halo defringing around newly cleared borders and prunes stray
+ * isolated exterior dust specks.
+ */
+function stripEnclosedBackgroundWhitePockets(
+  rgba: Uint8ClampedArray,
+  width: number,
+  height: number,
+  solidWhiteBackground: boolean,
+): void {
+  if (width < 320 || height < 200) return;
+
+  const total = width * height;
+  const visited = new Uint8Array(total);
+  const cleared = new Uint8Array(total);
+  const queue = new Int32Array(total);
+
+  // Neutral bright white / checkerboard light-grey (excludes warm/magenta hair highlights and skin)
+  const isNeutralBgWhite = (idx: number): boolean => {
+    const p = idx * 4;
+    if (rgba[p + 3] < 130) return false;
+    const r = rgba[p];
+    const g = rgba[p + 1];
+    const b = rgba[p + 2];
+    const minC = r < g ? (r < b ? r : b) : g < b ? g : b;
+    const maxC = r > g ? (r > b ? r : b) : g > b ? g : b;
+    const sat = maxC - minC;
+    if (minC >= 224 && sat <= 22) return true;
+    // Also catch trapped light-grey checkerboard squares on original PNGs
+    if (!solidWhiteBackground && minC >= 198 && sat <= 12) return true;
+    return false;
+  };
+
+  const upperCutY = Math.round(height * 0.455); // ~246px — covers entire neon ring arch above NEON
+  const armMinX = Math.round(width * 0.75);
+  const armMaxY = Math.round(height * 0.72);
+
+  // Protected character face/eye/teeth boxes (normalized to 960x541)
+  const kiraFaceMinX = Math.round(width * 0.745);
+  const kiraFaceMaxX = Math.round(width * 0.90);
+  const kiraFaceMinY = Math.round(height * 0.22);
+  const kiraFaceMaxY = Math.round(height * 0.53);
+
+  const xenoFaceMinX = Math.round(width * 0.115);
+  const xenoFaceMaxX = Math.round(width * 0.33);
+  const xenoFaceMinY = Math.round(height * 0.17);
+  const xenoFaceMaxY = Math.round(height * 0.585);
+
+  const inProtectedFace = (cx: number, cy: number): boolean =>
+    (cx >= kiraFaceMinX && cx <= kiraFaceMaxX && cy >= kiraFaceMinY && cy <= kiraFaceMaxY) ||
+    (cx >= xenoFaceMinX && cx <= xenoFaceMaxX && cy >= xenoFaceMinY && cy <= xenoFaceMaxY);
+
+  for (let y = 0; y < armMaxY; y++) {
+    for (let x = 0; x < width; x++) {
+      const start = y * width + x;
+      if (visited[start] || !isNeutralBgWhite(start)) continue;
+
+      let head = 0;
+      let tail = 0;
+      visited[start] = 1;
+      queue[tail++] = start;
+      let minX = x;
+      let maxX = x;
+      let minY = y;
+      let maxY = y;
+      let touchesProtected = false;
+      let borderTotal = 0;
+      let borderDarkOrHair = 0;
+      let borderNeonGlow = 0;
+
+      while (head < tail) {
+        const cur = queue[head++];
+        const cx = cur % width;
+        const cy = (cur - cx) / width;
+        if (cx < minX) minX = cx;
+        if (cx > maxX) maxX = cx;
+        if (cy < minY) minY = cy;
+        if (cy > maxY) maxY = cy;
+        if (inProtectedFace(cx, cy)) touchesProtected = true;
+
+        const neighbors = [
+          cx + 1 < width ? cur + 1 : -1,
+          cx - 1 >= 0 ? cur - 1 : -1,
+          cy + 1 < height ? cur + width : -1,
+          cy - 1 >= 0 ? cur - width : -1,
+        ];
+        for (let ni = 0; ni < 4; ni++) {
+          const n = neighbors[ni];
+          if (n < 0) continue;
+          if (!visited[n] && isNeutralBgWhite(n)) {
+            visited[n] = 1;
+            queue[tail++] = n;
+          } else if (!isNeutralBgWhite(n)) {
+            const np = n * 4;
+            const na = rgba[np + 3];
+            if (na >= 100) {
+              borderTotal++;
+              const nr = rgba[np];
+              const ng = rgba[np + 1];
+              const nb = rgba[np + 2];
+              const nluma = 0.299 * nr + 0.587 * ng + 0.114 * nb;
+              const nsat =
+                Math.max(nr, ng, nb) - Math.min(nr, ng, nb);
+              // Neon light core (heart, neon ring tube, pistol glow): bright + high chroma
+              if (nluma >= 155 && nsat >= 75) {
+                borderNeonGlow++;
+              } else if (nluma < 150) {
+                borderDarkOrHair++;
+              }
+            }
+          }
+        }
+      }
+
+      const darkRatio = borderTotal > 0 ? borderDarkOrHair / borderTotal : 0;
+      const neonRatio = borderTotal > 0 ? borderNeonGlow / borderTotal : 0;
+
+      // Large arch / arm-torso pockets always clear (even if their outer edge grazes a face box)
+      const isLargeUpperBg = maxY <= upperCutY && tail >= 240 && (!touchesProtected || tail >= 500);
+      const isArmGap = !touchesProtected && minX >= armMinX && maxY <= armMaxY && tail >= 120;
+      // Hair-curl & tentacle-crevice pockets (area >= 8 px): neutral white surrounded by
+      // comic ink / shaded hair rather than a glowing neon tube/heart core
+      const isHairOrCrevicePocket =
+        !touchesProtected &&
+        maxY <= upperCutY &&
+        tail >= 8 &&
+        darkRatio >= 0.28 &&
+        neonRatio < 0.52;
+
+      if (isLargeUpperBg || isArmGap || isHairOrCrevicePocket) {
+        for (let k = 0; k < tail; k++) {
+          const idx = queue[k];
+          cleared[idx] = 1;
+          const p = idx * 4;
+          rgba[p] = 0;
+          rgba[p + 1] = 0;
+          rgba[p + 2] = 0;
+          rgba[p + 3] = 0;
+        }
+      }
+    }
+  }
+
+  // 2-ring soft halo defringing on pixels bordering newly stripped white pockets
+  for (let pass = 0; pass < 2; pass++) {
+    const newlyCleared: number[] = [];
+    for (let y = 1; y < height - 1; y++) {
+      const row = y * width;
+      for (let x = 1; x < width - 1; x++) {
+        const idx = row + x;
+        if (cleared[idx]) continue;
+        const p = idx * 4;
+        const a = rgba[p + 3];
+        if (a === 0) continue;
+        if (
+          !cleared[idx - 1] &&
+          !cleared[idx + 1] &&
+          !cleared[idx - width] &&
+          !cleared[idx + width]
+        ) {
+          continue;
+        }
+        const r = rgba[p];
+        const g = rgba[p + 1];
+        const b = rgba[p + 2];
+        const minC = r < g ? (r < b ? r : b) : g < b ? g : b;
+        const maxC = r > g ? (r > b ? r : b) : g > b ? g : b;
+        if (minC >= 202 && maxC - minC <= 28) {
+          rgba[p] = 0;
+          rgba[p + 1] = 0;
+          rgba[p + 2] = 0;
+          rgba[p + 3] = 0;
+          newlyCleared.push(idx);
+        } else if (minC >= 160 && maxC - minC <= 45) {
+          const factor = pass === 0 ? 0.42 : 0.7;
+          rgba[p + 3] = Math.round(a * factor);
+        }
+      }
+    }
+    for (let i = 0; i < newlyCleared.length; i++) {
+      cleared[newlyCleared[i]] = 1;
+    }
+  }
+
+  // Prune tiny isolated exterior checkerboard dust specks (<= 10 px) in lower margins
+  const speckVisited = new Uint8Array(total);
+  const speckMinY = Math.round(height * 0.72);
+  for (let y = speckMinY; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const start = y * width + x;
+      if (speckVisited[start] || rgba[start * 4 + 3] === 0) continue;
+      let head = 0;
+      let tail = 0;
+      speckVisited[start] = 1;
+      queue[tail++] = start;
+      while (head < tail && tail <= 12) {
+        const cur = queue[head++];
+        const cx = cur % width;
+        const cy = (cur - cx) / width;
+        const ns = [
+          cx + 1 < width ? cur + 1 : -1,
+          cx - 1 >= 0 ? cur - 1 : -1,
+          cy + 1 < height ? cur + width : -1,
+          cy - 1 >= 0 ? cur - width : -1,
+        ];
+        for (let ni = 0; ni < 4; ni++) {
+          const n = ns[ni];
+          if (n >= 0 && !speckVisited[n] && rgba[n * 4 + 3] > 0) {
+            speckVisited[n] = 1;
+            queue[tail++] = n;
+          }
+        }
+      }
+      if (tail <= 10) {
+        for (let k = 0; k < tail; k++) {
+          const p = queue[k] * 4;
+          rgba[p] = 0;
+          rgba[p + 1] = 0;
+          rgba[p + 2] = 0;
+          rgba[p + 3] = 0;
+        }
+      }
+    }
+  }
+}
+
+/**
  * Runs the 4-pass procedural alpha extraction on a Title Emblem RGBA buffer in place,
- * then removes faint low-alpha neutral checkerboard specks along the exterior perimeter.
+ * strips enclosed white background pockets trapped inside hair curls and arches,
+ * and removes faint low-alpha neutral checkerboard specks along the exterior perimeter.
  */
 export function extractTitleEmblemCutout(
   rgba: Uint8ClampedArray,
   width: number,
   height: number,
+  solidWhiteBackground = false,
 ): void {
   cleanWhiteBackgroundData(rgba, width, height, TITLE_EMBLEM_CUTOUT_OPTIONS);
+  stripEnclosedBackgroundWhitePockets(rgba, width, height, solidWhiteBackground);
 
   for (let i = 0; i < rgba.length; i += 4) {
     const a = rgba[i + 3];
@@ -504,9 +684,10 @@ export function bakeTitleKeyframeBuffer(
   width: number,
   height: number,
   keyframeIndex: number,
+  solidWhiteBackground = false,
 ): { frameRgba: Uint8ClampedArray; lockupRgba: Uint8ClampedArray | null } {
   const frameRgba = new Uint8ClampedArray(rgba);
-  extractTitleEmblemCutout(frameRgba, width, height);
+  extractTitleEmblemCutout(frameRgba, width, height, solidWhiteBackground);
 
   const lockupRgba =
     keyframeIndex === 0 ? extractStaticLockupPlane(frameRgba, width, height) : null;

@@ -3,11 +3,13 @@ import assert from 'node:assert/strict';
 import {
   computeDilatedTriangle,
   computeVertexIdleBreathNormY,
+  computeVertexIdleSwayNormX,
   createMeshWarpScratch,
   interpolateLattice,
   KEYFRAME_LATTICE_VERTICES,
   MESH_DEFAULT_DILATION_PX,
   MESH_IDLE_BREATH_AMP_PX,
+  MESH_IDLE_SWAY_AMP_PX,
   MESH_REF_HEIGHT,
   MESH_REF_WIDTH,
   MESH_VERTEX_COUNT,
@@ -26,10 +28,11 @@ function signedArea2Norm(
   return (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
 }
 
-test('WARP_TRIANGLES cleanly partition [0, 1] x [0, 1] with strictly positive signed area across K0-K4, intermediate blends, and idle breathing', () => {
+test('WARP_TRIANGLES cleanly partition [0, 1] x [0, 1] with strictly positive signed area across all 9 keyframes, intermediate blends, and idle breathing', () => {
   const scratch = createMeshWarpScratch();
+  assert.equal(KEYFRAME_LATTICE_VERTICES.length, 9);
 
-  // Verify exact partition at every keyframe K0..K4
+  // Verify exact partition at every keyframe K0..K8
   for (let k = 0; k < KEYFRAME_LATTICE_VERTICES.length; k++) {
     const verts = KEYFRAME_LATTICE_VERTICES[k];
     assert.equal(verts.length, MESH_VERTEX_COUNT);
@@ -172,11 +175,12 @@ test('computeDilatedTriangle expands every vertex outward from centroid by 0.6px
   }
 });
 
-test('Idle breathing bounds upper-body landmarks to +-1.5px and keeps waist V14 and pinned anchors V16-V24 strictly invariant', () => {
+test('Idle breathing & organic sway stay strictly bounded while waist V14 and pinned anchors V16-V24 remain strictly invariant', () => {
   const scratch = createMeshWarpScratch();
   const baseVerts = KEYFRAME_LATTICE_VERTICES[0];
 
   let sawVisorMotion = false;
+  let sawTentacleSway = false;
   for (let t = 0; t <= 4.0; t += 0.1) {
     interpolateLattice(0, 0, 0, t, true, scratch.activeVertices);
 
@@ -185,21 +189,29 @@ test('Idle breathing bounds upper-body landmarks to +-1.5px and keeps waist V14 
       assert.equal(scratch.activeVertices[pinnedIdx * 2], Math.fround(baseVerts[pinnedIdx].nx));
       assert.equal(scratch.activeVertices[pinnedIdx * 2 + 1], Math.fround(baseVerts[pinnedIdx].ny));
       assert.equal(computeVertexIdleBreathNormY(pinnedIdx, t), 0);
+      assert.equal(computeVertexIdleSwayNormX(pinnedIdx, t), 0);
     }
 
-    // Upper-body landmarks V0..V13, V15 stay within +-1.5px vertical displacement
+    // Upper-body landmarks V0..V13, V15 stay within bounded vertical breathing and organic horizontal sway
     for (let i = 0; i < 16; i++) {
       const dxPx = (scratch.activeVertices[i * 2] - baseVerts[i].nx) * MESH_REF_WIDTH;
       const dyPx = (scratch.activeVertices[i * 2 + 1] - baseVerts[i].ny) * MESH_REF_HEIGHT;
-      assert.ok(Math.abs(dxPx) < 1e-3, `Expected dxPx ~ 0, got ${dxPx}`);
       assert.ok(
-        Math.abs(dyPx) <= MESH_IDLE_BREATH_AMP_PX + 1e-5,
+        Math.abs(dxPx) <= MESH_IDLE_SWAY_AMP_PX + 1e-4,
+        `Vertex V${i} exceeded +-1.4px horizontal sway bound: dxPx=${dxPx}`,
+      );
+      assert.ok(
+        Math.abs(dyPx) <= MESH_IDLE_BREATH_AMP_PX + 1e-4,
         `Vertex V${i} exceeded +-1.5px breathing bound: dyPx=${dyPx}`,
       );
       if (i === 8 && Math.abs(dyPx) > 0.5) {
         sawVisorMotion = true;
       }
+      if (i === 0 && Math.abs(dxPx) > 0.5) {
+        sawTentacleSway = true;
+      }
     }
   }
   assert.ok(sawVisorMotion, 'Expected Kira visor V8 to breathe during idle');
+  assert.ok(sawTentacleSway, 'Expected Xeno upper tentacle V0 to gently sway during idle');
 });

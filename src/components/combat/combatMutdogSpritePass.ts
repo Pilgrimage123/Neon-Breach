@@ -8,7 +8,24 @@ import {
 import type { CoreEnemySpriteContext } from './combatEnemyCoreSpritePass';
 import { drawCanvas2DCutInFlash } from './combatHeroSpritePass';
 import { hexToRgba } from './mutantBlood';
+import {
+  type ControlPointDeform,
+  type SpriteLandmarkProjectionParams,
+  createIdentityControlPoints,
+  projectSpriteLandmarkToStage,
+} from './stageMeshMath';
 import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter';
+
+export interface MutdogLandmarkProjectionParams extends SpriteLandmarkProjectionParams {
+  frame: MutdogSpriteFrame;
+}
+
+export function projectMutdogLandmarkToStage(
+  rel: { dx: number; dy: number },
+  p: MutdogLandmarkProjectionParams,
+): { x: number; y: number; hNorm: number; knotRotRad: number } {
+  return projectSpriteLandmarkToStage(rel, p);
+}
 
 export interface MutdogBioVfxParams {
   fgCtx: CanvasRenderingContext2D;
@@ -18,25 +35,32 @@ export interface MutdogBioVfxParams {
   spriteX: number;
   enemyGroundY: number;
   hopY: number;
+  staggerDy?: number;
   size: number;
   drawScale: number;
   facingSign: number;
+  rotationRad?: number;
+  deform?: ControlPointDeform;
+  squashStretch?: readonly [number, number];
+  shearPx?: readonly [number, number];
+  swayAmpPx?: number;
+  swayPhase?: number;
   lureGlowIntensity: number;
   droolIntensity: number;
   pounceImpactIntensity: number;
   clawSlashProgress: number;
   pounceImpactProgress: number;
   howlPulseProgress: number;
-  waistDeformDx: number;
-  waistDeformDy: number;
-  headDeformDx: number;
-  headDeformDy: number;
+  waistDeformDx?: number;
+  waistDeformDy?: number;
+  headDeformDx?: number;
+  headDeformDy?: number;
   elapsed: number;
   seed: number;
 }
 
 /**
- * Renders the Rabid MutDog's 3 signature biological VFX layers tracked to spline deformation:
+ * Renders the Rabid MutDog's 3 signature biological VFX layers tracked 1:1 to the deformed MeshSprite:
  * 1. Twin glowing bioluminescent amber-orange antenna lure bulbs + rising bio-sparks
  * 2. Rabid foaming jaw mist + swaying viscous chartreuse-ivory drool strands & droplets
  * 3. Feral triple-claw rend arcs + pounce slam shock-dust + frenzy howl acoustic rings
@@ -49,57 +73,67 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
     spriteX,
     enemyGroundY,
     hopY,
+    staggerDy = 0,
     size,
     drawScale,
     facingSign,
+    rotationRad = 0,
+    deform,
+    squashStretch = [1, 1],
+    shearPx = [0, 0],
+    swayAmpPx = 0,
+    swayPhase = 0,
     lureGlowIntensity,
     droolIntensity,
     pounceImpactIntensity,
     clawSlashProgress,
     pounceImpactProgress,
     howlPulseProgress,
-    headDeformDx,
-    headDeformDy,
     elapsed,
     seed,
   } = p;
 
   const fwdDir = -facingSign;
+  const anchorWorldY = enemyGroundY + hopY + staggerDy;
+  const projParams: MutdogLandmarkProjectionParams = {
+    frame,
+    worldX: spriteX,
+    worldY: anchorWorldY,
+    drawScale,
+    facingSign,
+    rotationRad,
+    deform,
+    squashStretch,
+    shearPx,
+    swayAmpPx,
+    swayPhase,
+  };
 
   // 1. Twin Bioluminescent Amber-Orange Antenna Lure Bulbs + Rising Bio-Sparks
   if (lureGlowIntensity > 0.08) {
-    const baseLureX = spriteX + frame.lureOriginRel.dx * drawScale * fwdDir + headDeformDx;
-    const baseLureY = enemyGroundY + hopY + frame.lureOriginRel.dy * drawScale + headDeformDy;
-    const pulse = 0.88 + 0.12 * Math.sin(elapsed * 8.2 + seed * 1.4);
+    const pulse = 0.90 + 0.10 * Math.sin(elapsed * 8.2 + seed * 1.4);
     const flare =
       mode === 'howl' || mode === 'pounceMaul' || mode === 'maulPrimed' || mode === 'staggerHover'
         ? 1.24
         : 1.0;
     const g = Math.min(1.25, lureGlowIntensity * pulse * flare);
 
-    // Front (lower-forward) & rear (upper-back) twin antenna bulbs matching uploaded art
+    const frontBulbPos = projectMutdogLandmarkToStage(frame.lureBulbsRel[0], projParams);
+    const rearBulbPos = projectMutdogLandmarkToStage(frame.lureBulbsRel[1], projParams);
     const bulbs = [
-      {
-        dx: -14 * drawScale * fwdDir + Math.sin(elapsed * 5.2 + seed) * 1.6 * drawScale,
-        dy: 4 * drawScale + Math.cos(elapsed * 4.7 + seed) * 1.4 * drawScale,
-        rMul: 1.0,
-      },
-      {
-        dx: 13 * drawScale * fwdDir + Math.cos(elapsed * 5.6 + seed * 1.3) * 1.5 * drawScale,
-        dy: -5 * drawScale + Math.sin(elapsed * 4.4 + seed * 1.3) * 1.4 * drawScale,
-        rMul: 0.92,
-      },
+      { x: frontBulbPos.x, y: frontBulbPos.y, rot: frontBulbPos.knotRotRad, rMul: 1.0 },
+      { x: rearBulbPos.x, y: rearBulbPos.y, rot: rearBulbPos.knotRotRad, rMul: 0.92 },
     ] as const;
 
     fgCtx.save();
     fgCtx.globalCompositeOperation = 'lighter';
 
     for (let b = 0; b < bulbs.length; b++) {
-      const bx = baseLureX + bulbs[b].dx;
-      const by = baseLureY + bulbs[b].dy;
-      const haloR = (18 + g * 18) * drawScale * bulbs[b].rMul;
-      const haloGrad = fgCtx.createRadialGradient(bx, by, 1.5, bx, by, haloR);
-      haloGrad.addColorStop(0, `rgba(254, 240, 138, ${Math.min(0.92, 0.56 * g)})`);
+      const bx = bulbs[b].x;
+      const by = bulbs[b].y;
+      const haloR = (15 + g * 15) * drawScale * bulbs[b].rMul;
+      const haloGrad = fgCtx.createRadialGradient(bx, by, 1.2, bx, by, haloR);
+      haloGrad.addColorStop(0, `rgba(254, 240, 138, ${Math.min(0.92, 0.58 * g)})`);
       haloGrad.addColorStop(0.36, `rgba(251, 146, 60, ${Math.min(0.76, 0.44 * g)})`);
       haloGrad.addColorStop(0.72, `rgba(234, 88, 12, ${Math.min(0.38, 0.22 * g)})`);
       haloGrad.addColorStop(1, 'rgba(234, 88, 12, 0)');
@@ -108,44 +142,59 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
       fgCtx.arc(bx, by, haloR, 0, Math.PI * 2);
       fgCtx.fill();
 
-      // Hot filament core inside each glowing bulb
-      fgCtx.fillStyle = `rgba(254, 249, 195, ${Math.min(0.95, 0.65 * g)})`;
+      // Hot filament core locked directly inside each physical antenna bulb
+      fgCtx.fillStyle = `rgba(254, 249, 195, ${Math.min(0.96, 0.68 * g)})`;
       fgCtx.beginPath();
       fgCtx.ellipse(
         bx,
         by,
-        (3.4 + g * 2.1) * drawScale * bulbs[b].rMul,
-        (2.4 + g * 1.5) * drawScale * bulbs[b].rMul,
-        fwdDir < 0 ? -0.35 : 0.35,
+        (3.2 + g * 1.9) * drawScale * bulbs[b].rMul,
+        (2.3 + g * 1.4) * drawScale * bulbs[b].rMul,
+        (fwdDir < 0 ? -0.32 : 0.32) + bulbs[b].rot,
         0,
         Math.PI * 2,
       );
       fgCtx.fill();
 
-      // Rising bioluminescent spore sparks when excited/primed
+      // Rising bioluminescent spore sparks anchored to the bulb origin
       if (g > 0.52) {
         for (let s = 0; s < 2; s++) {
           const sp = (elapsed * (1.8 + b * 0.4 + s * 0.35) + seed * 0.31 + b * 0.5 + s * 0.43) % 1;
           const env = Math.sin(sp * Math.PI);
-          const sx = bx + Math.sin(sp * 7.5 + b * 2 + s) * 7 * drawScale;
-          const sy = by - sp * (22 + g * 12) * drawScale;
+          const sx = bx + Math.sin(sp * 7.5 + b * 2 + s) * 5.5 * drawScale;
+          const sy = by - sp * (20 + g * 11) * drawScale;
           fgCtx.fillStyle = s === 0 ? '#FEF08A' : '#FB923C';
           fgCtx.globalAlpha = Math.min(0.9, env * g * 0.78);
           fgCtx.beginPath();
-          fgCtx.arc(sx, sy, (1.15 + (1 - sp) * 1.2) * drawScale, 0, Math.PI * 2);
+          fgCtx.arc(sx, sy, (1.1 + (1 - sp) * 1.15) * drawScale, 0, Math.PI * 2);
           fgCtx.fill();
         }
         fgCtx.globalAlpha = 1;
       }
     }
 
+    // Subtle feral eye glint synced to deformed head
+    if (g > 0.58) {
+      const eyePos = projectMutdogLandmarkToStage(frame.eyeOriginRel, projParams);
+      const eyeR = (5.5 + g * 4.5) * drawScale;
+      const eyeGrad = fgCtx.createRadialGradient(eyePos.x, eyePos.y, 0.5, eyePos.x, eyePos.y, eyeR);
+      eyeGrad.addColorStop(0, `rgba(254, 249, 195, ${Math.min(0.82, (g - 0.45) * 0.75)})`);
+      eyeGrad.addColorStop(0.5, `rgba(190, 242, 100, ${Math.min(0.45, (g - 0.45) * 0.42)})`);
+      eyeGrad.addColorStop(1, 'rgba(163, 230, 53, 0)');
+      fgCtx.fillStyle = eyeGrad;
+      fgCtx.beginPath();
+      fgCtx.arc(eyePos.x, eyePos.y, eyeR, 0, Math.PI * 2);
+      fgCtx.fill();
+    }
+
     fgCtx.restore();
   }
 
   // 2. Rabid Foaming Maw Mist & Swaying Viscous Drool Strands
+  const mawPos = projectMutdogLandmarkToStage(frame.mawOriginRel, projParams);
   if (droolIntensity > 0.14) {
-    const mawX = spriteX + frame.mawOriginRel.dx * drawScale * fwdDir + headDeformDx;
-    const mawY = enemyGroundY + hopY + frame.mawOriginRel.dy * drawScale + headDeformDy;
+    const mawX = mawPos.x;
+    const mawY = mawPos.y;
     const d = Math.min(1.15, droolIntensity);
 
     fgCtx.save();
@@ -175,7 +224,7 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
     const strandCount = d > 0.6 ? 3 : 2;
     for (let s = 0; s < strandCount; s++) {
       const anchorDx = (-7 + s * 6.5) * drawScale * fwdDir;
-      const anchorDy = (3 + (s % 2) * 3) * drawScale;
+      const anchorDy = (2 + (s % 2) * 2.5) * drawScale;
       const sx0 = mawX + anchorDx;
       const sy0 = mawY + anchorDy;
       const cycle = (elapsed * (1.2 + s * 0.25) + seed * 0.7 + s * 0.37) % 1;
@@ -229,8 +278,8 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
     const hp = Math.max(0, Math.min(1, howlPulseProgress));
     const hAlpha = Math.sin(hp * Math.PI);
     if (hAlpha > 0.04) {
-      const mx = spriteX + frame.mawOriginRel.dx * drawScale * fwdDir + headDeformDx;
-      const my = enemyGroundY + hopY + frame.mawOriginRel.dy * drawScale + headDeformDy;
+      const mx = mawPos.x;
+      const my = mawPos.y;
       fgCtx.save();
       fgCtx.globalCompositeOperation = 'lighter';
       for (let r = 0; r < 2; r++) {
@@ -251,6 +300,7 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
   }
 
   // 3B. Pounce-Maul Ground Slam Shock-Ring & Billowing Deck Dust Plumes
+  const clawPos = projectMutdogLandmarkToStage(frame.clawOriginRel, projParams);
   if (pounceImpactIntensity > 0.06 || pounceImpactProgress > 0.01) {
     const sw = Math.min(
       1.25,
@@ -261,7 +311,7 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
         pounceImpactProgress > 0.01
           ? Math.max(0, Math.min(1, pounceImpactProgress))
           : Math.max(0, Math.min(1, 1 - sw * 0.55));
-      const ix = spriteX + frame.clawOriginRel.dx * drawScale * fwdDir;
+      const ix = clawPos.x;
       const iy = enemyGroundY + 2;
       const outerRx = size * (0.22 + prog * 0.42);
       const outerRy = (6.5 + prog * 11) * Math.max(0.75, drawScale);
@@ -319,12 +369,8 @@ export function renderMutdogBioVfxOverlay(p: MutdogBioVfxParams): void {
     const cp = Math.max(0, Math.min(1, clawSlashProgress));
     const slashAlpha = Math.sin(cp * Math.PI);
     if (slashAlpha > 0.04) {
-      const cx = spriteX + frame.clawOriginRel.dx * drawScale * fwdDir + headDeformDx * 0.65;
-      const cy =
-        enemyGroundY +
-        hopY +
-        Math.min(-size * 0.28, frame.clawOriginRel.dy * drawScale) +
-        headDeformDy * 0.55;
+      const cx = clawPos.x;
+      const cy = Math.min(anchorWorldY - size * 0.28, clawPos.y);
       const arcR = size * (0.24 + cp * 0.10);
       const sweepSpan = 0.62 + cp * 0.34;
       const startAng = fwdDir < 0 ? Math.PI * 0.64 : -Math.PI * 0.36;
@@ -385,6 +431,38 @@ export function renderMutdogEnemySprite(
   const juiceRot = mutdogJuice ? mutdogJuice.rotationRad : mutdogSample.tiltRad;
   const juiceFacing = mutdogJuice ? mutdogJuice.facingScale : -1;
   const hopY = c.ea?.dead ? 0 : juiceHopY;
+  const staggerDy = c.ea?.dead ? 0 : c.stagger.dy * 0.45;
+  const rotationRad = !c.ea?.dead ? c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad : 0;
+
+  const blendA = mutdogSample.frameBlendAlpha;
+  const canCrossBlend =
+    !c.ea?.dead && blendA < 0.99 && mutdogSample.prevFrameIndex !== mutdogSample.frameIndex;
+  const prevCanvas = canCrossBlend ? frames[mutdogSample.prevFrameIndex] : null;
+
+  const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+    archetype: c.enemy.archetype,
+    idx: c.idx,
+    ea: c.ea,
+    isDead: c.isDead,
+    staggerShearPx: c.stagger.shearPx,
+    staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
+    breathScaleX: mutdogJuice
+      ? c.stagger.scaleXMul
+      : c.breathScaleX * mutdogSample.breathScaleX,
+    breathScaleY: mutdogJuice
+      ? c.stagger.scaleYMul
+      : c.breathScaleY * mutdogSample.breathScaleY,
+    frameBlendAlpha: canCrossBlend ? blendA : 1,
+    bioEmissiveRgb: c.bioEmissiveRgb,
+    isPrimedOrCharging: c.isPrimedOrCharging || mutdogSample.lureGlowIntensity > 0.72,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: Boolean(c.enemy.staggered),
+    elapsed: c.elapsed,
+    tacticalViewActive: c.tacticalViewActive,
+    mutdogJuice,
+    cutIn: c.enemyCutIn,
+    facingSign: juiceFacing,
+  });
 
   if (!c.ea?.dead && !c.tacticalViewActive) {
     renderMutdogBioVfxOverlay({
@@ -395,9 +473,16 @@ export function renderMutdogEnemySprite(
       spriteX: c.spriteX,
       enemyGroundY: c.enemyGroundY,
       hopY,
+      staggerDy,
       size: c.size,
       drawScale,
       facingSign: juiceFacing,
+      rotationRad,
+      deform: c.webglRenderer ? deform : createIdentityControlPoints(),
+      squashStretch: uniforms.squashStretch,
+      shearPx: c.webglRenderer ? uniforms.shearPx : [0, 0],
+      swayAmpPx: c.webglRenderer ? uniforms.swayAmpPx : 0,
+      swayPhase: c.webglRenderer ? uniforms.swayPhase : 0,
       lureGlowIntensity: mutdogJuice
         ? mutdogJuice.lureGlowIntensity
         : mutdogSample.lureGlowIntensity,
@@ -408,51 +493,18 @@ export function renderMutdogEnemySprite(
         : mutdogSample.clawSlashProgress,
       pounceImpactProgress: mutdogJuice ? mutdogJuice.pounceImpactProgress : 0,
       howlPulseProgress: mutdogJuice ? mutdogJuice.howlPulseProgress : 0,
-      waistDeformDx: mutdogJuice ? mutdogJuice.deform.waist.dx * drawScale * juiceFacing : 0,
-      waistDeformDy: mutdogJuice ? mutdogJuice.deform.waist.dy * drawScale : 0,
-      headDeformDx: mutdogJuice ? mutdogJuice.deform.head.dx * drawScale * juiceFacing : 0,
-      headDeformDy: mutdogJuice ? mutdogJuice.deform.head.dy * drawScale : 0,
       elapsed: c.elapsed,
       seed: c.idx,
     });
   }
 
-  const blendA = mutdogSample.frameBlendAlpha;
-  const canCrossBlend =
-    !c.ea?.dead && blendA < 0.99 && mutdogSample.prevFrameIndex !== mutdogSample.frameIndex;
-  const prevCanvas = canCrossBlend ? frames[mutdogSample.prevFrameIndex] : null;
-
   if (c.webglRenderer) {
-    const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-      archetype: c.enemy.archetype,
-      idx: c.idx,
-      ea: c.ea,
-      isDead: c.isDead,
-      staggerShearPx: c.stagger.shearPx,
-      staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
-      breathScaleX: mutdogJuice
-        ? c.stagger.scaleXMul
-        : c.breathScaleX * mutdogSample.breathScaleX,
-      breathScaleY: mutdogJuice
-        ? c.stagger.scaleYMul
-        : c.breathScaleY * mutdogSample.breathScaleY,
-      frameBlendAlpha: canCrossBlend ? blendA : 1,
-      bioEmissiveRgb: c.bioEmissiveRgb,
-      isPrimedOrCharging: c.isPrimedOrCharging || mutdogSample.lureGlowIntensity > 0.72,
-      isAcidOrPustuleActive: false,
-      isStaggeredStatus: Boolean(c.enemy.staggered),
-      elapsed: c.elapsed,
-      tacticalViewActive: c.tacticalViewActive,
-      mutdogJuice,
-      cutIn: c.enemyCutIn,
-      facingSign: juiceFacing,
-    });
     c.webglRenderer.drawSprite({
       id: `enemy:${c.enemy.id}`,
       primarySource: mCanvas,
       secondarySource: prevCanvas,
       worldX: c.spriteX,
-      worldY: c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.45),
+      worldY: c.enemyGroundY + hopY + staggerDy,
       widthPx: mf.w * drawScale,
       heightPx: mf.h * drawScale,
       anchorOffsetXPx: mf.anchorX * drawScale,
@@ -462,7 +514,7 @@ export function renderMutdogEnemySprite(
       secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
       secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
       facingSign: juiceFacing,
-      rotationRad: !c.ea?.dead ? c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad : 0,
+      rotationRad,
       alpha: c.koAlpha,
       drawPriority: c.enemyCutIn.drawPriority,
       deform,

@@ -14,6 +14,12 @@ import type { CoreEnemySpriteContext } from './combatEnemyCoreSpritePass';
 import { renderSpitterBileTorrent } from './combatForegroundFxRenderer';
 import { drawCanvas2DCutInFlash } from './combatHeroSpritePass';
 import { hexToRgba } from './mutantBlood';
+import {
+  type ControlPointDeform,
+  type SpriteLandmarkProjectionParams,
+  createIdentityControlPoints,
+  projectSpriteLandmarkToStage,
+} from './stageMeshMath';
 import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter';
 
 export interface BioEnemySpriteExtra {
@@ -50,6 +56,48 @@ export function renderSpitterEnemySprite(
     spitterJuice?.spitStreamProgress ?? 0,
   );
 
+  const staggerDy = c.ea?.dead ? 0 : c.stagger.dy * 0.45;
+  const rotationRad = !c.ea?.dead ? c.stagger.rot * 0.32 + juiceRot + c.enemyCutIn.leanRad : 0;
+  const blendA = spitterSample.frameBlendAlpha;
+  const canCrossBlend =
+    !c.ea?.dead && blendA < 0.99 && spitterSample.prevFrameIndex !== spitterSample.frameIndex;
+  const prevCanvas = canCrossBlend ? frames[spitterSample.prevFrameIndex] : null;
+
+  const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+    archetype: c.enemy.archetype,
+    idx: c.idx,
+    ea: c.ea,
+    isDead: c.isDead,
+    staggerShearPx: c.stagger.shearPx,
+    staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
+    breathScaleX: spitterJuice ? c.stagger.scaleXMul : c.breathScaleX * spitterSample.breathScaleX,
+    breathScaleY: spitterJuice ? c.stagger.scaleYMul : c.breathScaleY * spitterSample.breathScaleY,
+    frameBlendAlpha: canCrossBlend ? blendA : 1,
+    bioEmissiveRgb: c.bioEmissiveRgb,
+    isPrimedOrCharging: c.isPrimedOrCharging,
+    isAcidOrPustuleActive: c.isAcidOrPustuleActive,
+    isStaggeredStatus: Boolean(c.enemy.staggered),
+    elapsed: c.elapsed,
+    tacticalViewActive: c.tacticalViewActive,
+    spitterJuice,
+    cutIn: c.enemyCutIn,
+    facingSign: juiceFacing,
+  });
+
+  const spitterProjParams: SpriteLandmarkProjectionParams = {
+    frame: sf,
+    worldX: spitterWorldX,
+    worldY: c.enemyGroundY + hopY + staggerDy,
+    drawScale,
+    facingSign: juiceFacing,
+    rotationRad,
+    deform: c.webglRenderer ? deform : createIdentityControlPoints(),
+    squashStretch: uniforms.squashStretch,
+    shearPx: c.webglRenderer ? uniforms.shearPx : [0, 0],
+    swayAmpPx: c.webglRenderer ? uniforms.swayAmpPx : 0,
+    swayPhase: c.webglRenderer ? uniforms.swayPhase : 0,
+  };
+
   renderSpitterGroundPuddle(
     c.baseCtx,
     c.ex + (spitterWorldX - c.ex) * 0.28,
@@ -65,10 +113,11 @@ export function renderSpitterEnemySprite(
   if (spitterSample.pustuleGlowIntensity > 0.45 && !c.ea?.dead && !c.tacticalViewActive) {
     const { fgCtx } = c;
     const glowAlpha = Math.min(0.74, (spitterSample.pustuleGlowIntensity - 0.3) * 0.92);
+    const pustulePos = projectSpriteLandmarkToStage(sf.pustuleOriginRel, spitterProjParams);
+    const gx = pustulePos.x;
+    const gy = pustulePos.y;
     fgCtx.save();
     fgCtx.globalCompositeOperation = 'lighter';
-    const gx = spitterWorldX + sf.pustuleOriginRel.dx * drawScale * -juiceFacing;
-    const gy = c.enemyGroundY + hopY + sf.pustuleOriginRel.dy * drawScale;
     const rad =
       c.size *
       (spitterSample.mode === 'rupture' || spitterSample.frameIndex === 10 ? 0.46 : 0.36);
@@ -90,7 +139,7 @@ export function renderSpitterEnemySprite(
       fgCtx.lineWidth = 1.8;
       const angles = [-2.55, -2.18, -1.78, -1.38];
       for (let r = 0; r < angles.length; r++) {
-        const ang = angles[r];
+        const ang = juiceFacing > 0 ? Math.PI - angles[r] : angles[r];
         fgCtx.beginPath();
         fgCtx.moveTo(gx + Math.cos(ang) * (c.size * 0.06), gy + Math.sin(ang) * (c.size * 0.06));
         fgCtx.lineTo(gx + Math.cos(ang) * sprayLen, gy + Math.sin(ang) * sprayLen);
@@ -100,38 +149,13 @@ export function renderSpitterEnemySprite(
     fgCtx.restore();
   }
 
-  const blendA = spitterSample.frameBlendAlpha;
-  const canCrossBlend =
-    !c.ea?.dead && blendA < 0.99 && spitterSample.prevFrameIndex !== spitterSample.frameIndex;
-  const prevCanvas = canCrossBlend ? frames[spitterSample.prevFrameIndex] : null;
-
   if (c.webglRenderer) {
-    const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-      archetype: c.enemy.archetype,
-      idx: c.idx,
-      ea: c.ea,
-      isDead: c.isDead,
-      staggerShearPx: c.stagger.shearPx,
-      staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
-      breathScaleX: spitterJuice ? c.stagger.scaleXMul : c.breathScaleX * spitterSample.breathScaleX,
-      breathScaleY: spitterJuice ? c.stagger.scaleYMul : c.breathScaleY * spitterSample.breathScaleY,
-      frameBlendAlpha: canCrossBlend ? blendA : 1,
-      bioEmissiveRgb: c.bioEmissiveRgb,
-      isPrimedOrCharging: c.isPrimedOrCharging,
-      isAcidOrPustuleActive: c.isAcidOrPustuleActive,
-      isStaggeredStatus: Boolean(c.enemy.staggered),
-      elapsed: c.elapsed,
-      tacticalViewActive: c.tacticalViewActive,
-      spitterJuice,
-      cutIn: c.enemyCutIn,
-      facingSign: juiceFacing,
-    });
     c.webglRenderer.drawSprite({
       id: `enemy:${c.enemy.id}`,
       primarySource: spCanvas,
       secondarySource: prevCanvas,
       worldX: spitterWorldX,
-      worldY: c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.45),
+      worldY: c.enemyGroundY + hopY + staggerDy,
       widthPx: sf.w * drawScale,
       heightPx: sf.h * drawScale,
       anchorOffsetXPx: sf.anchorX * drawScale,
@@ -141,7 +165,7 @@ export function renderSpitterEnemySprite(
       secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
       secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
       facingSign: juiceFacing,
-      rotationRad: !c.ea?.dead ? c.stagger.rot * 0.32 + juiceRot + c.enemyCutIn.leanRad : 0,
+      rotationRad,
       alpha: c.koAlpha,
       drawPriority: c.enemyCutIn.drawPriority,
       deform,
@@ -151,18 +175,12 @@ export function renderSpitterEnemySprite(
     const { baseCtx } = c;
     baseCtx.save();
     baseCtx.globalAlpha = c.koAlpha * c.canvasBystanderMul;
-    baseCtx.translate(spitterWorldX, c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.45));
+    baseCtx.translate(spitterWorldX, c.enemyGroundY + hopY + staggerDy);
     if (!c.ea?.dead) {
-      baseCtx.rotate(c.stagger.rot * 0.32 + juiceRot + c.enemyCutIn.leanRad);
+      baseCtx.rotate(rotationRad);
     }
-    const scaleX =
-      (spitterJuice
-        ? c.stagger.scaleXMul * spitterJuice.springScaleX
-        : c.breathScaleX * spitterSample.breathScaleX) * c.enemyCutIn.scaleX;
-    const scaleY =
-      (spitterJuice
-        ? c.stagger.scaleYMul * spitterJuice.springScaleY
-        : c.breathScaleY * spitterSample.breathScaleY) * c.enemyCutIn.scaleY;
+    const scaleX = uniforms.squashStretch[0];
+    const scaleY = uniforms.squashStretch[1];
     baseCtx.scale(juiceFacing * scaleX, scaleY);
 
     if (prevCanvas) {
@@ -234,13 +252,10 @@ export function renderSpitterEnemySprite(
   }
 
   if (!c.ea?.dead && !c.tacticalViewActive && (windupProg > 0.02 || streamProg > 0.01)) {
-    const headDeformDx = spitterJuice ? spitterJuice.deform.head.dx * drawScale * juiceFacing : 0;
-    const headDeformDy = spitterJuice ? spitterJuice.deform.head.dy * drawScale : 0;
-    const mouthX = spitterWorldX + sf.mouthOriginRel.dx * drawScale * -juiceFacing + headDeformDx;
-    const mouthY = c.enemyGroundY + hopY + sf.mouthOriginRel.dy * drawScale + headDeformDy;
+    const mouthPos = projectSpriteLandmarkToStage(sf.mouthOriginRel, spitterProjParams);
     renderSpitterBileTorrent(c.fgCtx, c.sim, {
-      mouthX,
-      mouthY,
+      mouthX: mouthPos.x,
+      mouthY: mouthPos.y,
       targetX: extra.heroCutInDrawX + 18 * extra.baseScale,
       targetY: extra.groundY - extra.heroTargetHeight * 0.48,
       groundY: extra.groundY,
@@ -261,19 +276,26 @@ export interface BruteBioVfxParams {
   spriteX: number;
   enemyGroundY: number;
   hopY: number;
+  staggerDy?: number;
   size: number;
   drawScale: number;
   facingSign: number;
+  rotationRad?: number;
+  deform?: ControlPointDeform;
+  squashStretch?: readonly [number, number];
+  shearPx?: readonly [number, number];
+  swayAmpPx?: number;
+  swayPhase?: number;
   vialGlowIntensity: number;
   shellGlowIntensity: number;
   shockwaveIntensity: number;
   clawSlashProgress: number;
   mutagenMistProgress: number;
   seismicImpactProgress: number;
-  waistDeformDx: number;
-  waistDeformDy: number;
-  headDeformDx: number;
-  headDeformDy: number;
+  waistDeformDx?: number;
+  waistDeformDy?: number;
+  headDeformDx?: number;
+  headDeformDy?: number;
   elapsed: number;
   seed: number;
 }
@@ -287,24 +309,41 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
     spriteX,
     enemyGroundY,
     hopY,
+    staggerDy = 0,
     size,
     drawScale,
     facingSign,
+    rotationRad = 0,
+    deform,
+    squashStretch = [1, 1],
+    shearPx = [0, 0],
+    swayAmpPx = 0,
+    swayPhase = 0,
     vialGlowIntensity,
     shellGlowIntensity,
     shockwaveIntensity,
     clawSlashProgress,
     mutagenMistProgress,
     seismicImpactProgress,
-    waistDeformDx,
-    waistDeformDy,
-    headDeformDx,
-    headDeformDy,
     elapsed,
     seed,
   } = params;
 
-  const fwdDir = -facingSign; // -1 when facing left toward Hero
+  const facingMirror = -facingSign; // +1 when facing left toward Hero, -1 when flipped right
+  const anchorWorldY = enemyGroundY + hopY + staggerDy;
+  const projParams: SpriteLandmarkProjectionParams = {
+    frame: bf,
+    worldX: spriteX,
+    worldY: anchorWorldY,
+    drawScale,
+    facingSign,
+    rotationRad,
+    deform,
+    squashStretch,
+    shearPx,
+    swayAmpPx,
+    swayPhase,
+  };
   const isBracing = mode === 'brace';
   const isArmorPrimed = mode === 'armorPrimed';
   const isArmoredGuard = mode === 'armoredGuard';
@@ -315,8 +354,9 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
   // 1. Mutagen Vial Capsules, Bio-Vein Filaments & Rising Vapor Plumes
   if (vialGlowIntensity > 0.3 || mutagenMistProgress > 0.05) {
     const vialAlpha = Math.min(0.76, Math.max(0.12, (vialGlowIntensity - 0.22) * 0.92));
-    const gx = spriteX + bf.vialOriginRel.dx * drawScale * fwdDir + waistDeformDx;
-    const gy = enemyGroundY + hopY + bf.vialOriginRel.dy * drawScale + waistDeformDy;
+    const vialPos = projectSpriteLandmarkToStage(bf.vialOriginRel, projParams);
+    const gx = vialPos.x;
+    const gy = vialPos.y;
     const vRad = size * (isBracing ? 0.36 : isArmorPrimed || isArmoredGuard ? 0.28 : 0.21);
 
     fgCtx.save();
@@ -341,7 +381,7 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
       const vy = gy + v * 1.1 * drawScale;
       fgCtx.save();
       fgCtx.translate(vx, vy);
-      fgCtx.rotate(fwdDir * 0.24 + v * 0.08);
+      fgCtx.rotate(facingMirror * 0.24 + v * 0.08 + vialPos.knotRotRad);
       fgCtx.fillStyle = `rgba(74, 222, 128, ${Math.min(0.95, vialAlpha * 1.15)})`;
       fgCtx.beginPath();
       fgCtx.ellipse(0, 0, capsuleW, capsuleH * 0.5, 0, 0, Math.PI * 2);
@@ -369,9 +409,9 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
         const vd = veinDirs[i];
         const pulse = 0.65 + 0.35 * Math.sin(elapsed * 7.5 + i * 1.7 + seed);
         const jitter = Math.sin(elapsed * 14 + i * 2.3) * 2.2 * drawScale;
-        const p1x = gx + vd.ax * drawScale * (-fwdDir) + jitter;
+        const p1x = gx + vd.ax * drawScale * facingMirror + jitter;
         const p1y = gy + vd.ay * drawScale - jitter * 0.6;
-        const p2x = gx + vd.bx * drawScale * (-fwdDir);
+        const p2x = gx + vd.bx * drawScale * facingMirror;
         const p2y = gy + vd.by * drawScale;
 
         fgCtx.strokeStyle = `rgba(34, 197, 94, ${veinAlpha * pulse * 0.85})`;
@@ -402,7 +442,7 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
         const startY = gy + 4 * drawScale;
         const riseH = (16 + w * 5) * phase * drawScale;
         const curlX = Math.sin(phase * 5.2 + elapsed * 3.6 + w) * 9.5 * drawScale;
-        const tipX = startX + curlX + fwdDir * 4 * phase * drawScale;
+        const tipX = startX + curlX - facingMirror * 4 * phase * drawScale;
         const tipY = startY - riseH;
 
         fgCtx.strokeStyle =
@@ -428,8 +468,9 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
   // 2. Dorsal Carapace Thermal Vents, Curved Flame Plumes & Rising Ember Sparks
   if (shellGlowIntensity > 0.3) {
     const shellAlpha = Math.min(0.8, Math.max(0.12, (shellGlowIntensity - 0.22) * 0.94));
-    const sx = spriteX + bf.shellOriginRel.dx * drawScale * fwdDir + waistDeformDx * 0.85;
-    const sy = enemyGroundY + hopY + bf.shellOriginRel.dy * drawScale + waistDeformDy * 0.85;
+    const shellPos = projectSpriteLandmarkToStage(bf.shellOriginRel, projParams);
+    const sx = shellPos.x;
+    const sy = shellPos.y;
     const isThermalActive =
       isHeavyPrimed ||
       isStaggerHover ||
@@ -458,27 +499,27 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
     fgCtx.strokeStyle = `rgba(253, 186, 116, ${shellAlpha * 0.68})`;
     fgCtx.lineWidth = 3.2 * drawScale;
     fgCtx.beginPath();
-    fgCtx.moveTo(sx + fwdDir * rimSpan * 0.55, sy - rimSpan * 0.42);
+    fgCtx.moveTo(sx - facingMirror * rimSpan * 0.45, sy - rimSpan * 0.42);
     fgCtx.quadraticCurveTo(
-      sx - fwdDir * rimSpan * 0.38,
-      sy - rimSpan * 0.52,
-      sx - fwdDir * rimSpan * 0.62,
+      sx + facingMirror * rimSpan * 0.38,
+      sy - rimSpan * 0.46,
+      sx + facingMirror * rimSpan * 0.60,
       sy + rimSpan * 0.48,
     );
     fgCtx.stroke();
 
     // 5 dorsal chitin-seam vents with curved quadratic-Bezier thermal plumes & embers
     const ventOffsets = [
-      { dx: -14, dy: -22, ang: -1.85, scale: 0.82 },
-      { dx: -2, dy: -18, ang: -1.48, scale: 1.0 },
-      { dx: 10, dy: -10, ang: -1.12, scale: 1.08 },
-      { dx: 18, dy: 2, ang: -0.78, scale: 0.92 },
-      { dx: 22, dy: 16, ang: -0.46, scale: 0.75 },
+      { dx: -14, dy: -22, ang: -1.35, scale: 0.82 },
+      { dx: -2, dy: -18, ang: -1.08, scale: 1.0 },
+      { dx: 10, dy: -10, ang: -0.82, scale: 1.08 },
+      { dx: 18, dy: 2, ang: -0.52, scale: 0.92 },
+      { dx: 22, dy: 16, ang: -0.24, scale: 0.75 },
     ] as const;
 
     for (let v = 0; v < ventOffsets.length; v++) {
       const vo = ventOffsets[v];
-      const vx = sx + vo.dx * drawScale * (-fwdDir);
+      const vx = sx + vo.dx * drawScale * facingMirror;
       const vy = sy + vo.dy * drawScale;
       const flicker = 0.72 + 0.28 * Math.sin(elapsed * 11.5 + v * 1.9 + seed);
 
@@ -492,7 +533,7 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
         const plumeLen =
           size * (isHeavySmash ? 0.22 : 0.165) * vo.scale * (0.84 + 0.16 * flicker);
         const wave = Math.sin(elapsed * 14 + v * 2.1 + seed) * 7.5 * drawScale;
-        const dirX = Math.cos(vo.ang) * (-fwdDir);
+        const dirX = Math.cos(vo.ang) * facingMirror;
         const dirY = Math.sin(vo.ang);
         const tipX = vx + dirX * plumeLen + wave * 0.45;
         const tipY = vy + dirY * plumeLen - Math.abs(wave) * 0.25;
@@ -544,7 +585,8 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
         seismicImpactProgress > 0.01
           ? Math.max(0, Math.min(1, seismicImpactProgress))
           : Math.max(0, Math.min(1, 1 - sw * 0.55));
-      const ix = spriteX + bf.impactOriginRel.dx * drawScale * fwdDir;
+      const impactPos = projectSpriteLandmarkToStage(bf.impactOriginRel, projParams);
+      const ix = impactPos.x;
       const iy = enemyGroundY + 2;
       const outerRx = size * (0.24 + prog * 0.48);
       const outerRy = (8 + prog * 13) * Math.max(0.75, drawScale);
@@ -622,18 +664,19 @@ export function renderBruteBioVfxOverlay(params: BruteBioVfxParams): void {
     const p = Math.max(0, Math.min(1, clawSlashProgress));
     const slashAlpha = Math.sin(p * Math.PI);
     if (slashAlpha > 0.04) {
-      const cx = spriteX + bf.impactOriginRel.dx * drawScale * fwdDir + headDeformDx;
-      const cy = enemyGroundY + hopY + bf.impactOriginRel.dy * drawScale + headDeformDy;
+      const impactPos = projectSpriteLandmarkToStage(bf.impactOriginRel, projParams);
+      const cx = impactPos.x;
+      const cy = impactPos.y;
       const arcR = size * (0.21 + p * 0.08);
-      const startAng = fwdDir < 0 ? Math.PI * 0.68 : -Math.PI * 0.32;
-      const endAng = fwdDir < 0 ? Math.PI * 1.34 : Math.PI * 0.34;
+      const startAng = facingSign < 0 ? Math.PI * 0.68 : -Math.PI * 0.32;
+      const endAng = facingSign < 0 ? Math.PI * 1.34 : Math.PI * 0.34;
 
       fgCtx.save();
       fgCtx.globalCompositeOperation = 'lighter';
       fgCtx.lineCap = 'round';
 
       for (let c = -1; c <= 1; c++) {
-        const ox = cx + c * 5.5 * drawScale * fwdDir;
+        const ox = cx + c * 5.5 * drawScale * facingMirror;
         const oy = cy + c * 9.5 * drawScale;
         const r = arcR * (1 - Math.abs(c) * 0.1);
 
@@ -680,6 +723,34 @@ export function renderBruteEnemySprite(
   const juiceRot = bruteJuice ? bruteJuice.rotationRad : bruteSample.tiltRad;
   const juiceFacing = bruteJuice ? bruteJuice.facingScale : -1;
   const hopY = c.ea?.dead ? 0 : juiceHopY;
+  const staggerDy = c.ea?.dead ? 0 : c.stagger.dy * 0.45;
+  const rotationRad = !c.ea?.dead ? c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad : 0;
+
+  const blendA = bruteSample.frameBlendAlpha;
+  const canCrossBlend =
+    !c.ea?.dead && blendA < 0.99 && bruteSample.prevFrameIndex !== bruteSample.frameIndex;
+  const prevCanvas = canCrossBlend ? frames[bruteSample.prevFrameIndex] : null;
+
+  const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+    archetype: c.enemy.archetype,
+    idx: c.idx,
+    ea: c.ea,
+    isDead: c.isDead,
+    staggerShearPx: c.stagger.shearPx,
+    staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
+    breathScaleX: bruteJuice ? c.stagger.scaleXMul : c.breathScaleX * bruteSample.breathScaleX,
+    breathScaleY: bruteJuice ? c.stagger.scaleYMul : c.breathScaleY * bruteSample.breathScaleY,
+    frameBlendAlpha: canCrossBlend ? blendA : 1,
+    bioEmissiveRgb: c.bioEmissiveRgb,
+    isPrimedOrCharging: c.isPrimedOrCharging || bruteSample.shellGlowIntensity > 0.6,
+    isAcidOrPustuleActive: false,
+    isStaggeredStatus: Boolean(c.enemy.staggered),
+    elapsed: c.elapsed,
+    tacticalViewActive: c.tacticalViewActive,
+    bruteJuice,
+    cutIn: c.enemyCutIn,
+    facingSign: juiceFacing,
+  });
 
   if (!c.ea?.dead && !c.tacticalViewActive) {
     renderBruteBioVfxOverlay({
@@ -690,56 +761,34 @@ export function renderBruteEnemySprite(
       spriteX: c.spriteX,
       enemyGroundY: c.enemyGroundY,
       hopY,
+      staggerDy,
       size: c.size,
       drawScale,
       facingSign: juiceFacing,
+      rotationRad,
+      deform: c.webglRenderer ? deform : createIdentityControlPoints(),
+      squashStretch: uniforms.squashStretch,
+      shearPx: c.webglRenderer ? uniforms.shearPx : [0, 0],
+      swayAmpPx: c.webglRenderer ? uniforms.swayAmpPx : 0,
+      swayPhase: c.webglRenderer ? uniforms.swayPhase : 0,
       vialGlowIntensity: bruteJuice ? bruteJuice.vialGlowIntensity : bruteSample.vialGlowIntensity,
       shellGlowIntensity: bruteJuice ? bruteJuice.shellGlowIntensity : bruteSample.shellGlowIntensity,
       shockwaveIntensity: bruteJuice ? bruteJuice.shockwaveIntensity : bruteSample.shockwaveIntensity,
       clawSlashProgress: bruteJuice ? bruteJuice.clawSlashProgress : bruteSample.clawSlashProgress,
       mutagenMistProgress: bruteJuice ? bruteJuice.mutagenMistProgress : 0,
       seismicImpactProgress: bruteJuice ? bruteJuice.seismicImpactProgress : 0,
-      waistDeformDx: bruteJuice ? bruteJuice.deform.waist.dx * drawScale * juiceFacing : 0,
-      waistDeformDy: bruteJuice ? bruteJuice.deform.waist.dy * drawScale : 0,
-      headDeformDx: bruteJuice ? bruteJuice.deform.head.dx * drawScale * juiceFacing : 0,
-      headDeformDy: bruteJuice ? bruteJuice.deform.head.dy * drawScale : 0,
       elapsed: c.elapsed,
       seed: c.idx,
     });
   }
 
-  const blendA = bruteSample.frameBlendAlpha;
-  const canCrossBlend =
-    !c.ea?.dead && blendA < 0.99 && bruteSample.prevFrameIndex !== bruteSample.frameIndex;
-  const prevCanvas = canCrossBlend ? frames[bruteSample.prevFrameIndex] : null;
-
   if (c.webglRenderer) {
-    const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-      archetype: c.enemy.archetype,
-      idx: c.idx,
-      ea: c.ea,
-      isDead: c.isDead,
-      staggerShearPx: c.stagger.shearPx,
-      staggerBioFlashAlpha: c.stagger.bioFlashAlpha,
-      breathScaleX: bruteJuice ? c.stagger.scaleXMul : c.breathScaleX * bruteSample.breathScaleX,
-      breathScaleY: bruteJuice ? c.stagger.scaleYMul : c.breathScaleY * bruteSample.breathScaleY,
-      frameBlendAlpha: canCrossBlend ? blendA : 1,
-      bioEmissiveRgb: c.bioEmissiveRgb,
-      isPrimedOrCharging: c.isPrimedOrCharging || bruteSample.shellGlowIntensity > 0.6,
-      isAcidOrPustuleActive: false,
-      isStaggeredStatus: Boolean(c.enemy.staggered),
-      elapsed: c.elapsed,
-      tacticalViewActive: c.tacticalViewActive,
-      bruteJuice,
-      cutIn: c.enemyCutIn,
-      facingSign: juiceFacing,
-    });
     c.webglRenderer.drawSprite({
       id: `enemy:${c.enemy.id}`,
       primarySource: bCanvas,
       secondarySource: prevCanvas,
       worldX: c.spriteX,
-      worldY: c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.45),
+      worldY: c.enemyGroundY + hopY + staggerDy,
       widthPx: bf.w * drawScale,
       heightPx: bf.h * drawScale,
       anchorOffsetXPx: bf.anchorX * drawScale,
@@ -749,7 +798,7 @@ export function renderBruteEnemySprite(
       secondaryAnchorOffsetXPx: pf.anchorX * drawScale,
       secondaryAnchorOffsetYPx: pf.bottomY * drawScale,
       facingSign: juiceFacing,
-      rotationRad: !c.ea?.dead ? c.stagger.rot * 0.28 + juiceRot + c.enemyCutIn.leanRad : 0,
+      rotationRad,
       alpha: c.koAlpha,
       drawPriority: c.enemyCutIn.drawPriority,
       deform,

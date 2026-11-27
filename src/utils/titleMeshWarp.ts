@@ -50,8 +50,11 @@ function withPinnedAnchors(
   return [...landmarks, ...PINNED_ANCHORS];
 }
 
+export const MESH_IDLE_SWAY_AMP_PX = 1.4;
+export const MESH_IDLE_SWAY_FREQ_RAD = 1.65;
+
 export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[] = [
-  // K0: Idle / Base Aim
+  // K0 (0): Idle / Base Aim
   withPinnedAnchors([
     { nx: 0.08, ny: 0.12 },   // V0
     { nx: 0.05, ny: 0.31 },   // V1
@@ -70,7 +73,7 @@ export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[]
     { nx: 0.84, ny: 0.72 },   // V14
     { nx: 0.95, ny: 0.35 },   // V15
   ]),
-  // K1: Beat 1 (Wink)
+  // K1 (1): Beat 1 (Wink)
   withPinnedAnchors([
     { nx: 0.08, ny: 0.12 },
     { nx: 0.05, ny: 0.31 },
@@ -89,7 +92,26 @@ export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[]
     { nx: 0.84, ny: 0.72 },
     { nx: 0.95, ny: 0.35 },
   ]),
-  // K2: Beat 2 (Shared Grin)
+  // K1_5 (2): Beat 1.5 (Smirk & Mid-Raise)
+  withPinnedAnchors([
+    { nx: 0.08, ny: 0.12 },
+    { nx: 0.05, ny: 0.31 },
+    { nx: 0.06, ny: 0.47 },
+    { nx: 0.22, ny: 0.165 },
+    { nx: 0.31, ny: 0.20 },
+    { nx: 0.26, ny: 0.105 },
+    { nx: 0.25, ny: 0.34 },
+    { nx: 0.15, ny: 0.32 },
+    { nx: 0.813, ny: 0.092 },
+    { nx: 0.71, ny: 0.04 },
+    { nx: 0.495, ny: 0.255 },
+    { nx: 0.845, ny: 0.315 },
+    { nx: 0.72, ny: 0.38 },
+    { nx: 0.88, ny: 0.445 },
+    { nx: 0.84, ny: 0.72 },
+    { nx: 0.955, ny: 0.285 },
+  ]),
+  // K2 (3): Beat 2 (Shared Grin)
   withPinnedAnchors([
     { nx: 0.08, ny: 0.12 },
     { nx: 0.05, ny: 0.31 },
@@ -108,7 +130,26 @@ export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[]
     { nx: 0.84, ny: 0.72 },
     { nx: 0.96, ny: 0.25 },
   ]),
-  // K3: Beat 3 (Blown Kiss)
+  // K2_3 (4): Beat 2.3 (Left Hand Lifts Off Pistol, Head Levels)
+  withPinnedAnchors([
+    { nx: 0.08, ny: 0.12 },
+    { nx: 0.05, ny: 0.31 },
+    { nx: 0.06, ny: 0.47 },
+    { nx: 0.22, ny: 0.165 },
+    { nx: 0.31, ny: 0.195 },
+    { nx: 0.26, ny: 0.10 },
+    { nx: 0.25, ny: 0.345 },
+    { nx: 0.15, ny: 0.32 },
+    { nx: 0.810, ny: 0.092 },
+    { nx: 0.70, ny: 0.04 },
+    { nx: 0.47, ny: 0.25 },
+    { nx: 0.81, ny: 0.305 },
+    { nx: 0.70, ny: 0.365 },
+    { nx: 0.895, ny: 0.44 },
+    { nx: 0.84, ny: 0.72 },
+    { nx: 0.96, ny: 0.30 },
+  ]),
+  // K2_7 (5): Beat 2.7 (Palm Rising Under Lips + Nascent Spark)
   withPinnedAnchors([
     { nx: 0.08, ny: 0.12 },
     { nx: 0.05, ny: 0.31 },
@@ -118,7 +159,26 @@ export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[]
     { nx: 0.26, ny: 0.10 },
     { nx: 0.25, ny: 0.35 },
     { nx: 0.15, ny: 0.32 },
-    { nx: 0.80, ny: 0.108 },
+    { nx: 0.797, ny: 0.098 },
+    { nx: 0.70, ny: 0.04 },
+    { nx: 0.45, ny: 0.25 },
+    { nx: 0.765, ny: 0.31 },
+    { nx: 0.67, ny: 0.355 },
+    { nx: 0.905, ny: 0.455 },
+    { nx: 0.84, ny: 0.72 },
+    { nx: 0.96, ny: 0.335 },
+  ]),
+  // K3 (6): Beat 3 (Blown Kiss)
+  withPinnedAnchors([
+    { nx: 0.08, ny: 0.12 },
+    { nx: 0.05, ny: 0.31 },
+    { nx: 0.06, ny: 0.47 },
+    { nx: 0.22, ny: 0.17 },
+    { nx: 0.31, ny: 0.20 },
+    { nx: 0.26, ny: 0.10 },
+    { nx: 0.25, ny: 0.35 },
+    { nx: 0.15, ny: 0.32 },
+    { nx: 0.800, ny: 0.109 },
     { nx: 0.70, ny: 0.04 },
     { nx: 0.44, ny: 0.25 },
     { nx: 0.75, ny: 0.31 },
@@ -127,7 +187,26 @@ export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[]
     { nx: 0.84, ny: 0.72 },
     { nx: 0.96, ny: 0.34 },
   ]),
-  // K4: Beat 4 (Climax !!)
+  // K3_5 (7): Beat 3.5 (Heart Surging Left + Dawning Shock)
+  withPinnedAnchors([
+    { nx: 0.08, ny: 0.115 },
+    { nx: 0.05, ny: 0.305 },
+    { nx: 0.06, ny: 0.465 },
+    { nx: 0.22, ny: 0.17 },
+    { nx: 0.30, ny: 0.205 },
+    { nx: 0.255, ny: 0.095 },
+    { nx: 0.25, ny: 0.355 },
+    { nx: 0.15, ny: 0.32 },
+    { nx: 0.792, ny: 0.097 },
+    { nx: 0.695, ny: 0.04 },
+    { nx: 0.435, ny: 0.25 },
+    { nx: 0.745, ny: 0.31 },
+    { nx: 0.66, ny: 0.35 },
+    { nx: 0.91, ny: 0.465 },
+    { nx: 0.84, ny: 0.72 },
+    { nx: 0.955, ny: 0.325 },
+  ]),
+  // K4 (8): Beat 4 (Climax !!)
   withPinnedAnchors([
     { nx: 0.08, ny: 0.11 },
     { nx: 0.05, ny: 0.30 },
@@ -150,7 +229,7 @@ export const KEYFRAME_LATTICE_VERTICES: readonly (readonly NormalizedVertex[])[]
 
 /**
  * 42 non-overlapping triangles partitioning [0, 1] x [0, 1] with strictly positive
- * clockwise screen-space orientation across all K0-K4 keyframes and blends.
+ * clockwise screen-space orientation across all 9 keyframes and blends.
  */
 export const WARP_TRIANGLES: readonly TriangleIndices[] = [
   // Left boundary strip
@@ -227,9 +306,20 @@ const IDLE_BREATH_WEIGHTS = new Float32Array([
 
 // Subtle phase separation between Xeno (0.0 rad) and Kira (0.9 rad)
 const IDLE_BREATH_PHASES = new Float32Array([
-  0.0, 0.15, 0.25, 0.0, 0.0, 0.0, 0.1, 0.05,
-  0.9, 0.9, 1.05, 0.9, 0.95, 1.0, 0.0, 1.05,
+  0.0, 0.35, 0.7, 0.0, 0.0, 0.0, 0.15, 0.08,
+  0.9, 0.9, 1.3, 0.9, 0.95, 1.0, 0.0, 1.1,
   0, 0, 0, 0, 0, 0, 0, 0, 0,
+]);
+
+// Subtle horizontal organic sway weights for Xeno tentacles (V0-V2), Kira ponytail (V10), & muzzle (V15)
+const IDLE_SWAY_X_WEIGHTS = new Float32Array([
+  1.00, // V0: Xeno upper-left tentacle
+  0.90, // V1: Xeno mid-left tentacle
+  0.75, // V2: Xeno lower-left tentacle
+  0.00, 0.00, 0.00, 0.18, 0.22,
+  0.00, 0.15, 0.95, // V10: Kira hair tail
+  0.00, 0.00, 0.15, 0.00, 0.45, // V15: Kira pistol muzzle
+  0, 0, 0, 0, 0, 0, 0, 0, 0, // V16..V24: strictly pinned
 ]);
 
 export interface MeshWarpScratch {
@@ -266,6 +356,25 @@ export function computeVertexIdleBreathNormY(
     MESH_IDLE_BREATH_AMP_PX *
     weight;
   return pxOffset / MESH_REF_HEIGHT;
+}
+
+/**
+ * Computes subtle organic horizontal sway displacement for Xeno tentacles and Kira's hair/muzzle.
+ * Waist V14 and pinned lockup/perimeter anchors V16..V24 are strictly 0.
+ */
+export function computeVertexIdleSwayNormX(
+  vertexIdx: number,
+  idleTimeSec: number,
+): number {
+  if (vertexIdx < 0 || vertexIdx >= MESH_VERTEX_COUNT) return 0;
+  const weight = IDLE_SWAY_X_WEIGHTS[vertexIdx];
+  if (weight === 0) return 0;
+  const phase = IDLE_BREATH_PHASES[vertexIdx] * 1.4;
+  const pxOffset =
+    Math.cos(idleTimeSec * MESH_IDLE_SWAY_FREQ_RAD + phase) *
+    MESH_IDLE_SWAY_AMP_PX *
+    weight;
+  return pxOffset / MESH_REF_WIDTH;
 }
 
 /**
@@ -388,9 +497,10 @@ export function interpolateLattice(
   const vertsB = KEYFRAME_LATTICE_VERTICES[idxB];
 
   for (let i = 0; i < MESH_VERTEX_COUNT; i++) {
-    const nx = vertsA[i].nx * omU + vertsB[i].nx * u;
+    let nx = vertsA[i].nx * omU + vertsB[i].nx * u;
     let ny = vertsA[i].ny * omU + vertsB[i].ny * u;
     if (idleBreathingActive) {
+      nx += computeVertexIdleSwayNormX(i, idleTimeSec);
       ny += computeVertexIdleBreathNormY(i, idleTimeSec);
     }
     outVertices[i * 2] = nx;

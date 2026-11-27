@@ -314,7 +314,7 @@ The stationary typographic layer holding the `NEON BREACH` wordmark, cat-`O` mar
 _Avoid_: master lockup, text layer
 
 **Emblem Keyframe**:
-One of the five discrete illustrated poses depicting Kira and the Xeno across the title animation arc.
+One of the nine discrete illustrated poses (`K0–K4` plus four calibrated in-between poses `K1_5`, `K2_3`, `K2_7`, `K3_5`) depicting Kira and the Xeno across the title animation arc.
 _Avoid_: pose frame, source frame
 
 **Choreography Beat**:
@@ -326,9 +326,9 @@ The curved grid of discrete glowing LED cells rendered across Kira's visor glass
 _Avoid_: visor overlay, eye graphic
 
 **Xeno Slime**:
-The cohesive, dripping acid fluid falling from the Xeno's tentacles on the Title Emblem, distinct from Auraline's medical biogel and combat mutant blood.
+The cohesive, dripping acid fluid falling from the Xeno's tentacles and jaws—and oozing down the `NEON` bevel—on the Title Emblem, distinct from Auraline's medical biogel and combat mutant blood.
 _Avoid_: biogel, mutant blood, green droplets
 
 **Anatomical Warp Lattice**:
-The articulated control mesh spanning Xeno and Kira's anatomical landmarks that drives smooth pose transitions and subtle idle breathing.
+The articulated control mesh spanning Xeno and Kira's anatomical landmarks that drives smooth pose transitions, subtle idle breathing, and bounded organic sway.
 _Avoid_: sprite mesh, morph grid

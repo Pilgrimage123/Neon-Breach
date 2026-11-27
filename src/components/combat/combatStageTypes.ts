@@ -12,6 +12,11 @@ import type { MutdogFrameSample } from '../../utils/mutdogSpriteSheet';
 import type { MutdogJuiceSample, MutdogJuiceState } from '../../utils/mutdogJuiceController';
 import type { SpitterFrameSample } from '../../utils/spitterSpriteSheet';
 import type { SpitterJuiceSample, SpitterJuiceState } from '../../utils/spitterJuiceController';
+import type {
+  MatriarchJuiceSample,
+  MatriarchJuiceState,
+} from '../../utils/matriarchJuiceController';
+import type { MatriarchFrameSample } from '../../utils/matriarchSpriteSheet';
 import type { StalkerFrameSample } from '../../utils/stalkerSpriteSheet';
 import type { StalkerJuiceSample, StalkerJuiceState } from '../../utils/stalkerJuiceController';
 import type { SpriteBounds } from '../../utils/spriteCutout';
@@ -352,6 +357,10 @@ export interface CombatStageSim {
   feralNurseJuiceStates: Map<string, FeralNurseJuiceState>;
   feralNurseSamples?: Map<string, FeralNurseAnimSample>;
   feralNurseJuiceSamples?: Map<string, FeralNurseJuiceSample>;
+  matriarchFrames: HTMLCanvasElement[] | null;
+  matriarchJuiceStates: Map<string, MatriarchJuiceState>;
+  matriarchSamples?: Map<string, MatriarchFrameSample>;
+  matriarchJuiceSamples?: Map<string, MatriarchJuiceSample>;
   simElapsed?: number;
   lastFrameDt: number;
   size: { w: number; h: number };

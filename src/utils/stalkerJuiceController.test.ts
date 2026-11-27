@@ -24,6 +24,7 @@ test('stalkerJuiceController keeps feet strictly pinned while driving organic id
     assert.equal(sample.deform.feet.rotRad, 0);
     assert.equal(sample.deform.feet.scaleX, 1);
     assert.equal(sample.facingScale, 1, 'Uploaded Chitin Stalker is native left-facing (+1)');
+    assert.deepEqual(sample.uvDistortAmp, [0, 0], 'Idle must not apply continuous jelly UV wobble');
 
     if (sample.frameIndex === 0) sawOpen = true;
     if (sample.frameIndex === 1 && sample.isBlinking && sample.blinkClosure > 0.5) sawBlink = true;

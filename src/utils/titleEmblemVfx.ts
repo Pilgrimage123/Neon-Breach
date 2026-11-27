@@ -1,10 +1,12 @@
 import {
+  HEART_BURST_SEC,
   MAX_RIM_ARCS,
   MAX_VFX_DT,
   PARTICLE_POOL_SIZE,
   SEQUENCE_FORWARD_END_SEC,
   SEQUENCE_HOLD_END_SEC,
   SEQUENCE_TOTAL_SEC,
+  SHOCK_BURST_SEC,
   XENO_PURGE_BOTTOM_RIM_ANCHORS,
   XENO_PURGE_TOP_RIM_ANCHORS,
   sampleLogoSequence,
@@ -440,8 +442,8 @@ export function triggerEmblemClickBurst(
       (state.sequenceElapsed - SEQUENCE_HOLD_END_SEC) /
       (SEQUENCE_TOTAL_SEC - SEQUENCE_HOLD_END_SEC);
     state.sequenceElapsed = Math.max(0, (1 - revProgress) * SEQUENCE_FORWARD_END_SEC);
-    state.heartBurstEmitted = state.sequenceElapsed >= 0.78;
-    state.shockBurstEmitted = state.sequenceElapsed >= 1.24;
+    state.heartBurstEmitted = state.sequenceElapsed >= HEART_BURST_SEC;
+    state.shockBurstEmitted = state.sequenceElapsed >= SHOCK_BURST_SEC;
   }
 
   state.recoil = Math.min(1, state.recoil + 0.85);
@@ -507,13 +509,13 @@ export function stepTitleEmblemVfx(
 
   if (state.sequenceActive) {
     state.sequenceElapsed += dt;
-    if (!state.heartBurstEmitted && state.sequenceElapsed >= 0.78) {
+    if (!state.heartBurstEmitted && state.sequenceElapsed >= HEART_BURST_SEC) {
       state.heartBurstEmitted = true;
       if (!reducedMotion) {
         spawnHeartKissStream(state);
       }
     }
-    if (!state.shockBurstEmitted && state.sequenceElapsed >= 1.24) {
+    if (!state.shockBurstEmitted && state.sequenceElapsed >= SHOCK_BURST_SEC) {
       state.shockBurstEmitted = true;
       if (!reducedMotion) {
         spawnXenoShockBurst(state);

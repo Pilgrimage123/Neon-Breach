@@ -7,6 +7,7 @@ import {
 import { getMutantArchScale } from '../../utils/mutantAnimationRegistry';
 import { FERAL_NURSE_CANONICAL_HEIGHT } from '../../utils/feralNurseSpriteSheet';
 import { MUTDOG_CANONICAL_HEIGHT } from '../../utils/mutdogSpriteSheet';
+import { MATRIARCH_CANONICAL_HEIGHT } from '../../utils/matriarchSpriteSheet';
 import { SPITTER_CANONICAL_HEIGHT } from '../../utils/spitterSpriteSheet';
 import { STALKER_CANONICAL_HEIGHT } from '../../utils/stalkerSpriteSheet';
 import { getEnemyStaggerKinematics } from './combatEnemyAnimationSim';
@@ -20,6 +21,7 @@ import {
   renderStaticCutoutEnemySprite,
 } from './combatEnemyCoreSpritePass';
 import { renderFeralNurseEnemySprite } from './combatFeralNurseSpritePass';
+import { renderMatriarchEnemySprite } from './combatMatriarchSpritePass';
 import { renderMutdogEnemySprite } from './combatMutdogSpritePass';
 import { renderStalkerEnemySprite } from './combatStalkerSpritePass';
 import { type CombatStageSim, ENEMY_FOOT_DEFAULTS } from './combatStageTypes';
@@ -100,6 +102,7 @@ export function renderEnemySpritePass(params: {
     const isMutdog = arch === 'mutdog';
     const isFeralNurse = arch === 'feral_nurse';
     const isBrute = arch === 'brute';
+    const isBoss = arch === 'boss';
     const crawlerSample = isCrawler
       ? sampleCrawlerFrame(arch, ea, elapsed, idx, enemyCutIn.poseOverride)
       : null;
@@ -108,6 +111,7 @@ export function renderEnemySpritePass(params: {
     const mutdogSample = isMutdog ? sim.mutdogSamples?.get(enemy.id) : undefined;
     const feralNurseSample = isFeralNurse ? sim.feralNurseSamples?.get(enemy.id) : undefined;
     const bruteSample = isBrute ? sim.bruteSamples?.get(enemy.id) : undefined;
+    const matriarchSample = isBoss ? sim.matriarchSamples?.get(enemy.id) : undefined;
     const koAlpha = isDead
       ? ea
         ? ea.dead
@@ -123,7 +127,9 @@ export function renderEnemySpritePass(params: {
                     ? feralNurseSample.alpha
                     : bruteSample
                       ? bruteSample.alpha
-                      : Math.max(0, 1 - ea.koProgress)
+                      : matriarchSample
+                        ? matriarchSample.alpha
+                        : Math.max(0, 1 - ea.koProgress)
           : 1
         : 0
       : 1;
@@ -140,7 +146,8 @@ export function renderEnemySpritePass(params: {
       (isSpitter && Boolean(spitterSample)) ||
       (isMutdog && Boolean(mutdogSample)) ||
       (isFeralNurse && Boolean(feralNurseSample)) ||
-      (isBrute && Boolean(bruteSample));
+      (isBrute && Boolean(bruteSample)) ||
+      (isBoss && Boolean(matriarchSample));
     const suppressNativeShift = enemyCutIn.isMeleeClash;
     const suppressStaggerDx =
       enemyCutIn.isMeleeClash ||
@@ -152,7 +159,8 @@ export function renderEnemySpritePass(params: {
       !(isSpitter && spitterSample) &&
       !(isMutdog && mutdogSample) &&
       !(isFeralNurse && feralNurseSample) &&
-      !(isBrute && bruteSample)
+      !(isBrute && bruteSample) &&
+      !(isBoss && matriarchSample)
         ? Math.sin(ea.lunge * Math.PI) * (-w * 0.09)
         : 0;
     const cutInShiftX = enemyCutIn.active ? enemyCutIn.clashSlideX + enemyCutIn.knockbackX : 0;
@@ -172,6 +180,7 @@ export function renderEnemySpritePass(params: {
       ? sim.feralNurseJuiceSamples?.get(enemy.id)
       : undefined;
     const bruteJuiceForPos = isBrute ? sim.bruteJuiceSamples?.get(enemy.id) : undefined;
+    const matriarchJuiceForPos = isBoss ? sim.matriarchJuiceSamples?.get(enemy.id) : undefined;
     const spriteX =
       ex +
       cutInShiftX +
@@ -197,7 +206,11 @@ export function renderEnemySpritePass(params: {
                           ? bruteJuiceForPos.offsetX * (size / BRUTE_CANONICAL_HEIGHT)
                           : bruteSample
                             ? bruteSample.xOffsetRatio * size
-                            : 0);
+                            : matriarchJuiceForPos
+                              ? matriarchJuiceForPos.offsetX * (size / MATRIARCH_CANONICAL_HEIGHT)
+                              : matriarchSample
+                                ? matriarchSample.xOffsetRatio * size
+                                : 0);
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
     const breathPhase = Math.sin(elapsed * 2.4 + idx * 1.5);
     const breathScaleY =
@@ -224,9 +237,10 @@ export function renderEnemySpritePass(params: {
     baseCtx.save();
     baseCtx.globalAlpha = koAlpha * feralShadowMul;
 
-    const shadowHalfW = isBrute ? size * 0.44 : size * 0.32;
-    const ringHalfW = isBrute ? size * 0.46 : size * 0.34;
-    const footSpread = isBrute ? 0.18 : 0.13;
+    const isHeavyBody = isBrute || isBoss;
+    const shadowHalfW = isHeavyBody ? size * 0.44 : size * 0.32;
+    const ringHalfW = isHeavyBody ? size * 0.46 : size * 0.34;
+    const footSpread = isHeavyBody ? 0.18 : 0.13;
 
     baseCtx.fillStyle = 'rgba(3, 7, 18, 0.65)';
     baseCtx.beginPath();
@@ -234,7 +248,7 @@ export function renderEnemySpritePass(params: {
       spriteX,
       enemyGroundY - farFootOffsetPx * 0.35,
       shadowHalfW,
-      isBrute ? 9.5 : 7.5,
+      isHeavyBody ? 9.5 : 7.5,
       0,
       0,
       Math.PI * 2,
@@ -246,7 +260,7 @@ export function renderEnemySpritePass(params: {
     baseCtx.ellipse(
       spriteX - size * footSpread,
       enemyGroundY - farFootOffsetPx,
-      size * (isBrute ? 0.16 : 0.13),
+      size * (isHeavyBody ? 0.16 : 0.13),
       3.8,
       0,
       0,
@@ -258,7 +272,7 @@ export function renderEnemySpritePass(params: {
     baseCtx.ellipse(
       spriteX + size * (footSpread + 0.02),
       enemyGroundY - 1,
-      size * (isBrute ? 0.17 : 0.14),
+      size * (isHeavyBody ? 0.17 : 0.14),
       4.2,
       0,
       0,
@@ -288,7 +302,7 @@ export function renderEnemySpritePass(params: {
         spriteX,
         enemyGroundY - farFootOffsetPx * 0.3,
         ringHalfW,
-        isBrute ? 10.5 : 8.5,
+        isHeavyBody ? 10.5 : 8.5,
         0,
         0,
         Math.PI * 2,
@@ -431,6 +445,8 @@ export function renderEnemySpritePass(params: {
       renderFeralNurseEnemySprite(spriteCtx, feralNurseSample);
     } else if (isBrute && bruteSample && sim.bruteFrames) {
       renderBruteEnemySprite(spriteCtx, bruteSample);
+    } else if (isBoss && matriarchSample && sim.matriarchFrames) {
+      renderMatriarchEnemySprite(spriteCtx, matriarchSample);
     } else if (entry) {
       renderStaticCutoutEnemySprite(spriteCtx, entry, centerXRatio, bottomRatio);
     }

@@ -2,6 +2,7 @@ import type { EnemyArchetype } from '../engine/types';
 import { BRUTE_CANONICAL_HEIGHT } from './bruteSpriteSheet';
 import { CRAWLER_ARCH_SCALE, CRAWLER_CANONICAL_HEIGHT } from './crawlerSpriteSheet';
 import { FERAL_NURSE_CANONICAL_HEIGHT } from './feralNurseSpriteSheet';
+import { MATRIARCH_CANONICAL_HEIGHT } from './matriarchSpriteSheet';
 import { MUTDOG_CANONICAL_HEIGHT } from './mutdogSpriteSheet';
 import { SPITTER_CANONICAL_HEIGHT } from './spitterSpriteSheet';
 import { STALKER_CANONICAL_HEIGHT } from './stalkerSpriteSheet';
@@ -96,8 +97,8 @@ export const MUTANT_ANIMATION_REGISTRY: Record<EnemyArchetype, MutantAnimationSp
   boss: {
     archetype: 'boss',
     tier: 'legacy_transitional',
-    archScale: 1.24,
-    canonicalHeight: null,
+    archScale: 1.28,
+    canonicalHeight: MATRIARCH_CANONICAL_HEIGHT,
     nativeFacingSign: 1,
     blendPolicy: 'crisp_only',
     devLabTabId: null,

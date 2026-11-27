@@ -23,7 +23,13 @@ import type {
   RunState,
 } from '../engine/types';
 import type { Language } from '../i18n/translations';
-import { createDevLabSandboxRun, isDevLabRunId } from '../utils/devLabMode';
+import {
+  createDevBossSandboxRun,
+  createDevLabSandboxRun,
+  getDevBossInitialHpRatio,
+  isDevBossEncounterRequested,
+  isDevLabRunId,
+} from '../utils/devLabMode';
 import { applyBossObjectivesIfVictory, useCombatSandbox } from './useCombatSandbox';
 import { useNodeNavigationAndVendors } from './useNodeNavigationAndVendors';
 
@@ -72,6 +78,19 @@ export function useRunController({
     encounterSnapshot: RunState | null;
   }>(() => {
     const loaded = loadValidSavedRun();
+    if (isDevBossEncounterRequested()) {
+      const bossRun = createDevBossSandboxRun(
+        loaded?.hero.characterId ?? 'kira',
+        loaded?.difficultyTier ?? DEFAULT_DIFFICULTY_TIER,
+        104729,
+        getDevBossInitialHpRatio(),
+      );
+      return {
+        saved: loaded,
+        active: bossRun,
+        encounterSnapshot: bossRun,
+      };
+    }
     const active = loaded ?? createInitialRun(104729);
     const savedSnap = loaded && loaded.screen === 'combat' ? loadEncounterSnapshot() : null;
     const encounterSnapshot =

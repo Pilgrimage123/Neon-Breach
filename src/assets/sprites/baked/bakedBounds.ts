@@ -60,11 +60,11 @@ export const BAKED_ENEMY_CUTOUT_BOUNDS: Record<EnemyArchetype, SpriteBounds> = {
     "centerXRatio": 0.4980237154150198
   },
   "boss": {
-    "topRatio": 0.0234375,
-    "bottomRatio": 0.98828125,
-    "leftRatio": 0.083984375,
-    "rightRatio": 0.943359375,
-    "centerXRatio": 0.5126953125
+    "topRatio": 0,
+    "bottomRatio": 0.9859375,
+    "leftRatio": 0.003418803418803419,
+    "rightRatio": 0.9982905982905983,
+    "centerXRatio": 0.5
   }
 };
 
@@ -126,10 +126,10 @@ export const BAKED_ENEMY_PORTRAIT_BOUNDS: Record<EnemyArchetype, SpriteBounds> =
     "centerXRatio": 0.4990234375
   },
   "boss": {
-    "topRatio": 0.0234375,
-    "bottomRatio": 0.98828125,
-    "leftRatio": 0.083984375,
-    "rightRatio": 0.943359375,
-    "centerXRatio": 0.5126953125
+    "topRatio": 0,
+    "bottomRatio": 0.986328125,
+    "leftRatio": 0.002136752136752137,
+    "rightRatio": 0.9978632478632479,
+    "centerXRatio": 0.49893162393162394
   }
 };

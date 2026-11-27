@@ -1,5 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { projectMutdogLandmarkToStage } from '../components/combat/combatMutdogSpritePass';
+import {
+  type SpriteRenderCommand,
+  computeDeformedMeshVertices,
+  createDefaultShaderUniforms,
+  createIdentityControlPoints,
+  createMeshGridTopology,
+} from '../components/combat/stageMeshMath';
 import {
   DEFAULT_MUTDOG_JUICE_CONFIG,
   applyMutdogSquash,
@@ -7,6 +15,7 @@ import {
   stepMutdogJuice,
   triggerMutdogJuiceState,
 } from './mutdogJuiceController';
+import { MUTDOG_SHEET_FRAMES } from './mutdogSpriteSheet';
 
 test('Layer 1: Symplectic damped harmonic spring settles squash-and-stretch impulse back to (1, 1)', () => {
   const state = createMutdogJuiceState();
@@ -45,7 +54,7 @@ test('Layer 1 & 3: All 6 triggers keep foot knot (h=0) strictly pinned at zero d
   }
 });
 
-test('Layer 2: Prowl Stalk drives quadruped bound hop, tilt, velocity shear, and pawPlantTriggered edges', () => {
+test('Layer 2 (Rule 6): Prowl Stalk phase-locks hopYPx=0 on grounded contact frames (3, 5) and only lifts on airborne bound frame (7)', () => {
   const state = createMutdogJuiceState();
   triggerMutdogJuiceState(state, 'prowl_stalk', DEFAULT_MUTDOG_JUICE_CONFIG);
 
@@ -60,6 +69,12 @@ test('Layer 2: Prowl Stalk drives quadruped bound hop, tilt, velocity shear, and
     maxAbsRot = Math.max(maxAbsRot, Math.abs(s.rotationRad));
     if (s.pawPlantTriggered) pawPlants += 1;
     assert.equal(s.uvDistortAmp[0], 0, 'Prowl stride must not apply UV jelly distortion');
+    if (s.frameIndex === 3 || s.frameIndex === 5) {
+      assert.equal(s.hopYPx, 0, `Grounded prowl frame ${s.frameIndex} must stay planted at hopYPx=0`);
+    }
+    if (s.hopYPx < 0) {
+      assert.equal(s.frameIndex, 7, 'Airborne hop lift must only occur on leaping frame 7');
+    }
   }
 
   assert.ok(maxAbsShear > 0.5, 'Prowl stride should generate velocity skew/shear');
@@ -155,4 +170,89 @@ test('Layer 2: Turn Around smoothly flips facingScale from -1 through +1 and bac
   assert.ok(sawPositiveFacing, '2.5D flip should reach positive facingScale (+1)');
   assert.ok(sawMidFlipHop, '2.5D flip should include a nimble vertical hop');
   assert.equal(state.baseFacingSign, -1, 'Auto-return flip should restore -1 combat facing');
+});
+
+test('projectMutdogLandmarkToStage matches computeDeformedMeshVertices + GPU vertex shader exactly at mesh grid vertices', () => {
+  const frame = MUTDOG_SHEET_FRAMES[4]; // Frenzy Howl frame
+  const topology = createMeshGridTopology(4, 6);
+  const deform = createIdentityControlPoints();
+  deform.pelvis.dx = 3.2;
+  deform.waist.dx = 9.4;
+  deform.waist.dy = -3.8;
+  deform.waist.rotRad = 0.06;
+  deform.waist.scaleX = 1.05;
+  deform.head.dx = 16.5;
+  deform.head.dy = -5.2;
+  deform.head.rotRad = 0.11;
+  deform.head.scaleX = 1.03;
+
+  const uniforms = createDefaultShaderUniforms();
+  uniforms.squashStretch = [1.14, 0.88];
+  uniforms.shearPx = [-8.5, 0];
+  uniforms.swayAmpPx = 1.6;
+  uniforms.swayPhase = 1.25;
+
+  const drawScale = 0.92;
+  const worldX = 420;
+  const worldY = 310;
+  const facingSign = -1;
+  const rotationRad = -0.075;
+
+  const cmd: SpriteRenderCommand = {
+    id: 'test-mutdog',
+    primarySource: {} as HTMLCanvasElement,
+    worldX,
+    worldY,
+    widthPx: frame.w * drawScale,
+    heightPx: frame.h * drawScale,
+    anchorOffsetXPx: frame.anchorX * drawScale,
+    anchorOffsetYPx: frame.bottomY * drawScale,
+    facingSign,
+    rotationRad,
+    alpha: 1,
+    deform,
+    uniforms,
+  };
+
+  const verts = new Float32Array(topology.vertexCount * 8);
+  computeDeformedMeshVertices(topology, cmd, verts);
+
+  // Pick a top-row vertex (r = 6, h = 1.0, c = 3, u = 0.75) and compare against projectMutdogLandmarkToStage
+  const r = 6;
+  const c = 3;
+  const vIdx = (r * (topology.cols + 1) + c) * 8;
+  const meshWorldX = verts[vIdx];
+  const meshWorldY = verts[vIdx + 1];
+  const h = verts[vIdx + 6];
+
+  // Apply vertex shader math to mesh vertex
+  const relX = (meshWorldX - worldX) * uniforms.squashStretch[0];
+  const relY = (meshWorldY - worldY) * uniforms.squashStretch[1];
+  const weight = h * h * (3 - 2 * h);
+  const swayOffset = Math.sin(uniforms.swayPhase + h * 1.35) * uniforms.swayAmpPx * weight;
+  const expectedX = worldX + relX + swayOffset + uniforms.shearPx[0] * h;
+  const expectedY = worldY + relY + uniforms.shearPx[1] * h;
+
+  // Equivalent relative landmark (rel.dx = anchorX - localX, rel.dy = localY - bottomY)
+  const localX = frame.w * (c / topology.cols);
+  const localY = frame.h * (1 - r / topology.rows);
+  const projected = projectMutdogLandmarkToStage(
+    { dx: frame.anchorX - localX, dy: localY - frame.bottomY },
+    {
+      frame,
+      worldX,
+      worldY,
+      drawScale,
+      facingSign,
+      rotationRad,
+      deform,
+      squashStretch: uniforms.squashStretch,
+      shearPx: uniforms.shearPx,
+      swayAmpPx: uniforms.swayAmpPx,
+      swayPhase: uniforms.swayPhase,
+    },
+  );
+
+  assert.ok(Math.abs(projected.x - expectedX) < 1e-4, `Projected X (${projected.x}) must match shader X (${expectedX})`);
+  assert.ok(Math.abs(projected.y - expectedY) < 1e-4, `Projected Y (${projected.y}) must match shader Y (${expectedY})`);
 });

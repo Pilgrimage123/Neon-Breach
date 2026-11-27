@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  CLIMAX_FRAME_INDEX,
   LOGO_FRAME_COUNT,
   MAX_RIM_ARCS,
   PARTICLE_POOL_SIZE,
@@ -44,7 +45,7 @@ test('TitleEmblemVfx maintains fixed-capacity zero-GC particle pool and clamps l
   assert.ok(activeCount >= 12, `Expected steady ambient particles, got ${activeCount}`);
 });
 
-test('Idle state stays locked on Frame 0 and never plays the 5-pose animation until clicked', () => {
+test('Idle state stays locked on Frame 0 and never plays the 9-frame pose animation until clicked', () => {
   const state = createTitleEmblemVfxState(101);
   assert.equal(state.sequenceActive, false);
 
@@ -59,10 +60,11 @@ test('Idle state stays locked on Frame 0 and never plays the 5-pose animation un
   }
 });
 
-test('Clicking the logo triggers fluent 0->1->2->3->4->hold->4->3->2->1->0 sequence with synced heart-kiss & shock particles', () => {
+test('Clicking the logo triggers fluent 9-keyframe 0->...->8->hold->8->...->0 sequence with synced heart-kiss & shock particles', () => {
   const state = createTitleEmblemVfxState(2026);
   triggerEmblemClickBurst(state, 0.5, 0.5);
   assert.equal(state.sequenceActive, true);
+  assert.equal(LOGO_FRAME_COUNT, 9);
 
   const visitedFrames = new Set<number>();
   let sawHeartKissParticles = false;
@@ -70,7 +72,7 @@ test('Clicking the logo triggers fluent 0->1->2->3->4->hold->4->3->2->1->0 seque
   let sawClimaxHold = false;
   let sawReversePhase = false;
 
-  // Step through the entire 2.86s click timeline at 20ms intervals
+  // Step through the entire click timeline at 20ms intervals
   const steps = Math.ceil((SEQUENCE_TOTAL_SEC + 0.12) / 0.02);
   for (let i = 0; i < steps; i++) {
     const sample = stepTitleEmblemVfx(state, 0.02);
@@ -85,8 +87,8 @@ test('Clicking the logo triggers fluent 0->1->2->3->4->hold->4->3->2->1->0 seque
     );
 
     if (seq.active && seq.elapsed > SEQUENCE_FORWARD_END_SEC + 0.05 && seq.elapsed < SEQUENCE_HOLD_END_SEC - 0.05) {
-      assert.equal(seq.frameA, 4);
-      assert.equal(seq.frameB, 4);
+      assert.equal(seq.frameA, CLIMAX_FRAME_INDEX);
+      assert.equal(seq.frameB, CLIMAX_FRAME_INDEX);
       sawClimaxHold = true;
     }
 
@@ -103,11 +105,11 @@ test('Clicking the logo triggers fluent 0->1->2->3->4->hold->4->3->2->1->0 seque
     }
   }
 
-  assert.equal(visitedFrames.size, LOGO_FRAME_COUNT, 'All 5 uploaded logo frames (0..4) must be visited');
-  assert.equal(sawClimaxHold, true, 'Must hold Frame 4 climax briefly');
-  assert.equal(sawReversePhase, true, 'Must smoothly reverse 4->3->2->1->0 back to Frame 0');
-  assert.equal(sawHeartKissParticles, true, 'Must emit synced heart-kiss particles (shape=3) on Frame 3');
-  assert.equal(sawXenoShockParticles, true, 'Must emit synced Xeno shock particles on Frame 4');
+  assert.equal(visitedFrames.size, LOGO_FRAME_COUNT, 'All 9 logo keyframes (0..8) must be visited');
+  assert.equal(sawClimaxHold, true, 'Must hold climax keyframe briefly');
+  assert.equal(sawReversePhase, true, 'Must smoothly reverse 8->...->0 back to Frame 0');
+  assert.equal(sawHeartKissParticles, true, 'Must emit synced heart-kiss particles (shape=3)');
+  assert.equal(sawXenoShockParticles, true, 'Must emit synced Xeno shock particles');
   assert.equal(state.sequenceActive, false, 'Sequence must return cleanly to idle Frame 0 at completion');
 });
 

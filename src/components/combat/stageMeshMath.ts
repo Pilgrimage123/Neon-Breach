@@ -373,3 +373,90 @@ export function computeDeformedMeshVertices(
     }
   }
 }
+
+export interface SpriteLandmarkProjectionParams {
+  frame: { h: number; bottomY: number };
+  /** World-space X coordinate of the character's bottom-center foot anchor */
+  worldX: number;
+  /** World-space Y coordinate of the character's bottom-center foot anchor */
+  worldY: number;
+  drawScale: number;
+  facingSign: number;
+  /** Default facingSign of the raw sprite artwork (-1 for right-facing mirrored sheets, +1 for native left-facing sheets like Stalker) */
+  nativeFacingSign?: 1 | -1;
+  rotationRad?: number;
+  deform?: ControlPointDeform;
+  squashStretch?: readonly [number, number];
+  shearPx?: readonly [number, number];
+  swayAmpPx?: number;
+  swayPhase?: number;
+}
+
+const LANDMARK_SCRATCH_KNOT: AnatomicalKnot = { dx: 0, dy: 0, rotRad: 0, scaleX: 1 };
+
+/**
+ * Projects a relative frame landmark `{ dx, dy }` (offset from `(anchorX, bottomY)` in post-flip unscaled px)
+ * through the exact 4-knot Hermite anatomical spline (`computeDeformedMeshVertices`) and GPU vertex shader
+ * (`UNIFIED_CHARACTER_VERTEX_SHADER`: ground-anchored squash-and-stretch, harmonic sway, and velocity shear)
+ * so Canvas2D biological VFX stay 1:1 locked to the deformed WebGL2 MeshSprite pixels.
+ */
+export function projectSpriteLandmarkToStage(
+  rel: { dx: number; dy: number },
+  p: SpriteLandmarkProjectionParams,
+): { x: number; y: number; hNorm: number; knotRotRad: number } {
+  const {
+    frame,
+    worldX,
+    worldY,
+    drawScale,
+    facingSign,
+    nativeFacingSign = -1,
+    rotationRad = 0,
+    deform,
+    squashStretch = [1, 1],
+    shearPx = [0, 0],
+    swayAmpPx = 0,
+    swayPhase = 0,
+  } = p;
+
+  const hNorm = Math.max(0, Math.min(1, 1 - (frame.bottomY + rel.dy) / Math.max(1, frame.h)));
+  if (deform) {
+    evaluateAnatomicalSplineRow(hNorm, deform, LANDMARK_SCRATCH_KNOT);
+  } else {
+    LANDMARK_SCRATCH_KNOT.dx = 0;
+    LANDMARK_SCRATCH_KNOT.dy = 0;
+    LANDMARK_SCRATCH_KNOT.rotRad = 0;
+    LANDMARK_SCRATCH_KNOT.scaleX = 1;
+  }
+
+  // Local coordinates relative to (anchorX, bottomY) prior to facingSign flip
+  const unscaledLocalX = (nativeFacingSign < 0 ? -rel.dx : rel.dx) * drawScale;
+  const rawLocalY = rel.dy * drawScale;
+
+  const rawLocalX = unscaledLocalX * LANDMARK_SCRATCH_KNOT.scaleX;
+  const knotCos = Math.cos(LANDMARK_SCRATCH_KNOT.rotRad);
+  const knotSin = Math.sin(LANDMARK_SCRATCH_KNOT.rotRad);
+
+  const spineRotX = rawLocalX * knotCos + LANDMARK_SCRATCH_KNOT.dx;
+  const spineRotY = rawLocalY + rawLocalX * knotSin + LANDMARK_SCRATCH_KNOT.dy;
+
+  const mirroredX = spineRotX * facingSign;
+  const baseCos = Math.cos(rotationRad);
+  const baseSin = Math.sin(rotationRad);
+
+  const relWorldX = mirroredX * baseCos - spineRotY * baseSin;
+  const relWorldY = mirroredX * baseSin + spineRotY * baseCos;
+
+  // Vertex shader ground-anchored squash/stretch, sway & velocity shear around (worldX, worldY)
+  const sqX = relWorldX * squashStretch[0];
+  const sqY = relWorldY * squashStretch[1];
+  const weight = hNorm * hNorm * (3 - 2 * hNorm);
+  const swayOffset = Math.sin(swayPhase + hNorm * 1.35) * swayAmpPx * weight;
+
+  return {
+    x: worldX + sqX + swayOffset + shearPx[0] * hNorm,
+    y: worldY + sqY + shearPx[1] * hNorm,
+    hNorm,
+    knotRotRad: LANDMARK_SCRATCH_KNOT.rotRad * facingSign + rotationRad,
+  };
+}

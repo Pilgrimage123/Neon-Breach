@@ -25,10 +25,13 @@ function clearFloorShadowAndPockets(
   total: number,
   scratch: ScratchBuffers,
   minFloorPocketArea: number,
+  removeNeutralFloorShadow: boolean,
 ): void {
   const { visited, removed, interiorVisited, queue } = scratch;
-  const floorMinY = Math.max(0, Math.min(h - 1, Math.max(h - 56, Math.floor(h * 0.78))));
-  const seedStartY = Math.max(floorMinY, h - 16);
+  const floorMinY = removeNeutralFloorShadow
+    ? Math.floor(h * 0.80)
+    : Math.max(0, Math.min(h - 1, Math.max(h - 56, Math.floor(h * 0.78))));
+  const seedStartY = removeNeutralFloorShadow ? floorMinY : Math.max(floorMinY, h - 16);
   const bottomEdgeY = Math.max(0, h - 6);
 
   const isFloorShadowPixel = (idx: number, y: number): boolean => {
@@ -41,6 +44,7 @@ function clearFloorShadowAndPockets(
     const maxC = r > g ? (r > b ? r : b) : g > b ? g : b;
     const minC = r < g ? (r < b ? r : b) : g < b ? g : b;
     if (minC > 218 && maxC - minC < 32) return true;
+    if (removeNeutralFloorShadow && minC >= 76 && maxC - minC <= 18) return true;
     if (r >= 165 && b >= 175 && g <= Math.min(r, b) - 6) return true;
     if (y >= h - 20 && b >= 125 && b - r >= 36) {
       if (b - g >= 12) return true;
@@ -90,6 +94,8 @@ function clearFloorShadowAndPockets(
     if (y > floorMinY) tryEnqueueFloor(cur - w, y - 1);
     if (y < h - 1) tryEnqueueFloor(cur + w, y + 1);
   }
+
+  if (removeNeutralFloorShadow) return;
 
   // Clear trapped near-white pockets strictly inside the bottom floor zone (between boots)
   const floorPocketMinY = Math.max(0, Math.floor(h * 0.84));
@@ -143,6 +149,7 @@ function clearInteriorWhitePockets(
   total: number,
   scratch: ScratchBuffers,
   minPocketArea: number,
+  removeSubtleCheckerboard: boolean,
 ): void {
   const { removed, interiorVisited, queue } = scratch;
   for (let startIdx = 0; startIdx < total; startIdx++) {
@@ -153,8 +160,10 @@ function clearInteriorWhitePockets(
     let cTail = 0;
     let borderCount = 0;
     let vibrantGlowBorderCount = 0;
+    let darkOutlineBorderCount = 0;
     let checkerGrayCount = 0;
     let checkerWhiteCount = 0;
+    let neutralLightCount = 0;
     interiorVisited[startIdx] = 1;
     queue[cTail++] = startIdx;
 
@@ -176,6 +185,9 @@ function clearInteriorWhitePockets(
         if (maxC >= 145 && maxC - minC >= 42) {
           vibrantGlowBorderCount++;
         }
+        if ((nr + ng + nb) / 3 <= 120) {
+          darkOutlineBorderCount++;
+        }
       }
     };
 
@@ -191,6 +203,9 @@ function clearInteriorWhitePockets(
         if (cMin >= 216 && cMax <= 243) checkerGrayCount++;
         else if (cMin >= 247) checkerWhiteCount++;
       }
+      if (cMax - cMin <= 12 && cMin >= 232) {
+        neutralLightCount++;
+      }
       const x = cur % w;
       const y = (cur - x) / w;
       if (x > 0) inspectBoundaryNeighbor(cur - 1);
@@ -200,8 +215,15 @@ function clearInteriorWhitePockets(
     }
 
     const isTwoToneCheckerboard = checkerGrayCount >= 12 && checkerWhiteCount >= 12;
+    const isSubtleCheckerOrNeutralBg =
+      removeSubtleCheckerboard &&
+      cTail >= minPocketArea &&
+      neutralLightCount / cTail >= 0.72 &&
+      borderCount > 0 &&
+      darkOutlineBorderCount / borderCount >= 0.38;
     const isVibrantNeonEmblem =
       !isTwoToneCheckerboard &&
+      !isSubtleCheckerOrNeutralBg &&
       borderCount > 0 &&
       vibrantGlowBorderCount / borderCount >= 0.35;
 
@@ -222,13 +244,16 @@ function defringeWhiteEdges(
   removed: Uint8Array,
   defringeStrength: number,
   removeBottomFloorShadow: boolean,
+  removeNeutralFloorShadow: boolean,
 ): void {
   const keepAlphaFactor = 1 - defringeStrength;
   const lumMin = removeBottomFloorShadow ? 180 : 188;
   const chromaMax = removeBottomFloorShadow ? 42 : 34;
+  const floorZoneY = Math.floor(h * 0.78);
   for (let y = 1; y < h - 1; y++) {
     const rowOff = y * w;
     const checkLavenderFringe = removeBottomFloorShadow && y >= h - 22;
+    const checkNeutralShadowFringe = removeNeutralFloorShadow && y >= floorZoneY;
     for (let x = 1; x < w - 1; x++) {
       const idx = rowOff + x;
       if (removed[idx]) continue;
@@ -240,9 +265,11 @@ function defringeWhiteEdges(
       const minC = r < g ? (r < b ? r : b) : g < b ? g : b;
       const lum = (r + g + b) / 3;
       const isNeutralHalo = lum > lumMin && maxC - minC < chromaMax;
+      const isNeutralShadowHalo =
+        checkNeutralShadowFringe && lum > 100 && maxC - minC <= 24;
       const isLavenderFloorFringe =
         checkLavenderFringe && r >= 165 && b >= 175 && g < Math.min(r, b);
-      if (isNeutralHalo || isLavenderFloorFringe) {
+      if (isNeutralHalo || isNeutralShadowHalo || isLavenderFloorFringe) {
         if (removed[idx - 1] || removed[idx + 1] || removed[idx - w] || removed[idx + w]) {
           data[p + 3] = Math.round(data[p + 3] * keepAlphaFactor);
         }
@@ -326,6 +353,8 @@ export function cleanWhiteBackgroundData(
 
   const removeInteriorWhite = Boolean(options?.removeInteriorWhite);
   const removeBottomFloorShadow = Boolean(options?.removeBottomFloorShadow);
+  const removeNeutralFloorShadow = Boolean(options?.removeNeutralFloorShadow);
+  const removeSubtleCheckerboard = Boolean(options?.removeSubtleCheckerboard);
   const defringeStrength = options?.defringeStrength ?? 0.55;
 
   const total = w * h;
@@ -333,7 +362,15 @@ export function cleanWhiteBackgroundData(
   floodFillBorderBackground(data, w, h, scratch, (idx) => isNearWhitePixel(data, idx, 24));
 
   if (removeBottomFloorShadow) {
-    clearFloorShadowAndPockets(data, w, h, total, scratch, options?.minPocketArea ?? 100);
+    clearFloorShadowAndPockets(
+      data,
+      w,
+      h,
+      total,
+      scratch,
+      options?.minPocketArea ?? 100,
+      removeNeutralFloorShadow,
+    );
   }
 
   if (removeInteriorWhite) {
@@ -341,11 +378,27 @@ export function cleanWhiteBackgroundData(
       scratch.interiorVisited.fill(0, 0, total);
     }
     const minPocketArea = options?.minPocketArea ?? Math.max(80, Math.floor(total * 0.00014));
-    clearInteriorWhitePockets(data, w, h, total, scratch, minPocketArea);
+    clearInteriorWhitePockets(
+      data,
+      w,
+      h,
+      total,
+      scratch,
+      minPocketArea,
+      removeSubtleCheckerboard,
+    );
   }
 
   if (defringeStrength > 0) {
-    defringeWhiteEdges(data, w, h, scratch.removed, defringeStrength, removeBottomFloorShadow);
+    defringeWhiteEdges(
+      data,
+      w,
+      h,
+      scratch.removed,
+      defringeStrength,
+      removeBottomFloorShadow,
+      removeNeutralFloorShadow,
+    );
   }
 
   if (options?.unmixLightGlow) {

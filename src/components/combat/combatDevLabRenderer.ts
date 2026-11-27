@@ -47,6 +47,11 @@ import { renderSpitterBileTorrent } from './combatForegroundFxRenderer';
 import { renderMutdogBioVfxOverlay } from './combatMutdogSpritePass';
 import type { CombatStageSim } from './combatStageTypes';
 import {
+  type SpriteLandmarkProjectionParams,
+  createIdentityControlPoints,
+  projectSpriteLandmarkToStage,
+} from './stageMeshMath';
+import {
   type ICharacterStageRenderer,
   deriveEnemyDeformAndUniforms,
 } from './stageSpriteAdapter';
@@ -154,12 +159,52 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
         0,
       );
 
+      const prevCanvas =
+        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
+          ? sim.spitterFrames[labJuice.prevFrameIndex]
+          : null;
+
+      const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+        archetype: 'spitter',
+        idx: 0,
+        ea: undefined,
+        isDead: false,
+        staggerShearPx: 0,
+        staggerBioFlashAlpha: 0,
+        breathScaleX: 1,
+        breathScaleY: 1,
+        frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
+        bioEmissiveRgb: [0.64, 0.9, 0.21],
+        isPrimedOrCharging: labJuice.activeTrigger === 'cast_charge',
+        isAcidOrPustuleActive: labJuice.activeTrigger === 'cast_charge',
+        isStaggeredStatus: false,
+        elapsed,
+        tacticalViewActive,
+        spitterJuice: labJuice,
+        facingSign: labJuice.facingScale,
+      });
+
+      const spitterProjParams: SpriteLandmarkProjectionParams = {
+        frame: sf,
+        worldX: labWorldX,
+        worldY: labGroundY + labHopY,
+        drawScale,
+        facingSign: labJuice.facingScale,
+        rotationRad: labJuice.rotationRad,
+        deform: webglRenderer ? deform : createIdentityControlPoints(),
+        squashStretch: uniforms.squashStretch,
+        shearPx: webglRenderer ? uniforms.shearPx : [0, 0],
+        swayAmpPx: webglRenderer ? uniforms.swayAmpPx : 0,
+        swayPhase: webglRenderer ? uniforms.swayPhase : 0,
+      };
+
       if (labJuice.pustuleGlowIntensity > 0.35 && !tacticalViewActive) {
         const glowAlpha = Math.min(0.75, (labJuice.pustuleGlowIntensity - 0.25) * 0.9);
+        const pustulePos = projectSpriteLandmarkToStage(sf.pustuleOriginRel, spitterProjParams);
+        const gx = pustulePos.x;
+        const gy = pustulePos.y;
         fgCtx.save();
         fgCtx.globalCompositeOperation = 'lighter';
-        const gx = labWorldX + sf.pustuleOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const gy = labGroundY + labHopY + sf.pustuleOriginRel.dy * drawScale;
         const rad = size * 0.38;
         const grad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, rad);
         grad.addColorStop(0, `rgba(254, 240, 138, ${glowAlpha})`);
@@ -172,30 +217,7 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
         fgCtx.restore();
       }
 
-      const prevCanvas =
-        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
-          ? sim.spitterFrames[labJuice.prevFrameIndex]
-          : null;
-
       if (webglRenderer) {
-        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-          archetype: 'spitter',
-          idx: 0,
-          ea: undefined,
-          isDead: false,
-          staggerShearPx: 0,
-          staggerBioFlashAlpha: 0,
-          breathScaleX: 1,
-          breathScaleY: 1,
-          frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
-          bioEmissiveRgb: [0.64, 0.9, 0.21],
-          isPrimedOrCharging: labJuice.activeTrigger === 'cast_charge',
-          isAcidOrPustuleActive: labJuice.activeTrigger === 'cast_charge',
-          isStaggeredStatus: false,
-          elapsed,
-          tacticalViewActive,
-          spitterJuice: labJuice,
-        });
         webglRenderer.drawSprite({
           id: 'enemy:spitter_lab_specimen',
           primarySource: spCanvas,
@@ -238,15 +260,12 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
         !tacticalViewActive &&
         (labJuice.spitWindupProgress > 0.02 || labJuice.spitStreamProgress > 0.01)
       ) {
-        const headDeformDx = labJuice.deform.head.dx * drawScale * labJuice.facingScale;
-        const headDeformDy = labJuice.deform.head.dy * drawScale;
-        const mouthX = labWorldX + sf.mouthOriginRel.dx * drawScale * (-labJuice.facingScale) + headDeformDx;
-        const mouthY = labGroundY + labHopY + sf.mouthOriginRel.dy * drawScale + headDeformDy;
+        const mouthPos = projectSpriteLandmarkToStage(sf.mouthOriginRel, spitterProjParams);
         const heroImpactX = heroX + 18 * baseScale;
         const heroImpactY = groundY - heroTargetHeight * 0.48;
         renderSpitterBileTorrent(fgCtx, sim, {
-          mouthX,
-          mouthY,
+          mouthX: mouthPos.x,
+          mouthY: mouthPos.y,
           targetX: heroImpactX,
           targetY: heroImpactY,
           groundY,
@@ -298,6 +317,32 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
       baseCtx.stroke();
       baseCtx.restore();
 
+      const prevCanvas =
+        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
+          ? sim.bruteFrames[labJuice.prevFrameIndex]
+          : null;
+
+      const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+        archetype: 'brute',
+        idx: 0,
+        ea: undefined,
+        isDead: false,
+        staggerShearPx: 0,
+        staggerBioFlashAlpha: 0,
+        breathScaleX: 1,
+        breathScaleY: 1,
+        frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
+        bioEmissiveRgb: [0.98, 0.57, 0.24],
+        isPrimedOrCharging:
+          labJuice.activeTrigger === 'mutagen_brace' ||
+          labJuice.activeTrigger === 'seismic_smash',
+        isAcidOrPustuleActive: false,
+        isStaggeredStatus: false,
+        elapsed,
+        tacticalViewActive,
+        bruteJuice: labJuice,
+      });
+
       if (!tacticalViewActive) {
         renderBruteBioVfxOverlay({
           fgCtx,
@@ -310,45 +355,24 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
           size,
           drawScale,
           facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          deform: webglRenderer ? deform : undefined,
+          squashStretch: uniforms.squashStretch,
+          shearPx: webglRenderer ? uniforms.shearPx : [0, 0],
+          swayAmpPx: webglRenderer ? uniforms.swayAmpPx : 0,
+          swayPhase: webglRenderer ? uniforms.swayPhase : 0,
           vialGlowIntensity: labJuice.vialGlowIntensity,
           shellGlowIntensity: labJuice.shellGlowIntensity,
           shockwaveIntensity: labJuice.shockwaveIntensity,
           clawSlashProgress: labJuice.clawSlashProgress,
           mutagenMistProgress: labJuice.mutagenMistProgress,
           seismicImpactProgress: labJuice.seismicImpactProgress,
-          waistDeformDx: labJuice.deform.waist.dx * drawScale * labJuice.facingScale,
-          waistDeformDy: labJuice.deform.waist.dy * drawScale,
-          headDeformDx: labJuice.deform.head.dx * drawScale * labJuice.facingScale,
-          headDeformDy: labJuice.deform.head.dy * drawScale,
           elapsed,
           seed: 3,
         });
       }
 
-      const prevCanvas =
-        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
-          ? sim.bruteFrames[labJuice.prevFrameIndex]
-          : null;
-
       if (webglRenderer) {
-        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-          archetype: 'brute',
-          idx: 0,
-          ea: undefined,
-          isDead: false,
-          staggerShearPx: 0,
-          staggerBioFlashAlpha: 0,
-          breathScaleX: 1,
-          breathScaleY: 1,
-          frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
-          bioEmissiveRgb: [0.98, 0.57, 0.24],
-          isPrimedOrCharging: labJuice.activeTrigger === 'mutagen_brace' || labJuice.activeTrigger === 'seismic_smash',
-          isAcidOrPustuleActive: false,
-          isStaggeredStatus: false,
-          elapsed,
-          tacticalViewActive,
-          bruteJuice: labJuice,
-        });
         webglRenderer.drawSprite({
           id: 'enemy:brute_lab_specimen',
           primarySource: bCanvas,
@@ -427,6 +451,31 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
       baseCtx.stroke();
       baseCtx.restore();
 
+      const prevCanvas =
+        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
+          ? sim.mutdogFrames[labJuice.prevFrameIndex]
+          : null;
+
+      const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+        archetype: 'mutdog',
+        idx: 0,
+        ea: undefined,
+        isDead: false,
+        staggerShearPx: 0,
+        staggerBioFlashAlpha: 0,
+        breathScaleX: 1,
+        breathScaleY: 1,
+        frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
+        bioEmissiveRgb: [0.64, 0.9, 0.21],
+        isPrimedOrCharging:
+          labJuice.activeTrigger === 'frenzy_howl' || labJuice.activeTrigger === 'pounce_maul',
+        isAcidOrPustuleActive: false,
+        isStaggeredStatus: false,
+        elapsed,
+        tacticalViewActive,
+        mutdogJuice: labJuice,
+      });
+
       if (!tacticalViewActive) {
         renderMutdogBioVfxOverlay({
           fgCtx,
@@ -439,6 +488,12 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
           size,
           drawScale,
           facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          deform: webglRenderer ? deform : undefined,
+          squashStretch: uniforms.squashStretch,
+          shearPx: webglRenderer ? uniforms.shearPx : [0, 0],
+          swayAmpPx: webglRenderer ? uniforms.swayAmpPx : 0,
+          swayPhase: webglRenderer ? uniforms.swayPhase : 0,
           lureGlowIntensity: labJuice.lureGlowIntensity,
           droolIntensity: labJuice.droolIntensity,
           pounceImpactIntensity:
@@ -448,40 +503,12 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
           clawSlashProgress: labJuice.clawSlashProgress,
           pounceImpactProgress: labJuice.pounceImpactProgress,
           howlPulseProgress: labJuice.howlPulseProgress,
-          waistDeformDx: labJuice.deform.waist.dx * drawScale * labJuice.facingScale,
-          waistDeformDy: labJuice.deform.waist.dy * drawScale,
-          headDeformDx: labJuice.deform.head.dx * drawScale * labJuice.facingScale,
-          headDeformDy: labJuice.deform.head.dy * drawScale,
           elapsed,
           seed: 5,
         });
       }
 
-      const prevCanvas =
-        labJuice.frameBlendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
-          ? sim.mutdogFrames[labJuice.prevFrameIndex]
-          : null;
-
       if (webglRenderer) {
-        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-          archetype: 'mutdog',
-          idx: 0,
-          ea: undefined,
-          isDead: false,
-          staggerShearPx: 0,
-          staggerBioFlashAlpha: 0,
-          breathScaleX: 1,
-          breathScaleY: 1,
-          frameBlendAlpha: prevCanvas ? labJuice.frameBlendAlpha : 1,
-          bioEmissiveRgb: [0.64, 0.9, 0.21],
-          isPrimedOrCharging:
-            labJuice.activeTrigger === 'frenzy_howl' || labJuice.activeTrigger === 'pounce_maul',
-          isAcidOrPustuleActive: false,
-          isStaggeredStatus: false,
-          elapsed,
-          tacticalViewActive,
-          mutdogJuice: labJuice,
-        });
         webglRenderer.drawSprite({
           id: 'enemy:mutdog_lab_specimen',
           primarySource: mCanvas,
@@ -592,6 +619,33 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
               ? 'pain'
               : 'idle';
 
+      const prevCanvas =
+        labJuice.blendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
+          ? sim.feralNurseFrames[labJuice.prevFrameIndex]
+          : null;
+
+      const { deform, uniforms } = deriveEnemyDeformAndUniforms({
+        archetype: 'feral_nurse',
+        idx: 0,
+        ea: undefined,
+        isDead: false,
+        staggerShearPx: 0,
+        staggerBioFlashAlpha: 0,
+        breathScaleX: 1,
+        breathScaleY: 1,
+        frameBlendAlpha: prevCanvas ? labJuice.blendAlpha : 1,
+        bioEmissiveRgb: [0.91, 0.47, 0.98],
+        isPrimedOrCharging:
+          labJuice.activeTrigger === 'optical_cloak' ||
+          labJuice.activeTrigger === 'pierce_strike',
+        isAcidOrPustuleActive: false,
+        isStaggeredStatus: false,
+        elapsed,
+        tacticalViewActive,
+        feralNurseJuice: labJuice,
+        facingSign: labJuice.facingScale,
+      });
+
       if (!tacticalViewActive) {
         renderFeralNurseBioVfxOverlay({
           fgCtx,
@@ -604,45 +658,22 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
           size,
           drawScale,
           facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
           headsetGlowIntensity: labJuice.headsetGlowIntensity,
           cloakIntensity: labJuice.cloakIntensity,
           clawSlashProgress: labJuice.clawSlashProgress,
           pierceImpactIntensity: labJuice.pierceImpactIntensity,
-          chestDeformDx: labJuice.deform.chest.dx * drawScale * labJuice.facingScale,
-          chestDeformDy: labJuice.deform.chest.dy * drawScale,
-          headDeformDx: labJuice.deform.head.dx * drawScale * labJuice.facingScale,
-          headDeformDy: labJuice.deform.head.dy * drawScale,
+          deform: webglRenderer ? deform : createIdentityControlPoints(),
+          squashStretch: uniforms.squashStretch,
+          shearPx: webglRenderer ? uniforms.shearPx : [0, 0],
+          swayAmpPx: webglRenderer ? uniforms.swayAmpPx : 0,
+          swayPhase: webglRenderer ? uniforms.swayPhase : 0,
           elapsed,
           seed: 9,
         });
       }
 
-      const prevCanvas =
-        labJuice.blendAlpha < 0.99 && labJuice.prevFrameIndex !== labJuice.frameIndex
-          ? sim.feralNurseFrames[labJuice.prevFrameIndex]
-          : null;
-
       if (webglRenderer) {
-        const { deform, uniforms } = deriveEnemyDeformAndUniforms({
-          archetype: 'feral_nurse',
-          idx: 0,
-          ea: undefined,
-          isDead: false,
-          staggerShearPx: 0,
-          staggerBioFlashAlpha: 0,
-          breathScaleX: 1,
-          breathScaleY: 1,
-          frameBlendAlpha: prevCanvas ? labJuice.blendAlpha : 1,
-          bioEmissiveRgb: [0.91, 0.47, 0.98],
-          isPrimedOrCharging:
-            labJuice.activeTrigger === 'optical_cloak' ||
-            labJuice.activeTrigger === 'pierce_strike',
-          isAcidOrPustuleActive: false,
-          isStaggeredStatus: false,
-          elapsed,
-          tacticalViewActive,
-          feralNurseJuice: labJuice,
-        });
         webglRenderer.drawSprite({
           id: 'enemy:feral_nurse_lab_specimen',
           primarySource: fCanvas,

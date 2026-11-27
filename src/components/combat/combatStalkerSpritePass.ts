@@ -1,6 +1,5 @@
 import {
   STALKER_CANONICAL_HEIGHT,
-  type StalkerBoneWeight,
   type StalkerFrameSample,
 } from '../../utils/stalkerSpriteSheet';
 import type { StalkerJuiceSample } from '../../utils/stalkerJuiceController';
@@ -8,18 +7,11 @@ import type { CoreEnemySpriteContext } from './combatEnemyCoreSpritePass';
 import { drawCanvas2DCutInFlash } from './combatHeroSpritePass';
 import { hexToRgba } from './mutantBlood';
 import {
-  type ControlPointDeform,
-  deriveEnemyDeformAndUniforms,
-} from './stageSpriteAdapter';
-
-function getBoneDeformOffset(
-  deform: ControlPointDeform,
-  bone: StalkerBoneWeight,
-): { dx: number; dy: number } {
-  if (bone === 'head') return { dx: deform.head.dx, dy: deform.head.dy };
-  if (bone === 'waist') return { dx: deform.waist.dx, dy: deform.waist.dy };
-  return { dx: deform.pelvis.dx, dy: deform.pelvis.dy };
-}
+  type SpriteLandmarkProjectionParams,
+  createIdentityControlPoints,
+  projectSpriteLandmarkToStage,
+} from './stageMeshMath';
+import { deriveEnemyDeformAndUniforms } from './stageSpriteAdapter';
 
 /**
  * Draws the viscous acid-lime dripping slime layer anchored to the uploaded
@@ -30,17 +22,16 @@ function renderStalkerSlimeDrips(
   fgCtx: CanvasRenderingContext2D,
   params: {
     juice: StalkerJuiceSample;
-    deform: ControlPointDeform;
+    projParams: SpriteLandmarkProjectionParams;
     spriteX: number;
     enemyGroundY: number;
-    hopY: number;
     drawScale: number;
     scaleX: number;
     scaleY: number;
     koAlpha: number;
   },
 ): void {
-  const { juice, deform, spriteX, enemyGroundY, hopY, drawScale, scaleX, scaleY, koAlpha } = params;
+  const { juice, projParams, spriteX, enemyGroundY, drawScale, scaleX, scaleY, koAlpha } = params;
   if (koAlpha <= 0.04) return;
 
   fgCtx.save();
@@ -91,9 +82,9 @@ function renderStalkerSlimeDrips(
     const n = juice.nozzles[i];
     if (n.stretchPx < 2.2) continue;
 
-    const bDisp = getBoneDeformOffset(deform, n.bone);
-    const rootX = spriteX + (n.dx + bDisp.dx * 0.72) * drawScale * scaleX;
-    const rootY = enemyGroundY + hopY + (n.dy + bDisp.dy * 0.72) * drawScale * scaleY;
+    const rootPos = projectSpriteLandmarkToStage({ dx: n.dx, dy: n.dy }, projParams);
+    const rootX = rootPos.x;
+    const rootY = rootPos.y;
 
     const stretchScreen = n.stretchPx * drawScale * scaleY;
     const tipX = rootX + n.swayPx * drawScale;
@@ -201,48 +192,34 @@ function renderStalkerBlinkApexEyelid(
   fgCtx: CanvasRenderingContext2D,
   params: {
     eyeOriginRel: { dx: number; dy: number };
-    deform: ControlPointDeform;
+    projParams: SpriteLandmarkProjectionParams;
     blinkClosure: number;
-    spriteX: number;
-    enemyGroundY: number;
-    hopY: number;
     drawScale: number;
     scaleX: number;
     scaleY: number;
-    rotationRad: number;
     koAlpha: number;
   },
 ): void {
   const {
     eyeOriginRel,
-    deform,
+    projParams,
     blinkClosure,
-    spriteX,
-    enemyGroundY,
-    hopY,
     drawScale,
     scaleX,
     scaleY,
-    rotationRad,
     koAlpha,
   } = params;
   if (blinkClosure <= 0.06 || koAlpha <= 0.05) return;
 
-  // Eye sits on the head knot (heightWeight ≈ 0.65 -> interpolate cleanly between waist & head)
-  const localX = (eyeOriginRel.dx + deform.head.dx * 0.82 + deform.waist.dx * 0.18) * drawScale * scaleX;
-  const localY = (eyeOriginRel.dy + deform.head.dy * 0.82 + deform.waist.dy * 0.18) * drawScale * scaleY;
-  const cosR = Math.cos(rotationRad);
-  const sinR = Math.sin(rotationRad);
-  const worldEyeX = spriteX + localX * cosR - localY * sinR;
-  const worldEyeY = enemyGroundY + hopY + localX * sinR + localY * cosR;
+  const eyePos = projectSpriteLandmarkToStage(eyeOriginRel, projParams);
 
   // Narrowed eye aperture on 512px stalker_blink.png is ~62px wide x 32px tall, angled ~-26deg
   const rx = 31 * drawScale * scaleX;
   const ry = 16.5 * drawScale * scaleY;
 
   fgCtx.save();
-  fgCtx.translate(worldEyeX, worldEyeY + 3 * drawScale * scaleY);
-  fgCtx.rotate(rotationRad - 0.38 + deform.head.rotRad * 0.55);
+  fgCtx.translate(eyePos.x, eyePos.y + 3 * drawScale * scaleY);
+  fgCtx.rotate(eyePos.knotRotRad - 0.38);
   fgCtx.globalAlpha = Math.min(1, blinkClosure * 1.15) * koAlpha;
 
   // Fleshy magenta-crimson chitin eyelid sliding down over the narrowed yellow slit
@@ -283,21 +260,19 @@ function renderStalkerScytheSlashArcs(
   fgCtx: CanvasRenderingContext2D,
   params: {
     clawOriginRel: { dx: number; dy: number };
-    spriteX: number;
-    enemyGroundY: number;
-    hopY: number;
-    drawScale: number;
+    projParams: SpriteLandmarkProjectionParams;
     size: number;
     clawSlashProgress: number;
     koAlpha: number;
   },
 ): void {
-  const { clawOriginRel, spriteX, enemyGroundY, hopY, drawScale, size, clawSlashProgress, koAlpha } = params;
+  const { clawOriginRel, projParams, size, clawSlashProgress, koAlpha } = params;
   if (clawSlashProgress <= 0.02 || clawSlashProgress >= 0.99) return;
 
   const arcEnv = Math.sin(clawSlashProgress * Math.PI);
-  const cx = spriteX + clawOriginRel.dx * drawScale - size * 0.14;
-  const cy = enemyGroundY + hopY + clawOriginRel.dy * drawScale;
+  const clawPos = projectSpriteLandmarkToStage(clawOriginRel, projParams);
+  const cx = clawPos.x - size * 0.14;
+  const cy = clawPos.y;
 
   fgCtx.save();
   fgCtx.globalCompositeOperation = 'lighter';
@@ -348,40 +323,7 @@ export function renderStalkerEnemySprite(
       c.enemyCutIn.leanRad
     : 0;
 
-  // Crimson bioluminescent dorsal spine glow & bristle flare rays (native left-facing: +dx is right/back)
-  if (spineGlow > 0.44 && !c.ea?.dead && !c.tacticalViewActive) {
-    const { fgCtx } = c;
-    const glowAlpha = Math.min(0.72, (spineGlow - 0.32) * 0.92);
-    fgCtx.save();
-    fgCtx.globalCompositeOperation = 'lighter';
-    const gx = c.spriteX + sf.quillOriginRel.dx * drawScale;
-    const gy = c.enemyGroundY + hopY + sf.quillOriginRel.dy * drawScale;
-    const rad = c.size * (stalkerSample.mode === 'bristle' ? 0.56 : 0.42);
-    const grad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, rad);
-    grad.addColorStop(0, `rgba(255, 46, 126, ${glowAlpha})`);
-    grad.addColorStop(0.5, `rgba(255, 46, 126, ${glowAlpha * 0.38})`);
-    grad.addColorStop(1, 'rgba(255, 46, 126, 0)');
-    fgCtx.fillStyle = grad;
-    fgCtx.beginPath();
-    fgCtx.arc(gx, gy, rad, 0, Math.PI * 2);
-    fgCtx.fill();
-
-    if (stalkerSample.mode === 'bristle' || stalkerSample.mode === 'guard') {
-      const rayLen = c.size * (stalkerSample.mode === 'bristle' ? 0.44 : 0.32);
-      fgCtx.strokeStyle = `rgba(255, 92, 160, ${0.42 + 0.28 * glowAlpha})`;
-      fgCtx.lineWidth = 1.9;
-      const angles = [-2.4, -2.02, -1.62, -1.24, -0.86];
-      for (let r = 0; r < angles.length; r++) {
-        const ang = angles[r];
-        fgCtx.beginPath();
-        fgCtx.moveTo(gx + Math.cos(ang) * (c.size * 0.08), gy + Math.sin(ang) * (c.size * 0.08));
-        fgCtx.lineTo(gx + Math.cos(ang) * rayLen, gy + Math.sin(ang) * rayLen);
-        fgCtx.stroke();
-      }
-    }
-    fgCtx.restore();
-  }
-
+  const staggerDy = c.ea?.dead ? 0 : c.stagger.dy * 0.35;
   const blendA = stalkerJuice ? stalkerJuice.frameBlendAlpha : stalkerSample.frameBlendAlpha;
   const canCrossBlend = !c.ea?.dead && blendA < 0.99 && prevIdx !== frameIdx;
   const prevCanvas = canCrossBlend ? frames[prevIdx] : null;
@@ -410,13 +352,63 @@ export function renderStalkerEnemySprite(
   const effectiveScaleX = uniforms.squashStretch[0];
   const effectiveScaleY = uniforms.squashStretch[1];
 
+  const projParams: SpriteLandmarkProjectionParams = {
+    frame: sf,
+    worldX: c.spriteX,
+    worldY: c.enemyGroundY + hopY + staggerDy,
+    drawScale,
+    facingSign: 1,
+    nativeFacingSign: 1,
+    rotationRad: rotRad,
+    deform: c.webglRenderer ? deform : createIdentityControlPoints(),
+    squashStretch: uniforms.squashStretch,
+    shearPx: c.webglRenderer ? uniforms.shearPx : [0, 0],
+    swayAmpPx: c.webglRenderer ? uniforms.swayAmpPx : 0,
+    swayPhase: c.webglRenderer ? uniforms.swayPhase : 0,
+  };
+
+  // Crimson bioluminescent dorsal spine glow & bristle flare rays (native left-facing: +dx is right/back)
+  if (spineGlow > 0.44 && !c.ea?.dead && !c.tacticalViewActive) {
+    const { fgCtx } = c;
+    const glowAlpha = Math.min(0.72, (spineGlow - 0.32) * 0.92);
+    const spinePos = projectSpriteLandmarkToStage(sf.quillOriginRel, projParams);
+    const gx = spinePos.x;
+    const gy = spinePos.y;
+    fgCtx.save();
+    fgCtx.globalCompositeOperation = 'lighter';
+    const rad = c.size * (stalkerSample.mode === 'bristle' ? 0.56 : 0.42);
+    const grad = fgCtx.createRadialGradient(gx, gy, 2, gx, gy, rad);
+    grad.addColorStop(0, `rgba(255, 46, 126, ${glowAlpha})`);
+    grad.addColorStop(0.5, `rgba(255, 46, 126, ${glowAlpha * 0.38})`);
+    grad.addColorStop(1, 'rgba(255, 46, 126, 0)');
+    fgCtx.fillStyle = grad;
+    fgCtx.beginPath();
+    fgCtx.arc(gx, gy, rad, 0, Math.PI * 2);
+    fgCtx.fill();
+
+    if (stalkerSample.mode === 'bristle' || stalkerSample.mode === 'guard') {
+      const rayLen = c.size * (stalkerSample.mode === 'bristle' ? 0.44 : 0.32);
+      fgCtx.strokeStyle = `rgba(255, 92, 160, ${0.42 + 0.28 * glowAlpha})`;
+      fgCtx.lineWidth = 1.9;
+      const angles = [-2.4, -2.02, -1.62, -1.24, -0.86];
+      for (let r = 0; r < angles.length; r++) {
+        const ang = angles[r];
+        fgCtx.beginPath();
+        fgCtx.moveTo(gx + Math.cos(ang) * (c.size * 0.08), gy + Math.sin(ang) * (c.size * 0.08));
+        fgCtx.lineTo(gx + Math.cos(ang) * rayLen, gy + Math.sin(ang) * rayLen);
+        fgCtx.stroke();
+      }
+    }
+    fgCtx.restore();
+  }
+
   if (c.webglRenderer) {
     c.webglRenderer.drawSprite({
       id: `enemy:${c.enemy.id}`,
       primarySource: sCanvas,
       secondarySource: prevCanvas,
       worldX: c.spriteX,
-      worldY: c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.35),
+      worldY: c.enemyGroundY + hopY + staggerDy,
       widthPx: sf.w * drawScale,
       heightPx: sf.h * drawScale,
       anchorOffsetXPx: sf.anchorX * drawScale,
@@ -432,7 +424,7 @@ export function renderStalkerEnemySprite(
     const { baseCtx } = c;
     baseCtx.save();
     baseCtx.globalAlpha = c.koAlpha * c.canvasBystanderMul;
-    baseCtx.translate(c.spriteX, c.enemyGroundY + hopY + (c.ea?.dead ? 0 : c.stagger.dy * 0.35));
+    baseCtx.translate(c.spriteX, c.enemyGroundY + hopY + staggerDy);
     baseCtx.rotate(rotRad);
     baseCtx.scale(effectiveScaleX, effectiveScaleY);
 
@@ -486,15 +478,11 @@ export function renderStalkerEnemySprite(
     if (!c.ea?.dead && blinkClosure > 0.06) {
       renderStalkerBlinkApexEyelid(c.fgCtx, {
         eyeOriginRel: sf.eyeOriginRel,
-        deform,
+        projParams,
         blinkClosure,
-        spriteX: c.spriteX,
-        enemyGroundY: c.enemyGroundY + (c.ea?.dead ? 0 : c.stagger.dy * 0.35),
-        hopY,
         drawScale,
         scaleX: effectiveScaleX,
         scaleY: effectiveScaleY,
-        rotationRad: rotRad,
         koAlpha: c.koAlpha,
       });
     }
@@ -502,10 +490,9 @@ export function renderStalkerEnemySprite(
     if (stalkerJuice) {
       renderStalkerSlimeDrips(c.fgCtx, {
         juice: stalkerJuice,
-        deform,
+        projParams,
         spriteX: c.spriteX,
         enemyGroundY: c.enemyGroundY,
-        hopY,
         drawScale,
         scaleX: effectiveScaleX,
         scaleY: effectiveScaleY,
@@ -516,10 +503,7 @@ export function renderStalkerEnemySprite(
     if (!c.ea?.dead && slashProg > 0.02) {
       renderStalkerScytheSlashArcs(c.fgCtx, {
         clawOriginRel: sf.clawOriginRel,
-        spriteX: c.spriteX,
-        enemyGroundY: c.enemyGroundY,
-        hopY,
-        drawScale,
+        projParams,
         size: c.size,
         clawSlashProgress: slashProg,
         koAlpha: c.koAlpha,

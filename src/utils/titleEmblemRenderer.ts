@@ -10,29 +10,26 @@ import type {
   TitleEmblemVfxState,
 } from './titleEmblemVfx';
 
-export const LOGO_FRAME_COUNT = 5;
+export const LOGO_FRAME_COUNT = 9;
+export const CLIMAX_FRAME_INDEX = LOGO_FRAME_COUNT - 1;
 export const EMBLEM_ASPECT = 960 / 541;
 export const PARTICLE_POOL_SIZE = 128;
 export const MAX_RIM_ARCS = 4;
 export const MAX_VFX_DT = 0.05;
 
-export const SEQUENCE_FORWARD_END_SEC = 1.66;
-export const SEQUENCE_HOLD_END_SEC = 2.06;
-export const SEQUENCE_TOTAL_SEC = 2.86;
+export const BEAT1_END_SEC = 0.44;
+export const HEART_BURST_SEC = 1.24;
+export const SHOCK_BURST_SEC = 1.50;
+export const SEQUENCE_FORWARD_END_SEC = 1.92;
+export const SEQUENCE_HOLD_END_SEC = 2.20;
+export const SEQUENCE_REVERSE_HEART_END_SEC = 2.52;
+export const SEQUENCE_REVERSE_WINK_START_SEC = 2.86;
+export const SEQUENCE_TOTAL_SEC = 3.16;
 
-const FORWARD_SEGMENTS: readonly { start: number; end: number; from: number; to: number }[] = [
-  { start: 0.0, end: 0.36, from: 0, to: 1 },
-  { start: 0.36, end: 0.78, from: 1, to: 2 },
-  { start: 0.78, end: 1.24, from: 2, to: 3 },
-  { start: 1.24, end: 1.66, from: 3, to: 4 },
-];
-
-const REVERSE_SEGMENTS: readonly { start: number; end: number; from: number; to: number }[] = [
-  { start: 2.06, end: 2.26, from: 4, to: 3 },
-  { start: 2.26, end: 2.46, from: 3, to: 2 },
-  { start: 2.46, end: 2.66, from: 2, to: 1 },
-  { start: 2.66, end: 2.86, from: 1, to: 0 },
-];
+function easeInOutSine(t: number): number {
+  const c = Math.max(0, Math.min(1, t));
+  return 0.5 - 0.5 * Math.cos(Math.PI * c);
+}
 
 export const XENO_PURGE_BOTTOM_RIM_ANCHORS: readonly RimArcPoint[] = [
   { nx: 0.145, ny: 0.855 },
@@ -108,31 +105,28 @@ export function sampleLogoSequence(
   let blendU = 0;
 
   if (t < SEQUENCE_FORWARD_END_SEC) {
-    for (let i = 0; i < FORWARD_SEGMENTS.length; i++) {
-      const seg = FORWARD_SEGMENTS[i];
-      if (t <= seg.end || i === FORWARD_SEGMENTS.length - 1) {
-        const raw = (t - seg.start) / Math.max(0.001, seg.end - seg.start);
-        frameA = seg.from;
-        frameB = seg.to;
-        blendU = quinticEase(raw);
-        break;
-      }
-    }
+    // Single continuous C-infinity phase curve across all 9 keyframes (zero dead-stop velocity drops)
+    const p = t / SEQUENCE_FORWARD_END_SEC;
+    const pos = easeInOutSine(p) * CLIMAX_FRAME_INDEX;
+    frameA = Math.min(CLIMAX_FRAME_INDEX - 1, Math.floor(pos));
+    frameB = frameA + 1;
+    blendU = pos - frameA;
   } else if (t <= SEQUENCE_HOLD_END_SEC) {
-    frameA = 4;
-    frameB = 4;
+    // Brief living climax turnaround (mesh breathing, tilt follow-through & shock tremor remain active)
+    frameA = CLIMAX_FRAME_INDEX;
+    frameB = CLIMAX_FRAME_INDEX;
     blendU = 0;
   } else {
-    for (let i = 0; i < REVERSE_SEGMENTS.length; i++) {
-      const seg = REVERSE_SEGMENTS[i];
-      if (t <= seg.end || i === REVERSE_SEGMENTS.length - 1) {
-        const raw = (t - seg.start) / Math.max(0.001, seg.end - seg.start);
-        frameA = seg.from;
-        frameB = seg.to;
-        blendU = quinticEase(raw);
-        break;
-      }
-    }
+    // Single continuous smooth reverse glide from K4 back to K0
+    const revP =
+      (t - SEQUENCE_HOLD_END_SEC) /
+      Math.max(0.001, SEQUENCE_TOTAL_SEC - SEQUENCE_HOLD_END_SEC);
+    const pos = (1 - easeInOutSine(revP)) * CLIMAX_FRAME_INDEX;
+    const hi = Math.min(CLIMAX_FRAME_INDEX, Math.ceil(pos));
+    const lo = Math.max(0, hi - 1);
+    frameA = hi;
+    frameB = lo;
+    blendU = hi === lo ? 0 : hi - pos;
   }
 
   const { alphaA, alphaB } =
@@ -143,17 +137,24 @@ export function sampleLogoSequence(
   let shakeNormY = 0;
 
   if (t < SEQUENCE_FORWARD_END_SEC) {
-    poseTiltDeg = Math.sin((t / SEQUENCE_FORWARD_END_SEC) * Math.PI * 2) * 1.15;
-  } else if (t > SEQUENCE_HOLD_END_SEC) {
+    poseTiltDeg = Math.sin((t / SEQUENCE_FORWARD_END_SEC) * Math.PI * 1.5) * 1.15;
+  } else if (t <= SEQUENCE_HOLD_END_SEC) {
+    // Continuous elastic follow-through during the brief climax turnaround (never frozen at 0)
+    const holdU =
+      (t - SEQUENCE_FORWARD_END_SEC) /
+      Math.max(0.001, SEQUENCE_HOLD_END_SEC - SEQUENCE_FORWARD_END_SEC);
+    poseTiltDeg = -1.15 * Math.cos(holdU * Math.PI * 0.5) - Math.sin(holdU * Math.PI) * 0.45;
+  } else {
     const revU = (t - SEQUENCE_HOLD_END_SEC) / (SEQUENCE_TOTAL_SEC - SEQUENCE_HOLD_END_SEC);
     poseTiltDeg = Math.sin(revU * Math.PI) * -0.75;
   }
 
-  if (t >= 1.28 && t <= 1.82) {
-    const shockProgress = (t - 1.28) / 0.54;
-    const envelope = Math.sin(shockProgress * Math.PI) * (1 - shockProgress * 0.45);
-    shakeNormX = Math.sin(t * 68) * 0.0045 * envelope;
-    shakeNormY = Math.cos(t * 54) * 0.0035 * envelope;
+  const shockDuration = SEQUENCE_HOLD_END_SEC - SHOCK_BURST_SEC + 0.14;
+  if (t >= SHOCK_BURST_SEC && t <= SHOCK_BURST_SEC + shockDuration) {
+    const shockProgress = (t - SHOCK_BURST_SEC) / shockDuration;
+    const envelope = Math.sin(shockProgress * Math.PI) * (1 - shockProgress * 0.35);
+    shakeNormX = Math.sin(t * 64) * 0.0046 * envelope;
+    shakeNormY = Math.cos(t * 52) * 0.0034 * envelope;
   }
 
   target.active = true;

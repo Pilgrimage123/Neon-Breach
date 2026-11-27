@@ -189,25 +189,27 @@ test('inpaintVisorGlass replaces painted visor LEDs with opaque dark curved glas
   assert.equal(data[bezelP + 2], 205);
 });
 
-test('eraseSlimeDropletTips applies 14px radial soft alpha erasure over the 3 static droplet tips', () => {
+test('eraseSlimeDropletTips applies 15px radial soft alpha erasure over all 4 calibrated static droplet tip anchors', () => {
   const w = 120;
   const h = 340;
   const data = createRgbaBuffer(w, h, 140, 230, 60, 255);
 
+  assert.equal(KEYFRAME_VISOR_QUADS.length, 9);
+  assert.equal(DEFAULT_SLIME_TIPS.length, 4);
   eraseSlimeDropletTips(data, w, h);
 
-  // Exact centers of all 3 tips are fully erased
+  // Exact centers of all tips are fully erased
   for (const tip of DEFAULT_SLIME_TIPS) {
     assert.equal(data[(tip.y * w + tip.x) * 4 + 3], 0, `Expected tip (${tip.x},${tip.y}) erased`);
   }
 
-  // Pixel 10px away from tip (32, 192) is partially feathered
-  const featheredAlpha = data[(192 * w + 42) * 4 + 3];
+  // Pixel 11px away from tip (32, 196) is partially feathered
+  const featheredAlpha = data[(196 * w + 43) * 4 + 3];
   assert.ok(
     featheredAlpha > 0 && featheredAlpha < 255,
-    `Expected feathered alpha at 10px radius, got ${featheredAlpha}`,
+    `Expected feathered alpha at 11px radius, got ${featheredAlpha}`,
   );
 
-  // Pixel > 15px away from all tips remains untouched
-  assert.equal(data[(192 * w + 60) * 4 + 3], 255);
+  // Pixel > 16px away from all tips remains untouched
+  assert.equal(data[(196 * w + 60) * 4 + 3], 255);
 });

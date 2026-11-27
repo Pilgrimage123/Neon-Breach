@@ -10,6 +10,7 @@ import type {
   SpitterJuiceConfig,
   SpitterJuiceSample,
 } from '../../utils/spitterJuiceController';
+import type { MatriarchJuiceSample } from '../../utils/matriarchJuiceController';
 import type { StalkerJuiceSample } from '../../utils/stalkerJuiceController';
 import type { SequencerFrameState } from './CombatActionSequencer';
 import type { CombatPresentationConfig } from './combatPresentationConfig';
@@ -356,6 +357,7 @@ export function deriveEnemyDeformAndUniforms(params: {
   mutdogJuice?: MutdogJuiceSample;
   feralNurseJuice?: FeralNurseJuiceSample;
   stalkerJuice?: StalkerJuiceSample;
+  matriarchJuice?: MatriarchJuiceSample;
   cutIn?: ActorJuiceSnapshot;
   /** Sprite facing sign (+1 for native left-facing Crawlers/Stalker/Boss, -1 for mirrored right-facing Spitter/MutDog/FeralNurse/Brute) */
   facingSign?: number;
@@ -384,6 +386,7 @@ export function deriveEnemyDeformAndUniforms(params: {
     mutdogJuice,
     feralNurseJuice,
     stalkerJuice,
+    matriarchJuice,
     cutIn,
     facingSign,
   } = params;
@@ -402,12 +405,14 @@ export function deriveEnemyDeformAndUniforms(params: {
             ? feralNurseJuice.facingScale
             : stalkerJuice
               ? stalkerJuice.facingScale
-              : archetype === 'spitter' ||
-                  archetype === 'mutdog' ||
-                  archetype === 'feral_nurse' ||
-                  archetype === 'brute'
-                ? -1
-                : 1);
+              : matriarchJuice
+                ? matriarchJuice.facingScale
+                : archetype === 'spitter' ||
+                    archetype === 'mutdog' ||
+                    archetype === 'feral_nurse' ||
+                    archetype === 'brute'
+                  ? -1
+                  : 1);
   const fwdSign = effectiveFacing < 0 ? 1 : -1;
 
   const cutInScaleX = cutIn ? cutIn.scaleX : 1;
@@ -713,6 +718,71 @@ export function deriveEnemyDeformAndUniforms(params: {
       uniforms.flashRgba = [1.0, 1.0, 1.0, whiteFlash];
     } else if (stalkerJuice.flashRgba) {
       uniforms.flashRgba = stalkerJuice.flashRgba;
+    } else if (staggerBioFlashAlpha > 0.03) {
+      uniforms.flashRgba = [
+        bioEmissiveRgb[0],
+        bioEmissiveRgb[1],
+        bioEmissiveRgb[2],
+        Math.min(0.6, staggerBioFlashAlpha * 1.15),
+      ];
+    }
+
+    return { deform, uniforms };
+  }
+
+  // If this unit is driven by the 4-Layer Xenomorph Matriarch Juice Controller, compose all 4 layers directly
+  if (matriarchJuice) {
+    uniforms.squashStretch = [
+      breathScaleX * matriarchJuice.springScaleX * cutInScaleX,
+      breathScaleY * matriarchJuice.springScaleY * cutInScaleY,
+    ];
+    uniforms.shearPx = [matriarchJuice.shearXPx + staggerShearPx * 0.4, 0];
+    uniforms.swayAmpPx = matriarchJuice.swayAmpPx;
+    uniforms.swayFreq = matriarchJuice.swayFreq;
+    uniforms.swayPhase = matriarchJuice.swayPhase;
+    uniforms.uvDistortAmp = matriarchJuice.uvDistortAmp;
+    uniforms.uvDistortFreq = matriarchJuice.uvDistortFreq;
+    uniforms.uvDistortPhase = matriarchJuice.uvDistortPhase;
+    const ct = cutIn ? cutIn.tintRgba : [1, 1, 1, 1];
+    uniforms.tintRgba = [
+      matriarchJuice.tintRgba[0] * ct[0],
+      matriarchJuice.tintRgba[1] * ct[1],
+      matriarchJuice.tintRgba[2] * ct[2],
+      matriarchJuice.tintRgba[3] * ct[3],
+    ];
+
+    copyJuiceDeformToControlPoints(
+      deform,
+      matriarchJuice.deform,
+      -staggerShearPx,
+      [0.18, 0.5, 0.86],
+    );
+
+    if (cutIn && cutIn.poseOverride === 'attack_pose') {
+      deform.pelvis.dx += 7.0 * fwdSign;
+      deform.waist.dx += 15.0 * fwdSign;
+      deform.waist.rotRad += 0.08 * fwdSign;
+      deform.head.dx += 22.0 * fwdSign;
+      deform.head.rotRad += 0.13 * fwdSign;
+    } else if (cutIn && cutIn.poseOverride === 'recoil_pose') {
+      deform.pelvis.dx -= 6.0 * fwdSign;
+      deform.waist.dx -= 14.5 * fwdSign;
+      deform.waist.dy += 3.2;
+      deform.waist.rotRad -= 0.12 * fwdSign;
+      deform.head.dx -= 22.0 * fwdSign;
+      deform.head.dy += 4.6;
+      deform.head.rotRad -= 0.18 * fwdSign;
+    }
+
+    const whiteFlash = ea && ea.flashTimer > 0 ? Math.min(0.7, ea.flashTimer * 3.6) : 0;
+    if (cutIn?.flashRgba) {
+      uniforms.flashRgba = cutIn.flashRgba;
+    } else if (matriarchJuice.mode === 'rupture' && matriarchJuice.flashRgba) {
+      uniforms.flashRgba = matriarchJuice.flashRgba;
+    } else if (whiteFlash > 0.05) {
+      uniforms.flashRgba = [1.0, 1.0, 1.0, whiteFlash];
+    } else if (matriarchJuice.flashRgba) {
+      uniforms.flashRgba = matriarchJuice.flashRgba;
     } else if (staggerBioFlashAlpha > 0.03) {
       uniforms.flashRgba = [
         bioEmissiveRgb[0],

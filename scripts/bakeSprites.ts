@@ -46,13 +46,19 @@ interface KeyframeSpec {
   id: string;
   sourceFile: string;
   outputFile: string;
+  alignDy?: number;
+  solidWhiteBackground?: boolean;
 }
 
 const TITLE_KEYFRAMES: readonly KeyframeSpec[] = [
   { id: 'k0', sourceFile: 'title_logo_0.png', outputFile: 'k0.png' },
   { id: 'k1', sourceFile: 'title_logo_1.png', outputFile: 'k1.png' },
+  { id: 'k1_5', sourceFile: 'title_logo_1_5.jpg', outputFile: 'k1_5.png', alignDy: 0, solidWhiteBackground: true },
   { id: 'k2', sourceFile: 'title_logo_2.png', outputFile: 'k2.png' },
+  { id: 'k2_3', sourceFile: 'title_logo_2_3.jpg', outputFile: 'k2_3.png', alignDy: 0, solidWhiteBackground: true },
+  { id: 'k2_7', sourceFile: 'title_logo_2_7.jpg', outputFile: 'k2_7.png', alignDy: -1, solidWhiteBackground: true },
   { id: 'k3', sourceFile: 'title_logo_3.png', outputFile: 'k3.png' },
+  { id: 'k3_5', sourceFile: 'title_logo_3_5.jpg', outputFile: 'k3_5.png', alignDy: -1, solidWhiteBackground: true },
   { id: 'k4', sourceFile: 'title_logo_4.png', outputFile: 'k4.png' },
 ];
 
@@ -251,13 +257,42 @@ const SINGLE_SPRITE_SPECS: readonly SingleSpriteBakeSpec[] = [
     options: { maxDimension: 512 },
   },
   {
+    id: 'matriarchIntact',
+    sourceRel: 'assets-src/mutants/matriarch_intact.png',
+    outputFile: 'matriarch_intact.png',
+    options: {
+      removeInteriorWhite: true,
+      removeBottomFloorShadow: true,
+      removeNeutralFloorShadow: true,
+      removeSubtleCheckerboard: true,
+      minPocketArea: 600,
+      defringeStrength: 0.84,
+      maxDimension: 640,
+    },
+  },
+  {
+    id: 'matriarchExploded',
+    sourceRel: 'assets-src/mutants/matriarch_exploded.png',
+    outputFile: 'matriarch_exploded.png',
+    options: {
+      removeInteriorWhite: true,
+      removeSubtleCheckerboard: true,
+      minPocketArea: 600,
+      defringeStrength: 0.84,
+      maxDimension: 640,
+    },
+  },
+  {
     id: 'bossPortrait',
-    sourceRel: 'assets-src/portraits/boss_portrait.jpg',
+    sourceRel: 'assets-src/mutants/matriarch_intact.png',
     outputFile: 'boss_portrait.png',
     options: {
       removeInteriorWhite: true,
-      minPocketArea: 18,
-      defringeStrength: 0.78,
+      removeBottomFloorShadow: true,
+      removeNeutralFloorShadow: true,
+      removeSubtleCheckerboard: true,
+      minPocketArea: 600,
+      defringeStrength: 0.84,
       maxDimension: 512,
     },
   },
@@ -355,11 +390,29 @@ async function bakeTitleAssets(rootDir: string, outDir: string) {
     }
 
     const downscaled = shouldDownscaleToTarget(srcW, srcH);
+    const alignDy = spec.alignDy ?? 0;
     if (downscaled) {
-      pipeline = pipeline.resize(TITLE_TARGET_WIDTH, TITLE_TARGET_HEIGHT, {
-        kernel: sharp.kernel.lanczos3,
-        fit: 'fill',
-      });
+      if (alignDy < 0) {
+        const shiftUp = -alignDy;
+        const resizedBuf = await pipeline
+          .resize(TITLE_TARGET_WIDTH, TITLE_TARGET_HEIGHT + shiftUp, {
+            kernel: sharp.kernel.lanczos3,
+            fit: 'fill',
+          })
+          .png()
+          .toBuffer();
+        pipeline = sharp(resizedBuf).extract({
+          left: 0,
+          top: shiftUp,
+          width: TITLE_TARGET_WIDTH,
+          height: TITLE_TARGET_HEIGHT,
+        });
+      } else {
+        pipeline = pipeline.resize(TITLE_TARGET_WIDTH, TITLE_TARGET_HEIGHT, {
+          kernel: sharp.kernel.lanczos3,
+          fit: 'fill',
+        });
+      }
     }
 
     const { data, info } = await pipeline
@@ -368,7 +421,13 @@ async function bakeTitleAssets(rootDir: string, outDir: string) {
       .toBuffer({ resolveWithObject: true });
 
     const rgba = new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength);
-    const { frameRgba, lockupRgba } = bakeTitleKeyframeBuffer(rgba, info.width, info.height, i);
+    const { frameRgba, lockupRgba } = bakeTitleKeyframeBuffer(
+      rgba,
+      info.width,
+      info.height,
+      i,
+      Boolean(spec.solidWhiteBackground),
+    );
 
     const outPng = await encodeRgbaPng(frameRgba, info.width, info.height);
     fs.writeFileSync(path.join(outDir, spec.outputFile), outPng);
@@ -588,7 +647,7 @@ async function bakeAllSprites(): Promise<void> {
     mutdog: firstFrameBoundsById.get('mutdog')!,
     feral_nurse: firstFrameBoundsById.get('feralNurseA')!,
     brute: firstFrameBoundsById.get('brute')!,
-    boss: singleBoundsById.get('bossPortrait')!,
+    boss: singleBoundsById.get('matriarchIntact')!,
   };
 
   const enemyPortraitBounds: Record<EnemyArchetype, SpriteBounds> = {
