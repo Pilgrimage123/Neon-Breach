@@ -1,11 +1,17 @@
 import type { CharacterId } from '../../engine/types';
 import type { HeroAnimMode } from '../../utils/heroAnimator';
+import {
+  DEFAULT_KIRA_JUICE_CONFIG,
+  type KiraJuiceConfig,
+} from '../../utils/kiraJuiceController';
 
 export interface CombatHeroLabPanelProps {
   activeHeroId: CharacterId;
   lastTrigger: HeroAnimMode;
   onSwitchHero?: (charId: CharacterId) => void;
   onFireTrigger: (mode: HeroAnimMode) => void;
+  kiraJuiceConfig?: KiraJuiceConfig;
+  onChangeKiraConfig?: (next: KiraJuiceConfig) => void;
 }
 
 const HERO_IDS: readonly { id: CharacterId; label: string }[] = [
@@ -34,6 +40,8 @@ export function CombatHeroLabPanel({
   lastTrigger,
   onSwitchHero,
   onFireTrigger,
+  kiraJuiceConfig,
+  onChangeKiraConfig,
 }: CombatHeroLabPanelProps) {
   return (
     <div
@@ -79,10 +87,58 @@ export function CombatHeroLabPanel({
             }`}
           >
             {clip.keyHint ? `${clip.keyHint}. ` : ''}
-            {clip.label}
+            {activeHeroId === 'kira' && clip.mode === 'dash_kick' ? 'Surge Blast' : clip.label}
           </button>
         ))}
       </div>
+
+      {activeHeroId === 'kira' && kiraJuiceConfig && onChangeKiraConfig && (
+        <div className="mt-2.5 space-y-1.5 border-t border-white/10 pt-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold tracking-wider text-cyan-300 uppercase">
+              Tier A Rig Tuning
+            </span>
+            <button
+              type="button"
+              onClick={() => onChangeKiraConfig({ ...DEFAULT_KIRA_JUICE_CONFIG })}
+              className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 cursor-pointer"
+            >
+              Reset
+            </button>
+          </div>
+          {(
+            [
+              { key: 'springStiffness', label: 'Spring Stiffness', min: 140, max: 520, step: 10 },
+              { key: 'springDamping', label: 'Spring Damping', min: 8, max: 36, step: 1 },
+              { key: 'deformIntensity', label: 'Spine Deform', min: 0, max: 2, step: 0.1 },
+              { key: 'maxVelocityShearPx', label: 'Dash Shear (px)', min: 0, max: 18, step: 0.5 },
+              { key: 'flipHopHeightPx', label: 'Dodge Flip Hop', min: 0, max: 32, step: 1 },
+              { key: 'flipDurationSec', label: 'Flip Dur (s)', min: 0.12, max: 0.45, step: 0.02 },
+            ] as const
+          ).map((slider) => (
+            <label key={slider.key} className="flex items-center justify-between gap-2 text-[10px] text-slate-300">
+              <span className="w-28 truncate">{slider.label}</span>
+              <input
+                type="range"
+                min={slider.min}
+                max={slider.max}
+                step={slider.step}
+                value={kiraJuiceConfig[slider.key]}
+                onChange={(e) =>
+                  onChangeKiraConfig({
+                    ...kiraJuiceConfig,
+                    [slider.key]: Number(e.target.value),
+                  })
+                }
+                className="h-1 flex-1 accent-cyan-400 cursor-pointer"
+              />
+              <span className="w-9 text-right font-mono text-[10px] text-cyan-200">
+                {kiraJuiceConfig[slider.key]}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

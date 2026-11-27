@@ -2,6 +2,10 @@ import { getEffectiveEnemyIntentValue } from '../../engine/reinforcementDirector
 import type { EnemyIntent } from '../../engine/types';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import { createInitialHeroAnimState } from '../../utils/heroAnimator';
+import {
+  DEFAULT_KIRA_JUICE_CONFIG,
+  createKiraJuiceState,
+} from '../../utils/kiraJuiceController';
 import { CombatActionSequencer } from './CombatActionSequencer';
 import {
   BLOOD_DROP_POOL_SIZE,
@@ -282,6 +286,15 @@ export function createCombatStageSim(): CombatStageSim {
     ghosts: [],
     ghostSampleTimer: 0,
     heroTrailCooldown: 0,
+    kiraJuiceState: createKiraJuiceState(),
+    kiraJuiceConfig: { ...DEFAULT_KIRA_JUICE_CONFIG },
+    kiraJuiceSample: null,
+    kiraSurgeBlastTimer: 0,
+    kiraSurgeMuzzleX: 0,
+    kiraSurgeMuzzleY: 0,
+    kiraDropkickRingTimer: 0,
+    kiraDropkickSoleX: 0,
+    kiraDropkickSoleY: 0,
     enemyAnims: new Map(),
     enemyWoundOrigins: new Map(),
     prevEnemySlots: new Map(),
@@ -383,6 +396,10 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.attackToggle = 0;
   sim.pendingImpacts = [];
   sim.heroState = createInitialHeroAnimState();
+  sim.kiraJuiceState = createKiraJuiceState();
+  sim.kiraJuiceSample = null;
+  sim.kiraSurgeBlastTimer = 0;
+  sim.kiraDropkickRingTimer = 0;
   sim.heroAnim = {
     flashTimer: 0,
     lunge: 0,

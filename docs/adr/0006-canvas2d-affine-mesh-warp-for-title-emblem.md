@@ -15,3 +15,5 @@ Eliminating spatial ghosting during Title Emblem keyframe transitions (`K2 ↔ K
 
 - Adjacent clipped triangles in Canvas2D anti-alias along shared edges and exhibit `~0.5 px` hairline seams unless expanded; every triangle clip path must be dilated outward by `0.6 px` from its centroid prior to `ctx.clip()`.
 - The Anatomical Warp Lattice must stay compact (`16` animated anatomical landmarks plus `8–10` pinned perimeter and Static Lockup Plane seam anchors = `~32–36` triangles) so CPU affine solves and Canvas2D clip/draw calls remain comfortably under the `16.67 ms` frame budget.
+
+> **Update Note:** The Title Emblem pipeline was subsequently expanded from 5 to **9 Emblem Keyframes** (`K0–K4` plus 4 calibrated in-betweens `K1_5`, `K2_3`, `K2_7`, `K3_5`) and **`42` triangles** (`16` anatomical landmarks + `9` perimeter/seam anchors); see [`docs/design/animation/title-emblem-pipeline.md`](../design/animation/title-emblem-pipeline.md).

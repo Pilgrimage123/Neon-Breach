@@ -15,3 +15,5 @@ We keep all AI Skill Chips, Cyber Implants, and Dynasty facility operations univ
 - Turn preview (`previewColorResolution`) and the Tactical Hint Solver evaluate Kira's free-turn bonus, Auraline's Reactor Armor recharge, and Zuri's primed drone pulse directly so players never have to compute passive interactions manually.
 - Armor absorbs `90%` of post-Shield damage (`10%` bleeds through to HP), and true `100%` Armor Pierce is reserved strictly for Spore Mite's **Bio-Rupture** and Zuri's precision **TECH Armor Shred / Solar Hawk Drone** pulses (`Phase-Blade Emitter` and Stork `pierce_boost` grant `40%` Pierce), while Kira's **Energy Dropkick** Overdrive executes a 2-hit `14` Frontline Kick (with knockback swap) + `10` All-Enemy Shockwave + `+8` Shield.
 
+> **Update Note:** Kira's Overdrive `frontKickDamage` was subsequently tuned from `14` to `12` in `src/engine/data.ts`, and legacy terminology (`Cyber Implants`, `Stork Nursery`) in this ADR was superseded by [ADR-0010](./0010-anthropological-integrity-external-tools-and-pax-particularis.md) (`Tactical Module`, `Guild Apprenticeship`).
+

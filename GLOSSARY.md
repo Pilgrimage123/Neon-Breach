@@ -131,7 +131,7 @@ A Tile property (`⚡`) that banks `+1` extra Tile draw onto the next Turn's Boa
 _Avoid_: Draw Boost, Charge Power
 
 **Dud**:
-A `0`-base-value malfunction Tile that carries color for Stack Surges and Overdrive, triggering Auraline's `+1` UpCharge per Dud resolved.
+A low-output malfunction Tile (such as Auraline's `ATK 2`, `DEF 3`, or `TECH +15%` Reactor Core tiles) that carries color for Stack Surges and Overdrive, triggering Auraline's `+1` UpCharge per Dud resolved.
 _Avoid_: Blank, Dead Tile, Junk
 
 **Push**:
@@ -203,7 +203,7 @@ _Avoid_: Stunned, Interrupted
 ### Mutants & Passives
 
 **Mutant**:
-A hostile xenomorphic biological enemy confronting the Hero on the sky-bridge.
+A hostile xenomorphic biological enemy confronting the Hero on the sky-bridge. (`Xeno` is permitted strictly in Title Emblem proper nouns such as `Xeno Slime` and `XENO-PURGE PROTOCOL`.)
 _Avoid_: Bio-mutant, Bio-horror, Abomination, Xeno
 
 **Spore Mite**:
@@ -215,11 +215,11 @@ The `14 HP` armored support Mutant (`2` Armor, `1` Aegis Pip) cycling `Bolster +
 _Avoid_: Aegis Skitter, Acid Skitter
 
 **Pyre Stinger**:
-The fragile `16 HP` ranged time-bomb Mutant charging across 2 Turns before firing a staggerable `Overwhelm 7 (×2)` Heavy blast.
+The fragile `16 HP` ranged time-bomb Mutant charging across 2 Turns before firing a staggerable `Heavy 12` sniper blast.
 _Avoid_: Stinger
 
 **Chitin Stalker**:
-The `24 HP` crimson striker Mutant cycling `Pause → Pierce 5 → Attack 7`.
+The `24 HP` crimson high-tempo striker Mutant cycling `Pause → Attack 6 → Attack 8`.
 _Avoid_: Spine Stalker
 
 **Bile Spitter**:
@@ -227,7 +227,7 @@ The `22 HP` backline disrupter Mutant cycling `Pause → Acid 5 (+2 Corrode) →
 _Avoid_: Spitter
 
 **Rabid MutDog**:
-The `20 HP` feral rush Mutant cycling `Attack 5` → staggerable `Overwhelm 6 (×2)` Maul → `Pause`.
+The `20 HP` feral rush Mutant cycling `Attack 5` → staggerable `Heavy 9` Maul → `Pause`.
 _Avoid_: MutDog, Mutant Hound, Bio-Hound
 
 **Feral Nurse**:
@@ -314,7 +314,7 @@ The stationary typographic layer holding the `NEON BREACH` wordmark, cat-`O` mar
 _Avoid_: master lockup, text layer
 
 **Emblem Keyframe**:
-One of the nine discrete illustrated poses (`K0–K4` plus four calibrated in-between poses `K1_5`, `K2_3`, `K2_7`, `K3_5`) depicting Kira and the Xeno across the title animation arc.
+One of the nine discrete illustrated poses (`K0–K4` plus four calibrated in-between poses `K1_5`, `K2_3`, `K2_7`, `K3_5`) depicting Kira and the Mutant across the title animation arc.
 _Avoid_: pose frame, source frame
 
 **Choreography Beat**:
@@ -330,5 +330,5 @@ The cohesive, dripping acid fluid falling from the Xeno's tentacles and jaws—a
 _Avoid_: biogel, mutant blood, green droplets
 
 **Anatomical Warp Lattice**:
-The articulated control mesh spanning Xeno and Kira's anatomical landmarks that drives smooth pose transitions, subtle idle breathing, and bounded organic sway.
+The articulated control mesh spanning the Mutant's and Kira's anatomical landmarks that drives smooth pose transitions, subtle idle breathing, and bounded organic sway.
 _Avoid_: sprite mesh, morph grid

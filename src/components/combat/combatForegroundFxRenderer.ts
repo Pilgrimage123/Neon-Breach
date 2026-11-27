@@ -651,7 +651,131 @@ export function renderForegroundWorldFxPass(params: {
     ctx.restore();
   }
 
-  if (sim.overdriveTimer > 0) {
+  if (sim.kiraSurgeBlastTimer > 0) {
+    const p = 1 - sim.kiraSurgeBlastTimer / 0.42;
+    const alpha = Math.max(0, Math.sin((1 - p) * Math.PI * 0.5));
+    const mx = sim.kiraSurgeMuzzleX || heroBaseX + 90;
+    const my = sim.kiraSurgeMuzzleY || groundY - h * 0.34;
+    const tx = sim.pendingShotTargetX || w * 0.65;
+    const ty = sim.pendingShotTargetY || my;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Multi-layer plasma cannon beam (outer cyan flare -> neon magenta -> white-hot core)
+    const beamLen = Math.max(80, tx - mx + 60);
+    const beamGrad = ctx.createLinearGradient(mx, my, mx + beamLen, ty);
+    beamGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * alpha})`);
+    beamGrad.addColorStop(0.25, `rgba(255, 46, 178, ${0.88 * alpha})`);
+    beamGrad.addColorStop(0.75, `rgba(56, 189, 248, ${0.62 * alpha})`);
+    beamGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+    ctx.strokeStyle = beamGrad;
+    ctx.lineWidth = (28 + Math.sin(p * 24) * 6) * (1 - p * 0.45);
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.lineTo(mx + beamLen, ty);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 245, 255, ${0.92 * alpha})`;
+    ctx.lineWidth = 8 * (1 - p * 0.5);
+    ctx.beginPath();
+    ctx.moveTo(mx, my);
+    ctx.lineTo(mx + beamLen * 0.92, ty);
+    ctx.stroke();
+
+    // Expanding elliptical white-hot / neon-magenta shockwave halo ring at barrel
+    const ringX = mx + 22 + p * 28;
+    ctx.strokeStyle = `rgba(255, 59, 180, ${0.92 * alpha})`;
+    ctx.lineWidth = 6 * (1 - p * 0.4);
+    ctx.beginPath();
+    ctx.ellipse(ringX, my, 12 + p * 18, 36 + p * 54, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.85 * alpha})`;
+    ctx.lineWidth = 2.2;
+    ctx.beginPath();
+    ctx.ellipse(ringX, my, 8 + p * 14, 28 + p * 44, 0, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Crackling cyan & magenta lightning forks along beam
+    for (let f = 0; f < 4; f++) {
+      ctx.strokeStyle = f % 2 === 0 ? `rgba(0, 229, 255, ${0.82 * alpha})` : `rgba(255, 46, 178, ${0.82 * alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      for (let s = 1; s <= 4; s++) {
+        const u = s / 4;
+        const jx = mx + beamLen * u;
+        const jy = my + (ty - my) * u + Math.sin(p * 32 + f * 2.1 + s * 3.7) * (18 + u * 22);
+        ctx.lineTo(jx, jy);
+      }
+      ctx.stroke();
+    }
+
+    // Dynamic recoil shock-lines radiating around Kira
+    for (let r = 0; r < 6; r++) {
+      const ang = -Math.PI * 0.7 + (r / 5) * Math.PI * 1.4;
+      const r0 = 42 + p * 18;
+      const r1 = r0 + 26 + (r % 2) * 14;
+      ctx.strokeStyle = `rgba(255, 80, 170, ${0.65 * alpha})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(heroBaseX + Math.cos(ang) * r0, my + 24 + Math.sin(ang) * r0);
+      ctx.lineTo(heroBaseX + Math.cos(ang) * r1, my + 24 + Math.sin(ang) * r1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (sim.kiraDropkickRingTimer > 0) {
+    const p = 1 - sim.kiraDropkickRingTimer / 0.56;
+    const alpha = Math.max(0, Math.sin((1 - p) * Math.PI * 0.5));
+    const sx = sim.kiraDropkickSoleX || heroBaseX + 120;
+    const sy = sim.kiraDropkickSoleY || groundY - h * 0.28;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Twin concentric cyan & magenta holographic boot shockwave rings
+    ctx.strokeStyle = `rgba(0, 229, 255, ${0.9 * alpha})`;
+    ctx.lineWidth = 5 * (1 - p * 0.35);
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, 22 + p * 54, 48 + p * 86, -0.18, 0, Math.PI * 2);
+    ctx.stroke();
+
+    ctx.strokeStyle = `rgba(255, 46, 178, ${0.88 * alpha})`;
+    ctx.lineWidth = 3.5 * (1 - p * 0.4);
+    ctx.beginPath();
+    ctx.ellipse(sx, sy, 14 + p * 38, 34 + p * 64, -0.18, 0, Math.PI * 2);
+    ctx.stroke();
+
+    // Swirling cyan/magenta plasma lightning ribbons trailing behind Kira
+    for (let rib = 0; rib < 3; rib++) {
+      ctx.strokeStyle = rib === 1 ? `rgba(255, 46, 178, ${0.78 * alpha})` : `rgba(0, 229, 255, ${0.78 * alpha})`;
+      ctx.lineWidth = 2.6;
+      ctx.beginPath();
+      ctx.moveTo(sx, sy);
+      for (let seg = 1; seg <= 5; seg++) {
+        const u = seg / 5;
+        const rx = sx - u * 180;
+        const ry = sy + Math.sin(p * 18 + rib * 2.1 + seg * 1.4) * (16 + u * 24);
+        ctx.lineTo(rx, ry);
+      }
+      ctx.stroke();
+    }
+
+    // Full-stage concentric energy shockwave detonation
+    if (p > 0.25) {
+      const detP = (p - 0.25) / 0.75;
+      ctx.strokeStyle = `rgba(255, 200, 80, ${0.6 * (1 - detP)})`;
+      ctx.lineWidth = 4 * (1 - detP);
+      ctx.beginPath();
+      ctx.arc(sx, sy, 30 + detP * w * 0.42, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (sim.overdriveTimer > 0 && sim.kiraDropkickRingTimer <= 0) {
     const a = Math.min(1, sim.overdriveTimer / 0.65);
     const beamGrad = ctx.createLinearGradient(heroBaseX, 0, w, 0);
     beamGrad.addColorStop(0, `rgba(255, 184, 0, ${0.72 * a})`);

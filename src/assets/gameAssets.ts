@@ -8,12 +8,8 @@ import crawlerSheetUrl from './sprites/baked/crawler_spritesheet.png';
 import feralNursePortraitUrl from './sprites/baked/feral_nurse_portrait.png';
 import feralNurseSheetAUrl from './sprites/baked/feral_nurse_sheet_a.png';
 import feralNurseSheetBUrl from './sprites/baked/feral_nurse_sheet_b.png';
-import kiraDodge0Url from './sprites/baked/kira_dodge_0_vault.png';
-import kiraDodge1Url from './sprites/baked/kira_dodge_1_slide.png';
-import kiraDodge2Url from './sprites/baked/kira_dodge_2_spin.png';
-import kiraDodge3Url from './sprites/baked/kira_dodge_3_land.png';
-import kiraEmoteSheetUrl from './sprites/baked/kira_emote_sheet.png';
-import kiraSheetUrl from './sprites/baked/kira_spritesheet.png';
+import kiraSheetAUrl from './sprites/baked/kira_sheet_a.png';
+import kiraSheetBUrl from './sprites/baked/kira_sheet_b.png';
 import matriarchExplodedUrl from './sprites/baked/matriarch_exploded.png';
 import matriarchIntactUrl from './sprites/baked/matriarch_intact.png';
 import mutdogPortraitUrl from './sprites/baked/mutdog_portrait.png';
@@ -37,13 +33,6 @@ import zuriDronesSheetUrl from './sprites/baked/zuri_drones_sheet.png';
 import zuriEmoteSheetUrl from './sprites/baked/zuri_emote_sheet.png';
 import zuriSheetUrl from './sprites/baked/zuri_spritesheet.png';
 import type { EnemyArchetype } from '../engine/types';
-
-const KIRA_DODGE_URLS = [
-  kiraDodge0Url,
-  kiraDodge1Url,
-  kiraDodge2Url,
-  kiraDodge3Url,
-] as const;
 
 const STALKER_FRAME_URLS = [
   stalkerOpenUrl,
@@ -73,9 +62,8 @@ export const GAME_ASSETS = {
   titleLogoFrames: TITLE_LOGO_FRAME_URLS,
   titleLockup: titleLockupUrl,
   arenaBackdrop: arenaBackdropUrl,
-  kira: kiraSheetUrl,
-  kiraEmote: kiraEmoteSheetUrl,
-  kiraDodge: KIRA_DODGE_URLS,
+  kiraSheetA: kiraSheetAUrl,
+  kiraSheetB: kiraSheetBUrl,
   auraline: auralineSheetUrl,
   zuri: zuriSheetUrl,
   zuriEmote: zuriEmoteSheetUrl,

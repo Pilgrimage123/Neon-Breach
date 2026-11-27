@@ -41,9 +41,7 @@ export function classifyHeroAttackStaging(params: {
   const {
     charId,
     isSurge = false,
-    damageValue = 0,
     targetCount,
-    attackToggle,
     isOverdrive = false,
   } = params;
 
@@ -67,38 +65,28 @@ export function classifyHeroAttackStaging(params: {
     };
   }
 
-  // Kira — Hybrid melee dash-kick & ranged cyber-pistol
+  // Kira — Ranged cyber-pistol + visor-down Attack Stack Surge Blast; Energy Dropkick is her sole melee clash
   if (isOverdrive) {
     return {
       heroAnimMode: 'overdrive',
-      stagingMode: isMultiTarget ? 'ranged_aoe' : 'melee',
-      projectileProfile: 'pistol_bolt',
-      isMelee: !isMultiTarget,
-    };
-  }
-
-  if (isMultiTarget) {
-    return {
-      heroAnimMode: 'shoot',
-      stagingMode: 'ranged_aoe',
-      projectileProfile: 'pistol_bolt',
-      isMelee: false,
-    };
-  }
-
-  const useMeleeKick = isSurge || damageValue >= 12 || attackToggle % 2 === 1;
-  if (useMeleeKick) {
-    return {
-      heroAnimMode: 'dash_kick',
       stagingMode: 'melee',
       projectileProfile: 'pistol_bolt',
       isMelee: true,
     };
   }
 
+  if (isSurge) {
+    return {
+      heroAnimMode: 'dash_kick',
+      stagingMode: isMultiTarget ? 'ranged_aoe' : 'ranged_fast',
+      projectileProfile: 'pistol_bolt',
+      isMelee: false,
+    };
+  }
+
   return {
     heroAnimMode: 'shoot',
-    stagingMode: 'ranged_fast',
+    stagingMode: isMultiTarget ? 'ranged_aoe' : 'ranged_fast',
     projectileProfile: 'pistol_bolt',
     isMelee: false,
   };

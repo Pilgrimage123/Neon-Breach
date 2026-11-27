@@ -33,7 +33,7 @@ Cycle via `[Z]` or inside the Pause/Settings modal (`data-testid="semantic-zoom-
 * **High-Contrast Outlines:** `.tactical-hc-border` (`2px` white inner + `#020617` outer stroke) and `.tactical-numeral-stroke` keep numerals legible under direct glare.
 * **Corner Suit Pips (`CornerPipBadge` in `src/utils/accessibilityAndScale.ts`):**
   * **Tile Suits:** **`◆` Attack (`#FF2E7E`)**, **`●` Defense (`#00F0FF`)**, **`▲` TECH (`#FFC700`)**.
-  * **Map Node Pips:** **`◆` Combat**, **`★` Elite**, **`⬡` Cyber-Clinic**, **`◈` Chip Dealer**, **`✚` Bio-Med Bay**, **`▲` Anomaly Event**, **`◉` Boss**.
+  * **Map Node Pips:** **`◆` Combat**, **`★` Elite**, **`⬡` Restorative Clinic**, **`◈` Chip Dealer**, **`✚` Family Hearth**, **`▲` Anomaly Event**, **`◉` Boss**.
 * **Haptics & Audio (`soundEngine.ts`):** Pairs Web Audio cues with `navigator.vibrate` (`select`: `12ms`, `surge`: `[14, 32, 24]ms`, `invalid`: `[38, 24, 48]ms`, `commit`: `[24, 28, 52]ms`).
 * **Tactical High-Contrast View (`[Alt]` / `[Tab]` / Pause Modal `data-testid="tactical-view-toggle"`):**
   1. Dims decorative stage vistas and sets `document.body.dataset.tacticalView = "true"`.

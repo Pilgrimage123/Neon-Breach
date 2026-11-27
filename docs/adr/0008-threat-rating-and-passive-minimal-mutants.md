@@ -9,5 +9,5 @@ Standard non-boss Mutants are capped to pure stats, move types (`Attack`, `Heavy
 
 ## Consequences
 
-- `src/engine/threatRating.ts` is the single source of truth for Mutant Threat Ratings and Node Encounter Budgets, while `docs/adr/0004-sacred-chaff-difficulty-matrix.md` remains preserved (intent damage never scales by difficulty and Spore Mite stays `9 HP` on Tiers 2–5).
+- `src/engine/threatRating.ts` is the single source of truth for Mutant Threat Ratings and Node Encounter Budgets, while `docs/adr/0004-sacred-chaff-difficulty-matrix.md` was updated to align with `src/engine/difficulty.ts` tier scaling (`keepChaffMathSacred: false`) and stage-invariant base Mutant stats (no per-Stage `lateBonus`).
 - Adding or tuning a Mutant template automatically updates its Threat Rating, initial Node spawning, and Reinforcement Director costs together.

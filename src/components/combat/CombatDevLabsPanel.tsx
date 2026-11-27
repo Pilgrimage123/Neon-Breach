@@ -9,6 +9,10 @@ import {
   triggerBruteJuiceState,
 } from '../../utils/bruteJuiceController';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
+import {
+  DEFAULT_KIRA_JUICE_CONFIG,
+  type KiraJuiceConfig,
+} from '../../utils/kiraJuiceController';
 import type { DevLabTabId } from '../../utils/devLabMode';
 import type { HeroAnimMode } from '../../utils/heroAnimator';
 import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
@@ -551,6 +555,19 @@ export function CombatDevLabsPanel({
     requestDraw();
   };
 
+  const [kiraJuiceConfig, setKiraJuiceConfig] = useState<KiraJuiceConfig>(() => ({
+    ...DEFAULT_KIRA_JUICE_CONFIG,
+  }));
+
+  const updateKiraJuiceConfig = (next: KiraJuiceConfig) => {
+    setKiraJuiceConfig(next);
+    if (simRef.current) {
+      simRef.current.kiraJuiceConfig = next;
+      simRef.current.needsRedraw = true;
+    }
+    requestDraw();
+  };
+
   const fireHeroTrigger = (mode: HeroAnimMode) => {
     const sim = simRef.current;
     if (!sim) return;
@@ -726,6 +743,8 @@ export function CombatDevLabsPanel({
           lastTrigger={lastHeroTrigger}
           onSwitchHero={onSwitchHero}
           onFireTrigger={fireHeroTrigger}
+          kiraJuiceConfig={kiraJuiceConfig}
+          onChangeKiraConfig={updateKiraJuiceConfig}
         />
       )}
 

@@ -1,6 +1,11 @@
 import type { CharacterId, EnemyArchetype } from '../../engine/types';
 import type { CrawlerVariant } from '../../utils/crawlerSpriteSheet';
 import type { HeroAnimState } from '../../utils/heroAnimator';
+import type {
+  KiraJuiceConfig,
+  KiraJuiceSample,
+  KiraJuiceState,
+} from '../../utils/kiraJuiceController';
 import type { BruteFrameSample } from '../../utils/bruteSpriteSheet';
 import type { BruteJuiceSample, BruteJuiceState } from '../../utils/bruteJuiceController';
 import type { FeralNurseAnimSample } from '../../utils/feralNurseSpriteSheet';
@@ -298,6 +303,15 @@ export interface CombatStageSim {
   dashTargetX: number;
   pendingImpacts: PendingImpact[];
   heroState: HeroAnimState;
+  kiraJuiceState: KiraJuiceState;
+  kiraJuiceConfig: KiraJuiceConfig;
+  kiraJuiceSample: KiraJuiceSample | null;
+  kiraSurgeBlastTimer: number;
+  kiraSurgeMuzzleX: number;
+  kiraSurgeMuzzleY: number;
+  kiraDropkickRingTimer: number;
+  kiraDropkickSoleX: number;
+  kiraDropkickSoleY: number;
   heroAnim: ActorAnim;
   ghosts: AfterimageGhost[];
   ghostSampleTimer: number;

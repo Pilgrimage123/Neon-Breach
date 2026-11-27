@@ -165,22 +165,22 @@
       "outputSha256": "3d480ab67162465a6b4ef2e7bb783be68e3da47d308e5b6b3787c53d275e6562"
     },
     {
-      "id": "kiraCombat",
-      "source": "assets-src/heroes/kira_spritesheet.png",
-      "output": "src/assets/sprites/baked/kira_spritesheet.png",
-      "width": 2115,
-      "height": 1189,
-      "sourceSha256": "c08408948a934554aed0a7cf6bab760f0769bda3170d58f3b4d509868d3c5cf0",
-      "outputSha256": "7e4d132637961f3be6184e20a614c029ac278d2d08f4575f75ee4d895636618e"
+      "id": "kiraSheetA",
+      "source": "assets-src/heroes/kira_sheet_a.png",
+      "output": "src/assets/sprites/baked/kira_sheet_a.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "8cbf8c6894a9e19745ffc703727367370fabcc372e74d4f46716025c87d4315f",
+      "outputSha256": "6432801494c0caaec6a118bb983993e9f5d907539460f99a330ea44cfbb10683"
     },
     {
-      "id": "kiraEmote",
-      "source": "assets-src/heroes/kira_emote_sheet.png",
-      "output": "src/assets/sprites/baked/kira_emote_sheet.png",
-      "width": 2095,
-      "height": 1007,
-      "sourceSha256": "29f295d91e1f1f281ead96fe87c2f8b69cfd8bec4dbda8e3cb8adcaec2638e27",
-      "outputSha256": "6238ce25df7ed4eab3656382393b7b4b07f3a2ae5b5f29c3f0939df0fa5fea49"
+      "id": "kiraSheetB",
+      "source": "assets-src/heroes/kira_sheet_b.png",
+      "output": "src/assets/sprites/baked/kira_sheet_b.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "62386ba084acfcee9dfe910627a72e0684e78b71487f5919d1bf9fc580948826",
+      "outputSha256": "ff1c8b6e84382c1ec33bebf4285a1eb0b24377586810fcc126e07b20c08443f8"
     },
     {
       "id": "zuriCombat",
@@ -274,42 +274,6 @@
     }
   ],
   "singles": [
-    {
-      "id": "kiraDodge0",
-      "source": "assets-src/heroes/kira_dodge_0_vault.png",
-      "output": "src/assets/sprites/baked/kira_dodge_0_vault.png",
-      "width": 193,
-      "height": 256,
-      "sourceSha256": "3755dc490547d42d80a5ee6875bc379a08094969b854c2a8571aa74c81225239",
-      "outputSha256": "a3dfc735777cd8d31f876bd923eacb29ea5f1165774b3f56489fca9b511b9e29"
-    },
-    {
-      "id": "kiraDodge1",
-      "source": "assets-src/heroes/kira_dodge_1_slide.png",
-      "output": "src/assets/sprites/baked/kira_dodge_1_slide.png",
-      "width": 215,
-      "height": 264,
-      "sourceSha256": "e87910b8fdbaced052f1ae813726014d1d8d38b1ff508d1a593b1d11e67c207e",
-      "outputSha256": "2594569845f7843994969d5b385f11a3aee63f48fbd06a526717bccc24fd2ad4"
-    },
-    {
-      "id": "kiraDodge2",
-      "source": "assets-src/heroes/kira_dodge_2_spin.png",
-      "output": "src/assets/sprites/baked/kira_dodge_2_spin.png",
-      "width": 210,
-      "height": 264,
-      "sourceSha256": "9c0480009a06de8a19789e01f8f96b2b09327d3a046cf6c42137321dc691614d",
-      "outputSha256": "83a0e68a873aae3c3c1148959d8fa14e7dd702688601e09e81bb1fd4200ce7a1"
-    },
-    {
-      "id": "kiraDodge3",
-      "source": "assets-src/heroes/kira_dodge_3_land.png",
-      "output": "src/assets/sprites/baked/kira_dodge_3_land.png",
-      "width": 192,
-      "height": 248,
-      "sourceSha256": "7cccae623e03d667b542113c5f06e9c97b5636517dbe970984bdffffa3234088",
-      "outputSha256": "fbe9534947c4f843b4852a9cf2b0b1d6841a28d6a69d6bf13ada934963e0c173"
-    },
     {
       "id": "stalkerOpen",
       "source": "assets-src/mutants/stalker_open.png",

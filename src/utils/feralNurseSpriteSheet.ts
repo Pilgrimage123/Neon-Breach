@@ -570,7 +570,7 @@ interface LoopedFrameKeyframe {
 function sampleLoopedFrames(
   keyframes: readonly LoopedFrameKeyframe[],
   timeSec: number,
-  blendDuration = 0.045,
+  blendDuration = 0,
 ): { frame: number; prevFrame: number; blendAlpha: number } {
   const total = keyframes.reduce((acc, k) => acc + Math.max(0.01, k.duration), 0);
   if (total <= 0 || keyframes.length === 0) {
@@ -585,7 +585,10 @@ function sampleLoopedFrames(
       const prevIdx = (i - 1 + keyframes.length) % keyframes.length;
       const frame = keyframes[i].frame;
       const prevFrame = keyframes[prevIdx].frame;
-      const rawT = Math.min(1, localElapsed / Math.max(0.001, blendDuration));
+      const rawT =
+        blendDuration <= 0
+          ? 1
+          : Math.min(1, localElapsed / Math.max(0.001, blendDuration));
       const blendAlpha = prevFrame === frame ? 1 : rawT * rawT * (3 - 2 * rawT);
       return { frame, prevFrame, blendAlpha };
     }

@@ -32,6 +32,9 @@ Use these real project outcomes as your compass before choosing an approach:
 - **✅ Do** calibrate multi-phase bosses on rigid anatomical spans (eye-to-pelvis / head-to-claw) sharing one `CANONICAL_HEIGHT` across phases.
   - **❌ Don't** normalize each boss phase independently to its own bounding-box height.
   - **Why**: `Xenomorph Matriarch` (`585×640` intact → `640×427` crouched/ruptured) shares `MATRIARCH_CANONICAL_HEIGHT = 560` so her head and claws never rescale on the 50% carapace rupture.
+- **✅ Do** use **Heroic Keyframe Splicing & `2×2` batch authoring** for extreme signature poses (e.g., Kira's arched-back visor-down **Surge Blast** `F11`) and render massive shockwave halos/beams at runtime via `projectSpriteLandmarkToStage` (`combatForegroundFxRenderer.ts`).
+  - **❌ Don't** rely solely on `4×4` cell-packed AI generation for extreme recoil/flying poses or bake detached blast cones into sprite cells.
+  - **Why**: Packing 16 poses into one `4×4` sheet pressures image models toward conservative upright silhouettes; splicing curated heroic key-poses into the cell while driving full-stage beams/rings in Canvas2D delivers maximum impact without clipping.
 - **✅ Do** store all raw source rasters under `assets-src/{title,heroes,mutants,clinic,portraits}/`.
   - **❌ Don't** commit unbaked originals into `public/assets/`.
   - **Why**: `public/assets/` copies raw megabytes straight into `dist/` (`ADR-0011`).

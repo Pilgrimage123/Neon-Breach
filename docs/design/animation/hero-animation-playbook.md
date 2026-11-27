@@ -3,7 +3,7 @@
 > **Related**: [GLOSSARY.md](../../../GLOSSARY.md) (`Hero`, `Kira`, `Auraline`, `Zuri`, `Evasive Dodge`, `Tri-Drone Sync`), [Shared Invariants](./shared-invariants-and-baking.md), [Combat Stage & Camera](./combat-stage-and-camera.md).
 
 > [!NOTE]
-> **Early-Phase Legacy Architecture**: `HeroAnimator` is maintained for the existing `Kira`, `Auraline`, and `Zuri` rigs. For any new Hero or full Hero rework, converge on the Tier A `proceduralJuiceCore` standard rather than copying `HeroAnimator` multi-sheet `rowScale` workarounds (see [Animation Do's & Don'ts](./dos-and-donts.md)).
+> **Tier A Convergence**: `Kira` (`KIRA-09`) has migrated to the Tier A `proceduralJuiceCore` standard (`kiraJuiceController.ts` + dual `4×4` sheets `kira_sheet_a`/`kira_sheet_b`). `Auraline` and `Zuri` remain on legacy `HeroAnimator` behind an adapter in `combatHeroSpritePass.ts` (see [Animation Do's & Don'ts](./dos-and-donts.md)).
 
 ---
 
@@ -21,7 +21,7 @@ Heroes (`Kira`, `Auraline`, `Zuri`) share the `4 × 6` WebGL2 `MeshSprite` stage
 
 | Hero | Sheets (`assets-src/heroes/`) | Canonical Height | Staging & Foot Behavior | Special Attachment / Subsystem |
 | :--- | :--- | :---: | :--- | :--- |
-| **Kira** (`kira`) | `kira_spritesheet` (`2115×1189`) + `kira_emote_sheet` (`2095×1007`) + 4 `kira_dodge_*` RGBA PNGs | `214 px` | Hybrid `melee` (`dash_kick`) & `ranged` (`pistol_bolt`); planted dual-foot shadows | `muzzleRel` (Row 1), `kickTipRel` (Row 2 `r2_f4`), `0.96 s` **Evasive Dodge** (`shouldKiraDodgeAttack` on `0` HP + `0` Armor damage) |
+| **Kira** (`kira`) | `kira_sheet_a` (`1024×1024` 16f) + `kira_sheet_b` (`1024×1024` 16f) via `kiraJuiceController` | `214 px` | Ranged `pistol_bolt` (`shoot` & visor-down Attack **Stack Surge** blast); sole melee is flying double-footed **Energy Dropkick** (`overdrive`) | `muzzleRel` (`F6/F7/F10/F11`), `kickTipRel` (`F21`), `0.96 s` **Evasive Dodge** (`shouldKiraDodgeAttack`), runtime Surge Blast & Dropkick ring VFX |
 | **Auraline** (`auraline`) | `auraline_spritesheet` (`3545×1703`, white + bottom floor shadow bake) | `214 px` | `100%` `ranged` (`scattergun`); planted dual-foot shadows | `muzzleRel` & `kickTipRel` on Row 1; spliced `aurelia_r0_f9` curtsy return frame |
 | **Zuri** (`zuri`) | `zuri_spritesheet` (`2172×724`, dark bake) + `zuri_emote_sheet` (`2170×725`, dark bake) + `zuri_drones_sheet` (`2172×724`, white bake) | `214 px` | `100%` `ranged` (`drone_plasma`); **hover altitude** (`yHopPx`) with dynamic cyan thruster ellipse shadow | `zuriDroneFormation.ts` renders 3 autonomous drones (`Solar Hawk`, `Aegis Walker`, `Med-Rotor`) synced to **Tri-Drone Sync** priming |
 

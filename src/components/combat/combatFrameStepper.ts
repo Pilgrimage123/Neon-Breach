@@ -2,7 +2,16 @@ import type { CharacterId, CombatState, HeroState, TileType } from '../../engine
 import { AURALINE_CANONICAL_HEIGHT } from '../../utils/auralineSpriteSheet';
 import { stepCharacterAnimState } from '../../utils/characterAnimator';
 import type { HeroFrameSample } from '../../utils/heroAnimator';
-import { KIRA_CANONICAL_HEIGHT } from '../../utils/kiraSpriteSheet';
+import {
+  KIRA_CANONICAL_HEIGHT,
+  KIRA_SHEET_FRAMES,
+} from '../../utils/kiraSpriteSheet';
+import {
+  stepKiraJuice,
+  toHeroAnimStateSnapshot,
+  triggerKiraJuiceState,
+} from '../../utils/kiraJuiceController';
+import { projectSpriteLandmarkToStage } from './stageMeshMath';
 import { sampleZuriDroneFormation } from '../../utils/zuriDroneFormation';
 import { ZURI_CANONICAL_HEIGHT } from '../../utils/zuriSpriteSheet';
 import { computeEffectiveSlotCount } from './combatEnemyUi';
@@ -34,13 +43,73 @@ export function stepAndDispatchHeroFrame(params: {
         ? ZURI_CANONICAL_HEIGHT
         : KIRA_CANONICAL_HEIGHT;
 
-  const heroSample = stepCharacterAnimState(sim.heroState, simDt, activeCharId, {
-    isDead: hero.hp <= 0 || combat.phase === 'DEFEAT',
-    isVictory: combat.phase === 'VICTORY' && sim.pendingImpacts.length === 0,
-    hoveredColor,
-    totalTime: elapsed,
-  });
-  sim.heroState = heroSample.state;
+  let heroSample: HeroFrameSample;
+  if (activeCharId === 'kira') {
+    if (
+      sim.heroState.elapsed === 0 &&
+      (sim.heroState.mode !== sim.kiraJuiceState.mode ||
+        sim.kiraJuiceState.elapsed > 0.005 ||
+        sim.heroState.mode !== 'idle')
+    ) {
+      triggerKiraJuiceState(sim.kiraJuiceState, sim.heroState.mode, {
+        lowHpHit: sim.heroState.lowHpHit,
+      });
+    }
+    const reducedMotion =
+      typeof window !== 'undefined' &&
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const kj = stepKiraJuice(
+      sim.kiraJuiceState,
+      simDt,
+      {
+        isDead: hero.hp <= 0 || combat.phase === 'DEFEAT',
+        isVictory: combat.phase === 'VICTORY' && sim.pendingImpacts.length === 0,
+        hoveredColor,
+        totalTime: elapsed,
+        reducedMotion,
+      },
+      sim.kiraJuiceConfig,
+    );
+    sim.kiraJuiceSample = kj;
+    sim.heroState = toHeroAnimStateSnapshot(kj.state);
+    const frame = KIRA_SHEET_FRAMES[kj.frameIndex] ?? KIRA_SHEET_FRAMES[0];
+    const prevFrame = KIRA_SHEET_FRAMES[kj.prevFrameIndex] ?? frame;
+    heroSample = {
+      state: sim.heroState,
+      frameIndex: kj.frameIndex,
+      frame,
+      prevFrameIndex: kj.prevFrameIndex,
+      prevFrame,
+      frameBlendAlpha: kj.blendAlpha,
+      xProgress: kj.xProgress,
+      yHopPx: kj.hopYPx,
+      breathScaleY: kj.springScaleY,
+      breathScaleX: kj.springScaleX,
+      tiltRad: kj.rotationRad,
+      shouldEmitShot: kj.shouldEmitShot,
+      shouldEmitKickImpact: kj.shouldEmitKickImpact,
+      isDashing: kj.isDashing,
+    };
+  } else {
+    sim.kiraJuiceSample = null;
+    heroSample = stepCharacterAnimState(sim.heroState, simDt, activeCharId, {
+      isDead: hero.hp <= 0 || combat.phase === 'DEFEAT',
+      isVictory: combat.phase === 'VICTORY' && sim.pendingImpacts.length === 0,
+      hoveredColor,
+      totalTime: elapsed,
+    });
+    sim.heroState = heroSample.state;
+  }
+
+  if (simDt > 0) {
+    if (sim.kiraSurgeBlastTimer > 0) {
+      sim.kiraSurgeBlastTimer = Math.max(0, sim.kiraSurgeBlastTimer - simDt);
+    }
+    if (sim.kiraDropkickRingTimer > 0) {
+      sim.kiraDropkickRingTimer = Math.max(0, sim.kiraDropkickRingTimer - simDt);
+    }
+  }
 
   if (activeCanvas.dataset.heroAnim !== heroSample.state.mode) {
     activeCanvas.dataset.heroAnim = heroSample.state.mode;
@@ -127,13 +196,63 @@ export function stepAndDispatchHeroFrame(params: {
 
     const isLabOwnedCutIn = sim.actionSequencer.isActive() && sim.pendingImpacts.length === 0;
 
+    if (activeCharId === 'kira' && sim.kiraJuiceSample && sim.kiraJuiceSample.dropkickIntensity > 0 && heroFrame.kickTipRel) {
+      const soleProj = projectSpriteLandmarkToStage(heroFrame.kickTipRel, {
+        frame: heroFrame,
+        worldX: heroLiveX,
+        worldY: heroY,
+        drawScale: heroDrawScale,
+        facingSign: 1,
+        nativeFacingSign: 1,
+        rotationRad: sim.kiraJuiceSample.rotationRad,
+        deform: sim.kiraJuiceSample.deform,
+        squashStretch: [
+          sim.kiraJuiceSample.springScaleX * sim.kiraJuiceSample.facingScale,
+          sim.kiraJuiceSample.springScaleY,
+        ],
+        shearPx: [sim.kiraJuiceSample.shearXPx, 0],
+      });
+      sim.kiraDropkickSoleX = soleProj.x;
+      sim.kiraDropkickSoleY = soleProj.y;
+      sim.kiraDropkickRingTimer = Math.max(sim.kiraDropkickRingTimer, 0.34);
+    }
+
     if (!isLabOwnedCutIn && heroSample.shouldEmitShot && (heroFrame.muzzleRel || zuriDrones)) {
+      const kiraMuzzleProj =
+        activeCharId === 'kira' && heroFrame.muzzleRel
+          ? projectSpriteLandmarkToStage(heroFrame.muzzleRel, {
+              frame: heroFrame,
+              worldX: heroLiveX,
+              worldY: heroY,
+              drawScale: heroDrawScale,
+              facingSign: 1,
+              nativeFacingSign: 1,
+              rotationRad: sim.kiraJuiceSample?.rotationRad ?? 0,
+              deform: sim.kiraJuiceSample?.deform,
+              squashStretch: sim.kiraJuiceSample
+                ? [
+                    sim.kiraJuiceSample.springScaleX * sim.kiraJuiceSample.facingScale,
+                    sim.kiraJuiceSample.springScaleY,
+                  ]
+                : [1, 1],
+              shearPx: [sim.kiraJuiceSample?.shearXPx ?? 0, 0],
+            })
+          : null;
       const mx = zuriDrones
         ? zuriDrones.strike.muzzleX
-        : heroLiveX + (heroFrame.muzzleRel?.dx ?? 120) * heroDrawScale;
+        : kiraMuzzleProj
+          ? kiraMuzzleProj.x
+          : heroLiveX + (heroFrame.muzzleRel?.dx ?? 120) * heroDrawScale;
       const my = zuriDrones
         ? zuriDrones.strike.muzzleY
-        : heroY + (heroFrame.muzzleRel?.dy ?? -140) * heroDrawScale;
+        : kiraMuzzleProj
+          ? kiraMuzzleProj.y
+          : heroY + (heroFrame.muzzleRel?.dy ?? -140) * heroDrawScale;
+      if (activeCharId === 'kira' && heroSample.state.mode === 'dash_kick') {
+        sim.kiraSurgeBlastTimer = 0.42;
+        sim.kiraSurgeMuzzleX = mx;
+        sim.kiraSurgeMuzzleY = my;
+      }
       const isOverdrive = heroSample.state.mode === 'overdrive';
       const triggerKey = heroSample.state.emittedShots === 1 ? 'shot1' : 'shot2';
       const baseImpact = drainTriggerImpacts(sim, triggerKey);
@@ -206,12 +325,41 @@ export function stepAndDispatchHeroFrame(params: {
       heroSample.shouldEmitKickImpact &&
       (heroFrame.kickTipRel || zuriDrones)
     ) {
+      const kiraSoleProj =
+        activeCharId === 'kira' && heroFrame.kickTipRel
+          ? projectSpriteLandmarkToStage(heroFrame.kickTipRel, {
+              frame: heroFrame,
+              worldX: heroLiveX,
+              worldY: heroY,
+              drawScale: heroDrawScale,
+              facingSign: 1,
+              nativeFacingSign: 1,
+              rotationRad: sim.kiraJuiceSample?.rotationRad ?? 0,
+              deform: sim.kiraJuiceSample?.deform,
+              squashStretch: sim.kiraJuiceSample
+                ? [
+                    sim.kiraJuiceSample.springScaleX * sim.kiraJuiceSample.facingScale,
+                    sim.kiraJuiceSample.springScaleY,
+                  ]
+                : [1, 1],
+              shearPx: [sim.kiraJuiceSample?.shearXPx ?? 0, 0],
+            })
+          : null;
       const kx = zuriDrones
         ? zuriDrones.strike.muzzleX
-        : heroLiveX + (heroFrame.kickTipRel?.dx ?? 150) * heroDrawScale;
+        : kiraSoleProj
+          ? kiraSoleProj.x
+          : heroLiveX + (heroFrame.kickTipRel?.dx ?? 150) * heroDrawScale;
       const ky = zuriDrones
         ? zuriDrones.strike.muzzleY
-        : heroY + (heroFrame.kickTipRel?.dy ?? -120) * heroDrawScale;
+        : kiraSoleProj
+          ? kiraSoleProj.y
+          : heroY + (heroFrame.kickTipRel?.dy ?? -120) * heroDrawScale;
+      if (activeCharId === 'kira') {
+        sim.kiraDropkickSoleX = kx;
+        sim.kiraDropkickSoleY = ky;
+        sim.kiraDropkickRingTimer = 0.56;
+      }
       sim.kickWaveTimer = 0.28;
       sim.kickWaveX = kx;
       sim.kickWaveY = ky;

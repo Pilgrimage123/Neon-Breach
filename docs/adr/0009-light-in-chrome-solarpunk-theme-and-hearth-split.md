@@ -15,3 +15,5 @@ We unified Neon Breach's world framing, 4 Metropolis Districts, 4 core `EVENT` n
 
 - Internal engine identifiers (`MapNodeType` `'MED_BAY'`, screen `'medbay'`, `applyMedBayAction`, event IDs `rogue_ai_cache`, `black_market_smuggler`, `derelict_combat_drone`, `tachyon_terminal`, and asset key `'nurse'`) remain unchanged so existing saves, balance simulations, and engine tests stay backwards-compatible.
 - `Cyber-Clinic` and `Chip Dealer` mechanics and names remain intact, while `Family Hearth` houses the `HeroPortraitCanvas` showcase and all 7 recovery/household actions.
+
+> **Update Note:** `Cyber-Clinic` was subsequently renamed to **`Restorative Clinic`** (*Obnovná klinika*) in [ADR-0010](./0010-anthropological-integrity-external-tools-and-pax-particularis.md).

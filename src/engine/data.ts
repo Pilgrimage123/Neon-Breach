@@ -568,7 +568,7 @@ export const ENEMY_TEMPLATES: Record<EnemyArchetype, EnemyTemplate> = {
     roleColor: 'lime',
     intentCycle: [
       { kind: 'attack', value: 5, clawRend: true },
-      { kind: 'attack', value: 6, overwhelmMultiplier: 2 },
+      { kind: 'heavy', value: 6, overwhelmMultiplier: 2 },
       { kind: 'pause', value: 0 },
     ],
   },

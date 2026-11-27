@@ -241,7 +241,7 @@ export function triggerFeralNurseJuiceState(
 export function setFeralNurseFrame(
   state: FeralNurseJuiceState,
   nextFrame: number,
-  blendDuration = 0.045,
+  blendDuration = 0,
 ): void {
   if (nextFrame === state.currentFrame) return;
   state.prevFrame = state.currentFrame;

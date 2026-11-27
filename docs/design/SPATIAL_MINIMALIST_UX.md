@@ -7,10 +7,10 @@
 ## 1. Anti-Wordiness & Keyword System
 
 1. **The 8-Word Rule (`src/utils/tacticalCopySpecs.ts`):**
-   * Enforced by unit tests across all **AI Skill Chip** descriptions, **Cyber Implant** descriptions, Hero passive/Overdrive summaries, Node descriptions, Cyber/Dynasty Event prompts, facility notices, and `KEYWORD_NESTED_TOOLTIPS`.
+   * Enforced by unit tests across all **AI Skill Chip** descriptions, **Tactical Module** descriptions, Hero passive/Overdrive summaries, Node descriptions, Civic/Dynasty Event prompts, facility notices, and `KEYWORD_NESTED_TOOLTIPS`.
    * *Format:* `[Icon] +[Value] [Stat]` (e.g. `⚔ +5 ATK ×2 · 🛡 +7 SHD`).
 2. **Inline Bold + Nested Keyword Tooltips:**
-   * Primary mechanics are bolded via `FormattedText.tsx` (`**Push**`, `**Shield**`, `**Pierce**`, `**Shred**`, `**Corrode**`, `**Spike Retaliation**`, `**Surge**`, `**Aegis Pip**`, `**Bio-Rupture**`, `**Jammed**`, `**Held**`, `**UpCharge**`).
+   * Primary mechanics are bolded via `FormattedText.tsx` (`**Push**`, `**Shield**`, `**Pierce**`, `**Shred**`, `**Corrode**`, `**Surge**`, `**Aegis Pip**`, `**Bio-Rupture**`, `**Jammed**`, `**Held**`, `**UpCharge**`).
    * Accurate keyword rules in `KEYWORD_NESTED_TOOLTIPS`:
      * **Push:** `"Swaps front 2 mutants. Costs 0 AP."` (zero free collision damage)
      * **UpCharge:** `"+1 next-turn Board draw (up to 9)."`

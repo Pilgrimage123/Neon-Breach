@@ -6,10 +6,8 @@ import {
   isCrawlerArchetype,
 } from '../utils/crawlerSpriteSheet';
 import {
-  KIRA_COMBAT_FRAMES,
-  KIRA_DODGE_FRAMES,
-  KIRA_EMOTE_FRAMES,
-  KIRA_SHEET_FRAMES,
+  KIRA_SHEET_A_FRAMES,
+  KIRA_SHEET_B_FRAMES,
 } from '../utils/kiraSpriteSheet';
 import { NURSE_FRAMES } from '../utils/nurseSpriteSheet';
 import { BRUTE_SHEET_FRAMES } from '../utils/bruteSpriteSheet';
@@ -72,8 +70,8 @@ interface SheetSpec<R extends SpriteRect = SpriteRect> {
 
 const SHEET_SPECS = {
   auraline: { url: GAME_ASSETS.auraline, frames: AURALINE_SHEET_FRAMES },
-  kiraCombat: { url: GAME_ASSETS.kira, frames: KIRA_COMBAT_FRAMES },
-  kiraEmote: { url: GAME_ASSETS.kiraEmote, frames: KIRA_EMOTE_FRAMES },
+  kiraSheetA: { url: GAME_ASSETS.kiraSheetA, frames: KIRA_SHEET_A_FRAMES },
+  kiraSheetB: { url: GAME_ASSETS.kiraSheetB, frames: KIRA_SHEET_B_FRAMES },
   zuriCombat: { url: GAME_ASSETS.zuri, frames: ZURI_COMBAT_FRAMES },
   zuriEmote: { url: GAME_ASSETS.zuriEmote, frames: ZURI_EMOTE_FRAMES },
   zuriDrones: { url: GAME_ASSETS.zuriDrones, frames: ZURI_DRONE_FRAMES },
@@ -147,7 +145,7 @@ function getPortraitSpec(charId: CharacterId): { url: string; frame: SpriteRect 
   if (charId === 'zuri') {
     return { url: GAME_ASSETS.zuri, frame: ZURI_SHEET_FRAMES[8] };
   }
-  return { url: GAME_ASSETS.kira, frame: KIRA_COMBAT_FRAMES[0] };
+  return { url: GAME_ASSETS.kiraSheetA, frame: KIRA_SHEET_A_FRAMES[0] };
 }
 
 export function getPreloadedPortraitFrame(charId: CharacterId): HTMLCanvasElement | null {
@@ -180,22 +178,6 @@ export function loadCrawlerVariantFrames(variant: CrawlerVariant): Promise<HTMLC
 
 export function getPreloadedZuriDroneFrames(): HTMLCanvasElement[] | null {
   return getSheet(SHEET_SPECS.zuriDrones);
-}
-
-function getPreloadedKiraDodgeFrames(): HTMLCanvasElement[] | null {
-  const frames: HTMLCanvasElement[] = [];
-  for (let i = 0; i < GAME_ASSETS.kiraDodge.length; i++) {
-    const canvas = getCachedSpriteCutout(GAME_ASSETS.kiraDodge[i]);
-    if (!canvas) return null;
-    frames.push(canvas);
-  }
-  return frames;
-}
-
-function loadKiraDodgeFrames(): Promise<HTMLCanvasElement[]> {
-  return Promise.all(
-    GAME_ASSETS.kiraDodge.map((url) => loadSpriteCutout(url)),
-  );
 }
 
 export function getPreloadedNurseFrames(): HTMLCanvasElement[] | null {
@@ -307,22 +289,10 @@ export function getPreloadedHeroFrames(charId: CharacterId): HTMLCanvasElement[]
     }
     return slots;
   }
-  const combat = getSheet(SHEET_SPECS.kiraCombat);
-  if (!combat) return null;
-  const slots = new Array<HTMLCanvasElement>(KIRA_SHEET_FRAMES.length);
-  for (let i = 0; i < combat.length; i++) slots[i] = combat[i];
-  const emote = getSheet(SHEET_SPECS.kiraEmote);
-  if (emote) {
-    const offset = KIRA_COMBAT_FRAMES.length;
-    for (let i = 0; i < emote.length; i++) slots[offset + i] = emote[i];
-  }
-  const dodgeOffset = KIRA_COMBAT_FRAMES.length + KIRA_EMOTE_FRAMES.length;
-  for (let i = 0; i < KIRA_DODGE_FRAMES.length; i++) {
-    const url = GAME_ASSETS.kiraDodge[i];
-    const dodgeCanvas = url ? getCachedSpriteCutout(url) : null;
-    if (dodgeCanvas) slots[dodgeOffset + i] = dodgeCanvas;
-  }
-  return slots;
+  const sheetA = getSheet(SHEET_SPECS.kiraSheetA);
+  if (!sheetA) return null;
+  const sheetB = getSheet(SHEET_SPECS.kiraSheetB);
+  return sheetB ? [...sheetA, ...sheetB] : [...sheetA];
 }
 
 export function areCriticalCombatAssetsReady(
@@ -331,7 +301,6 @@ export function areCriticalCombatAssetsReady(
 ): boolean {
   if (!getPreloadedBackdrop()) return false;
   if (!getPreloadedHeroFrames(charId)) return false;
-  if (charId === 'kira' && !getPreloadedKiraDodgeFrames()) return false;
   if (charId === 'zuri' && !getPreloadedZuriDroneFrames()) return false;
   for (let i = 0; i < enemyArchetypes.length; i++) {
     const arch = enemyArchetypes[i];
@@ -397,9 +366,9 @@ async function runBackgroundTask(taskId: string): Promise<void> {
   if (taskId === 'backdrop') {
     await loadDecodedImage(GAME_ASSETS.arenaBackdrop);
   } else if (taskId === 'char:kira') {
-    await Promise.all([loadSheet(SHEET_SPECS.kiraCombat), loadKiraDodgeFrames()]);
+    await loadSheet(SHEET_SPECS.kiraSheetA);
   } else if (taskId === 'char:kira_emote') {
-    await loadSheet(SHEET_SPECS.kiraEmote);
+    await loadSheet(SHEET_SPECS.kiraSheetB);
   } else if (taskId === 'char:auraline') {
     await loadSheet(SHEET_SPECS.auraline);
   } else if (taskId === 'char:zuri') {
@@ -482,7 +451,7 @@ export async function ensureCombatAssetsReady(
       ? loadSheet(SHEET_SPECS.auraline)
       : charId === 'zuri'
         ? Promise.all([loadSheet(SHEET_SPECS.zuriCombat), loadSheet(SHEET_SPECS.zuriDrones)])
-        : Promise.all([loadSheet(SHEET_SPECS.kiraCombat), loadKiraDodgeFrames()]),
+        : Promise.all([loadSheet(SHEET_SPECS.kiraSheetA), loadSheet(SHEET_SPECS.kiraSheetB)]),
   ];
 
   for (let i = 0; i < critical.length; i++) {

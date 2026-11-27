@@ -9,6 +9,7 @@ import type {
 } from '../../engine/types';
 import type { Language } from '../../i18n/translations';
 import { AURALINE_SHEET_FRAMES } from '../../utils/auralineSpriteSheet';
+import { resolveKiraCutInFrameIndex } from '../../utils/kiraJuiceController';
 import {
   KIRA_SHEET_FRAMES,
   type HeroFrameDef as SpriteFrame,
@@ -54,7 +55,9 @@ export function resolveHeroCutInFrameIndex(
   fallbackIndex: number,
   heroMode?: string,
 ): number {
-  if (charId === 'kira' && heroMode === 'dodge') return fallbackIndex;
+  if (charId === 'kira') {
+    return resolveKiraCutInFrameIndex(cutIn, seqPhase, heroMode, fallbackIndex);
+  }
   if (!cutIn.active || cutIn.poseOverride === 'none') return fallbackIndex;
   const isWindup = seqPhase === 'windup' || seqPhase === 'travel';
   if (charId === 'auraline') {
@@ -428,11 +431,12 @@ export function renderHeroSpritePass(params: {
         : heroSample.tiltRad + heroCutIn.leanRad;
 
       if (webglRenderer) {
+        const kj = charId === 'kira' ? sim.kiraJuiceSample : null;
         const { deform, uniforms } = deriveHeroDeformAndUniforms({
           mode: heroSample.state.mode,
-          breathScaleX: heroSample.breathScaleX,
-          breathScaleY: heroSample.breathScaleY,
-          tiltRad: heroSample.tiltRad,
+          breathScaleX: kj ? kj.springScaleX * kj.facingScale : heroSample.breathScaleX,
+          breathScaleY: kj ? kj.springScaleY : heroSample.breathScaleY,
+          tiltRad: kj ? kj.rotationRad : heroSample.tiltRad,
           frameBlendAlpha: canCrossBlend ? blendA : 1,
           flashTimer: sim.heroAnim.flashTimer,
           corrode: hero.corrode,
@@ -441,6 +445,24 @@ export function renderHeroSpritePass(params: {
           isProne,
           cutIn: heroCutIn,
         });
+        if (kj) {
+          deform.feet = { ...kj.deform.feet };
+          deform.pelvis = { ...kj.deform.pelvis };
+          deform.waist = { ...kj.deform.waist };
+          deform.head = { ...kj.deform.head };
+          uniforms.shearPx = [kj.shearXPx, 0];
+          uniforms.tintRgba = [
+            uniforms.tintRgba[0] * kj.tintRgba[0],
+            uniforms.tintRgba[1] * kj.tintRgba[1],
+            uniforms.tintRgba[2] * kj.tintRgba[2],
+            uniforms.tintRgba[3] * kj.tintRgba[3],
+          ];
+          if (kj.flashRgba && kj.flashRgba[3] > uniforms.flashRgba[3]) {
+            uniforms.flashRgba = [...kj.flashRgba];
+          }
+          uniforms.uvDistortAmp = [...kj.uvDistortAmp];
+          uniforms.uvDistortFreq = kj.uvDistortFreq;
+        }
         webglRenderer.drawSprite({
           id: 'hero',
           primarySource: frameCanvas,

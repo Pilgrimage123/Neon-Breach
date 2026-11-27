@@ -259,6 +259,25 @@ const CYBER_EVENT_CS: Record<string, CyberEventTextCopy> = {
       },
     },
   },
+  national_borders_day: {
+    title: 'Den státních hranic',
+    subtitle: 'Farní stráž a občanská hranice',
+    story: 'Sousedské hlídky vztyčují prapory podél přístupů k mostu.',
+    choices: {
+      borders_fortify_gatehouse: {
+        label: 'Opevnit strážní bránu',
+        description: '🎛 Taktický modul zdarma · 💚 +10 HP',
+      },
+      borders_bridge_watch: {
+        label: 'Svolat mostní hlídku',
+        description: '⚔ +25% DMG · ⚡ +30% Overdrive',
+      },
+      borders_customs_dividend: {
+        label: 'Podíl celního cechu',
+        description: '🪙 +45 CR · 💎 +2 Nanity',
+      },
+    },
+  },
 };
 
 export const DYNASTY_EVENT_TEMPLATES: CyberEvent[] = [
@@ -348,6 +367,35 @@ export const DYNASTY_EVENT_TEMPLATES: CyberEvent[] = [
         label: 'Homestead Renewal Grant',
         description: '🪙 +40 CR · 💎 +2 Nanites',
         rewardCredits: 40,
+        rewardNanites: 2,
+      },
+    ],
+  },
+  {
+    id: 'national_borders_day',
+    title: 'National Borders Day',
+    subtitle: 'Parish Watch & Civic Frontier',
+    story: 'Neighborhood watchposts raise banners along the bridge approaches.',
+    choices: [
+      {
+        id: 'borders_fortify_gatehouse',
+        label: 'Fortify the Gatehouse',
+        description: '🎛 Free Tactical Module · 💚 +10 HP',
+        rewardFreeImplant: true,
+        rewardHp: 10,
+      },
+      {
+        id: 'borders_bridge_watch',
+        label: 'Muster the Bridge Watch',
+        description: '⚔ +25% DMG · ⚡ +30% Overdrive',
+        rewardDamageBoostPct: 25,
+        rewardOverdrive: 30,
+      },
+      {
+        id: 'borders_customs_dividend',
+        label: 'Customs Guild Dividend',
+        description: '🪙 +45 CR · 💎 +2 Nanites',
+        rewardCredits: 45,
         rewardNanites: 2,
       },
     ],

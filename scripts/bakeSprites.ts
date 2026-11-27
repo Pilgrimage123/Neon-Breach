@@ -11,7 +11,11 @@ import {
   FERAL_NURSE_SHEET_B_FRAMES,
   FERAL_NURSE_SHEET_OPTIONS,
 } from '../src/utils/feralNurseSpriteSheet';
-import { KIRA_COMBAT_FRAMES, KIRA_EMOTE_FRAMES } from '../src/utils/kiraSpriteSheet';
+import {
+  KIRA_SHEET_A_FRAMES,
+  KIRA_SHEET_B_FRAMES,
+  KIRA_SHEET_OPTIONS,
+} from '../src/utils/kiraSpriteSheet';
 import { MUTDOG_SHEET_FRAMES, MUTDOG_SHEET_OPTIONS } from '../src/utils/mutdogSpriteSheet';
 import { NURSE_FRAMES, NURSE_SHEET_OPTIONS } from '../src/utils/nurseSpriteSheet';
 import { SPITTER_SHEET_FRAMES } from '../src/utils/spitterSpriteSheet';
@@ -79,23 +83,18 @@ const MULTI_FRAME_SPECS: readonly MultiFrameBakeSpec[] = [
     options: { removeBottomFloorShadow: true, defringeStrength: 0.78 },
   },
   {
-    id: 'kiraCombat',
-    sourceRel: 'assets-src/heroes/kira_spritesheet.png',
-    outputFile: 'kira_spritesheet.png',
-    frames: KIRA_COMBAT_FRAMES,
-    options: { removeInteriorWhite: true, minPocketArea: 14, defringeStrength: 0.78 },
+    id: 'kiraSheetA',
+    sourceRel: 'assets-src/heroes/kira_sheet_a.png',
+    outputFile: 'kira_sheet_a.png',
+    frames: KIRA_SHEET_A_FRAMES,
+    options: KIRA_SHEET_OPTIONS,
   },
   {
-    id: 'kiraEmote',
-    sourceRel: 'assets-src/heroes/kira_emote_sheet.png',
-    outputFile: 'kira_emote_sheet.png',
-    frames: KIRA_EMOTE_FRAMES,
-    options: {
-      removeInteriorWhite: true,
-      minPocketArea: 14,
-      defringeStrength: 0.78,
-      unmixLightGlow: true,
-    },
+    id: 'kiraSheetB',
+    sourceRel: 'assets-src/heroes/kira_sheet_b.png',
+    outputFile: 'kira_sheet_b.png',
+    frames: KIRA_SHEET_B_FRAMES,
+    options: KIRA_SHEET_OPTIONS,
   },
   {
     id: 'zuriCombat',
@@ -181,30 +180,6 @@ interface SingleSpriteBakeSpec {
 }
 
 const SINGLE_SPRITE_SPECS: readonly SingleSpriteBakeSpec[] = [
-  {
-    id: 'kiraDodge0',
-    sourceRel: 'assets-src/heroes/kira_dodge_0_vault.png',
-    outputFile: 'kira_dodge_0_vault.png',
-    options: { preserveExistingAlpha: true },
-  },
-  {
-    id: 'kiraDodge1',
-    sourceRel: 'assets-src/heroes/kira_dodge_1_slide.png',
-    outputFile: 'kira_dodge_1_slide.png',
-    options: { preserveExistingAlpha: true },
-  },
-  {
-    id: 'kiraDodge2',
-    sourceRel: 'assets-src/heroes/kira_dodge_2_spin.png',
-    outputFile: 'kira_dodge_2_spin.png',
-    options: { preserveExistingAlpha: true },
-  },
-  {
-    id: 'kiraDodge3',
-    sourceRel: 'assets-src/heroes/kira_dodge_3_land.png',
-    outputFile: 'kira_dodge_3_land.png',
-    options: { preserveExistingAlpha: true },
-  },
   {
     id: 'stalkerOpen',
     sourceRel: 'assets-src/mutants/stalker_open.png',

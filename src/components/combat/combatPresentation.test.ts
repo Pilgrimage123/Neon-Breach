@@ -740,8 +740,8 @@ test('classifyHeroAttackStaging keeps Auraline and Zuri 100% ranged and Kira hyb
   assert.equal(zuriSingle.heroAnimMode, 'shoot');
   assert.equal(zuriSingle.projectileProfile, 'drone_plasma');
 
-  // Kira alternates melee dash-kick and ranged cyber-pistol, with Surge forcing melee clash
-  const kiraMelee = classifyHeroAttackStaging({
+  // Kira uses ranged cyber-pistol on normal/Surge turns, and flying Energy Dropkick on Overdrive
+  const kiraSurge = classifyHeroAttackStaging({
     charId: 'kira',
     isSurge: true,
     damageValue: 16,
@@ -749,8 +749,21 @@ test('classifyHeroAttackStaging keeps Auraline and Zuri 100% ranged and Kira hyb
     attackToggle: 1,
     isOverdrive: false,
   });
-  assert.equal(kiraMelee.stagingMode, 'melee');
-  assert.equal(kiraMelee.heroAnimMode, 'dash_kick');
+  assert.equal(kiraSurge.stagingMode, 'ranged_fast');
+  assert.equal(kiraSurge.heroAnimMode, 'dash_kick');
+  assert.equal(kiraSurge.isMelee, false);
+
+  const kiraOverdrive = classifyHeroAttackStaging({
+    charId: 'kira',
+    isSurge: false,
+    damageValue: 22,
+    targetCount: 3,
+    attackToggle: 0,
+    isOverdrive: true,
+  });
+  assert.equal(kiraOverdrive.stagingMode, 'melee');
+  assert.equal(kiraOverdrive.heroAnimMode, 'overdrive');
+  assert.equal(kiraOverdrive.isMelee, true);
 
   const kiraPistol = classifyHeroAttackStaging({
     charId: 'kira',

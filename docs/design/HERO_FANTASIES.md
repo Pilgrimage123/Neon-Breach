@@ -19,7 +19,7 @@
 * **Conceptual Pillars:**
   * **Persistent Juggernaut Armor:** Enters every battle encased in heavy persistent Armor beneath her temporary Shield, backed by the highest vitality and chip Memory capacity in the roster.
   * **Reactor Core Malfunctions (Dud-to-UpCharge & Plating):** Starts with unstable Dud tiles across all three colors. Resolving a Dud converts the malfunction into extra next-turn Board draw capacity (UpCharge) and re-plates her persistent Armor.
-  * **Permanent Reactor Origin:** Upgrading her innate Duds at Dynasty facilities (Charter Academy, Stork Nursery, or FabLab) turns them into powerful active tiles while preserving their Reactor Core origin so her engine grows stronger rather than turning off.
+  * **Permanent Reactor Origin:** Upgrading her innate Duds at Dynasty facilities (Charter Academy, Guild Apprenticeship, or FabLab) turns them into powerful active tiles while preserving their Reactor Core origin so her engine grows stronger rather than turning off.
   * **Overdrive (`Sovereign Broadside`):** A heavy artillery barrage across all Mutants that re-plates her persistent Armor and banks extra UpCharge draws.
 
 ---
