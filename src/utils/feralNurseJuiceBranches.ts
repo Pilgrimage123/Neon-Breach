@@ -227,7 +227,7 @@ export function stepFeralNurseLabTriggerBranch(
     } else if (p < 0.82) {
       const t = (p - 0.34) / 0.48;
       const shimmerWave = Math.sin(t * Math.PI * 6);
-      setFeralNurseFrame(state, t < 0.55 ? 14 : 13, 0.06);
+      setFeralNurseFrame(state, t < 0.55 ? 14 : 13, 0.04);
       out.cloakIntensity = 0.94 + 0.06 * Math.abs(shimmerWave);
       out.alpha = 0.25 + 0.05 * shimmerWave;
       out.xShiftPx = -5 + shimmerWave * 2.2;

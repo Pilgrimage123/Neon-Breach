@@ -559,6 +559,12 @@ export function getEnemyLaneMetrics(w: number, enemyCount: number): { baseX: num
   return { baseX, stepX };
 }
 
+export function getHeroVisualHeightRatio(charId: CharacterId): number {
+  if (charId === 'kira') return 0.77;
+  if (charId === 'auraline') return 0.81;
+  return 1;
+}
+
 export function getStageLayoutMetrics(
   w: number,
   h: number,

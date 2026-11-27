@@ -5,7 +5,10 @@ import {
   isCrawlerArchetype,
   sampleCrawlerFrame,
 } from '../../utils/crawlerSpriteSheet';
-import { getMutantArchScale } from '../../utils/mutantAnimationRegistry';
+import {
+  computeBaseEnemySize,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
 import { FERAL_NURSE_CANONICAL_HEIGHT } from '../../utils/feralNurseSpriteSheet';
 import { MATRIARCH_CANONICAL_HEIGHT } from '../../utils/matriarchSpriteSheet';
 import { MUTDOG_CANONICAL_HEIGHT } from '../../utils/mutdogSpriteSheet';
@@ -97,8 +100,7 @@ export function renderEnemyReflectionsPass(params: {
     if (koAlpha <= 0.01) continue;
 
     const stagger = getEnemyStaggerKinematics(ea);
-    const crowdScale = effectiveSlotCount >= 5 ? 0.78 : effectiveSlotCount === 4 ? 0.86 : 1;
-    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
+    const baseEnemySize = computeBaseEnemySize(w, h, effectiveSlotCount);
     const archScale = getMutantArchScale(arch);
     const size = baseEnemySize * archScale;
     const hasCustomSheetMotion =
@@ -299,7 +301,7 @@ export function renderEnemyReflectionsPass(params: {
       const mCanvas = sim.mutdogFrames[mutdogSample.frameIndex] ?? sim.mutdogFrames[0];
       if (!mCanvas) continue;
       const mf = mutdogSample.frame;
-      const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+      const drawScale = (size / MUTDOG_CANONICAL_HEIGHT) * (mf.frameScale ?? 1);
       const rx =
         ex +
         (suppressNativeShift
@@ -414,7 +416,7 @@ export function renderEnemyReflectionsPass(params: {
         sim.feralNurseFrames[feralNurseSample.frameIndex] ?? sim.feralNurseFrames[0];
       if (!fCanvas) continue;
       const ff = feralNurseSample.frame;
-      const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+      const drawScale = (size / FERAL_NURSE_CANONICAL_HEIGHT) * (ff.frameScale ?? 1);
       const rx =
         ex +
         (suppressNativeShift

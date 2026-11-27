@@ -30,9 +30,9 @@ export interface CrawlerFrameSample {
 export const CRAWLER_CANONICAL_HEIGHT = 180;
 
 export const CRAWLER_ARCH_SCALE: Record<CrawlerVariant, number> = {
-  larva: 0.62,
-  skitter: 0.68,
-  stinger: 0.74,
+  larva: 0.79,
+  skitter: 0.60,
+  stinger: 0.78,
 };
 
 const COL_X: readonly number[] = [

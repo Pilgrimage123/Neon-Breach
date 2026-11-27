@@ -70,12 +70,6 @@ export function resolveHeroCutInFrameIndex(
     if (cutIn.poseOverride === 'recoil_pose') return 2;
     return fallbackIndex;
   }
-  if (cutIn.poseOverride === 'attack_pose') {
-    if (cutIn.isMeleeClash) return isWindup ? 16 : 18;
-    return isWindup ? 9 : 10;
-  }
-  if (cutIn.poseOverride === 'brace_pose') return 22;
-  if (cutIn.poseOverride === 'recoil_pose') return 24;
   return fallbackIndex;
 }
 
@@ -428,13 +422,14 @@ export function renderHeroSpritePass(params: {
         ? heroSample.tiltRad
         : heroSample.tiltRad + heroCutIn.leanRad;
 
+      const tierAJuice =
+        charId === 'kira'
+          ? sim.kiraJuiceSample
+          : charId === 'auraline'
+            ? sim.auralineJuiceSample
+            : null;
+
       if (webglRenderer) {
-        const tierAJuice =
-          charId === 'kira'
-            ? sim.kiraJuiceSample
-            : charId === 'auraline'
-              ? sim.auralineJuiceSample
-              : null;
         const { deform, uniforms } = deriveHeroDeformAndUniforms({
           mode: heroSample.state.mode,
           breathScaleX: tierAJuice
@@ -494,13 +489,20 @@ export function renderHeroSpritePass(params: {
         if (Math.abs(heroTotalTiltRad) > 0.0005) {
           baseCtx.rotate(heroTotalTiltRad);
         }
+        const juiceFacing = tierAJuice ? tierAJuice.facingScale : 1;
+        const juiceScaleX = tierAJuice ? tierAJuice.springScaleX : heroSample.breathScaleX;
+        const juiceScaleY = tierAJuice ? tierAJuice.springScaleY : heroSample.breathScaleY;
         const drawScaleX = isKiraDodging
-          ? heroSample.breathScaleX
-          : heroSample.breathScaleX * heroCutIn.scaleX;
+          ? juiceScaleX * juiceFacing
+          : juiceScaleX * juiceFacing * heroCutIn.scaleX;
         const drawScaleY = isKiraDodging
-          ? heroSample.breathScaleY
-          : heroSample.breathScaleY * heroCutIn.scaleY;
+          ? juiceScaleY
+          : juiceScaleY * heroCutIn.scaleY;
         baseCtx.scale(drawScaleX, drawScaleY);
+        if (tierAJuice && Math.abs(tierAJuice.shearXPx) > 0.05) {
+          const shearSkew = -tierAJuice.shearXPx / Math.max(1, drawFrame.h * drawScale);
+          baseCtx.transform(1, 0, shearSkew, 1, 0, 0);
+        }
 
         if (prevCanvas) {
           const pf = heroSample.prevFrame;
@@ -526,8 +528,12 @@ export function renderHeroSpritePass(params: {
         baseCtx.globalAlpha = 1;
 
         if (!isKiraDodging) {
-          if (heroCutIn.flashRgba) {
-            drawCanvas2DCutInFlash(baseCtx, heroCutIn.flashRgba, heroTargetHeight * 0.36, -heroTargetHeight * 0.48);
+          const activeFlashRgba =
+            tierAJuice?.flashRgba && (!heroCutIn.flashRgba || tierAJuice.flashRgba[3] >= heroCutIn.flashRgba[3])
+              ? tierAJuice.flashRgba
+              : heroCutIn.flashRgba;
+          if (activeFlashRgba) {
+            drawCanvas2DCutInFlash(baseCtx, activeFlashRgba, heroTargetHeight * 0.36, -heroTargetHeight * 0.48);
           } else if (sim.heroAnim.flashTimer > 0) {
             baseCtx.globalCompositeOperation = 'lighter';
             baseCtx.fillStyle = 'rgba(255, 160, 190, 0.38)';

@@ -72,7 +72,10 @@ import {
   createMatriarchJuiceState,
   stepMatriarchJuice,
 } from '../../utils/matriarchJuiceController';
-import { getMutantArchScale } from '../../utils/mutantAnimationRegistry';
+import {
+  computeBaseEnemySize,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
 import { computeEnemyArmorPreview, computeEnemySlotLayout } from './combatEnemyUi';
 import {
   type ActorAnim,
@@ -196,8 +199,7 @@ export function stepEnemyAnimationSamples(
     combat.director?.pendingReinforcements,
   );
   const { baseX: enemyBaseX, stepX: enemyStepX } = getEnemyLaneMetrics(w, effectiveSlotCount);
-  const crowdScale = effectiveSlotCount >= 5 ? 0.78 : effectiveSlotCount === 4 ? 0.86 : 1;
-  const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
+  const baseEnemySize = computeBaseEnemySize(w, h, effectiveSlotCount);
   const frontLivingIdx = enemies.findIndex((e) => e.hp > 0);
   const isAttackHoverNonSurge =
     hoveredColor === 'attack' && !(activePreview?.surgeTriggered ?? false);
@@ -321,7 +323,7 @@ export function stepEnemyAnimationSamples(
 
       if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
         if (juiceSample.slimeBurstTriggered || juiceSample.slashImpactTriggered) {
-          const size = baseEnemySize * 0.98;
+          const size = baseEnemySize * getMutantArchScale('stalker');
           const drawScale = size / STALKER_CANONICAL_HEIGHT;
           const stagger = getEnemyStaggerKinematics(ea);
           const cutInShiftX = stalkerCutIn.active ? stalkerCutIn.clashSlideX + stalkerCutIn.knockbackX : 0;
@@ -336,9 +338,24 @@ export function stepEnemyAnimationSamples(
             cutInShiftX +
             (stalkerCutIn.isMeleeClash ? 0 : juiceSample.offsetX * drawScale);
           const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
-          const jawX = spriteX + sample.frame.jawOriginRel.dx * drawScale;
-          const jawY = enemyGroundY + juiceSample.hopYPx * drawScale + sample.frame.jawOriginRel.dy * drawScale;
-          spawnBurst(sim, jawX, jawY, 8, '#A3E635', -0.4, 0.9, 95, 0.36, 0.24, 2.2, 2.8);
+          const jawPos = projectSpriteLandmarkToStage(sample.frame.jawOriginRel, {
+            frame: sample.frame,
+            worldX: spriteX,
+            worldY: enemyGroundY + juiceSample.hopYPx * drawScale + stagger.dy * 0.45,
+            drawScale,
+            facingSign: juiceSample.facingScale,
+            nativeFacingSign: 1,
+            rotationRad: stagger.rot * 0.28 + juiceSample.rotationRad + stalkerCutIn.leanRad,
+            deform: juiceSample.deform,
+            squashStretch: [
+              stagger.scaleXMul * juiceSample.springScaleX * stalkerCutIn.scaleX,
+              stagger.scaleYMul * juiceSample.springScaleY * stalkerCutIn.scaleY,
+            ],
+            shearPx: [juiceSample.shearXPx + stagger.shearPx * 0.45, 0],
+            swayAmpPx: juiceSample.swayAmpPx,
+            swayPhase: juiceSample.swayPhase,
+          });
+          spawnBurst(sim, jawPos.x, jawPos.y, 8, '#A3E635', -0.4, 0.9, 95, 0.36, 0.24, 2.2, 2.8);
           if (juiceSample.slashImpactTriggered) {
             sim.trauma = Math.min(1, sim.trauma + 0.22);
           }
@@ -444,7 +461,7 @@ export function stepEnemyAnimationSamples(
       if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
         const streamProg = Math.max(sample.spitStreamProgress, juiceSample.spitStreamProgress);
         if (streamProg > 0.01 && streamProg < 0.9) {
-          const size = baseEnemySize * 0.94;
+          const size = baseEnemySize * getMutantArchScale('spitter');
           const drawScale = size / SPITTER_CANONICAL_HEIGHT;
           const stagger = getEnemyStaggerKinematics(ea);
           const cutInShiftX = spitterCutIn.active ? spitterCutIn.clashSlideX + spitterCutIn.knockbackX : 0;
@@ -614,7 +631,7 @@ export function stepEnemyAnimationSamples(
       sim.bruteJuiceSamples.set(enemy.id, juiceSample);
 
       if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
-        const size = baseEnemySize * 1.32;
+        const size = baseEnemySize * getMutantArchScale('brute');
         const drawScale = size / BRUTE_CANONICAL_HEIGHT;
         const stagger = getEnemyStaggerKinematics(ea);
         const cutInShiftX = bruteCutIn.active ? bruteCutIn.clashSlideX + bruteCutIn.knockbackX : 0;
@@ -632,9 +649,27 @@ export function stepEnemyAnimationSamples(
         const hopY = juiceSample.hopYPx * drawScale;
         const bf = sample.frame;
         const juiceFacing = juiceSample.facingScale;
-        const fistX = spriteX + bf.impactOriginRel.dx * drawScale * (-juiceFacing);
-        const chestVialX = spriteX + bf.vialOriginRel.dx * drawScale * (-juiceFacing);
-        const chestVialY = enemyGroundY + hopY + bf.vialOriginRel.dy * drawScale;
+        const bruteProj = {
+          frame: bf,
+          worldX: spriteX,
+          worldY: enemyGroundY + hopY + stagger.dy * 0.45,
+          drawScale,
+          facingSign: juiceFacing,
+          rotationRad: stagger.rot * 0.28 + juiceSample.rotationRad + bruteCutIn.leanRad,
+          deform: juiceSample.deform,
+          squashStretch: [
+            stagger.scaleXMul * juiceSample.springScaleX * bruteCutIn.scaleX,
+            stagger.scaleYMul * juiceSample.springScaleY * bruteCutIn.scaleY,
+          ] as [number, number],
+          shearPx: [juiceSample.shearXPx + stagger.shearPx * 0.45, 0] as [number, number],
+          swayAmpPx: juiceSample.swayAmpPx,
+          swayPhase: juiceSample.swayPhase,
+        };
+        const fistPos = projectSpriteLandmarkToStage(bf.impactOriginRel, bruteProj);
+        const chestVialPos = projectSpriteLandmarkToStage(bf.vialOriginRel, bruteProj);
+        const fistX = fistPos.x;
+        const chestVialX = chestVialPos.x;
+        const chestVialY = chestVialPos.y;
 
         if (juiceSample.seismicImpactTriggered) {
           sim.trauma = Math.min(1, sim.trauma + 0.44 * bruteJuiceConfig.seismicImpactStrength);
@@ -692,16 +727,29 @@ export function stepEnemyAnimationSamples(
 
       if (emitSideEffects && dtStep > 0 && !tacticalViewActive) {
         const bf = BRUTE_SHEET_FRAMES[labJuice.frameIndex] ?? BRUTE_SHEET_FRAMES[1];
-        const rawBaseSize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-        const size = rawBaseSize * 1.28;
+        const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('brute');
         const drawScale = size / BRUTE_CANONICAL_HEIGHT;
         const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.62);
         const labWorldX = labBaseX + labJuice.offsetX * drawScale;
         const labGroundY = groundY - 2;
         const labHopY = labJuice.hopYPx * drawScale;
-        const fistX = labWorldX + bf.impactOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const chestVialX = labWorldX + bf.vialOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const chestVialY = labGroundY + labHopY + bf.vialOriginRel.dy * drawScale;
+        const labBruteProj = {
+          frame: bf,
+          worldX: labWorldX,
+          worldY: labGroundY + labHopY,
+          drawScale,
+          facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          deform: labJuice.deform,
+          squashStretch: [labJuice.springScaleX, labJuice.springScaleY] as [number, number],
+          shearPx: [labJuice.shearXPx, 0] as [number, number],
+          swayAmpPx: labJuice.swayAmpPx,
+          swayPhase: labJuice.swayPhase,
+        };
+        const fistX = projectSpriteLandmarkToStage(bf.impactOriginRel, labBruteProj).x;
+        const chestVialPos = projectSpriteLandmarkToStage(bf.vialOriginRel, labBruteProj);
+        const chestVialX = chestVialPos.x;
+        const chestVialY = chestVialPos.y;
 
         if (labJuice.seismicImpactTriggered) {
           sim.trauma = Math.min(1, sim.trauma + 0.44 * bruteJuiceConfig.seismicImpactStrength);
@@ -836,8 +884,9 @@ export function stepEnemyAnimationSamples(
       sim.mutdogJuiceSamples.set(enemy.id, juiceSample);
 
       if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
-        const size = baseEnemySize * 0.94;
-        const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+        const size = baseEnemySize * getMutantArchScale('mutdog');
+        const mf = sample.frame;
+        const drawScale = (size / MUTDOG_CANONICAL_HEIGHT) * (mf.frameScale ?? 1);
         const stagger = getEnemyStaggerKinematics(ea);
         const cutInShiftX = mutdogCutIn.active ? mutdogCutIn.clashSlideX + mutdogCutIn.knockbackX : 0;
         const suppressStaggerDx =
@@ -852,11 +901,27 @@ export function stepEnemyAnimationSamples(
           (mutdogCutIn.isMeleeClash ? 0 : juiceSample.offsetX * drawScale);
         const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
         const hopY = juiceSample.hopYPx * drawScale;
-        const mf = sample.frame;
         const juiceFacing = juiceSample.facingScale;
-        const clawX = spriteX + mf.clawOriginRel.dx * drawScale * (-juiceFacing);
-        const mawX = spriteX + mf.mawOriginRel.dx * drawScale * (-juiceFacing);
-        const mawY = enemyGroundY + hopY + mf.mawOriginRel.dy * drawScale;
+        const mutdogProj = {
+          frame: mf,
+          worldX: spriteX,
+          worldY: enemyGroundY + hopY + stagger.dy * 0.45,
+          drawScale,
+          facingSign: juiceFacing,
+          rotationRad: stagger.rot * 0.28 + juiceSample.rotationRad + mutdogCutIn.leanRad,
+          deform: juiceSample.deform,
+          squashStretch: [
+            stagger.scaleXMul * juiceSample.springScaleX * mutdogCutIn.scaleX,
+            stagger.scaleYMul * juiceSample.springScaleY * mutdogCutIn.scaleY,
+          ] as [number, number],
+          shearPx: [juiceSample.shearXPx + stagger.shearPx * 0.45, 0] as [number, number],
+          swayAmpPx: juiceSample.swayAmpPx,
+          swayPhase: juiceSample.swayPhase,
+        };
+        const clawX = projectSpriteLandmarkToStage(mf.clawOriginRel, mutdogProj).x;
+        const mawPos = projectSpriteLandmarkToStage(mf.mawOriginRel, mutdogProj);
+        const mawX = mawPos.x;
+        const mawY = mawPos.y;
 
         if (juiceSample.pounceImpactTriggered) {
           sim.trauma = Math.min(1, sim.trauma + 0.30 * mutdogJuiceConfig.feralVfxStrength);
@@ -906,16 +971,29 @@ export function stepEnemyAnimationSamples(
 
       if (emitSideEffects && dtStep > 0 && !tacticalViewActive) {
         const mf = MUTDOG_SHEET_FRAMES[labJuice.frameIndex] ?? MUTDOG_SHEET_FRAMES[0];
-        const rawBaseSize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-        const size = rawBaseSize * 0.98;
-        const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+        const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('mutdog');
+        const drawScale = (size / MUTDOG_CANONICAL_HEIGHT) * (mf.frameScale ?? 1);
         const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.60);
         const labWorldX = labBaseX + labJuice.offsetX * drawScale;
         const labGroundY = groundY - 2;
         const labHopY = labJuice.hopYPx * drawScale;
-        const clawX = labWorldX + mf.clawOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const mawX = labWorldX + mf.mawOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const mawY = labGroundY + labHopY + mf.mawOriginRel.dy * drawScale;
+        const labMutdogProj = {
+          frame: mf,
+          worldX: labWorldX,
+          worldY: labGroundY + labHopY,
+          drawScale,
+          facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          deform: labJuice.deform,
+          squashStretch: [labJuice.springScaleX, labJuice.springScaleY] as [number, number],
+          shearPx: [labJuice.shearXPx, 0] as [number, number],
+          swayAmpPx: labJuice.swayAmpPx,
+          swayPhase: labJuice.swayPhase,
+        };
+        const clawX = projectSpriteLandmarkToStage(mf.clawOriginRel, labMutdogProj).x;
+        const mawPos = projectSpriteLandmarkToStage(mf.mawOriginRel, labMutdogProj);
+        const mawX = mawPos.x;
+        const mawY = mawPos.y;
 
         if (labJuice.pounceImpactTriggered) {
           sim.trauma = Math.min(1, sim.trauma + 0.30 * mutdogJuiceConfig.feralVfxStrength);
@@ -1068,8 +1146,9 @@ export function stepEnemyAnimationSamples(
       sim.feralNurseJuiceSamples.set(enemy.id, juiceSample);
 
       if (emitSideEffects && dtStep > 0 && !ea?.dead && !tacticalViewActive) {
-        const size = baseEnemySize * 1.02;
-        const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+        const size = baseEnemySize * getMutantArchScale('feral_nurse');
+        const ff = sample.frame;
+        const drawScale = (size / FERAL_NURSE_CANONICAL_HEIGHT) * (ff.frameScale ?? 1);
         const stagger = getEnemyStaggerKinematics(ea);
         const cutInShiftX = feralNurseCutIn.active
           ? feralNurseCutIn.clashSlideX + feralNurseCutIn.knockbackX
@@ -1087,10 +1166,25 @@ export function stepEnemyAnimationSamples(
           (feralNurseCutIn.isMeleeClash ? 0 : juiceSample.xShiftPx * drawScale);
         const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
         const hopY = juiceSample.hopYPx * drawScale;
-        const ff = sample.frame;
         const juiceFacing = juiceSample.facingScale;
-        const clawX = spriteX + ff.clawOriginRel.dx * drawScale * (-juiceFacing);
-        const clawY = enemyGroundY + hopY + ff.clawOriginRel.dy * drawScale;
+        const clawPos = projectSpriteLandmarkToStage(ff.clawOriginRel, {
+          frame: ff,
+          worldX: spriteX,
+          worldY: enemyGroundY + hopY + stagger.dy * 0.45,
+          drawScale,
+          facingSign: juiceFacing,
+          rotationRad: stagger.rot * 0.28 + juiceSample.rotationRad + feralNurseCutIn.leanRad,
+          deform: juiceSample.deform,
+          squashStretch: [
+            stagger.scaleXMul * juiceSample.springScaleX * feralNurseCutIn.scaleX,
+            stagger.scaleYMul * juiceSample.springScaleY * feralNurseCutIn.scaleY,
+          ],
+          shearPx: [juiceSample.shearXPx + stagger.shearPx * 0.45, 0],
+          swayAmpPx: juiceSample.swayAmpPx,
+          swayPhase: juiceSample.swayPhase,
+        });
+        const clawX = clawPos.x;
+        const clawY = clawPos.y;
 
         if (juiceSample.cloakTriggered) {
           spawnFeralNurseCloakShimmer(sim, spriteX, enemyGroundY - size * 0.48, 16);
@@ -1134,15 +1228,27 @@ export function stepEnemyAnimationSamples(
 
       if (emitSideEffects && dtStep > 0 && !tacticalViewActive) {
         const ff = FERAL_NURSE_SHEET_FRAMES[labJuice.frameIndex] ?? FERAL_NURSE_SHEET_FRAMES[0];
-        const rawBaseSize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-        const size = rawBaseSize * 1.04;
-        const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+        const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('feral_nurse');
+        const drawScale = (size / FERAL_NURSE_CANONICAL_HEIGHT) * (ff.frameScale ?? 1);
         const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.58);
         const labWorldX = labBaseX + labJuice.xShiftPx * drawScale;
         const labGroundY = groundY - 2;
         const labHopY = labJuice.hopYPx * drawScale;
-        const clawX = labWorldX + ff.clawOriginRel.dx * drawScale * (-labJuice.facingScale);
-        const clawY = labGroundY + labHopY + ff.clawOriginRel.dy * drawScale;
+        const clawPos = projectSpriteLandmarkToStage(ff.clawOriginRel, {
+          frame: ff,
+          worldX: labWorldX,
+          worldY: labGroundY + labHopY,
+          drawScale,
+          facingSign: labJuice.facingScale,
+          rotationRad: labJuice.rotationRad,
+          deform: labJuice.deform,
+          squashStretch: [labJuice.springScaleX, labJuice.springScaleY],
+          shearPx: [labJuice.shearXPx, 0],
+          swayAmpPx: labJuice.swayAmpPx,
+          swayPhase: labJuice.swayPhase,
+        });
+        const clawX = clawPos.x;
+        const clawY = clawPos.y;
 
         if (labJuice.cloakTriggered) {
           spawnFeralNurseCloakShimmer(sim, labWorldX, labGroundY - size * 0.48, 16);
@@ -1273,10 +1379,28 @@ export function stepEnemyAnimationSamples(
             (matriarchCutIn.isMeleeClash ? 0 : juiceSample.offsetX * drawScale);
           const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
           const hopY = juiceSample.hopYPx * drawScale;
+          const bossProj = {
+            frame: sample.frame,
+            worldX: spriteX,
+            worldY: enemyGroundY + hopY + stagger.dy * 0.45,
+            drawScale,
+            facingSign: juiceSample.facingScale,
+            nativeFacingSign: 1 as const,
+            rotationRad: stagger.rot * 0.28 + juiceSample.rotationRad + matriarchCutIn.leanRad,
+            deform: juiceSample.deform,
+            squashStretch: [
+              stagger.scaleXMul * juiceSample.springScaleX * matriarchCutIn.scaleX,
+              stagger.scaleYMul * juiceSample.springScaleY * matriarchCutIn.scaleY,
+            ] as [number, number],
+            shearPx: [juiceSample.shearXPx + stagger.shearPx * 0.45, 0] as [number, number],
+            swayAmpPx: juiceSample.swayAmpPx,
+            swayPhase: juiceSample.swayPhase,
+          };
 
           if (juiceSample.backExplosionTriggered) {
-            const backX = spriteX + sample.frame.backOriginRel.dx * drawScale;
-            const backY = enemyGroundY + hopY + sample.frame.backOriginRel.dy * drawScale;
+            const backPos = projectSpriteLandmarkToStage(sample.frame.backOriginRel, bossProj);
+            const backX = backPos.x;
+            const backY = backPos.y;
             sim.trauma = Math.min(1, sim.trauma + 0.58);
             sim.hitstop = Math.max(sim.hitstop, 0.08);
             spawnBurst(sim, backX, backY, 18, '#BEF264', 0, 1.35, 195, 0.56, 0.34, 3.0, 4.2);
@@ -1286,8 +1410,9 @@ export function stepEnemyAnimationSamples(
           }
 
           if (juiceSample.slimeBurstTriggered || juiceSample.slashImpactTriggered) {
-            const jawX = spriteX + sample.frame.jawOriginRel.dx * drawScale;
-            const jawY = enemyGroundY + hopY + sample.frame.jawOriginRel.dy * drawScale;
+            const jawPos = projectSpriteLandmarkToStage(sample.frame.jawOriginRel, bossProj);
+            const jawX = jawPos.x;
+            const jawY = jawPos.y;
             spawnBurst(sim, jawX, jawY, 10, '#A3E635', -0.45, 0.95, 110, 0.38, 0.26, 2.4, 3.0);
             if (juiceSample.slashImpactTriggered) {
               sim.trauma = Math.min(1, sim.trauma + 0.26);

@@ -469,7 +469,7 @@ export function renderFeralNurseEnemySprite(
 
   const ff = feralNurseSample.frame;
   const pf = feralNurseSample.prevFrame;
-  const drawScale = c.size / FERAL_NURSE_CANONICAL_HEIGHT;
+  const drawScale = (c.size / FERAL_NURSE_CANONICAL_HEIGHT) * (ff.frameScale ?? 1);
   const juiceHopY = feralNurseJuice
     ? feralNurseJuice.hopYPx * drawScale
     : feralNurseSample.yHopPx * drawScale;

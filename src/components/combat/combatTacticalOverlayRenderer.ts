@@ -7,6 +7,11 @@ import type {
   HeroThreatPreview,
   TurnPreview,
 } from '../../engine/types';
+import {
+  computeBaseEnemySize,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
+import { getHeroVisualHeightRatio } from './combatStageTypes';
 import { computeEnemyArmorPreview } from './combatEnemyUi';
 
 const FALLBACK_INTENT: EnemyIntent = { kind: 'attack', value: 0 };
@@ -550,6 +555,7 @@ export function renderTacticalViewPlaquesPass(params: {
   heroTargetHeight: number;
   enemies: readonly EnemyUnit[];
   slotCenters: readonly number[];
+  effectiveSlotCount: number;
   enemyBaseX: number;
   enemyStepX: number;
   frontLivingIdx: number;
@@ -565,6 +571,7 @@ export function renderTacticalViewPlaquesPass(params: {
     heroTargetHeight,
     enemies,
     slotCenters,
+    effectiveSlotCount,
     enemyBaseX,
     enemyStepX,
     frontLivingIdx,
@@ -577,7 +584,8 @@ export function renderTacticalViewPlaquesPass(params: {
     const hPlaqueW = 122;
     const hPlaqueH = 30;
     const hpx = Math.max(8, Math.round(heroX - hPlaqueW * 0.5));
-    const hpy = Math.max(38, Math.round(groundY - heroTargetHeight - 18));
+    const visualHeroH = heroTargetHeight * getHeroVisualHeightRatio(hero.characterId);
+    const hpy = Math.max(38, Math.round(groundY - visualHeroH - 18));
     ctx.fillStyle = '#020617';
     ctx.fillRect(hpx - 2, hpy - 2, hPlaqueW + 4, hPlaqueH + 4);
     ctx.strokeStyle = '#FFFFFF';
@@ -591,16 +599,17 @@ export function renderTacticalViewPlaquesPass(params: {
     ctx.fillText(`★ ${hero.hp}/${hero.maxHp}${shText}`, hpx + hPlaqueW * 0.5, hpy + hPlaqueH * 0.5);
   }
 
+  const baseEnemySize = computeBaseEnemySize(w, h, effectiveSlotCount);
   for (let idx = 0; idx < enemies.length; idx++) {
     const enemy = enemies[idx];
     if (enemy.hp <= 0) continue;
     const ex = enemyBaseX + (slotCenters[idx] ?? idx) * enemyStepX;
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);
-    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
+    const size = baseEnemySize * getMutantArchScale(enemy.archetype);
     const ePlaqueW = 136;
     const ePlaqueH = 44;
     const epx = Math.max(8, Math.min(w - ePlaqueW - 8, Math.round(ex - ePlaqueW * 0.5)));
-    const epy = Math.max(42, Math.round(enemyGroundY - baseEnemySize * 0.94));
+    const epy = Math.max(42, Math.round(enemyGroundY - size * 0.94));
 
     const intent =
       enemy.intentCycle[enemy.currentIntentIndex] ??

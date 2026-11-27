@@ -6,7 +6,11 @@ import type {
   EnemyUnit,
   PendingReinforcement,
 } from '../../engine/types';
-import { CRAWLER_ARCH_SCALE, isCrawlerArchetype } from '../../utils/crawlerSpriteSheet';
+import { isCrawlerArchetype } from '../../utils/crawlerSpriteSheet';
+import {
+  computeBaseEnemySize,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
 import {
   ENEMY_FOOT_DEFAULTS,
   type EnemyCutoutEntry,
@@ -90,8 +94,7 @@ export function computeEnemyHitBoxes(
     1,
     400,
   );
-  const crowdScale = slotCount >= 5 ? 0.78 : slotCount === 4 ? 0.86 : 1;
-  const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
+  const baseEnemySize = computeBaseEnemySize(w, h, slotCount);
   const minTopY = h < 220 ? 34 : 58;
 
   const boxes: EnemyHitBox[] = [];
@@ -100,14 +103,7 @@ export function computeEnemyHitBoxes(
     if (enemy.hp <= 0 || enemy.escaped) continue;
 
     const arch = enemy.archetype;
-    const archScale = isCrawlerArchetype(arch)
-      ? CRAWLER_ARCH_SCALE[arch]
-      : arch === 'boss'
-        ? 1.24
-        : arch === 'brute'
-          ? 1.32
-          : 0.94;
-    const size = baseEnemySize * archScale;
+    const size = baseEnemySize * getMutantArchScale(arch);
     const slotCenter = slotCenters[idx] ?? idx;
     const ex = enemyBaseX + slotCenter * enemyStepX;
     const enemyGroundY = groundY - (idx % 2 === 1 ? 6 : 0);

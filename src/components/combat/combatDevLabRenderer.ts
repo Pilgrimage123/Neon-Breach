@@ -40,6 +40,10 @@ import {
   createSpitterJuiceState,
   stepSpitterJuice,
 } from '../../utils/spitterJuiceController';
+import {
+  computeBaseEnemySize,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
 import { renderSpitterGroundPuddle } from './combatDecalRenderer';
 import { renderBruteBioVfxOverlay } from './combatEnemyBioSpritePass';
 import { renderFeralNurseBioVfxOverlay } from './combatFeralNurseSpritePass';
@@ -126,8 +130,7 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
     if (spCanvas) {
       const sf = SPITTER_SHEET_FRAMES[labJuice.frameIndex] ?? SPITTER_SHEET_FRAMES[0];
       const pf = SPITTER_SHEET_FRAMES[labJuice.prevFrameIndex] ?? sf;
-      const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-      const size = baseEnemySize * 0.98;
+      const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('spitter');
       const drawScale = size / SPITTER_CANONICAL_HEIGHT;
       const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.58);
       const labWorldX = labBaseX + labJuice.offsetX * drawScale;
@@ -296,8 +299,7 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
     if (bCanvas) {
       const bf = BRUTE_SHEET_FRAMES[labJuice.frameIndex] ?? BRUTE_SHEET_FRAMES[1];
       const pf = BRUTE_SHEET_FRAMES[labJuice.prevFrameIndex] ?? bf;
-      const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-      const size = baseEnemySize * 1.28;
+      const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('brute');
       const drawScale = size / BRUTE_CANONICAL_HEIGHT;
       const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.62);
       const labWorldX = labBaseX + labJuice.offsetX * drawScale;
@@ -430,9 +432,8 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
     if (mCanvas) {
       const mf = MUTDOG_SHEET_FRAMES[labJuice.frameIndex] ?? MUTDOG_SHEET_FRAMES[0];
       const pf = MUTDOG_SHEET_FRAMES[labJuice.prevFrameIndex] ?? mf;
-      const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-      const size = baseEnemySize * 0.98;
-      const drawScale = size / MUTDOG_CANONICAL_HEIGHT;
+      const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('mutdog');
+      const drawScale = (size / MUTDOG_CANONICAL_HEIGHT) * (mf.frameScale ?? 1);
       const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.60);
       const labWorldX = labBaseX + labJuice.offsetX * drawScale;
       const labGroundY = groundY - 2;
@@ -564,9 +565,8 @@ export function renderDevLabPass(ctx: DevLabRenderPassContext): void {
     if (fCanvas) {
       const ff = FERAL_NURSE_SHEET_FRAMES[labJuice.frameIndex] ?? FERAL_NURSE_SHEET_FRAMES[0];
       const pf = FERAL_NURSE_SHEET_FRAMES[labJuice.prevFrameIndex] ?? ff;
-      const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206);
-      const size = baseEnemySize * 1.04;
-      const drawScale = size / FERAL_NURSE_CANONICAL_HEIGHT;
+      const size = computeBaseEnemySize(w, h, 1) * getMutantArchScale('feral_nurse');
+      const drawScale = (size / FERAL_NURSE_CANONICAL_HEIGHT) * (ff.frameScale ?? 1);
       const labBaseX = Math.round(heroX + (enemyBaseX - heroX) * 0.58);
       const labWorldX = labBaseX + labJuice.xShiftPx * drawScale;
       const labGroundY = groundY - 2;

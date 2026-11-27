@@ -417,6 +417,7 @@ export {
   formatEnemyIntent,
   getBridgeGroundY,
   getEnemyLaneMetrics,
+  getHeroVisualHeightRatio,
   getStageLayoutMetrics,
   resetCombatStageSim,
 } from './combatStageSim';

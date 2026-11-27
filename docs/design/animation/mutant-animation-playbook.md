@@ -6,7 +6,7 @@
 
 ## 1. Tier A Convergence & 4-Layer `proceduralJuiceCore`
 
-All 9 `EnemyArchetype`s are registered in `src/utils/mutantAnimationRegistry.ts` (`MUTANT_ANIMATION_REGISTRY`, `getMutantArchScale`) and converge on **Tier A** (4-Layer `proceduralJuiceCore.ts` + multi-frame sheet + `DEV` Lab tab). Legacy `sample*Frame` double-sampling is retired on all Juice-driven Mutants — the `*JuiceController` is the sole authority over `frameIndex`, `prevFrameIndex`, `frameBlendAlpha`, `offsetX`, `hopYPx`, `springScaleX/Y`, `rotationRad`, `deform`, and shader uniforms.
+All 9 `EnemyArchetype`s are registered in `src/utils/mutantAnimationRegistry.ts` (`MUTANT_ANIMATION_REGISTRY`, `getMutantArchScale`, `computeEnemyCrowdScale`, `computeBaseEnemySize`) and converge on **Tier A** (4-Layer `proceduralJuiceCore.ts` + multi-frame sheet + `DEV` Lab tab). Every combat consumer (rendering, hitboxes, Action Camera bounds, tactical plaques, and `ANIM LAB`) must read `getMutantArchScale` and `computeBaseEnemySize` (`crowdScale`: `0.92` for 4 slots, `0.86` for 5+ slots) instead of hardcoding scale literals. Legacy `sample*Frame` double-sampling is retired on all Juice-driven Mutants — the `*JuiceController` is the sole authority over `frameIndex`, `prevFrameIndex`, `frameBlendAlpha`, `offsetX`, `hopYPx`, `springScaleX/Y`, `rotationRad`, `deform`, and shader uniforms.
 
 1. **Layer 1 — Crisp Frame Authority**: Instant `blendDuration = 0` cuts (`frameBlendAlpha = 1`), except for the 2-item allowlist (`Feral Nurse` `Optical Cloak` `0.04s`, `Chitin Stalker` 2-frame eyelid blink `0.04–0.065s`).
 2. **Layer 2 — Symplectic Euler Spring & 2.5D Kinematics**: Sub-stepped (`2×`, `dt <= 0.05s`) `stepSymplecticSpringScale`, `stepHorizontalFlip` (cosine `facingScale` + clamped `-sin(π * u) * hopPx`), and `stepHorizontalVelocityShear`.
@@ -19,15 +19,15 @@ All 9 `EnemyArchetype`s are registered in `src/utils/mutantAnimationRegistry.ts`
 
 | Archetype | Tier | Sheet Geometry | Bake Mode (`scripts/bakeSprites.ts`) | `CANONICAL_HEIGHT` | `archScale` | Native Facing (`facingSign`) | Notes |
 | :--- | :---: | :--- | :--- | :---: | :---: | :---: | :--- |
-| **Bile Spitter** (`spitter`) | **Tier A** | `4×4` (`1024×1024`, 16f) | White BFS + jet-only `excludeRects` | `246` | `0.94` | Right (`-1`) | `spitterJuiceController.ts`, Bezier bile stream, F1-grounded waddle hop, ground puddle |
+| **Bile Spitter** (`spitter`) | **Tier A** | `4×4` (`1024×1024`, 16f) | White BFS + jet-only `excludeRects` | `246` | `0.96` | Right (`-1`) | 4-file `spitterJuice{State,Branches,Stepper,Controller}`, Bezier bile stream, F1-grounded waddle hop, ground puddle |
 | **Carapace Brute** (`brute`) | **Tier A** | `4×4` (`1024×1024`, 16f) | White BFS + glow unmix + Frame 10 `excludeRects` | `234` | `1.32` | Right (`-1`) | `bruteJuiceController.ts`, 5 intent/hover postures, chest vials, dorsal plumes, fissures |
-| **Rabid MutDog** (`mutdog`) | **Tier A** | `4×4` (`1024×1024`, 16f) | White BFS + glow unmix | `182` | `0.94` | Right (`-1`) | `mutdogJuiceController.ts`, twin amber lures, foaming drool, maul slam |
-| **Feral Nurse** (`feral_nurse`) | **Tier A** | Dual `4×4` (`2×1024×1024`, 32f) | `#00D856` chroma-green pre-keyed (`preserveExistingAlpha`) | `248` | `1.02` | Right (`-1`) | `feralNurseJuiceController.ts`, **Optical Cloak** (`0.04s` allowlist), cap-cross scanned `headsetOriginRel` |
-| **Chitin Stalker** (`stalker`) | *Transitional* | `2 × 512×512` PNGs | Passthrough (`preserveExistingAlpha`) | `460` | `0.98` | Left (`+1`) | `stalkerJuiceController.ts`, eyelid blink allowlist, **7 bone-weighted slime nozzles** *(must be preserved when upgraded to Tier A)* |
-| **Spore Mite** (`larva`) | *Transitional* | `3×16` shared (`2172×724`, Row 0) | White BFS (`minPocketArea: 24`) | `180` | `0.62` | Left (`+1`) | `crawlerSpriteSheet.ts` stateless sampler until Tier A sheet |
-| **Cobalt Skitter** (`skitter`) | *Transitional* | `3×16` shared (`2172×724`, Row 1) | White BFS (`minPocketArea: 24`) | `180` | `0.68` | Left (`+1`) | `crawlerSpriteSheet.ts` stateless sampler until Tier A sheet |
-| **Pyre Stinger** (`stinger`) | *Transitional* | `3×16` shared (`2172×724`, Row 2) | White BFS (`minPocketArea: 24`) | `180` | `0.74` | Left (`+1`) | `crawlerSpriteSheet.ts` stateless sampler until Tier A sheet |
-| **Xenomorph Matriarch** (`boss`) | *Transitional* | `2` baked PNGs (`585×640` intact, `640×427` exploded) | White BFS + `removeNeutralFloorShadow` + `removeSubtleCheckerboard` | `560` | `1.28` | Left (`+1`) | `matriarchJuiceController.ts`, **half-HP (`hp <= maxHp * 0.5`) dorsal carapace explosion** (`rupture` state -> Phase 2 crouch), `14` bone-weighted slime/ember nozzles |
+| **Rabid MutDog** (`mutdog`) | **Tier A** | `4×4` (`1024×1024`, 16f) | White BFS + glow unmix | `182` | `0.78` | Right (`-1`) | `mutdogJuiceController.ts`, per-frame `frameScale` for idle/howl/pounce normalization, twin amber lures, foaming drool, maul slam |
+| **Feral Nurse** (`feral_nurse`) | **Tier A** | Dual `4×4` (`2×1024×1024`, 32f) | `#00D856` chroma-green pre-keyed (`preserveExistingAlpha`) | `248` | `1.00` | Right (`-1`) | `feralNurseJuiceController.ts`, per-frame `frameScale` on prowl `F5..F9`, **Optical Cloak** (`0.04s` allowlist), cap-cross scanned `headsetOriginRel` |
+| **Chitin Stalker** (`stalker`) | *Transitional* | `2 × 512×512` PNGs | Passthrough (`preserveExistingAlpha`) | `460` | `1.04` | Left (`+1`) | `stalkerJuiceController.ts`, eyelid blink allowlist, **7 bone-weighted slime nozzles** *(must be preserved when upgraded to Tier A)* |
+| **Spore Mite** (`larva`) | *Transitional* | `3×16` shared (`2172×724`, Row 0) | White BFS (`minPocketArea: 24`) | `180` | `0.79` | Left (`+1`) | `crawlerSpriteSheet.ts` stateless sampler until Tier A sheet |
+| **Cobalt Skitter** (`skitter`) | *Transitional* | `3×16` shared (`2172×724`, Row 1) | White BFS (`minPocketArea: 24`) | `180` | `0.60` | Left (`+1`) | `crawlerSpriteSheet.ts` stateless sampler until Tier A sheet |
+| **Pyre Stinger** (`stinger`) | *Transitional* | `3×16` shared (`2172×724`, Row 2) | White BFS (`minPocketArea: 24`) | `180` | `0.78` | Left (`+1`) | `crawlerSpriteSheet.ts` stateless sampler until Tier A sheet |
+| **Xenomorph Matriarch** (`boss`) | *Transitional* | `2` baked PNGs (`585×640` intact, `640×427` exploded) | White BFS + `removeNeutralFloorShadow` + `removeSubtleCheckerboard` | `560` | `1.36` | Left (`+1`) | `matriarchJuiceController.ts`, **half-HP (`hp <= maxHp * 0.5`) dorsal carapace explosion** (`rupture` state -> Phase 2 crouch), `14` bone-weighted slime/ember nozzles |
 
 ---
 

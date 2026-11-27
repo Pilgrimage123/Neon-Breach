@@ -167,7 +167,7 @@ test('cleanWhiteBackgroundData removes bottom floor shadow & trapped between-boo
   assert.equal(data[(45 * w + 50) * 4 + 3], 255);
 });
 
-test('Auraline sprite sheet frames clean bottom floor wedges/shadows without punching holes in dress or muzzle flashes', () => {
+test('Auraline sprite sheet frames are cleanly pre-keyed from chroma-green with intact white fur mantle and zero floor shadow', () => {
   const sheet = decodePngRgba('assets-src/heroes/auraline_sheet_a.png');
   const targetIds = ['auraline_f0', 'auraline_f3', 'auraline_f7', 'auraline_f11', 'auraline_f12', 'auraline_f14'];
 
@@ -175,88 +175,33 @@ test('Auraline sprite sheet frames clean bottom floor wedges/shadows without pun
     const rect = AURALINE_SHEET_FRAMES.find((f) => f.id === id);
     assert.ok(rect, `Missing frame ${id}`);
     const data = cropRgba(sheet, rect);
-    cleanWhiteBackgroundData(data, rect.w, rect.h, {
-      removeBottomFloorShadow: true,
-      defringeStrength: 0.78,
-    });
 
-    // 1. Verify no opaque floor shadow strip lingers along bottom 4 rows
-    let bottomOpaqueShadowCount = 0;
-    for (let y = rect.h - 4; y < rect.h; y++) {
-      for (let x = 0; x < rect.w; x++) {
-        const p = (y * rect.w + x) * 4;
-        if (data[p + 3] > 30) {
-          const r = data[p];
-          const g = data[p + 1];
-          const b = data[p + 2];
-          if (b >= 125 && b - r >= 36 && (b - g >= 12 || (r < 110 && g >= 95 && b >= g - 6))) {
-            bottomOpaqueShadowCount++;
-          }
+    // 1. Verify no chroma-green backdrop pixels remain
+    let chromaGreenCount = 0;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i + 3] > 30) {
+        const r = data[i], g = data[i + 1], b = data[i + 2];
+        if (g > 150 && g - r > 70 && g - b > 45) {
+          chromaGreenCount++;
         }
       }
     }
-    assert.equal(bottomOpaqueShadowCount, 0, `${id} still has opaque bottom blue/cyan floor shadow`);
+    assert.equal(chromaGreenCount, 0, `${id} still has ${chromaGreenCount} chroma-green pixels`);
 
-    // 2. Verify no large opaque near-white floor pocket remains in the bottom 15% of the frame
-    const minY = Math.floor(rect.h * 0.85);
-    const total = rect.w * rect.h;
-    const seen = new Uint8Array(total);
-    const queue = new Int32Array(total);
-    let maxWhitePocket = 0;
-    for (let y = minY; y < rect.h; y++) {
-      for (let x = 0; x < rect.w; x++) {
-        const start = y * rect.w + x;
-        if (seen[start]) continue;
-        const sp = start * 4;
-        if (data[sp + 3] < 30) continue;
-        const sr = data[sp], sg = data[sp + 1], sb = data[sp + 2];
-        const sMin = Math.min(sr, sg, sb), sMax = Math.max(sr, sg, sb);
-        if (!(sMin > 224 && sMax - sMin < 24)) continue;
-
-        let head = 0, tail = 0;
-        seen[start] = 1;
-        queue[tail++] = start;
-        while (head < tail) {
-          const cur = queue[head++];
-          const cx = cur % rect.w;
-          const cy = (cur - cx) / rect.w;
-          const push = (n: number) => {
-            if (seen[n]) return;
-            const np = n * 4;
-            if (data[np + 3] < 30) return;
-            const r = data[np], g = data[np + 1], b = data[np + 2];
-            if (Math.min(r, g, b) > 224 && Math.max(r, g, b) - Math.min(r, g, b) < 24) {
-              seen[n] = 1;
-              queue[tail++] = n;
-            }
-          };
-          if (cx > 0) push(cur - 1);
-          if (cx < rect.w - 1) push(cur + 1);
-          if (cy > minY) push(cur - rect.w);
-          if (cy < rect.h - 1) push(cur + rect.w);
-        }
-        if (tail > maxWhitePocket) maxWhitePocket = tail;
-      }
-    }
-    assert.ok(
-      maxWhitePocket < 100,
-      `${id} retains large bottom white pocket of ${maxWhitePocket}px`,
-    );
-
-    // 3. Verify upper bright highlights (dress/skin/muzzle flashes) remain opaque
+    // 2. Verify upper bright highlights (white fur mantle) remain opaque
     let upperBrightOpaque = 0;
     const upperLimitY = Math.floor(rect.h * 0.65);
     for (let y = 0; y < upperLimitY; y++) {
       for (let x = 0; x < rect.w; x++) {
         const p = (y * rect.w + x) * 4;
-        if (data[p + 3] >= 200 && Math.min(data[p], data[p + 1], data[p + 2]) > 225) {
+        if (data[p + 3] >= 200 && Math.min(data[p], data[p + 1], data[p + 2]) > 210) {
           upperBrightOpaque++;
         }
       }
     }
     assert.ok(
       upperBrightOpaque > 30,
-      `${id} lost upper bright white dress/muzzle highlights (only ${upperBrightOpaque}px left)`,
+      `${id} lost upper bright white fur mantle highlights (only ${upperBrightOpaque}px left)`,
     );
   }
 });

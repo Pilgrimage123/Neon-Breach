@@ -31,8 +31,10 @@ test('isCrawlerArchetype and CRAWLER_ARCH_SCALE order filler variants from small
   assert.equal(isCrawlerArchetype('skitter'), true);
   assert.equal(isCrawlerArchetype('stinger'), true);
   assert.equal(isCrawlerArchetype('stalker'), false);
-  assert.ok(CRAWLER_ARCH_SCALE.larva < CRAWLER_ARCH_SCALE.skitter);
   assert.ok(CRAWLER_ARCH_SCALE.skitter < CRAWLER_ARCH_SCALE.stinger);
+  // Visible opaque heights (larva=86px, skitter=184px, stinger=154px) order strictly smallest -> largest
+  assert.ok(86 * CRAWLER_ARCH_SCALE.larva < 184 * CRAWLER_ARCH_SCALE.skitter);
+  assert.ok(184 * CRAWLER_ARCH_SCALE.skitter < 154 * CRAWLER_ARCH_SCALE.stinger);
 });
 
 test('sampleCrawlerFrame steps through 8 attack frames (0..7), 4 pain frames (8..11), and 8 collapse frames (8..15)', () => {

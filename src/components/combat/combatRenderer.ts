@@ -413,11 +413,9 @@ export function renderCombatStage(
 
   const isProne =
     heroSample.state.mode === 'defeat' &&
-    (charId === 'auraline'
-      ? heroSample.frameIndex >= 35
-      : charId === 'zuri'
-        ? heroSample.frameIndex >= 29
-        : heroSample.frameIndex >= 31);
+    (charId === 'zuri'
+      ? heroSample.frameIndex >= 29
+      : heroSample.frameIndex === 15);
 
   const frontLivingIdx = enemies.findIndex((e) => e.hp > 0);
   const frontLivingIdForDrones =
@@ -687,6 +685,7 @@ export function renderCombatStage(
       heroTargetHeight,
       enemies,
       slotCenters,
+      effectiveSlotCount,
       enemyBaseX,
       enemyStepX,
       frontLivingIdx,

@@ -61,7 +61,7 @@ function makeCell(
   };
 }
 
-export const KIRA_UNIFORM_ROW_SCALE = 0.8807;
+export const KIRA_UNIFORM_ROW_SCALE = 0.6735;
 
 export const KIRA_SHEET_A_FRAMES: readonly HeroFrameDef[] = [
   makeCell('kira_f0', 0, 0, 'combat', 123.19, 256, KIRA_UNIFORM_ROW_SCALE),
@@ -75,7 +75,7 @@ export const KIRA_SHEET_A_FRAMES: readonly HeroFrameDef[] = [
   makeCell('kira_f8', 2, 0, 'combat', 124.18, 256, KIRA_UNIFORM_ROW_SCALE),
   makeCell('kira_f9', 2, 1, 'combat', 107.96, 256, KIRA_UNIFORM_ROW_SCALE),
   makeCell('kira_f10', 2, 2, 'combat', 121.57, 256, KIRA_UNIFORM_ROW_SCALE, { muzzleRel: { dx: 103.4, dy: -157 } }),
-  makeCell('kira_f11', 2, 3, 'combat', 141.26, 250, KIRA_UNIFORM_ROW_SCALE, { muzzleRel: { dx: 52.7, dy: -157.8 } }),
+  makeCell('kira_f11', 2, 3, 'combat', 116.93, 250, KIRA_UNIFORM_ROW_SCALE, { muzzleRel: { dx: 115.1, dy: -211.1 } }),
   makeCell('kira_f12', 3, 0, 'combat', 107.76, 256, KIRA_UNIFORM_ROW_SCALE),
   makeCell('kira_f13', 3, 1, 'combat', 124.53, 256, KIRA_UNIFORM_ROW_SCALE),
   makeCell('kira_f14', 3, 2, 'combat', 116.18, 256, KIRA_UNIFORM_ROW_SCALE),

@@ -52,15 +52,15 @@ test('all 32 Auraline dual 4x4 sprite sheet frames lie cleanly inside 1024x1024 
     assert.ok(frame.anchorX >= 100 && frame.anchorX <= 150, `${frame.id} invalid anchorX ${frame.anchorX}`);
     assert.equal(frame.bottomY, 249, `${frame.id} must be sole-locked at bottomY = 249`);
     assert.ok(
-      Math.abs(238 * frame.rowScale - AURALINE_CANONICAL_HEIGHT) <= 1,
-      `${frame.id} effective standing height deviates from ${AURALINE_CANONICAL_HEIGHT}`,
+      Math.abs(238 * frame.rowScale - 173) <= 1,
+      `${frame.id} effective standing height deviates from 173px`,
     );
   }
 
-  // F11 (Artillery Surge Blast peak recoil roar pose) carries the muzzle landmark at (83, -163)
+  // F11 (Artillery Surge Blast peak recoil roar pose) carries the scanned muzzle landmark
   const f11 = AURALINE_SHEET_FRAMES[11];
   assert.equal(f11.id, 'auraline_f11');
-  assert.deepEqual(f11.muzzleRel, { dx: 83, dy: -163 });
+  assert.deepEqual(f11.muzzleRel, { dx: 112, dy: -131.3 });
 });
 
 test('Auraline idle state cycles calm/curtsy/gun-inspect windows and snaps to tactical hover poses (attack->6, defense->13, tech->27)', () => {

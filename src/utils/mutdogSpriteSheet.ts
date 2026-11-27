@@ -20,6 +20,8 @@ export interface MutdogSpriteFrame extends SpriteRect {
   anchorX: number;
   /** Vertical offset inside frame rect where clawed paws meet the bridge deck */
   bottomY: number;
+  /** Optional per-frame scale multiplier (default 1) to normalize outlier poses */
+  frameScale?: number;
   /** Relative offset from (anchorX, bottomY) in post-flip unscaled px (-dx = left/forward) for twin lure midpoint */
   lureOriginRel: { dx: number; dy: number };
   /** Exact relative offsets from (anchorX, bottomY) in post-flip unscaled px for [frontBulb, rearBulb] antenna tips */
@@ -53,6 +55,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 170,
     anchorX: 130,
     bottomY: 167,
+    frameScale: 1.02,
     lureOriginRel: { dx: -90, dy: -138 },
     lureBulbsRel: [
       { dx: -112, dy: -137 },
@@ -72,6 +75,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 178,
     anchorX: 130,
     bottomY: 175,
+    frameScale: 0.98,
     excludeRects: [{ x: 0, y: 28, w: 6, h: 18 }],
     lureOriginRel: { dx: -93, dy: -148 },
     lureBulbsRel: [
@@ -92,6 +96,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 182,
     anchorX: 131,
     bottomY: 179,
+    frameScale: 0.95,
     lureOriginRel: { dx: -89, dy: -152 },
     lureBulbsRel: [
       { dx: -111, dy: -152 },
@@ -132,6 +137,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 244,
     anchorX: 133,
     bottomY: 241,
+    frameScale: 0.86,
     lureOriginRel: { dx: -68, dy: -215 },
     lureBulbsRel: [
       { dx: -93, dy: -217 },
@@ -210,6 +216,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 245,
     anchorX: 117,
     bottomY: 242,
+    frameScale: 0.86,
     excludeRects: [{ x: 215, y: 165, w: 21, h: 62 }],
     lureOriginRel: { dx: -87, dy: -214 },
     lureBulbsRel: [
@@ -250,6 +257,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 228,
     anchorX: 137,
     bottomY: 225,
+    frameScale: 0.92,
     excludeRects: [
       { x: 0, y: 10, w: 15, h: 105 },
       { x: 224, y: 170, w: 33, h: 56 },
@@ -294,6 +302,7 @@ export const MUTDOG_SHEET_FRAMES: readonly MutdogSpriteFrame[] = [
     h: 248,
     anchorX: 124,
     bottomY: 245,
+    frameScale: 0.85,
     lureOriginRel: { dx: -53, dy: -224 },
     lureBulbsRel: [
       { dx: -69, dy: -227 },

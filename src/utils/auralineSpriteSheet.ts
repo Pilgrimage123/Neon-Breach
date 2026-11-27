@@ -29,9 +29,13 @@ export const AURALINE_CELL_SIZE = 256;
 export const AURALINE_CANONICAL_HEIGHT = 214;
 export const AURALINE_AEGIS_COUNTER_DURATION = 0.78;
 
+/**
+ * Both Sheet A (`auraline_sheet_a.png`) and Sheet B (`auraline_sheet_b.png`) are pre-keyed
+ * lossless transparent RGBA PNGs cleanly keyed from flat chroma-green (`#00D856`), so their
+ * alpha channel is preserved untouched and white fur mantle details stay 100% solid.
+ */
 export const AURALINE_SHEET_OPTIONS: SpriteCutoutOptions = {
-  removeBottomFloorShadow: true,
-  defringeStrength: 0.78,
+  preserveExistingAlpha: true,
 };
 
 function makeCell(
@@ -62,9 +66,9 @@ function makeCell(
 
 /**
  * Uniform scale factor mapping 238px standing character height in 256×256 cells
- * to the 214.0px canonical hero height on the bridge deck (`214 / 238 = 0.8992`).
+ * to the ~173px calibrated visible hero height on the bridge deck (`173 / 238 = 0.7269`).
  */
-export const AURALINE_UNIFORM_ROW_SCALE = 0.8992;
+export const AURALINE_UNIFORM_ROW_SCALE = 0.7269;
 
 /**
  * Auraline Sheet A (`auraline_sheet_a.png` — 1024×1024, 4×4 grid of 256×256 cells, F0..F15):
@@ -74,30 +78,30 @@ export const AURALINE_UNIFORM_ROW_SCALE = 0.8992;
  * - Row 3 (F12..F15): Artillery Smoking Barrel Cooldown (F12), Aegis Gauntlet Guard (F13), Impact Hit Stagger (F14), One-Knee Overload Defeat (F15)
  */
 export const AURALINE_SHEET_A_FRAMES: readonly HeroFrameDef[] = [
-  makeCell('auraline_f0', 0, 0, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f1', 0, 1, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f2', 0, 2, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f3', 0, 3, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f4', 1, 0, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f5', 1, 1, 'combat', 115, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f6', 1, 2, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE, {
-    muzzleRel: { dx: 118, dy: -173 },
+  makeCell('auraline_f0', 0, 0, 'combat', 137, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f1', 0, 1, 'combat', 135, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f2', 0, 2, 'combat', 131, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f3', 0, 3, 'combat', 123, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f4', 1, 0, 'combat', 126, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f5', 1, 1, 'combat', 133, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f6', 1, 2, 'combat', 118, 249, AURALINE_UNIFORM_ROW_SCALE, {
+    muzzleRel: { dx: 125, dy: -170.8 },
   }),
-  makeCell('auraline_f7', 1, 3, 'combat', 113, 249, AURALINE_UNIFORM_ROW_SCALE, {
-    muzzleRel: { dx: 136, dy: -174 },
+  makeCell('auraline_f7', 1, 3, 'combat', 119, 249, AURALINE_UNIFORM_ROW_SCALE, {
+    muzzleRel: { dx: 124, dy: -172.2 },
   }),
-  makeCell('auraline_f8', 2, 0, 'combat', 116, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f9', 2, 1, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f10', 2, 2, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE, {
-    muzzleRel: { dx: 115, dy: -167 },
+  makeCell('auraline_f8', 2, 0, 'combat', 135, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f9', 2, 1, 'combat', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f10', 2, 2, 'combat', 129, 249, AURALINE_UNIFORM_ROW_SCALE, {
+    muzzleRel: { dx: 115, dy: -148.6 },
   }),
-  makeCell('auraline_f11', 2, 3, 'combat', 125, 249, AURALINE_UNIFORM_ROW_SCALE, {
-    muzzleRel: { dx: 83, dy: -163 },
+  makeCell('auraline_f11', 2, 3, 'combat', 132, 249, AURALINE_UNIFORM_ROW_SCALE, {
+    muzzleRel: { dx: 112, dy: -131.3 },
   }),
-  makeCell('auraline_f12', 3, 0, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f13', 3, 1, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f14', 3, 2, 'combat', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f15', 3, 3, 'combat', 120, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f12', 3, 0, 'combat', 135, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f13', 3, 1, 'combat', 129, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f14', 3, 2, 'combat', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f15', 3, 3, 'combat', 116, 249, AURALINE_UNIFORM_ROW_SCALE),
 ];
 
 /**
@@ -110,24 +114,24 @@ export const AURALINE_SHEET_A_FRAMES: readonly HeroFrameDef[] = [
  * - Row 3 Cols 1..3 (F29..F31): Victory Royal Salute (3f)
  */
 export const AURALINE_SHEET_B_FRAMES: readonly HeroFrameDef[] = [
-  makeCell('auraline_f16', 0, 0, 'emote', 138, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f17', 0, 1, 'emote', 136, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f18', 0, 2, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f19', 0, 3, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f20', 1, 0, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f21', 1, 1, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE, {
-    muzzleRel: { dx: 133, dy: -173 },
+  makeCell('auraline_f16', 0, 0, 'emote', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f17', 0, 1, 'emote', 123, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f18', 0, 2, 'emote', 127, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f19', 0, 3, 'emote', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f20', 1, 0, 'emote', 119, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f21', 1, 1, 'emote', 134, 249, AURALINE_UNIFORM_ROW_SCALE, {
+    muzzleRel: { dx: 101, dy: -129.9 },
   }),
-  makeCell('auraline_f22', 1, 2, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f23', 1, 3, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f24', 2, 0, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f25', 2, 1, 'emote', 117, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f26', 2, 2, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f27', 2, 3, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f28', 3, 0, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f29', 3, 1, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f30', 3, 2, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
-  makeCell('auraline_f31', 3, 3, 'emote', 114, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f22', 1, 2, 'emote', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f23', 1, 3, 'emote', 115, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f24', 2, 0, 'emote', 126, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f25', 2, 1, 'emote', 124, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f26', 2, 2, 'emote', 131, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f27', 2, 3, 'emote', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f28', 3, 0, 'emote', 130, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f29', 3, 1, 'emote', 128, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f30', 3, 2, 'emote', 134, 249, AURALINE_UNIFORM_ROW_SCALE),
+  makeCell('auraline_f31', 3, 3, 'emote', 127, 249, AURALINE_UNIFORM_ROW_SCALE),
 ];
 
 export const AURALINE_SHEET_FRAMES: readonly HeroFrameDef[] = [

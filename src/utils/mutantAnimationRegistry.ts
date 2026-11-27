@@ -52,7 +52,7 @@ export const MUTANT_ANIMATION_REGISTRY: Record<EnemyArchetype, MutantAnimationSp
   stalker: {
     archetype: 'stalker',
     tier: 'legacy_transitional',
-    archScale: 0.98,
+    archScale: 1.04,
     canonicalHeight: STALKER_CANONICAL_HEIGHT,
     nativeFacingSign: 1,
     blendPolicy: 'eyelid_blink_only',
@@ -61,7 +61,7 @@ export const MUTANT_ANIMATION_REGISTRY: Record<EnemyArchetype, MutantAnimationSp
   spitter: {
     archetype: 'spitter',
     tier: 'tier_a',
-    archScale: 0.94,
+    archScale: 0.96,
     canonicalHeight: SPITTER_CANONICAL_HEIGHT,
     nativeFacingSign: -1,
     blendPolicy: 'crisp_only',
@@ -70,7 +70,7 @@ export const MUTANT_ANIMATION_REGISTRY: Record<EnemyArchetype, MutantAnimationSp
   mutdog: {
     archetype: 'mutdog',
     tier: 'tier_a',
-    archScale: 0.94,
+    archScale: 0.78,
     canonicalHeight: MUTDOG_CANONICAL_HEIGHT,
     nativeFacingSign: -1,
     blendPolicy: 'crisp_only',
@@ -79,7 +79,7 @@ export const MUTANT_ANIMATION_REGISTRY: Record<EnemyArchetype, MutantAnimationSp
   feral_nurse: {
     archetype: 'feral_nurse',
     tier: 'tier_a',
-    archScale: 1.02,
+    archScale: 1.0,
     canonicalHeight: FERAL_NURSE_CANONICAL_HEIGHT,
     nativeFacingSign: -1,
     blendPolicy: 'spectral_cloak_only',
@@ -97,7 +97,7 @@ export const MUTANT_ANIMATION_REGISTRY: Record<EnemyArchetype, MutantAnimationSp
   boss: {
     archetype: 'boss',
     tier: 'legacy_transitional',
-    archScale: 1.28,
+    archScale: 1.36,
     canonicalHeight: MATRIARCH_CANONICAL_HEIGHT,
     nativeFacingSign: 1,
     blendPolicy: 'crisp_only',
@@ -117,5 +117,16 @@ export const TIER_A_LAB_ARCHETYPES: readonly {
 ];
 
 export function getMutantArchScale(archetype: EnemyArchetype): number {
-  return MUTANT_ANIMATION_REGISTRY[archetype]?.archScale ?? 0.94;
+  return MUTANT_ANIMATION_REGISTRY[archetype]?.archScale ?? 0.96;
+}
+
+export function computeEnemyCrowdScale(slotCount: number): number {
+  return slotCount >= 5 ? 0.86 : slotCount === 4 ? 0.92 : 1;
+}
+
+export function computeBaseEnemySize(w: number, h: number, slotCount: number): number {
+  return (
+    Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) *
+    computeEnemyCrowdScale(slotCount)
+  );
 }

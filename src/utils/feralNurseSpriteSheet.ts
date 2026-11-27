@@ -27,6 +27,8 @@ export interface FeralNurseSpriteFrame extends SpriteRect {
   anchorX: number;
   /** Vertical offset inside frame rect where stiletto heels/toes touch the deck */
   bottomY: number;
+  /** Optional per-frame scale multiplier (default 1) to smooth prowl posture height */
+  frameScale?: number;
   /** Relative offset from (anchorX, bottomY) in post-flip unscaled px (-dx = left/forward) to glowing headset LED / eyes */
   headsetOriginRel: { dx: number; dy: number };
   /** Relative offset from (anchorX, bottomY) in post-flip unscaled px (-dx = left/forward) to leading bone-talons */
@@ -135,6 +137,7 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     h: 248,
     anchorX: 94,
     bottomY: 246,
+    frameScale: 0.97,
     headsetOriginRel: { dx: -53, dy: -210 },
     clawOriginRel: { dx: -109, dy: -103 },
   },
@@ -149,6 +152,7 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     h: 244,
     anchorX: 99,
     bottomY: 242,
+    frameScale: 0.98,
     headsetOriginRel: { dx: -62, dy: -205 },
     clawOriginRel: { dx: -102, dy: -133 },
   },
@@ -163,6 +167,7 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     h: 239,
     anchorX: 108,
     bottomY: 237,
+    frameScale: 1.0,
     headsetOriginRel: { dx: -67, dy: -198 },
     clawOriginRel: { dx: -98, dy: -139 },
   },
@@ -179,6 +184,7 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     h: 246,
     anchorX: 106,
     bottomY: 244,
+    frameScale: 0.98,
     headsetOriginRel: { dx: -53, dy: -207 },
     clawOriginRel: { dx: -127, dy: -125 },
   },
@@ -193,6 +199,7 @@ export const FERAL_NURSE_SHEET_A_FRAMES: readonly FeralNurseSpriteFrame[] = [
     h: 231,
     anchorX: 96,
     bottomY: 229,
+    frameScale: 1.03,
     headsetOriginRel: { dx: -43, dy: -192 },
     clawOriginRel: { dx: -109, dy: -99 },
   },

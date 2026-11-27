@@ -32,7 +32,7 @@ test('dual 4x4 Kira sheets (32 frames) lie cleanly inside 1024x1024 baked RGBA P
   assert.equal(KIRA_SHEET_B_FRAMES.length, 16);
   assert.equal(KIRA_SHEET_FRAMES.length, 32);
   assert.equal(KIRA_CANONICAL_HEIGHT, 214);
-  assert.ok(KIRA_UNIFORM_ROW_SCALE > 0.8 && KIRA_UNIFORM_ROW_SCALE < 1.0);
+  assert.ok(KIRA_UNIFORM_ROW_SCALE > 0.6 && KIRA_UNIFORM_ROW_SCALE < 0.8);
 
   for (const relPath of [
     'src/assets/sprites/baked/kira_sheet_a.png',

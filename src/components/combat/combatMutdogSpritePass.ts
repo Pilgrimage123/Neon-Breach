@@ -424,7 +424,7 @@ export function renderMutdogEnemySprite(
 
   const mf = mutdogSample.frame;
   const pf = mutdogSample.prevFrame;
-  const drawScale = c.size / MUTDOG_CANONICAL_HEIGHT;
+  const drawScale = (c.size / MUTDOG_CANONICAL_HEIGHT) * (mf.frameScale ?? 1);
   const juiceHopY = mutdogJuice
     ? mutdogJuice.hopYPx * drawScale
     : mutdogSample.yHopPx * drawScale;

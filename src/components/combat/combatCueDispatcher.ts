@@ -1,6 +1,10 @@
 import type { AnimationCue, CombatState, EnemyArchetype, HeroState } from '../../engine/types';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
 import { KIRA_DODGE_DURATION } from '../../utils/kiraSpriteSheet';
+import {
+  computeBaseEnemySize,
+  getMutantArchScale,
+} from '../../utils/mutantAnimationRegistry';
 import type { CameraActorBounds } from './ActionCameraController';
 import type { CutInActionKind, CutInStagingMode } from './CombatActionSequencer';
 import { syncCombatBloodState } from './combatBloodSimulation';
@@ -17,6 +21,7 @@ import {
   type CombatStageSim,
   getBridgeGroundY,
   getEnemyLaneMetrics,
+  getHeroVisualHeightRatio,
 } from './combatStageTypes';
 import {
   ensureEnemyAnim,
@@ -96,7 +101,9 @@ export function applyCombatCues(
 
   const buildActorBounds = (actorId: string): CameraActorBounds => {
     if (actorId === 'hero') {
-      const heroHeight = Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
+      const heroHeight =
+        Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214) *
+        getHeroVisualHeightRatio(charId);
       return {
         id: 'hero',
         x: heroX,
@@ -107,21 +114,8 @@ export function applyCombatCues(
     }
     const pos = getEnemyPos(actorId);
     const arch = getEnemyArch(actorId);
-    const crowdScale = slotCount >= 5 ? 0.78 : slotCount === 4 ? 0.86 : 1;
-    const baseEnemySize = Math.min(h * (h < 220 ? 0.51 : 0.53), w * 0.27, 206) * crowdScale;
-    const archScale =
-      arch === 'boss'
-        ? 1.24
-        : arch === 'brute'
-          ? 1.32
-          : arch === 'larva'
-            ? 0.76
-            : arch === 'skitter'
-              ? 0.88
-              : arch === 'stinger'
-                ? 0.96
-                : 0.94;
-    const heightPx = baseEnemySize * archScale;
+    const baseEnemySize = computeBaseEnemySize(w, h, slotCount);
+    const heightPx = baseEnemySize * getMutantArchScale(arch);
     return {
       id: actorId,
       x: pos.x,

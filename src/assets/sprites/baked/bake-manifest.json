@@ -161,8 +161,8 @@
       "output": "src/assets/sprites/baked/auraline_sheet_a.png",
       "width": 1024,
       "height": 1024,
-      "sourceSha256": "bd1c436a8a789ab90aef9d2efe9e59e67812f06a17e1b30b58f9ebd9c72f8630",
-      "outputSha256": "406eaf547f18115a3b3d07c55edcac9ea1e76695122459821fd3a6086fb29e9c"
+      "sourceSha256": "57c07c3a7ac09feeaaeb48c5b37b7a99b315469076d0cdfb548bdfa53c18a5b8",
+      "outputSha256": "a13e2546d0e46e8ebd74f7c4969dab65f7577c1b15bb3d08ba2317ed916c2afe"
     },
     {
       "id": "auralineSheetB",
@@ -170,8 +170,8 @@
       "output": "src/assets/sprites/baked/auraline_sheet_b.png",
       "width": 1024,
       "height": 1024,
-      "sourceSha256": "7d5adef7d8f309e51d66ac3a87985cfe1896f2fb06e728898edd209c9d61b429",
-      "outputSha256": "dd6e398368f597bda903854cc883d72e57f1b0078baf03f6111a82f5e1445848"
+      "sourceSha256": "b567ba887cedcdf2ee2171e17c8737abea69fdd200ae2878a8ff6a93d32898ea",
+      "outputSha256": "da5287e0398aea16107f0f6fb2e13a673b9fa09b70146949ca78e829f5eec822"
     },
     {
       "id": "kiraSheetA",
@@ -179,8 +179,8 @@
       "output": "src/assets/sprites/baked/kira_sheet_a.png",
       "width": 1024,
       "height": 1024,
-      "sourceSha256": "8cbf8c6894a9e19745ffc703727367370fabcc372e74d4f46716025c87d4315f",
-      "outputSha256": "6432801494c0caaec6a118bb983993e9f5d907539460f99a330ea44cfbb10683"
+      "sourceSha256": "90ddc5cd20fbfc1fd2e4f0103bd077d41de00485dcc320cd00e37fcca68b645a",
+      "outputSha256": "104a83d69fae26d89c24b4c0d2a6b727fff15e2b4b656209814f8526442b9c73"
     },
     {
       "id": "kiraSheetB",
