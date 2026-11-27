@@ -3,7 +3,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import sharp from 'sharp';
 import type { EnemyArchetype } from '../src/engine/types';
-import { AURALINE_SHEET_FRAMES } from '../src/utils/auralineSpriteSheet';
+import {
+  AURALINE_SHEET_A_FRAMES,
+  AURALINE_SHEET_B_FRAMES,
+  AURALINE_SHEET_OPTIONS,
+} from '../src/utils/auralineSpriteSheet';
 import { BRUTE_SHEET_FRAMES, BRUTE_SHEET_OPTIONS } from '../src/utils/bruteSpriteSheet';
 import { CRAWLER_FRAMES_BY_VARIANT } from '../src/utils/crawlerSpriteSheet';
 import {
@@ -76,11 +80,18 @@ interface MultiFrameBakeSpec {
 
 const MULTI_FRAME_SPECS: readonly MultiFrameBakeSpec[] = [
   {
-    id: 'auraline',
-    sourceRel: 'assets-src/heroes/auraline_spritesheet.png',
-    outputFile: 'auraline_spritesheet.png',
-    frames: AURALINE_SHEET_FRAMES,
-    options: { removeBottomFloorShadow: true, defringeStrength: 0.78 },
+    id: 'auralineSheetA',
+    sourceRel: 'assets-src/heroes/auraline_sheet_a.png',
+    outputFile: 'auraline_sheet_a.png',
+    frames: AURALINE_SHEET_A_FRAMES,
+    options: AURALINE_SHEET_OPTIONS,
+  },
+  {
+    id: 'auralineSheetB',
+    sourceRel: 'assets-src/heroes/auraline_sheet_b.png',
+    outputFile: 'auraline_sheet_b.png',
+    frames: AURALINE_SHEET_B_FRAMES,
+    options: AURALINE_SHEET_OPTIONS,
   },
   {
     id: 'kiraSheetA',

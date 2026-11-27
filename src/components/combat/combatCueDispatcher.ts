@@ -86,9 +86,10 @@ export function applyCombatCues(
     const staggerY = safeIdx % 2 === 1 ? -6 : 0;
     const enemyGroundY = groundY + staggerY;
     const centerSlot = slotCenters[safeIdx] ?? safeIdx;
+    const refHeroHeight = Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
     return {
       x: enemyBaseX + centerSlot * enemyStepX,
-      y: enemyGroundY - 88,
+      y: Math.round(enemyGroundY - refHeroHeight * 0.38),
       groundY: enemyGroundY,
     };
   };
@@ -412,6 +413,9 @@ export function applyCombatCues(
     } else if (cue.kind === 'hero_shield') {
       sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
       sim.shieldDomeTimer = 0.48;
+      if (charId === 'auraline') {
+        sim.auralineAegisDomeTimer = 0.52;
+      }
       spawnBurst(sim, heroX, groundY - 95, cue.surge ? 20 : 12, '#00E5FF', 1, 0.85);
       if (cue.value) {
         spawnFloatingText(sim, heroX, groundY - 150, `+${cue.value} SHD`, '#38BDF8', 1.05);
@@ -419,6 +423,9 @@ export function applyCombatCues(
     } else if (cue.kind === 'hero_tech') {
       sim.heroState = triggerCharacterAnimation(sim.heroState, 'upgrade', charId);
       sim.upgradeBeamTimer = 0.55;
+      if (charId === 'auraline') {
+        sim.auralineReactorAuraTimer = 0.58;
+      }
       spawnBurst(sim, heroX, groundY - 95, cue.surge ? 22 : 14, '#FFB800', 1, 0.9);
       spawnFloatingText(
         sim,

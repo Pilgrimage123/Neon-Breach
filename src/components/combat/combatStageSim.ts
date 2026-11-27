@@ -3,6 +3,10 @@ import type { EnemyIntent } from '../../engine/types';
 import { TRANSLATIONS, type Language } from '../../i18n/translations';
 import { createInitialHeroAnimState } from '../../utils/heroAnimator';
 import {
+  DEFAULT_AURALINE_JUICE_CONFIG,
+  createAuralineJuiceState,
+} from '../../utils/auralineJuiceController';
+import {
   DEFAULT_KIRA_JUICE_CONFIG,
   createKiraJuiceState,
 } from '../../utils/kiraJuiceController';
@@ -295,6 +299,20 @@ export function createCombatStageSim(): CombatStageSim {
     kiraDropkickRingTimer: 0,
     kiraDropkickSoleX: 0,
     kiraDropkickSoleY: 0,
+    auralineJuiceState: createAuralineJuiceState(),
+    auralineJuiceConfig: { ...DEFAULT_AURALINE_JUICE_CONFIG },
+    auralineJuiceSample: null,
+    auralineSurgeBlastTimer: 0,
+    auralineSurgeMuzzleX: 0,
+    auralineSurgeMuzzleY: 0,
+    auralineScatterConeTimer: 0,
+    auralineScatterMuzzleX: 0,
+    auralineScatterMuzzleY: 0,
+    auralineBroadsideTimer: 0,
+    auralineBroadsideMuzzleX: 0,
+    auralineBroadsideMuzzleY: 0,
+    auralineAegisDomeTimer: 0,
+    auralineReactorAuraTimer: 0,
     enemyAnims: new Map(),
     enemyWoundOrigins: new Map(),
     prevEnemySlots: new Map(),
@@ -400,6 +418,13 @@ export function resetCombatStageSim(sim: CombatStageSim): void {
   sim.kiraJuiceSample = null;
   sim.kiraSurgeBlastTimer = 0;
   sim.kiraDropkickRingTimer = 0;
+  sim.auralineJuiceState = createAuralineJuiceState();
+  sim.auralineJuiceSample = null;
+  sim.auralineSurgeBlastTimer = 0;
+  sim.auralineScatterConeTimer = 0;
+  sim.auralineBroadsideTimer = 0;
+  sim.auralineAegisDomeTimer = 0;
+  sim.auralineReactorAuraTimer = 0;
   sim.heroAnim = {
     flashTimer: 0,
     lunge: 0,

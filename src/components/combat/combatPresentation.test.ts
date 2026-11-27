@@ -702,8 +702,8 @@ test('CombatActionSequencer isolates throwing callbacks and still completes Phas
 });
 
 test('classifyHeroAttackStaging keeps Auraline and Zuri 100% ranged and Kira hybrid melee/pistol', () => {
-  // Auraline is strictly ranged (scattergun) even on Surge or Overdrive
-  const aureliaSingle = classifyHeroAttackStaging({
+  // Auraline is strictly ranged (scattergun) even on Artillery Surge Blast (dash_kick) or Overdrive
+  const aureliaSurge = classifyHeroAttackStaging({
     charId: 'auraline',
     isSurge: true,
     damageValue: 22,
@@ -711,9 +711,22 @@ test('classifyHeroAttackStaging keeps Auraline and Zuri 100% ranged and Kira hyb
     attackToggle: 0,
     isOverdrive: false,
   });
-  assert.equal(aureliaSingle.stagingMode, 'ranged_fast');
-  assert.equal(aureliaSingle.heroAnimMode, 'shoot');
-  assert.equal(aureliaSingle.projectileProfile, 'scattergun');
+  assert.equal(aureliaSurge.stagingMode, 'ranged_fast');
+  assert.equal(aureliaSurge.heroAnimMode, 'dash_kick');
+  assert.equal(aureliaSurge.projectileProfile, 'scattergun');
+  assert.equal(aureliaSurge.isMelee, false);
+
+  const aureliaNormal = classifyHeroAttackStaging({
+    charId: 'auraline',
+    isSurge: false,
+    damageValue: 12,
+    targetCount: 1,
+    attackToggle: 0,
+    isOverdrive: false,
+  });
+  assert.equal(aureliaNormal.stagingMode, 'ranged_fast');
+  assert.equal(aureliaNormal.heroAnimMode, 'shoot');
+  assert.equal(aureliaNormal.isMelee, false);
 
   const aureliaOd = classifyHeroAttackStaging({
     charId: 'auraline',

@@ -1,5 +1,13 @@
 import type { CharacterId, CombatState, HeroState, TileType } from '../../engine/types';
-import { AURALINE_CANONICAL_HEIGHT } from '../../utils/auralineSpriteSheet';
+import {
+  AURALINE_CANONICAL_HEIGHT,
+  AURALINE_SHEET_FRAMES,
+} from '../../utils/auralineSpriteSheet';
+import {
+  stepAuralineJuice,
+  toAuralineHeroAnimStateSnapshot,
+  triggerAuralineJuiceState,
+} from '../../utils/auralineJuiceController';
 import { stepCharacterAnimState } from '../../utils/characterAnimator';
 import type { HeroFrameSample } from '../../utils/heroAnimator';
 import {
@@ -42,9 +50,14 @@ export function stepAndDispatchHeroFrame(params: {
       : activeCharId === 'zuri'
         ? ZURI_CANONICAL_HEIGHT
         : KIRA_CANONICAL_HEIGHT;
+  const reducedMotion =
+    typeof window !== 'undefined' &&
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   let heroSample: HeroFrameSample;
   if (activeCharId === 'kira') {
+    sim.auralineJuiceSample = null;
     if (
       sim.heroState.elapsed === 0 &&
       (sim.heroState.mode !== sim.kiraJuiceState.mode ||
@@ -55,10 +68,6 @@ export function stepAndDispatchHeroFrame(params: {
         lowHpHit: sim.heroState.lowHpHit,
       });
     }
-    const reducedMotion =
-      typeof window !== 'undefined' &&
-      typeof window.matchMedia === 'function' &&
-      window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const kj = stepKiraJuice(
       sim.kiraJuiceState,
       simDt,
@@ -91,8 +100,59 @@ export function stepAndDispatchHeroFrame(params: {
       shouldEmitKickImpact: kj.shouldEmitKickImpact,
       isDashing: kj.isDashing,
     };
+  } else if (activeCharId === 'auraline') {
+    sim.kiraJuiceSample = null;
+    if (
+      sim.heroState.elapsed === 0 &&
+      (sim.heroState.mode !== sim.auralineJuiceState.mode ||
+        sim.auralineJuiceState.elapsed > 0.005 ||
+        sim.heroState.mode !== 'idle')
+    ) {
+      triggerAuralineJuiceState(sim.auralineJuiceState, sim.heroState.mode, {
+        lowHpHit: sim.heroState.lowHpHit,
+      });
+    }
+    const aj = stepAuralineJuice(
+      sim.auralineJuiceState,
+      simDt,
+      {
+        isDead: hero.hp <= 0 || combat.phase === 'DEFEAT',
+        isVictory: combat.phase === 'VICTORY' && sim.pendingImpacts.length === 0,
+        hoveredColor,
+        totalTime: elapsed,
+        reducedMotion,
+      },
+      sim.auralineJuiceConfig,
+    );
+    sim.auralineJuiceSample = aj;
+    sim.heroState = toAuralineHeroAnimStateSnapshot(aj.state);
+    if (aj.aegisCounterIntensity > 0) {
+      sim.auralineAegisDomeTimer = Math.max(sim.auralineAegisDomeTimer, 0.34);
+    }
+    if (aj.reactorCoreIntensity > 0) {
+      sim.auralineReactorAuraTimer = Math.max(sim.auralineReactorAuraTimer, 0.38);
+    }
+    const frame = AURALINE_SHEET_FRAMES[aj.frameIndex] ?? AURALINE_SHEET_FRAMES[0];
+    const prevFrame = AURALINE_SHEET_FRAMES[aj.prevFrameIndex] ?? frame;
+    heroSample = {
+      state: sim.heroState,
+      frameIndex: aj.frameIndex,
+      frame,
+      prevFrameIndex: aj.prevFrameIndex,
+      prevFrame,
+      frameBlendAlpha: aj.blendAlpha,
+      xProgress: aj.xProgress,
+      yHopPx: aj.hopYPx,
+      breathScaleY: aj.springScaleY,
+      breathScaleX: aj.springScaleX,
+      tiltRad: aj.rotationRad,
+      shouldEmitShot: aj.shouldEmitShot,
+      shouldEmitKickImpact: aj.shouldEmitKickImpact,
+      isDashing: aj.isDashing,
+    };
   } else {
     sim.kiraJuiceSample = null;
+    sim.auralineJuiceSample = null;
     heroSample = stepCharacterAnimState(sim.heroState, simDt, activeCharId, {
       isDead: hero.hp <= 0 || combat.phase === 'DEFEAT',
       isVictory: combat.phase === 'VICTORY' && sim.pendingImpacts.length === 0,
@@ -109,10 +169,29 @@ export function stepAndDispatchHeroFrame(params: {
     if (sim.kiraDropkickRingTimer > 0) {
       sim.kiraDropkickRingTimer = Math.max(0, sim.kiraDropkickRingTimer - simDt);
     }
+    if (sim.auralineSurgeBlastTimer > 0) {
+      sim.auralineSurgeBlastTimer = Math.max(0, sim.auralineSurgeBlastTimer - simDt);
+    }
+    if (sim.auralineScatterConeTimer > 0) {
+      sim.auralineScatterConeTimer = Math.max(0, sim.auralineScatterConeTimer - simDt);
+    }
+    if (sim.auralineBroadsideTimer > 0) {
+      sim.auralineBroadsideTimer = Math.max(0, sim.auralineBroadsideTimer - simDt);
+    }
+    if (sim.auralineAegisDomeTimer > 0) {
+      sim.auralineAegisDomeTimer = Math.max(0, sim.auralineAegisDomeTimer - simDt);
+    }
+    if (sim.auralineReactorAuraTimer > 0) {
+      sim.auralineReactorAuraTimer = Math.max(0, sim.auralineReactorAuraTimer - simDt);
+    }
   }
 
   if (activeCanvas.dataset.heroAnim !== heroSample.state.mode) {
     activeCanvas.dataset.heroAnim = heroSample.state.mode;
+  }
+  const frameStr = String(heroSample.frameIndex);
+  if (activeCanvas.dataset.heroFrame !== frameStr) {
+    activeCanvas.dataset.heroFrame = frameStr;
   }
 
   const heroFrame = heroSample.frame;
@@ -218,8 +297,14 @@ export function stepAndDispatchHeroFrame(params: {
     }
 
     if (!isLabOwnedCutIn && heroSample.shouldEmitShot && (heroFrame.muzzleRel || zuriDrones)) {
-      const kiraMuzzleProj =
-        activeCharId === 'kira' && heroFrame.muzzleRel
+      const tierAJuice =
+        activeCharId === 'kira'
+          ? sim.kiraJuiceSample
+          : activeCharId === 'auraline'
+            ? sim.auralineJuiceSample
+            : null;
+      const tierAMuzzleProj =
+        (activeCharId === 'kira' || activeCharId === 'auraline') && heroFrame.muzzleRel
           ? projectSpriteLandmarkToStage(heroFrame.muzzleRel, {
               frame: heroFrame,
               worldX: heroLiveX,
@@ -227,35 +312,52 @@ export function stepAndDispatchHeroFrame(params: {
               drawScale: heroDrawScale,
               facingSign: 1,
               nativeFacingSign: 1,
-              rotationRad: sim.kiraJuiceSample?.rotationRad ?? 0,
-              deform: sim.kiraJuiceSample?.deform,
-              squashStretch: sim.kiraJuiceSample
+              rotationRad: tierAJuice?.rotationRad ?? 0,
+              deform: tierAJuice?.deform,
+              squashStretch: tierAJuice
                 ? [
-                    sim.kiraJuiceSample.springScaleX * sim.kiraJuiceSample.facingScale,
-                    sim.kiraJuiceSample.springScaleY,
+                    tierAJuice.springScaleX * tierAJuice.facingScale,
+                    tierAJuice.springScaleY,
                   ]
                 : [1, 1],
-              shearPx: [sim.kiraJuiceSample?.shearXPx ?? 0, 0],
+              shearPx: [tierAJuice?.shearXPx ?? 0, 0],
             })
           : null;
       const mx = zuriDrones
         ? zuriDrones.strike.muzzleX
-        : kiraMuzzleProj
-          ? kiraMuzzleProj.x
+        : tierAMuzzleProj
+          ? tierAMuzzleProj.x
           : heroLiveX + (heroFrame.muzzleRel?.dx ?? 120) * heroDrawScale;
       const my = zuriDrones
         ? zuriDrones.strike.muzzleY
-        : kiraMuzzleProj
-          ? kiraMuzzleProj.y
+        : tierAMuzzleProj
+          ? tierAMuzzleProj.y
           : heroY + (heroFrame.muzzleRel?.dy ?? -140) * heroDrawScale;
       if (activeCharId === 'kira' && heroSample.state.mode === 'dash_kick') {
         sim.kiraSurgeBlastTimer = 0.42;
         sim.kiraSurgeMuzzleX = mx;
         sim.kiraSurgeMuzzleY = my;
+      } else if (activeCharId === 'auraline') {
+        if (heroSample.state.mode === 'dash_kick') {
+          sim.auralineSurgeBlastTimer = 0.48;
+          sim.auralineSurgeMuzzleX = mx;
+          sim.auralineSurgeMuzzleY = my;
+        } else if (heroSample.state.mode === 'overdrive') {
+          sim.auralineBroadsideTimer = 0.64;
+          sim.auralineBroadsideMuzzleX = mx;
+          sim.auralineBroadsideMuzzleY = my;
+        } else {
+          sim.auralineScatterConeTimer = 0.28;
+          sim.auralineScatterMuzzleX = mx;
+          sim.auralineScatterMuzzleY = my;
+        }
       }
       const isOverdrive = heroSample.state.mode === 'overdrive';
       const triggerKey = heroSample.state.emittedShots === 1 ? 'shot1' : 'shot2';
-      const baseImpact = drainTriggerImpacts(sim, triggerKey);
+      let baseImpact = drainTriggerImpacts(sim, triggerKey);
+      if (!baseImpact && triggerKey === 'shot1' && heroSample.state.mode === 'dash_kick') {
+        baseImpact = drainTriggerImpacts(sim, 'kick');
+      }
       const onImpact =
         triggerKey === 'shot1'
           ? () => {
@@ -263,61 +365,87 @@ export function stepAndDispatchHeroFrame(params: {
               if (baseImpact) baseImpact();
             }
           : baseImpact;
-      const profile: ProjectileVisualProfile =
-        activeCharId === 'zuri'
-          ? 'drone_plasma'
-          : activeCharId === 'auraline'
-            ? 'scattergun'
-            : 'pistol_bolt';
-      spawnStyledProjectileVolley(sim, {
-        profile,
-        sx: mx,
-        sy: my,
-        tx: sim.pendingShotTargetX,
-        ty: sim.pendingShotTargetY,
-        isOverdrive,
-        onPrimaryImpact: onImpact,
-      });
-      if (activeCharId === 'zuri' && zuriDrones && isOverdrive) {
+      const isAuralineSurgeBlast =
+        activeCharId === 'auraline' && heroSample.state.mode === 'dash_kick';
+      const isAuralineBroadside =
+        activeCharId === 'auraline' && heroSample.state.mode === 'overdrive';
+      if (isAuralineSurgeBlast || isAuralineBroadside) {
+        if (onImpact) {
+          sim.pendingImpacts.push({
+            triggerOn: 'delay',
+            delayRemaining: isAuralineSurgeBlast ? 0.085 : 0.11,
+            execute: onImpact,
+          });
+        }
+        if (isAuralineSurgeBlast) {
+          spawnBurst(sim, mx, my, 3, '#00F0FF', 1, 1.05, 0, 0.22, 0.18, 1.8, 2.4);
+          spawnBurst(sim, mx, my, 2, '#E879F9', 1, 0.95, 0, 0.20, 0.16, 1.6, 2.2);
+        } else {
+          spawnBurst(sim, mx, my, 6, '#FFC700', 1, 1.0, 0, 0.24, 0.22, 1.8, 2.8);
+        }
+      } else {
+        const profile: ProjectileVisualProfile =
+          activeCharId === 'zuri'
+            ? 'drone_plasma'
+            : activeCharId === 'auraline'
+              ? 'scattergun'
+              : 'pistol_bolt';
         spawnStyledProjectileVolley(sim, {
-          profile: 'pistol_bolt',
-          sx: zuriDrones.shield.muzzleX,
-          sy: zuriDrones.shield.muzzleY,
+          profile,
+          sx: mx,
+          sy: my,
           tx: sim.pendingShotTargetX,
           ty: sim.pendingShotTargetY,
-          isOverdrive: true,
+          isOverdrive,
+          onPrimaryImpact: onImpact,
         });
-      }
-      spawnBurst(
-        sim,
-        mx,
-        my,
-        activeCharId === 'zuri' ? 9 : activeCharId === 'auraline' ? 8 : 6,
-        activeCharId === 'kira' ? '#FDE047' : '#FFC700',
-        0,
-        activeCharId === 'kira' ? 0.75 : 0.92,
-        0,
-        0.28,
-        0.28,
-        2,
-        3.8,
-      );
-      if (activeCharId !== 'zuri') {
+        if (activeCharId === 'zuri' && zuriDrones && isOverdrive) {
+          spawnStyledProjectileVolley(sim, {
+            profile: 'pistol_bolt',
+            sx: zuriDrones.shield.muzzleX,
+            sy: zuriDrones.shield.muzzleY,
+            tx: sim.pendingShotTargetX,
+            ty: sim.pendingShotTargetY,
+            isOverdrive: true,
+          });
+        }
         spawnBurst(
           sim,
-          heroLiveX + 26 * heroDrawScale,
-          heroY - 145 * heroDrawScale,
-          3,
-          '#FBBF24',
-          1,
-          0.45,
+          mx,
+          my,
+          activeCharId === 'zuri' ? 9 : activeCharId === 'auraline' ? 5 : 6,
+          activeCharId === 'kira' ? '#FDE047' : '#FFC700',
+          0,
+          activeCharId === 'kira' ? 0.75 : 0.92,
           0,
           0.28,
           0.28,
           2,
-          3.5,
+          3.4,
         );
+        if (activeCharId === 'kira') {
+          spawnBurst(
+            sim,
+            heroLiveX + 26 * heroDrawScale,
+            heroY - 145 * heroDrawScale,
+            3,
+            '#FBBF24',
+            1,
+            0.45,
+            0,
+            0.28,
+            0.28,
+            2,
+            3.5,
+          );
+        }
       }
+    }
+
+    if (!isLabOwnedCutIn && heroSample.shouldEmitKickImpact && activeCharId === 'auraline') {
+      sim.actionSequencer.triggerImpactNow();
+      const kickCb = drainTriggerImpacts(sim, 'kick');
+      if (kickCb) kickCb();
     }
 
     if (

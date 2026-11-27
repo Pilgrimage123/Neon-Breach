@@ -2,6 +2,11 @@ import type { CharacterId, EnemyArchetype } from '../../engine/types';
 import type { CrawlerVariant } from '../../utils/crawlerSpriteSheet';
 import type { HeroAnimState } from '../../utils/heroAnimator';
 import type {
+  AuralineJuiceConfig,
+  AuralineJuiceSample,
+  AuralineJuiceState,
+} from '../../utils/auralineJuiceController';
+import type {
   KiraJuiceConfig,
   KiraJuiceSample,
   KiraJuiceState,
@@ -312,6 +317,20 @@ export interface CombatStageSim {
   kiraDropkickRingTimer: number;
   kiraDropkickSoleX: number;
   kiraDropkickSoleY: number;
+  auralineJuiceState: AuralineJuiceState;
+  auralineJuiceConfig: AuralineJuiceConfig;
+  auralineJuiceSample: AuralineJuiceSample | null;
+  auralineSurgeBlastTimer: number;
+  auralineSurgeMuzzleX: number;
+  auralineSurgeMuzzleY: number;
+  auralineScatterConeTimer: number;
+  auralineScatterMuzzleX: number;
+  auralineScatterMuzzleY: number;
+  auralineBroadsideTimer: number;
+  auralineBroadsideMuzzleX: number;
+  auralineBroadsideMuzzleY: number;
+  auralineAegisDomeTimer: number;
+  auralineReactorAuraTimer: number;
   heroAnim: ActorAnim;
   ghosts: AfterimageGhost[];
   ghostSampleTimer: number;

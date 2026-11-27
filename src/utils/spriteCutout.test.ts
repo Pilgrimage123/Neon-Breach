@@ -168,8 +168,8 @@ test('cleanWhiteBackgroundData removes bottom floor shadow & trapped between-boo
 });
 
 test('Auraline sprite sheet frames clean bottom floor wedges/shadows without punching holes in dress or muzzle flashes', () => {
-  const sheet = decodePngRgba('assets-src/heroes/auraline_spritesheet.png');
-  const targetIds = ['aurelia_r0_f0', 'aurelia_r0_f4', 'aurelia_r0_f7', 'aurelia_r0_f9', 'aurelia_r1_f4', 'aurelia_r1_f6'];
+  const sheet = decodePngRgba('assets-src/heroes/auraline_sheet_a.png');
+  const targetIds = ['auraline_f0', 'auraline_f3', 'auraline_f7', 'auraline_f11', 'auraline_f12', 'auraline_f14'];
 
   for (const id of targetIds) {
     const rect = AURALINE_SHEET_FRAMES.find((f) => f.id === id);
@@ -255,7 +255,7 @@ test('Auraline sprite sheet frames clean bottom floor wedges/shadows without pun
       }
     }
     assert.ok(
-      upperBrightOpaque > 200,
+      upperBrightOpaque > 30,
       `${id} lost upper bright white dress/muzzle highlights (only ${upperBrightOpaque}px left)`,
     );
   }

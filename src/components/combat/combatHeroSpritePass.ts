@@ -9,6 +9,7 @@ import type {
 } from '../../engine/types';
 import type { Language } from '../../i18n/translations';
 import { AURALINE_SHEET_FRAMES } from '../../utils/auralineSpriteSheet';
+import { resolveAuralineCutInFrameIndex } from '../../utils/auralineJuiceController';
 import { resolveKiraCutInFrameIndex } from '../../utils/kiraJuiceController';
 import {
   KIRA_SHEET_FRAMES,
@@ -58,14 +59,11 @@ export function resolveHeroCutInFrameIndex(
   if (charId === 'kira') {
     return resolveKiraCutInFrameIndex(cutIn, seqPhase, heroMode, fallbackIndex);
   }
+  if (charId === 'auraline') {
+    return resolveAuralineCutInFrameIndex(cutIn, seqPhase, heroMode, fallbackIndex);
+  }
   if (!cutIn.active || cutIn.poseOverride === 'none') return fallbackIndex;
   const isWindup = seqPhase === 'windup' || seqPhase === 'travel';
-  if (charId === 'auraline') {
-    if (cutIn.poseOverride === 'attack_pose') return isWindup ? 13 : 14;
-    if (cutIn.poseOverride === 'brace_pose') return 28;
-    if (cutIn.poseOverride === 'recoil_pose') return 21;
-    return fallbackIndex;
-  }
   if (charId === 'zuri') {
     if (cutIn.poseOverride === 'attack_pose') return isWindup ? 19 : 20;
     if (cutIn.poseOverride === 'brace_pose') return 46;
@@ -431,12 +429,19 @@ export function renderHeroSpritePass(params: {
         : heroSample.tiltRad + heroCutIn.leanRad;
 
       if (webglRenderer) {
-        const kj = charId === 'kira' ? sim.kiraJuiceSample : null;
+        const tierAJuice =
+          charId === 'kira'
+            ? sim.kiraJuiceSample
+            : charId === 'auraline'
+              ? sim.auralineJuiceSample
+              : null;
         const { deform, uniforms } = deriveHeroDeformAndUniforms({
           mode: heroSample.state.mode,
-          breathScaleX: kj ? kj.springScaleX * kj.facingScale : heroSample.breathScaleX,
-          breathScaleY: kj ? kj.springScaleY : heroSample.breathScaleY,
-          tiltRad: kj ? kj.rotationRad : heroSample.tiltRad,
+          breathScaleX: tierAJuice
+            ? tierAJuice.springScaleX * tierAJuice.facingScale
+            : heroSample.breathScaleX,
+          breathScaleY: tierAJuice ? tierAJuice.springScaleY : heroSample.breathScaleY,
+          tiltRad: tierAJuice ? tierAJuice.rotationRad : heroSample.tiltRad,
           frameBlendAlpha: canCrossBlend ? blendA : 1,
           flashTimer: sim.heroAnim.flashTimer,
           corrode: hero.corrode,
@@ -445,23 +450,23 @@ export function renderHeroSpritePass(params: {
           isProne,
           cutIn: heroCutIn,
         });
-        if (kj) {
-          deform.feet = { ...kj.deform.feet };
-          deform.pelvis = { ...kj.deform.pelvis };
-          deform.waist = { ...kj.deform.waist };
-          deform.head = { ...kj.deform.head };
-          uniforms.shearPx = [kj.shearXPx, 0];
+        if (tierAJuice) {
+          deform.feet = { ...tierAJuice.deform.feet };
+          deform.pelvis = { ...tierAJuice.deform.pelvis };
+          deform.waist = { ...tierAJuice.deform.waist };
+          deform.head = { ...tierAJuice.deform.head };
+          uniforms.shearPx = [tierAJuice.shearXPx, 0];
           uniforms.tintRgba = [
-            uniforms.tintRgba[0] * kj.tintRgba[0],
-            uniforms.tintRgba[1] * kj.tintRgba[1],
-            uniforms.tintRgba[2] * kj.tintRgba[2],
-            uniforms.tintRgba[3] * kj.tintRgba[3],
+            uniforms.tintRgba[0] * tierAJuice.tintRgba[0],
+            uniforms.tintRgba[1] * tierAJuice.tintRgba[1],
+            uniforms.tintRgba[2] * tierAJuice.tintRgba[2],
+            uniforms.tintRgba[3] * tierAJuice.tintRgba[3],
           ];
-          if (kj.flashRgba && kj.flashRgba[3] > uniforms.flashRgba[3]) {
-            uniforms.flashRgba = [...kj.flashRgba];
+          if (tierAJuice.flashRgba && tierAJuice.flashRgba[3] > uniforms.flashRgba[3]) {
+            uniforms.flashRgba = [...tierAJuice.flashRgba];
           }
-          uniforms.uvDistortAmp = [...kj.uvDistortAmp];
-          uniforms.uvDistortFreq = kj.uvDistortFreq;
+          uniforms.uvDistortAmp = [...tierAJuice.uvDistortAmp];
+          uniforms.uvDistortFreq = tierAJuice.uvDistortFreq;
         }
         webglRenderer.drawSprite({
           id: 'hero',

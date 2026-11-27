@@ -655,6 +655,14 @@ export function renderCombatStage(
     dropIntelHorizon,
   });
 
+  const enemyLanesX: number[] = [];
+  for (let i = 0; i < enemies.length; i++) {
+    const e = enemies[i];
+    if (e.hp <= 0) continue;
+    const baseEx = enemyBaseX + (slotCenters[i] ?? i) * enemyStepX;
+    enemyLanesX.push(sim.actionSequencer.getLiveActorX(e.id, baseEx));
+  }
+
   // Pass 4.5 - 8: Airborne Blood Droplets, Styled Projectiles, Shockwaves, Beams & Particles
   renderForegroundWorldFxPass({
     ctx: fgCtx,
@@ -664,6 +672,8 @@ export function renderCombatStage(
     heroBaseX,
     groundY,
     tacticalViewActive,
+    heroTargetHeight,
+    enemyLanesX,
   });
 
   // Pass 8.5: Tactical View High-Contrast Plaques

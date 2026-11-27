@@ -8,6 +8,11 @@ import {
   createBruteJuiceState,
   triggerBruteJuiceState,
 } from '../../utils/bruteJuiceController';
+import {
+  type AuralineJuiceConfig,
+  DEFAULT_AURALINE_JUICE_CONFIG,
+  triggerAuralineJuiceState,
+} from '../../utils/auralineJuiceController';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
 import {
   DEFAULT_KIRA_JUICE_CONFIG,
@@ -568,15 +573,43 @@ export function CombatDevLabsPanel({
     requestDraw();
   };
 
+  const [auralineJuiceConfig, setAuralineJuiceConfig] = useState<AuralineJuiceConfig>(() => ({
+    ...DEFAULT_AURALINE_JUICE_CONFIG,
+  }));
+
+  const updateAuralineJuiceConfig = (next: AuralineJuiceConfig) => {
+    setAuralineJuiceConfig(next);
+    if (simRef.current) {
+      simRef.current.auralineJuiceConfig = next;
+      simRef.current.needsRedraw = true;
+    }
+    requestDraw();
+  };
+
   const fireHeroTrigger = (mode: HeroAnimMode) => {
     const sim = simRef.current;
     if (!sim) return;
     const activeChar = heroRef.current.characterId ?? 'kira';
+    const { w, h } = sim.size;
+    const groundY = getBridgeGroundY(h);
+    const heroTargetHeight = Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
+    sim.pendingShotTargetX = Math.round(w * 0.66);
+    sim.pendingShotTargetY = Math.round(groundY - heroTargetHeight * 0.36);
+    sim.dashTargetX = Math.round(w * 0.62);
     sim.heroState = triggerCharacterAnimation(sim.heroState, mode, activeChar);
+    if (activeChar === 'auraline') {
+      triggerAuralineJuiceState(sim.auralineJuiceState, mode);
+      if (mode === 'dodge' || mode === 'guard') {
+        sim.auralineAegisDomeTimer = 0.58;
+        sim.shieldDomeTimer = 0.48;
+      } else if (mode === 'upgrade') {
+        sim.auralineReactorAuraTimer = 0.62;
+        sim.upgradeBeamTimer = 0.52;
+      }
+    }
     if (mode === 'dodge' && activeChar === 'kira') {
-      const { w, h } = sim.size;
       const heroX = w < 460 ? w * 0.19 : w * 0.22;
-      triggerKiraDodgeVfx(sim, heroX, getBridgeGroundY(h));
+      triggerKiraDodgeVfx(sim, heroX, groundY);
     }
     setLastHeroTrigger(mode);
     sim.needsRedraw = true;
@@ -745,6 +778,8 @@ export function CombatDevLabsPanel({
           onFireTrigger={fireHeroTrigger}
           kiraJuiceConfig={kiraJuiceConfig}
           onChangeKiraConfig={updateKiraJuiceConfig}
+          auralineJuiceConfig={auralineJuiceConfig}
+          onChangeAuralineConfig={updateAuralineJuiceConfig}
         />
       )}
 

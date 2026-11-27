@@ -1,3 +1,4 @@
+import { getPreloadedAuralineSurgeBlastVfx } from '../../assets/assetPreloader';
 import { renderCutInForegroundVfx, type SequencerFrameState } from './CombatActionSequencer';
 import {
   BLOOD_DROP_POOL_SIZE,
@@ -460,8 +461,13 @@ export function renderForegroundWorldFxPass(params: {
   heroBaseX: number;
   groundY: number;
   tacticalViewActive: boolean;
+  heroTargetHeight?: number;
+  enemyLanesX?: readonly number[];
 }): void {
-  const { ctx, sim, w, h, heroBaseX, groundY, tacticalViewActive } = params;
+  const { ctx, sim, w, h, heroBaseX, groundY, tacticalViewActive, enemyLanesX } = params;
+  const heroTargetHeight =
+    params.heroTargetHeight ?? Math.min(h * (h < 220 ? 0.54 : 0.57), w * 0.29, 214);
+  const vfxScale = heroTargetHeight / 214;
 
   ctx.save();
   ctx.lineCap = 'round';
@@ -775,7 +781,355 @@ export function renderForegroundWorldFxPass(params: {
     ctx.restore();
   }
 
-  if (sim.overdriveTimer > 0 && sim.kiraDropkickRingTimer <= 0) {
+  // Auraline Signature Pass 1: Artillery Surge Blast (Attack Stack Surge / dash_kick)
+  // Uses the user's standalone cyber-ring plasma beam texture anchored at F11 muzzleRel.
+  // Split-drawn at splitX=560 so concentric cyber-rings maintain natural aspect ratio scaled to heroTargetHeight
+  // while the feathered beam tail stretches smoothly past the enemy without hard edge cutoffs.
+  if (sim.auralineSurgeBlastTimer > 0) {
+    const p = Math.max(0, Math.min(1, 1 - sim.auralineSurgeBlastTimer / 0.48));
+    const mx = sim.auralineSurgeMuzzleX || heroBaseX + 86 * vfxScale;
+    const my = sim.auralineSurgeMuzzleY || groundY - 147 * vfxScale;
+    const tx = Math.max(mx + 140 * vfxScale, sim.pendingShotTargetX || w * 0.68);
+    const rawTy = sim.pendingShotTargetY || my;
+    const dx = tx - mx;
+    const rawDy = rawTy - my;
+    // Keep the cyber-ring beam aligned with Auraline's horizontal F11 scattergun barrel across the bridge
+    const beamAng = Math.max(-0.045, Math.min(0.065, Math.atan2(rawDy, dx)));
+    const ty = my + Math.tan(beamAng) * dx;
+    const dist = Math.hypot(dx, ty - my);
+
+    let scaleX = 1;
+    let scaleY = 1;
+    let alpha = 1;
+    if (p < 0.22) {
+      const u = p / 0.22;
+      scaleX = 0.72 + u * 0.34;
+      scaleY = 0.80 + u * 0.26;
+      alpha = 0.92 + u * 0.08;
+    } else if (p < 0.70) {
+      const u = (p - 0.22) / 0.48;
+      scaleX = 1.06 + Math.sin(u * Math.PI * 3) * 0.04;
+      scaleY = 1.06 + Math.sin(u * Math.PI * 5) * 0.05;
+      alpha = 1.0;
+    } else {
+      const u = (p - 0.70) / 0.30;
+      scaleX = 1.06 + u * 0.06;
+      scaleY = 1.06 * (1 - u * 0.72);
+      alpha = Math.max(0, 1 - u);
+    }
+
+    const vfxImg = getPreloadedAuralineSurgeBlastVfx();
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    if (vfxImg && vfxImg.width > 0 && vfxImg.height > 0) {
+      // Muzzle focal star inside auraline_surge_blast_vfx.png (1086x362) is at x=215 (0.198), y=181 (0.50).
+      // Cyber-rings end cleanly at splitX=560; feathered tail runs u=0.70..1.0.
+      const imgW = vfxImg.width;
+      const imgH = vfxImg.height;
+      const splitX = Math.min(imgW - 16, Math.round(imgW * 0.516));
+      const overlapPx = 8;
+      const rightSx = splitX - overlapPx;
+      const rightSw = imgW - rightSx;
+
+      const drawH = heroTargetHeight * 0.94 * scaleY;
+      const pxScale = drawH / imgH;
+      const anchorY = 0.5 * drawH;
+      const anchorPx = 0.198 * imgW * pxScale;
+      const leftW = splitX * pxScale;
+      const leftEndX = leftW - anchorPx;
+      const rightStartX = leftEndX - overlapPx * pxScale;
+      const minRightW = 210 * vfxScale;
+      const rightW = Math.max(minRightW, (dist - rightStartX) / 0.56) * scaleX;
+
+      ctx.save();
+      ctx.translate(mx, my);
+      ctx.rotate(beamAng);
+      ctx.globalAlpha = alpha;
+      // Piece 1: Backflash + muzzle focal star + cyber-rings at natural 1:1 aspect ratio
+      ctx.drawImage(vfxImg, 0, 0, splitX, imgH, -anchorPx, -anchorY, leftW, drawH);
+      // Piece 2: Plasma beam + lightning + feathered dissolve tail stretched seamlessly through enemy
+      ctx.drawImage(vfxImg, rightSx, 0, rightSw, imgH, rightStartX, -anchorY, rightW, drawH);
+
+      if (p < 0.74) {
+        const innerH = drawH * 0.72;
+        const innerAnchorY = 0.5 * innerH;
+        ctx.globalAlpha = alpha * 0.48;
+        ctx.drawImage(vfxImg, 0, 0, splitX, imgH, -anchorPx, -innerAnchorY, leftW, innerH);
+        ctx.drawImage(vfxImg, rightSx, 0, rightSw, imgH, rightStartX, -innerAnchorY, rightW, innerH);
+      }
+      ctx.restore();
+    } else {
+      // Procedural fallback if image is still decoding
+      const beamGrad = ctx.createLinearGradient(mx, my, tx + 60 * vfxScale, ty);
+      beamGrad.addColorStop(0, `rgba(255, 255, 255, ${0.96 * alpha})`);
+      beamGrad.addColorStop(0.28, `rgba(0, 229, 255, ${0.92 * alpha})`);
+      beamGrad.addColorStop(0.65, `rgba(217, 70, 239, ${0.78 * alpha})`);
+      beamGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.strokeStyle = beamGrad;
+      ctx.lineWidth = 24 * vfxScale * scaleY;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.lineTo(tx + 60 * vfxScale, ty);
+      ctx.stroke();
+    }
+
+    // Target impact plasma crown at (tx, ty)
+    if (p >= 0.05) {
+      const impP = (p - 0.05) / 0.95;
+      const impAlpha = alpha * Math.sin((1 - impP * 0.65) * Math.PI * 0.5);
+      const impR = (26 + impP * 44) * vfxScale * scaleY;
+      const impGrad = ctx.createRadialGradient(tx, ty, 2 * vfxScale, tx, ty, impR);
+      impGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * impAlpha})`);
+      impGrad.addColorStop(0.35, `rgba(0, 240, 255, ${0.84 * impAlpha})`);
+      impGrad.addColorStop(0.7, `rgba(217, 70, 239, ${0.52 * impAlpha})`);
+      impGrad.addColorStop(1, 'rgba(56, 189, 248, 0)');
+      ctx.fillStyle = impGrad;
+      ctx.beginPath();
+      ctx.arc(tx, ty, impR, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.strokeStyle = `rgba(0, 240, 255, ${0.88 * impAlpha})`;
+      ctx.lineWidth = 3.0 * vfxScale * (1 - impP * 0.5);
+      ctx.beginPath();
+      ctx.ellipse(
+        tx,
+        ty,
+        (14 + impP * 28) * vfxScale,
+        (30 + impP * 50) * vfxScale,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Auraline Signature Pass 2: Twin-Barrel Scattergun Blast Cone & Recoil Halo (normal shoot)
+  if (sim.auralineScatterConeTimer > 0) {
+    const p = Math.max(0, Math.min(1, 1 - sim.auralineScatterConeTimer / 0.28));
+    const alpha = Math.max(0, 1 - p);
+    const mx = sim.auralineScatterMuzzleX || heroBaseX + 122 * vfxScale;
+    const my = sim.auralineScatterMuzzleY || groundY - 156 * vfxScale;
+    const tx = Math.max(mx + 60 * vfxScale, sim.pendingShotTargetX || w * 0.66);
+    const ty = sim.pendingShotTargetY || my;
+    const aimAng = Math.max(-0.22, Math.min(0.28, Math.atan2(ty - my, tx - mx)));
+    const coneLen = (128 + p * 145) * vfxScale;
+    const halfSpread = 0.34;
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.translate(mx, my);
+    ctx.rotate(aimAng);
+
+    const coneGrad = ctx.createRadialGradient(0, 0, 3 * vfxScale, 0, 0, coneLen);
+    coneGrad.addColorStop(0, `rgba(255, 255, 255, ${0.95 * alpha})`);
+    coneGrad.addColorStop(0.28, `rgba(255, 199, 0, ${0.84 * alpha})`);
+    coneGrad.addColorStop(0.68, `rgba(0, 229, 255, ${0.46 * alpha})`);
+    coneGrad.addColorStop(1, 'rgba(0, 229, 255, 0)');
+    ctx.fillStyle = coneGrad;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, coneLen, -halfSpread, halfSpread);
+    ctx.closePath();
+    ctx.fill();
+
+    // Twin-barrel concentric pressure rings at muzzle
+    for (let ring = 0; ring < 2; ring++) {
+      const rx = (12 + ring * 14 + p * 24) * vfxScale;
+      ctx.strokeStyle =
+        ring === 0
+          ? `rgba(255, 199, 0, ${0.9 * alpha})`
+          : `rgba(0, 240, 255, ${0.82 * alpha})`;
+      ctx.lineWidth = (3.8 - ring * 1.1) * vfxScale * (1 - p * 0.45);
+      ctx.beginPath();
+      ctx.ellipse(
+        rx,
+        0,
+        (8 + p * 12) * vfxScale,
+        (22 + ring * 7 + p * 32) * vfxScale,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.stroke();
+    }
+
+    // 7 golden-cyan buckshot pellet streaks
+    for (let s = 0; s < 7; s++) {
+      const ang = -halfSpread * 0.85 + (s / 6) * (halfSpread * 1.7);
+      const r0 = (10 + p * 34) * vfxScale;
+      const r1 = r0 + (48 + (s % 2) * 24) * vfxScale;
+      ctx.strokeStyle =
+        s % 2 === 0
+          ? `rgba(255, 234, 138, ${0.92 * alpha})`
+          : `rgba(103, 232, 249, ${0.88 * alpha})`;
+      ctx.lineWidth = 2.2 * vfxScale;
+      ctx.beginPath();
+      ctx.moveTo(Math.cos(ang) * r0, Math.sin(ang) * r0);
+      ctx.lineTo(Math.cos(ang) * r1, Math.sin(ang) * r1);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Auraline Signature Pass 3: Sovereign Broadside Multi-Target Artillery Barrage (overdrive)
+  if (sim.auralineBroadsideTimer > 0) {
+    const p = Math.max(0, Math.min(1, 1 - sim.auralineBroadsideTimer / 0.64));
+    const alpha = Math.sin((1 - p * 0.75) * Math.PI * 0.5);
+    const mx = sim.auralineBroadsideMuzzleX || heroBaseX + 120 * vfxScale;
+    const my = sim.auralineBroadsideMuzzleY || groundY - 155 * vfxScale;
+    let lanes: number[];
+    if (enemyLanesX && enemyLanesX.length >= 2) {
+      lanes = enemyLanesX.slice(0, 4);
+    } else if (enemyLanesX && enemyLanesX.length === 1) {
+      const ex = enemyLanesX[0];
+      const spread = Math.max(54 * vfxScale, w * 0.07);
+      lanes = [
+        Math.max(w * 0.48, ex - spread),
+        ex,
+        Math.min(w * 0.90, ex + spread),
+      ];
+    } else {
+      lanes = [w * 0.63, w * 0.75, w * 0.86];
+    }
+
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Elevated muzzle sunburst
+    const muzzleR = 32 * vfxScale * (1 - p * 0.35);
+    const mGrad = ctx.createRadialGradient(mx, my, 2 * vfxScale, mx, my, muzzleR);
+    mGrad.addColorStop(0, `rgba(255, 255, 255, ${0.96 * alpha})`);
+    mGrad.addColorStop(0.4, `rgba(255, 199, 0, ${0.88 * alpha})`);
+    mGrad.addColorStop(1, 'rgba(255, 199, 0, 0)');
+    ctx.fillStyle = mGrad;
+    ctx.beginPath();
+    ctx.arc(mx, my, muzzleR, 0, Math.PI * 2);
+    ctx.fill();
+
+    for (let i = 0; i < lanes.length; i++) {
+      const lx = lanes[i];
+      const ly = groundY - (i % 2) * 6 * vfxScale;
+      const laneDelay = i * 0.03;
+      const lp = Math.max(0, Math.min(1, (p + 0.12 - laneDelay) / (1 - laneDelay)));
+      if (lp <= 0) continue;
+
+      // High-arcing golden artillery trajectory from muzzle to lane
+      const ctrlX = (mx + lx) * 0.5;
+      const ctrlY = Math.max(24, my - heroTargetHeight * 0.95 - i * 18 * vfxScale);
+      ctx.strokeStyle =
+        i % 2 === 0
+          ? `rgba(255, 199, 0, ${0.88 * alpha})`
+          : `rgba(0, 240, 255, ${0.86 * alpha})`;
+      ctx.lineWidth = 4.0 * vfxScale * (1 - lp * 0.3);
+      ctx.beginPath();
+      ctx.moveTo(mx, my);
+      ctx.quadraticCurveTo(ctrlX, ctrlY, lx, ly - 38 * vfxScale);
+      ctx.stroke();
+
+      // Descending sovereign bombardment pillar on enemy lane
+      const pilP = Math.min(1, lp);
+      const pilAlpha = Math.sin((1 - pilP * 0.75) * Math.PI * 0.5) * alpha;
+      const pilW = (24 + (1 - pilP) * 16) * vfxScale;
+      const pilGrad = ctx.createLinearGradient(lx, 0, lx, ly);
+      pilGrad.addColorStop(0, 'rgba(255, 199, 0, 0)');
+      pilGrad.addColorStop(0.35, `rgba(0, 240, 255, ${0.55 * pilAlpha})`);
+      pilGrad.addColorStop(0.85, `rgba(255, 199, 0, ${0.92 * pilAlpha})`);
+      pilGrad.addColorStop(1, `rgba(255, 255, 255, ${0.98 * pilAlpha})`);
+      ctx.fillStyle = pilGrad;
+      ctx.fillRect(lx - pilW * 0.5, 0, pilW, ly);
+
+      // Floor hexagonal target reticle
+      ctx.strokeStyle = `rgba(255, 199, 0, ${0.92 * pilAlpha})`;
+      ctx.lineWidth = 2.2 * vfxScale;
+      ctx.beginPath();
+      ctx.ellipse(
+        lx,
+        ly,
+        (26 + pilP * 24) * vfxScale,
+        (8 + pilP * 7) * vfxScale,
+        0,
+        0,
+        Math.PI * 2,
+      );
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Auraline Signature Pass 4: Golden Reactor Core Aura & Defensive Aegis Counter-Matrix
+  if (sim.auralineReactorAuraTimer > 0 || sim.auralineAegisDomeTimer > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const centerY = groundY - heroTargetHeight * 0.48;
+
+    if (sim.auralineReactorAuraTimer > 0) {
+      const rp = Math.min(1, sim.auralineReactorAuraTimer / 0.42);
+      const rRadius = heroTargetHeight * 0.52;
+      const rGrad = ctx.createRadialGradient(
+        heroBaseX,
+        centerY,
+        4 * vfxScale,
+        heroBaseX,
+        centerY,
+        rRadius,
+      );
+      rGrad.addColorStop(0, `rgba(255, 230, 128, ${0.52 * rp})`);
+      rGrad.addColorStop(0.55, `rgba(255, 184, 0, ${0.32 * rp})`);
+      rGrad.addColorStop(1, 'rgba(255, 184, 0, 0)');
+      ctx.fillStyle = rGrad;
+      ctx.beginPath();
+      ctx.arc(heroBaseX, centerY, rRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Ascending golden reactor chevron rings
+      for (let ring = 0; ring < 2; ring++) {
+        const ry = groundY - 12 * vfxScale - ((1 - rp + ring * 0.45) % 1) * (heroTargetHeight * 0.92);
+        ctx.strokeStyle = `rgba(255, 215, 0, ${0.82 * rp})`;
+        ctx.lineWidth = 2.2 * vfxScale;
+        ctx.beginPath();
+        ctx.ellipse(heroBaseX, ry, (40 - ring * 6) * vfxScale, 9.5 * vfxScale, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+    }
+
+    if (sim.auralineAegisDomeTimer > 0) {
+      const ap = Math.min(1, sim.auralineAegisDomeTimer / 0.45);
+      const domeX = heroBaseX + 12 * vfxScale;
+      const domeR = heroTargetHeight * 0.56;
+      ctx.strokeStyle = `rgba(0, 240, 255, ${0.9 * ap})`;
+      ctx.lineWidth = 2.8 * vfxScale;
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const ang = (Math.PI / 3) * k - Math.PI / 6;
+        const px = domeX + Math.cos(ang) * domeR;
+        const py = centerY + Math.sin(ang) * domeR;
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+
+      ctx.strokeStyle = `rgba(255, 199, 0, ${0.84 * ap})`;
+      ctx.lineWidth = 1.8 * vfxScale;
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const ang = (Math.PI / 3) * k;
+        const px = domeX + Math.cos(ang) * (domeR * 0.76);
+        const py = centerY + Math.sin(ang) * (domeR * 0.76);
+        if (k === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  if (sim.overdriveTimer > 0 && sim.kiraDropkickRingTimer <= 0 && sim.auralineBroadsideTimer <= 0) {
     const a = Math.min(1, sim.overdriveTimer / 0.65);
     const beamGrad = ctx.createLinearGradient(heroBaseX, 0, w, 0);
     beamGrad.addColorStop(0, `rgba(255, 184, 0, ${0.72 * a})`);

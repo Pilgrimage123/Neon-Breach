@@ -1,6 +1,8 @@
 import arenaBackdropUrl from './images/arena_backdrop_1794552838070.jpg';
+import auralineSurgeBlastVfxUrl from './images/auraline_surge_blast_vfx.png';
 import titleBgUrl from './images/title_bg_1794552837177.jpg';
-import auralineSheetUrl from './sprites/baked/auraline_spritesheet.png';
+import auralineSheetAUrl from './sprites/baked/auraline_sheet_a.png';
+import auralineSheetBUrl from './sprites/baked/auraline_sheet_b.png';
 import bossPortraitUrl from './sprites/baked/boss_portrait.png';
 import brutePortraitUrl from './sprites/baked/brute_portrait.png';
 import bruteSheetUrl from './sprites/baked/brute_spritesheet.png';
@@ -64,7 +66,10 @@ export const GAME_ASSETS = {
   arenaBackdrop: arenaBackdropUrl,
   kiraSheetA: kiraSheetAUrl,
   kiraSheetB: kiraSheetBUrl,
-  auraline: auralineSheetUrl,
+  auraline: auralineSheetAUrl,
+  auralineSheetA: auralineSheetAUrl,
+  auralineSheetB: auralineSheetBUrl,
+  auralineSurgeBlastVfx: auralineSurgeBlastVfxUrl,
   zuri: zuriSheetUrl,
   zuriEmote: zuriEmoteSheetUrl,
   zuriDrones: zuriDronesSheetUrl,

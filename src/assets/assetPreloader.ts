@@ -1,5 +1,8 @@
 import type { CharacterId, EnemyArchetype } from '../engine/types';
-import { AURALINE_SHEET_FRAMES } from '../utils/auralineSpriteSheet';
+import {
+  AURALINE_SHEET_A_FRAMES,
+  AURALINE_SHEET_B_FRAMES,
+} from '../utils/auralineSpriteSheet';
 import {
   CRAWLER_FRAMES_BY_VARIANT,
   type CrawlerVariant,
@@ -69,7 +72,8 @@ interface SheetSpec<R extends SpriteRect = SpriteRect> {
 }
 
 const SHEET_SPECS = {
-  auraline: { url: GAME_ASSETS.auraline, frames: AURALINE_SHEET_FRAMES },
+  auralineSheetA: { url: GAME_ASSETS.auralineSheetA, frames: AURALINE_SHEET_A_FRAMES },
+  auralineSheetB: { url: GAME_ASSETS.auralineSheetB, frames: AURALINE_SHEET_B_FRAMES },
   kiraSheetA: { url: GAME_ASSETS.kiraSheetA, frames: KIRA_SHEET_A_FRAMES },
   kiraSheetB: { url: GAME_ASSETS.kiraSheetB, frames: KIRA_SHEET_B_FRAMES },
   zuriCombat: { url: GAME_ASSETS.zuri, frames: ZURI_COMBAT_FRAMES },
@@ -140,7 +144,7 @@ export function loadTitleLogoFrames(
 
 function getPortraitSpec(charId: CharacterId): { url: string; frame: SpriteRect } {
   if (charId === 'auraline') {
-    return { url: GAME_ASSETS.auraline, frame: AURALINE_SHEET_FRAMES[0] };
+    return { url: GAME_ASSETS.auralineSheetA, frame: AURALINE_SHEET_A_FRAMES[0] };
   }
   if (charId === 'zuri') {
     return { url: GAME_ASSETS.zuri, frame: ZURI_SHEET_FRAMES[8] };
@@ -160,6 +164,14 @@ export function loadPortraitFrame(charId: CharacterId): Promise<HTMLCanvasElemen
 
 export function getPreloadedBackdrop(): HTMLImageElement | null {
   return getCachedDecodedImage(GAME_ASSETS.arenaBackdrop);
+}
+
+export function getPreloadedAuralineSurgeBlastVfx(): HTMLImageElement | null {
+  return getCachedDecodedImage(GAME_ASSETS.auralineSurgeBlastVfx);
+}
+
+export function loadAuralineSurgeBlastVfx(): Promise<HTMLImageElement> {
+  return loadDecodedImage(GAME_ASSETS.auralineSurgeBlastVfx);
 }
 
 export function getPreloadedCrawlerFrames(variant: CrawlerVariant): HTMLCanvasElement[] | null {
@@ -275,7 +287,10 @@ export function getPreloadedEnemyCutout(arch: EnemyArchetype): PreloadedEnemyCut
 
 export function getPreloadedHeroFrames(charId: CharacterId): HTMLCanvasElement[] | null {
   if (charId === 'auraline') {
-    return getSheet(SHEET_SPECS.auraline);
+    const sheetA = getSheet(SHEET_SPECS.auralineSheetA);
+    if (!sheetA) return null;
+    const sheetB = getSheet(SHEET_SPECS.auralineSheetB);
+    return sheetB ? [...sheetA, ...sheetB] : [...sheetA];
   }
   if (charId === 'zuri') {
     const combat = getSheet(SHEET_SPECS.zuriCombat);
@@ -370,7 +385,11 @@ async function runBackgroundTask(taskId: string): Promise<void> {
   } else if (taskId === 'char:kira_emote') {
     await loadSheet(SHEET_SPECS.kiraSheetB);
   } else if (taskId === 'char:auraline') {
-    await loadSheet(SHEET_SPECS.auraline);
+    await Promise.all([
+      loadSheet(SHEET_SPECS.auralineSheetA),
+      loadSheet(SHEET_SPECS.auralineSheetB),
+      loadAuralineSurgeBlastVfx(),
+    ]);
   } else if (taskId === 'char:zuri') {
     await loadSheet(SHEET_SPECS.zuriCombat);
   } else if (taskId === 'char:zuri_emote') {
@@ -448,7 +467,11 @@ export async function ensureCombatAssetsReady(
   const criticalPromises: Promise<unknown>[] = [
     loadDecodedImage(GAME_ASSETS.arenaBackdrop),
     charId === 'auraline'
-      ? loadSheet(SHEET_SPECS.auraline)
+      ? Promise.all([
+          loadSheet(SHEET_SPECS.auralineSheetA),
+          loadSheet(SHEET_SPECS.auralineSheetB),
+          loadAuralineSurgeBlastVfx(),
+        ])
       : charId === 'zuri'
         ? Promise.all([loadSheet(SHEET_SPECS.zuriCombat), loadSheet(SHEET_SPECS.zuriDrones)])
         : Promise.all([loadSheet(SHEET_SPECS.kiraSheetA), loadSheet(SHEET_SPECS.kiraSheetB)]),

@@ -156,13 +156,22 @@
   },
   "sheets": [
     {
-      "id": "auraline",
-      "source": "assets-src/heroes/auraline_spritesheet.png",
-      "output": "src/assets/sprites/baked/auraline_spritesheet.png",
-      "width": 3545,
-      "height": 1703,
-      "sourceSha256": "d9eb5b6efec2a94d40f67dd0996321041a66bd7fdf6630ad72107c097616245f",
-      "outputSha256": "3d480ab67162465a6b4ef2e7bb783be68e3da47d308e5b6b3787c53d275e6562"
+      "id": "auralineSheetA",
+      "source": "assets-src/heroes/auraline_sheet_a.png",
+      "output": "src/assets/sprites/baked/auraline_sheet_a.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "bd1c436a8a789ab90aef9d2efe9e59e67812f06a17e1b30b58f9ebd9c72f8630",
+      "outputSha256": "406eaf547f18115a3b3d07c55edcac9ea1e76695122459821fd3a6086fb29e9c"
+    },
+    {
+      "id": "auralineSheetB",
+      "source": "assets-src/heroes/auraline_sheet_b.png",
+      "output": "src/assets/sprites/baked/auraline_sheet_b.png",
+      "width": 1024,
+      "height": 1024,
+      "sourceSha256": "7d5adef7d8f309e51d66ac3a87985cfe1896f2fb06e728898edd209c9d61b429",
+      "outputSha256": "dd6e398368f597bda903854cc883d72e57f1b0078baf03f6111a82f5e1445848"
     },
     {
       "id": "kiraSheetA",

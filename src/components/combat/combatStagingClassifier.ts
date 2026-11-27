@@ -58,7 +58,7 @@ export function classifyHeroAttackStaging(params: {
 
   if (charId === 'auraline') {
     return {
-      heroAnimMode: isOverdrive ? 'overdrive' : 'shoot',
+      heroAnimMode: isOverdrive ? 'overdrive' : isSurge ? 'dash_kick' : 'shoot',
       stagingMode: isOverdrive || isMultiTarget ? 'ranged_aoe' : 'ranged_fast',
       projectileProfile: 'scattergun',
       isMelee: false,

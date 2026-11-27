@@ -20,7 +20,7 @@ Every animation loop (`TitleEmblemStage`, `CombatStageCanvas`) obeys:
 ### 2.1 Directory Layout & AI Studio Purity
 - **Raw Sources (`assets-src/`)**:
   - `assets-src/title/` — `title_logo_0.png`..`title_logo_4.png` plus 4 calibrated in-betweens (`title_logo_1_5.jpg`, `title_logo_2_3.jpg`, `title_logo_2_7.jpg`, `title_logo_3_5.jpg`)
-  - `assets-src/heroes/` — `kira_spritesheet.png`, `kira_emote_sheet.png`, `kira_dodge_0..3.png`, `auraline_spritesheet.png`, `zuri_spritesheet.png`, `zuri_emote_sheet.png`, `zuri_drones_sheet.png`
+  - `assets-src/heroes/` — `kira_sheet_a.png`, `kira_sheet_b.png`, `auraline_sheet_a.png`, `auraline_sheet_b.png`, `zuri_spritesheet.png`, `zuri_emote_sheet.png`, `zuri_drones_sheet.png`
   - `assets-src/mutants/` — `crawler_spritesheet.png`, `stalker_open.png`, `stalker_blink.png`, `spitter_spritesheet.jpg`, `mutdog_spritesheet.jpg`, `feral_nurse_sheet_a.png`, `feral_nurse_sheet_b.png`, `brute_spritesheet.jpg`, `matriarch_intact.png`, `matriarch_exploded.png`
   - `assets-src/clinic/` — `nurse_spritesheet.png`
   - `assets-src/portraits/` — `spitter_portrait.jpg`, `mutdog_portrait.png`, `feral_nurse_portrait.png`, `brute_portrait.jpg`, `boss_portrait.jpg`

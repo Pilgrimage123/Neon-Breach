@@ -1,4 +1,8 @@
 import type { CharacterId } from '../../engine/types';
+import {
+  type AuralineJuiceConfig,
+  DEFAULT_AURALINE_JUICE_CONFIG,
+} from '../../utils/auralineJuiceController';
 import type { HeroAnimMode } from '../../utils/heroAnimator';
 import {
   DEFAULT_KIRA_JUICE_CONFIG,
@@ -12,6 +16,8 @@ export interface CombatHeroLabPanelProps {
   onFireTrigger: (mode: HeroAnimMode) => void;
   kiraJuiceConfig?: KiraJuiceConfig;
   onChangeKiraConfig?: (next: KiraJuiceConfig) => void;
+  auralineJuiceConfig?: AuralineJuiceConfig;
+  onChangeAuralineConfig?: (next: AuralineJuiceConfig) => void;
 }
 
 const HERO_IDS: readonly { id: CharacterId; label: string }[] = [
@@ -35,6 +41,20 @@ const HERO_CLIPS: readonly { mode: HeroAnimMode; keyHint?: string; label: string
   { mode: 'victory', label: 'Victory' },
 ];
 
+function resolveHeroClipLabel(activeHeroId: CharacterId, mode: HeroAnimMode, fallback: string): string {
+  if (activeHeroId === 'kira' && mode === 'dash_kick') {
+    return 'Surge Blast';
+  }
+  if (activeHeroId === 'auraline') {
+    if (mode === 'dash_kick') return 'Artillery Blast';
+    if (mode === 'dodge') return 'Aegis Counter';
+    if (mode === 'upgrade') return 'Reactor Core';
+    if (mode === 'idle1') return 'Royal Curtsy';
+    if (mode === 'idle2') return 'Gun Inspect';
+  }
+  return fallback;
+}
+
 export function CombatHeroLabPanel({
   activeHeroId,
   lastTrigger,
@@ -42,6 +62,8 @@ export function CombatHeroLabPanel({
   onFireTrigger,
   kiraJuiceConfig,
   onChangeKiraConfig,
+  auralineJuiceConfig,
+  onChangeAuralineConfig,
 }: CombatHeroLabPanelProps) {
   return (
     <div
@@ -87,7 +109,7 @@ export function CombatHeroLabPanel({
             }`}
           >
             {clip.keyHint ? `${clip.keyHint}. ` : ''}
-            {activeHeroId === 'kira' && clip.mode === 'dash_kick' ? 'Surge Blast' : clip.label}
+            {resolveHeroClipLabel(activeHeroId, clip.mode, clip.label)}
           </button>
         ))}
       </div>
@@ -134,6 +156,52 @@ export function CombatHeroLabPanel({
               />
               <span className="w-9 text-right font-mono text-[10px] text-cyan-200">
                 {kiraJuiceConfig[slider.key]}
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+
+      {activeHeroId === 'auraline' && auralineJuiceConfig && onChangeAuralineConfig && (
+        <div className="mt-2.5 space-y-1.5 border-t border-white/10 pt-2">
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] font-bold tracking-wider text-amber-300 uppercase">
+              Tier A Rig Tuning (Auraline)
+            </span>
+            <button
+              type="button"
+              onClick={() => onChangeAuralineConfig({ ...DEFAULT_AURALINE_JUICE_CONFIG })}
+              className="rounded bg-slate-800 px-1.5 py-0.5 text-[10px] text-slate-300 hover:bg-slate-700 cursor-pointer"
+            >
+              Reset
+            </button>
+          </div>
+          {(
+            [
+              { key: 'springStiffness', label: 'Spring Stiffness', min: 140, max: 520, step: 10 },
+              { key: 'springDamping', label: 'Spring Damping', min: 8, max: 36, step: 1 },
+              { key: 'deformIntensity', label: 'Spine Deform', min: 0, max: 2, step: 0.1 },
+              { key: 'maxVelocityShearPx', label: 'Recoil Shear (px)', min: 0, max: 14, step: 0.5 },
+            ] as const
+          ).map((slider) => (
+            <label key={slider.key} className="flex items-center justify-between gap-2 text-[10px] text-slate-300">
+              <span className="w-28 truncate">{slider.label}</span>
+              <input
+                type="range"
+                min={slider.min}
+                max={slider.max}
+                step={slider.step}
+                value={auralineJuiceConfig[slider.key]}
+                onChange={(e) =>
+                  onChangeAuralineConfig({
+                    ...auralineJuiceConfig,
+                    [slider.key]: Number(e.target.value),
+                  })
+                }
+                className="h-1 flex-1 accent-amber-400 cursor-pointer"
+              />
+              <span className="w-9 text-right font-mono text-[10px] text-amber-200">
+                {auralineJuiceConfig[slider.key]}
               </span>
             </label>
           ))}

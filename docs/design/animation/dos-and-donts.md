@@ -11,8 +11,8 @@ Read this checklist before authoring, baking, or coding any new animation in Neo
 
 Use these real project outcomes as your compass before choosing an approach:
 
-- **✅ Gold Standard — Tier A Mutants (`Rabid MutDog`, `Bile Spitter`, `Carapace Brute`, `Feral Nurse`)**: Crisp `4×4` multi-frame sheets (`blendDuration = 0`) paired with the 4-Layer `proceduralJuiceCore` (symplectic springs, `FourKnotSpine`, and algorithmically scanned VFX landmarks). Delivers the highest visual clarity, weight, and maintainability.
-- **⚠️ Early-Phase Legacy — Heroes (`Kira`, `Auraline`, `Zuri`)**: Functional, but rooted in an early-phase multi-sheet architecture (`HeroAnimator` + per-row `rowScale` stitching). Do not copy these workarounds for new characters; converge new work on the Tier A `proceduralJuiceCore` standard.
+- **✅ Gold Standard — Tier A Mutants & Heroes (`Rabid MutDog`, `Bile Spitter`, `Carapace Brute`, `Feral Nurse`, `Kira`, `Auraline`)**: Crisp `4×4` multi-frame sheets (`blendDuration = 0`) paired with the 4-Layer `proceduralJuiceCore` (symplectic springs, `FourKnotSpine`, and algorithmically scanned VFX landmarks). Delivers the highest visual clarity, weight, and maintainability.
+- **⚠️ Early-Phase Legacy — Hero (`Zuri`)**: Functional, but rooted in an early-phase multi-sheet architecture (`HeroAnimator` + per-row `rowScale` stitching). Do not copy these workarounds for new characters; converge new work on the Tier A `proceduralJuiceCore` standard.
 - **❌ Cautionary / Unsuccessful — Restorative Clinic Nurse (`NurseStageCanvas`)**: Unwarped `4.2 fps` cross-dissolve + `trajectoryWarp` ping-pong caused persistent double-exposure ghosting. Formally banned.
 - **❌ Cautionary / Low-ROI — Title Emblem (`TitleEmblemStage`)**: Even with `9` keyframes and a `42`-triangle `Anatomical Warp Lattice`, warping disparate illustrated key-art poses in Canvas2D carries heavy calibration cost and still feels less cohesive than crisp Tier A sprite-sheet + rig-physics animation. Avoid Paradigm 1 key-art morphing for future characters or showcases unless strictly justified.
 
@@ -32,9 +32,9 @@ Use these real project outcomes as your compass before choosing an approach:
 - **✅ Do** calibrate multi-phase bosses on rigid anatomical spans (eye-to-pelvis / head-to-claw) sharing one `CANONICAL_HEIGHT` across phases.
   - **❌ Don't** normalize each boss phase independently to its own bounding-box height.
   - **Why**: `Xenomorph Matriarch` (`585×640` intact → `640×427` crouched/ruptured) shares `MATRIARCH_CANONICAL_HEIGHT = 560` so her head and claws never rescale on the 50% carapace rupture.
-- **✅ Do** use **Heroic Keyframe Splicing & `2×2` batch authoring** for extreme signature poses (e.g., Kira's arched-back visor-down **Surge Blast** `F11`) and render massive shockwave halos/beams at runtime via `projectSpriteLandmarkToStage` (`combatForegroundFxRenderer.ts`).
-  - **❌ Don't** rely solely on `4×4` cell-packed AI generation for extreme recoil/flying poses or bake detached blast cones into sprite cells.
-  - **Why**: Packing 16 poses into one `4×4` sheet pressures image models toward conservative upright silhouettes; splicing curated heroic key-poses into the cell while driving full-stage beams/rings in Canvas2D delivers maximum impact without clipping.
+- **✅ Do** use **Heroic Keyframe Splicing & `2×2` batch authoring** for extreme signature poses (e.g., Kira's arched-back visor-down **Surge Blast** `F11`, and Auraline's wide-stance recoil roar **Artillery Surge Blast** `F11` cropped cleanly at the gun barrel tip) and render massive shockwave halos/beams at runtime via `projectSpriteLandmarkToStage` (`combatForegroundFxRenderer.ts`, including Auraline's muzzle-anchored `auraline_surge_blast_vfx.png` cyber-ring plasma beam).
+  - **❌ Don't** rely solely on `4×4` cell-packed AI generation for extreme recoil/flying poses or bake wide horizontal blast beams inside a `256×256` character cell (which would shrink the character to `< 40%` height).
+  - **Why**: Packing 16 poses into one `4×4` sheet pressures image models toward conservative upright silhouettes, and keeping the beam inside a square character cell destroys scale parity; splicing the clean full-scale character pose into the cell while anchoring the beam texture at `muzzleRel` in Canvas2D delivers maximum impact without clipping or shrinking.
 - **✅ Do** store all raw source rasters under `assets-src/{title,heroes,mutants,clinic,portraits}/`.
   - **❌ Don't** commit unbaked originals into `public/assets/`.
   - **Why**: `public/assets/` copies raw megabytes straight into `dist/` (`ADR-0011`).

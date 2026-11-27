@@ -1,4 +1,5 @@
 import type { AnimationCue } from '../../engine/types';
+import { shouldAuralineAegisCounter } from '../../utils/auralineSpriteSheet';
 import { triggerCharacterAnimation } from '../../utils/characterAnimator';
 import { KIRA_DODGE_DURATION, shouldKiraDodgeAttack } from '../../utils/kiraSpriteSheet';
 import type { CutInActionKind, CutInStagingMode } from './CombatActionSequencer';
@@ -312,8 +313,22 @@ export function dispatchEnemyAttackCue(
             });
           }
         } else if (hpDamage === 0) {
-          sim.heroState = triggerCharacterAnimation(sim.heroState, 'guard', charId);
+          const isAuralineAegis = shouldAuralineAegisCounter({
+            charId,
+            isLethal,
+            hpDamage,
+            armorDamage,
+          });
+          sim.heroState = triggerCharacterAnimation(
+            sim.heroState,
+            isAuralineAegis ? 'dodge' : 'guard',
+            charId,
+          );
           sim.shieldDomeTimer = 0.46;
+          if (isAuralineAegis) {
+            sim.auralineAegisDomeTimer = 0.62;
+            spawnBurst(sim, liveHeroX + 40, groundY - 95, 14, '#FFC700', 1, 0.96);
+          }
           sim.trauma = Math.min(1, sim.trauma + 0.14);
           spawnBurst(sim, liveHeroX + 38, groundY - 95, 16, '#00E5FF', 1, 0.9);
           if (isAcid) {
@@ -325,7 +340,14 @@ export function dispatchEnemyAttackCue(
               plasmaColor: '#FACC15',
             });
           }
-          spawnFloatingText(sim, liveHeroX, groundY - 145, 'BLOCKED', '#38BDF8', 0.95);
+          spawnFloatingText(
+            sim,
+            liveHeroX,
+            groundY - 145,
+            isAuralineAegis ? 'AEGIS BLOCK' : 'BLOCKED',
+            isAuralineAegis ? '#FDE047' : '#38BDF8',
+            0.98,
+          );
         } else {
           if (blocked > 0) {
             sim.shieldDomeTimer = 0.25;
