@@ -1,7 +1,7 @@
 # Animation Do's & Don'ts (Canonical Lessons)
 
 > **Canonical Vocabulary & Decisions**: [GLOSSARY.md](../../../GLOSSARY.md) · [ADR-0003](../../adr/0003-hybrid-canvas2d-webgl2-stage.md) · [ADR-0006](../../adr/0006-canvas2d-affine-mesh-warp-for-title-emblem.md) · [ADR-0011](../../adr/0011-universal-build-time-sprite-baking.md) · [ADR-0012](../../adr/0012-two-paradigm-animation-architecture-and-tier-a-mutant-convergence.md)
-> **Implementation Playbooks**: [Shared Invariants & Baking](./shared-invariants-and-baking.md) · [Combat Stage & Camera](./combat-stage-and-camera.md) · [Hero Playbook](./hero-animation-playbook.md) · [Mutant Playbook](./mutant-animation-playbook.md) · [Title Emblem Pipeline](./title-emblem-pipeline.md)
+> **Implementation Playbooks**: [Art Direction & Prompting](../ART_DIRECTION_AND_PROMPTING.md) · [Shared Invariants & Baking](./shared-invariants-and-baking.md) · [Combat Stage & Camera](./combat-stage-and-camera.md) · [Hero Playbook](./hero-animation-playbook.md) · [Mutant Playbook](./mutant-animation-playbook.md) · [Title Emblem Pipeline](./title-emblem-pipeline.md)
 
 Read this checklist before authoring, baking, or coding any new animation in Neon Breach.
 
@@ -20,9 +20,9 @@ Use these real project outcomes as your compass before choosing an approach:
 
 ## 1. Source Assets & AI Sprite Sheet Authoring
 
-- **✅ Do** author sprites on a solid, high-contrast background — specifically `#00D856` chroma-green (`cleanChromaGreenData`) for characters wearing white garments.
-  - **❌ Don't** use a white background for white-uniformed characters.
-  - **Why**: White-background BFS eats into bright white uniforms (`Feral Nurse` required switching to `#00D856` chroma-green).
+- **✅ Do** derive combat sprite sheets from a locked **Hero Key-Art** (`assets-src/key-art/`) and author sheets by default on a solid **pitch-black `#000000`** background with mandatory dual neon rim-lighting (`cleanDarkBackgroundData`), reserving `#00D856` chroma-green (`cleanChromaGreenData`) as fallback for non-glowing dark outer silhouettes or white garments (`Feral Nurse`). See [Art Direction & Prompting](../ART_DIRECTION_AND_PROMPTING.md).
+  - **❌ Don't** generate text-only `4×4` sheets on white or flat green-screen lighting, and never use a white background for white-uniformed characters.
+  - **Why**: White/flat-green prompts trigger dull tabletop-RPG lighting, and white-background BFS eats into bright white uniforms (`Feral Nurse` required switching to `#00D856` chroma-green).
 - **✅ Do** keep pose heights consistent within continuous loops (`Δh <= 8px` for idle breathing) and isolate deep crouches (`< 215px`) or tall alerts (`> 250px`) into explicit state transitions.
   - **❌ Don't** mix incompatible posture heights inside a single idle or walk cycle.
   - **Why**: Mixed heights cause jarring vertical popping even when `bottomY` is pinned.
@@ -35,6 +35,9 @@ Use these real project outcomes as your compass before choosing an approach:
 - **✅ Do** use **Heroic Keyframe Splicing & `2×2` batch authoring** for extreme signature poses (e.g., Kira's arched-back visor-down **Surge Blast** `F11`, and Auraline's wide-stance recoil roar **Artillery Surge Blast** `F11` cropped cleanly at the gun barrel tip) and render massive shockwave halos/beams at runtime via `projectSpriteLandmarkToStage` (`combatForegroundFxRenderer.ts`, including Auraline's muzzle-anchored `auraline_surge_blast_vfx.png` cyber-ring plasma beam).
   - **❌ Don't** rely solely on `4×4` cell-packed AI generation for extreme recoil/flying poses or bake wide horizontal blast beams inside a `256×256` character cell (which would shrink the character to `< 40%` height).
   - **Why**: Packing 16 poses into one `4×4` sheet pressures image models toward conservative upright silhouettes, and keeping the beam inside a square character cell destroys scale parity; splicing the clean full-scale character pose into the cell while anchoring the beam texture at `muzzleRel` in Canvas2D delivers maximum impact without clipping or shrinking.
+- **✅ Do** be sensitive to character special features (towering hair/poufs, tall crests, wings, floating drones, wide cannons) and actively reserve canvas orientation and composition headroom for them (e.g., placing Auraline's ~5-head body in the lower ~50–55% of a `9:16` frame so her ~2.5× pouf towers uncropped above).
+  - **❌ Don't** squash, shrink, or crop a character's signature feature just to match a standard-height character's framing.
+  - **Why**: Standard framing forces tall silhouettes to either compress their signature hook or shrink the body out of scale parity.
 - **✅ Do** store all raw source rasters under `assets-src/{title,heroes,mutants,clinic,portraits}/`.
   - **❌ Don't** commit unbaked originals into `public/assets/`.
   - **Why**: `public/assets/` copies raw megabytes straight into `dist/` (`ADR-0011`).

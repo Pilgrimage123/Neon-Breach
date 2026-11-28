@@ -10,6 +10,10 @@ A turn-based solarpunk-cyberpunk tactical puzzle roguelite (*The Reordering / Pa
 A human protagonist (equipped with external chrome-and-solar tactical gear—visors, armor harnesses, autonomous drones as tools, never altering intrinsic human nature) leading a Run across the sky-bridge (Kira, Auraline, or Zuri; Czech: _Hrdinka_ / _Hrdinky_).
 _Avoid_: Operative, Heroine, Agent, Operativka, Cyborg
 
+**Hero Key-Art**:
+The locked master character illustration establishing a Hero's canonical proportions, silhouette, signature palette, and arcade neon-chrome visual style before combat sprite sheets are derived.
+_Avoid_: concept art, turnaround, reference sheet
+
 **Kira**:
 The agile plasma striker Hero (`KIRA-09`) whose Attack resolutions trigger **Blitz Reflex** for a free bonus turn, backed by Held-tile Momentum, full-Shield **Evasive Dodge**, and her **Energy Dropkick** Overdrive.
 _Avoid_: Kira-9, Vanguard, Plasma Blitz
@@ -19,7 +23,7 @@ The armored juggernaut Hero (`AURALINE-07`) whose persistent Armor and Dud-to-Up
 _Avoid_: Aurelia
 
 **Zuri**:
-The solar swarm commander Hero (`ZURI-03`) whose high-capacity TECH Overdrive engine and **Tri-Drone Sync** fire autonomous drone support pulses whenever she alternates Tile colors.
+The solar swarm commander Hero (`ZURI-03`) flying on a restorative prosthetic hover-thruster rig, whose high-capacity TECH Overdrive engine and **Tri-Drone Sync** fire autonomous drone support pulses whenever she alternates Tile colors.
 _Avoid_: Zuri-3, Swarm Queen
 
 **Blitz Reflex**:
